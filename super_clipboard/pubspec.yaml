@@ -12,7 +12,10 @@ dependencies:
   flutter:
     sdk: flutter
   super_data_transfer:
-    path: ../super_data_transfer
+    git:
+      url: git@github.com:superlistapp/super_data_transfer.git
+      path: super_data_transfer
+      ref: add_super_clipboard
 
 dev_dependencies:
   flutter_test:
