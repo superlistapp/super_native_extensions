@@ -13,15 +13,18 @@ use gtk_sys::{
     gtk_clipboard_request_text, gtk_clipboard_request_uris, gtk_selection_data_get_data,
     gtk_selection_data_get_length, gtk_targets_include_text, GtkClipboard, GtkSelectionData,
 };
-use nativeshell_core::{util::FutureCompleter, Value};
+use nativeshell_core::{
+    util::{FutureCompleter, Late},
+    Value,
+};
 
-use crate::{cell::LateRefCell, error::ClipboardResult};
+use crate::error::ClipboardResult;
 
 use super::{atom_from_string, atom_to_string, TYPE_TEXT, TYPE_URI};
 
 pub struct PlatformClipboardReader {
     clipboard: *mut GtkClipboard,
-    inner: LateRefCell<Inner>,
+    inner: Late<Inner>,
 }
 
 struct Inner {
@@ -48,15 +51,15 @@ impl PlatformClipboardReader {
     pub async fn get_items(&self) -> ClipboardResult<Vec<i64>> {
         self.init().await;
         // uris from urilist are represented as separate items
-        let num_items = 1.max(self.inner.borrow().uris.len());
+        let num_items = 1.max(self.inner.uris.len());
         Ok((0..num_items as i64).collect())
     }
 
     pub async fn get_types_for_item(&self, item: i64) -> ClipboardResult<Vec<String>> {
         self.init().await;
         if item == 0 {
-            Ok(self.inner.borrow().targets.clone())
-        } else if (item as usize) < self.inner.borrow().uris.len() {
+            Ok(self.inner.targets.clone())
+        } else if (item as usize) < self.inner.uris.len() {
             Ok(vec![TYPE_URI.into()])
         } else {
             Ok(Vec::new())
@@ -65,8 +68,8 @@ impl PlatformClipboardReader {
 
     pub async fn get_data_for_item(&self, item: i64, data_type: String) -> ClipboardResult<Value> {
         let item = item as usize;
-        if data_type == TYPE_URI && item < self.inner.borrow().uris.len() {
-            Ok(self.inner.borrow().uris[item].clone().into())
+        if data_type == TYPE_URI && item < self.inner.uris.len() {
+            Ok(self.inner.uris[item].clone().into())
         } else if item == 0 {
             let mut target = atom_from_string(&data_type);
             let is_text = unsafe { gtk_targets_include_text(&mut target as *mut _, 1) } != GFALSE;
@@ -88,7 +91,7 @@ impl PlatformClipboardReader {
         };
         Ok(PlatformClipboardReader {
             clipboard,
-            inner: LateRefCell::new(),
+            inner: Late::new(),
         })
     }
 
