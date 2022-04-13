@@ -1,0 +1,5 @@
+[workspace]
+
+members = [
+    "super_data_transfer/rust",
+]

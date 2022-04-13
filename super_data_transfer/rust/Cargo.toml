@@ -20,7 +20,7 @@ async-trait = "0.1"
 
 [dependencies.nativeshell_core]
 git = "https://github.com/nativeshell/nativeshell_ng.git"
-rev = "3fa95c74a4cfaafc9631e8c1802f9ecb10531d88"
+rev = "b54fa7cf962735848f0bf7769b47ae6b125c3dfa"
 features = [ "derive" ]
 
 [target.'cfg(target_os = "macos")'.dependencies]

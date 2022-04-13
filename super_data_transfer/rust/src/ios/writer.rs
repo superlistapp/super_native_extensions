@@ -73,10 +73,11 @@ impl PlatformClipboardWriter {
             let mut items = Vec::<id>::new();
             let state = self.state.clone();
             for item in self.state.lock().unwrap().data.items.iter().enumerate() {
+                let sender = Context::get().run_loop().new_sender();
                 let state = Arc::new(ItemState {
-                    clipboard: Capsule::new(self.weak_self.clone()),
+                    clipboard: Capsule::new_with_sender(self.weak_self.clone(), sender.clone()),
                     index: item.0,
-                    sender: Context::get().run_loop().new_sender(),
+                    sender: sender,
                     state: state.clone(),
                 });
                 let item = state.create_item();

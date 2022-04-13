@@ -537,7 +537,7 @@ fn get_data_for_uri<'a>(
 
 #[no_mangle]
 #[allow(non_snake_case)]
-pub extern "C" fn Java_dev_nativeshell_clipboard_DataProvider_getAllMimeTypesForURI(
+pub extern "C" fn Java_com_superlist_super_1data_1transfer_DataProvider_getAllMimeTypesForURI(
     env: JNIEnv,
     _this: JClass,
     uri_string: JString,
@@ -555,7 +555,7 @@ pub extern "C" fn Java_dev_nativeshell_clipboard_DataProvider_getAllMimeTypesFor
 
 #[no_mangle]
 #[allow(non_snake_case)]
-pub extern "C" fn Java_dev_nativeshell_clipboard_DataProvider_getDataForURI(
+pub extern "C" fn Java_com_superlist_super_1data_1transfer_DataProvider_getDataForURI(
     env: JNIEnv,
     this: JClass,
     uri_string: JString,

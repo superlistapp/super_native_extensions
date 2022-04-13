@@ -38,10 +38,13 @@ target_include_directories(${PLUGIN_NAME} INTERFACE
 target_link_libraries(${PLUGIN_NAME} PRIVATE flutter)
 target_link_libraries(${PLUGIN_NAME} PRIVATE PkgConfig::GTK)
 
+include("../toolbox/cmake/toolbox.cmake")
+apply_toolbox(${PLUGIN_NAME} ../rust super_data_transfer)
+
 # List of absolute paths to libraries that should be bundled with the plugin.
 # This list could contain prebuilt libraries, or libraries created by an
 # external build triggered from this build file.
 set(super_data_transfer_bundled_libraries
-  ""
+  "${${PLUGIN_NAME}_toolbox_lib}"
   PARENT_SCOPE
 )
