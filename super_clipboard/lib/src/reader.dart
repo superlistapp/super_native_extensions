@@ -1,23 +1,22 @@
+import 'package:super_clipboard/super_clipboard.dart';
 import 'package:super_data_transfer/super_data_transfer.dart';
-
-import 'common.dart';
 
 class ClipboardReaderItem {
   ClipboardReaderItem._(this.rawItem);
 
-  Future<bool> hasValue(ClipboardKey key) async {
-    final platformKey = key.platformKey();
+  Future<bool> hasValue(ClipboardType key) async {
+    final platformKey = key.platformType();
     final allTypes = await rawItem.getAvailableTypes();
     return platformKey
         .readableSystemTypes()
         .any((element) => allTypes.contains(element));
   }
 
-  Future<T?> readValue<T>(ClipboardKey<T> key) async {
+  Future<T?> readValue<T>(ClipboardType<T> key) async {
     if (!await hasValue(key)) {
       return null;
     }
-    final platformKey = key.platformKey();
+    final platformKey = key.platformType();
     for (final type in platformKey.readableSystemTypes()) {
       final value = await rawItem.getDataForType(type);
       if (value != null) {
@@ -44,7 +43,7 @@ class ClipboardReader {
           .map((e) => ClipboardReaderItem._(e))
           .toList(growable: false);
 
-  Future<bool> hasValue(ClipboardKey key) async {
+  Future<bool> hasValue(ClipboardType key) async {
     for (final item in await getItems()) {
       if (await item.hasValue(key)) {
         return true;
@@ -53,7 +52,7 @@ class ClipboardReader {
     return false;
   }
 
-  Future<T?> readValue<T>(ClipboardKey<T> key) async {
+  Future<T?> readValue<T>(ClipboardType<T> key) async {
     for (final item in await getItems()) {
       final value = await item.readValue(key);
       if (value != null) {

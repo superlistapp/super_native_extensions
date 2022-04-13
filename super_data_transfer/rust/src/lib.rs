@@ -94,7 +94,7 @@ mod android {
 
     #[no_mangle]
     #[allow(non_snake_case)]
-    pub extern "C" fn Java_com_superlist_super_data_transfer_SuperDataTransferPlugin_init(
+    pub extern "C" fn Java_com_superlist_super_1data_1transfer_SuperDataTransferPlugin_init(
         env: jni::JNIEnv,
         _class: jni::objects::JClass,
         context: jni::objects::JObject,

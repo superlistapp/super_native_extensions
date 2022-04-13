@@ -5,9 +5,9 @@ import 'package:super_data_transfer/super_data_transfer.dart';
 import 'common.dart';
 
 class ClipboardWriter {
-  void write<T>(ClipboardKey<T> key, T value) {
+  void write<T>(ClipboardType<T> key, T value) {
     _actions.add(() async {
-      final platformKey = key.platformKey();
+      final platformKey = key.platformType();
       for (final type in platformKey.writableSystemTypes()) {
         final data = await platformKey.convertToSystem(value, type);
         _currentItemData
@@ -16,9 +16,9 @@ class ClipboardWriter {
     });
   }
 
-  void writeLazy<T>(ClipboardKey<T> key, FutureOr<T> Function() itemProvider) {
+  void writeLazy<T>(ClipboardType<T> key, FutureOr<T> Function() itemProvider) {
     _actions.add(() {
-      final platformKey = key.platformKey();
+      final platformKey = key.platformType();
       for (final type in platformKey.writableSystemTypes()) {
         _currentItemData.add(RawClipboardWriterItemData.lazy(
             types: [type],

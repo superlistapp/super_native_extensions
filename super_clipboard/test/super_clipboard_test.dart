@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:super_clipboard/src/keys_internal.dart';
+import 'package:super_clipboard/src/types_internal.dart';
 
 void main() {
   test('test windows html', () {

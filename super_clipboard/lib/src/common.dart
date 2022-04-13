@@ -27,15 +27,15 @@ ClipboardPlatform get _currentPlatform {
   }
 }
 
-abstract class ClipboardKey<T> {
-  const ClipboardKey();
+abstract class ClipboardType<T> {
+  const ClipboardType();
 
-  ClipboardPlatformKey<T> keyForPlatform(ClipboardPlatform platform);
-  ClipboardPlatformKey<T> platformKey() => keyForPlatform(_currentPlatform);
+  ClipboardPlatformType<T> platformTypeFor(ClipboardPlatform platform);
+  ClipboardPlatformType<T> platformType() => platformTypeFor(_currentPlatform);
 }
 
-abstract class ClipboardPlatformKey<T> {
-  const ClipboardPlatformKey();
+abstract class ClipboardPlatformType<T> {
+  const ClipboardPlatformType();
 
   FutureOr<T?> convertFromSystem(Object value, String platformType);
   FutureOr<Object> convertToSystem(T value, String platformType);
