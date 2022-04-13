@@ -17,8 +17,9 @@ String? fromSystemUtf8(Object value, String type) {
 String? fromSystemUtf16NullTerminated(Object value, String format) {
   if (value is String) {
     return value;
-  } else if (value is List<int>) {
-    var codeUnits = value; // need extra variable for flutter type inference
+  } else if (value is TypedData) {
+    var codeUnits = value.buffer
+        .asUint16List(value.offsetInBytes, value.lengthInBytes ~/ 2);
     while (codeUnits.isNotEmpty && codeUnits.last == 0) {
       codeUnits = codeUnits.sublist(0, codeUnits.length - 1);
     }
@@ -203,4 +204,3 @@ String? windowsHtmlFromSystem(Object value, String format) {
     return fromSystemUtf16NullTerminated(value, format);
   }
 }
-
