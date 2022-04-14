@@ -15,7 +15,6 @@ dependencies:
     git:
       url: git@github.com:superlistapp/super_data_transfer.git
       path: super_data_transfer
-      ref: add_super_clipboard
 
 dev_dependencies:
   flutter_test:
