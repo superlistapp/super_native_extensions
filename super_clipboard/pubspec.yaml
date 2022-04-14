@@ -15,6 +15,7 @@ dependencies:
     git:
       url: git@github.com:superlistapp/super_data_transfer.git
       path: super_data_transfer
+      ref: 0b97ca97b23acb2674180c72cee2dc0ee5177430
 
 dev_dependencies:
   flutter_test:
