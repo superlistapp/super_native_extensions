@@ -20,8 +20,16 @@ async-trait = "0.1"
 
 [dependencies.nativeshell_core]
 git = "https://github.com/nativeshell/nativeshell_ng.git"
-rev = "b54fa7cf962735848f0bf7769b47ae6b125c3dfa"
+rev = "379bef1fdc9231fb147cbf1a4161027d5ba4b969"
 features = [ "derive" ]
+
+[dev-dependencies.nativeshell_core]
+git = "https://github.com/nativeshell/nativeshell_ng.git"
+rev = "379bef1fdc9231fb147cbf1a4161027d5ba4b969"
+features = [ "derive", "mock" ]
+
+[dev-dependencies]
+velcro = "0.5"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 core-foundation = "0.9"

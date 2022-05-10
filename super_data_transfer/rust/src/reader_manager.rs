@@ -7,13 +7,14 @@ use std::{
 
 use async_trait::async_trait;
 use nativeshell_core::{
-    AsyncMethodHandler, AsyncMethodInvoker, FinalizableHandle, IntoPlatformResult, IntoValue,
-    MethodCall, PlatformError, PlatformResult, TryFromValue, Value, util::Late,
+    util::Late, AsyncMethodHandler, AsyncMethodInvoker, FinalizableHandle, IntoPlatformResult,
+    IntoValue, MethodCall, PlatformError, PlatformResult, RegisteredAsyncMethodHandler,
+    TryFromValue, Value,
 };
 
 use crate::{
     error::{ClipboardError, ClipboardResult},
-    platform_impl::PlatformClipboardReader,
+    platform::PlatformClipboardReader,
 };
 
 pub struct ClipboardReaderManager {
@@ -29,13 +30,14 @@ struct ReaderEntry {
 }
 
 impl ClipboardReaderManager {
-    pub fn new() -> Self {
+    pub fn new() -> RegisteredAsyncMethodHandler<Self> {
         Self {
             weak_self: Late::new(),
             invoker: Late::new(),
             next_id: Cell::new(1),
             readers: RefCell::new(HashMap::new()),
         }
+        .register("ClipboardReaderManager")
     }
 
     fn new_default_clipboard_reader(&self) -> Result<ClipboardReaderResult, ClipboardError> {
@@ -112,7 +114,7 @@ impl ClipboardReaderManager {
     }
 }
 
-#[derive(IntoValue)]
+#[derive(IntoValue, TryFromValue, Debug)]
 #[nativeshell(rename_all = "camelCase")]
 struct ClipboardReaderResult {
     handle: i64,
@@ -168,5 +170,88 @@ impl AsyncMethodHandler for ClipboardReaderManager {
                 detail: Value::Null,
             }),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ClipboardReaderManager;
+    use crate::{platform::READERS, reader_manager::ClipboardReaderResult};
+    use nativeshell_core::{Context, FinalizableHandle, GetMessageChannel, MockIsolate, Value};
+    use std::{sync::Arc, time::Duration};
+
+    async fn test_dispose_main() {
+        let _reader_manager = ClipboardReaderManager::new();
+        let context = Context::get();
+        let channel = "ClipboardReaderManager";
+
+        let isolate_1 = MockIsolate::new();
+        let isolate_1 = isolate_1.attach(&context.message_channel());
+
+        assert_eq!(READERS.with(|c| c.borrow().len()), 0);
+
+        //
+        // Finalizable handle
+        //
+
+        let reader_id: ClipboardReaderResult = isolate_1
+            .call_method_async(channel, "newDefaultReader", Value::Null)
+            .await
+            .unwrap()
+            .try_into()
+            .unwrap();
+
+        assert_eq!(READERS.with(|c| c.borrow().len()), 1);
+
+        let handle: Arc<FinalizableHandle> = reader_id.finalizable_handle.try_into().unwrap();
+        // Simulate finalizing handle
+        handle.finalize();
+
+        // wait one run loop turn
+        context.run_loop().wait(Duration::from_secs(0)).await;
+
+        assert_eq!(READERS.with(|c| c.borrow().len()), 0);
+
+        //
+        // disposeReader call
+        //
+
+        let reader_id: ClipboardReaderResult = isolate_1
+            .call_method_async(channel, "newDefaultReader", Value::Null)
+            .await
+            .unwrap()
+            .try_into()
+            .unwrap();
+
+        assert_eq!(READERS.with(|c| c.borrow().len()), 1);
+
+        isolate_1
+            .call_method_async(channel, "disposeReader", reader_id.handle.into())
+            .await
+            .unwrap();
+
+        assert_eq!(READERS.with(|c| c.borrow().len()), 0);
+
+        //
+        // Removing isolate
+        //
+
+        isolate_1
+            .call_method_async(channel, "newDefaultReader", Value::Null)
+            .await
+            .unwrap();
+
+        assert_eq!(READERS.with(|c| c.borrow().len()), 1);
+
+        drop(isolate_1);
+
+        context.run_loop().wait(Duration::from_secs(0)).await;
+
+        assert_eq!(READERS.with(|c| c.borrow().len()), 0);
+    }
+
+    #[test]
+    fn test_dispose() {
+        Context::run_test(test_dispose_main());
     }
 }

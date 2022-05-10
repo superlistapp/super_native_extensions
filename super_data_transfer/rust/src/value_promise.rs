@@ -2,7 +2,7 @@ use std::sync::{Condvar, Mutex};
 
 use nativeshell_core::{TryFromValue, Value};
 
-#[derive(Debug, TryFromValue)]
+#[derive(Debug, TryFromValue, PartialEq)]
 #[nativeshell(tag = "type", rename_all = "camelCase")]
 pub enum ValuePromiseResult {
     Ok { value: Value },

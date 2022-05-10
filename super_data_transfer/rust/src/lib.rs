@@ -4,9 +4,7 @@
 use std::ffi::c_void;
 
 use ::log::debug;
-use nativeshell_core::{
-    nativeshell_init_message_channel_context, AsyncMethodHandler, Context, FunctionResult,
-};
+use nativeshell_core::{nativeshell_init_message_channel_context, Context, FunctionResult};
 use writer_manager::ClipboardWriterManager;
 
 use reader_manager::ClipboardReaderManager;
@@ -19,25 +17,40 @@ mod value_promise;
 mod writer_data;
 mod writer_manager;
 
-#[cfg(target_os = "macos")]
-#[path = "macos/mod.rs"]
-mod platform_impl;
+#[cfg(not(test))]
+#[path = "."]
+mod platform_impl {
+    #[cfg(target_os = "macos")]
+    #[path = "macos/mod.rs"]
+    pub mod platform;
 
-#[cfg(target_os = "ios")]
-#[path = "ios/mod.rs"]
-mod platform_impl;
+    #[cfg(target_os = "ios")]
+    #[path = "ios/mod.rs"]
+    pub mod platform;
 
-#[cfg(target_os = "android")]
-#[path = "android/mod.rs"]
-mod platform_impl;
+    #[cfg(target_os = "android")]
+    #[path = "android/mod.rs"]
+    pub mod platform;
 
-#[cfg(target_os = "windows")]
-#[path = "win32/mod.rs"]
-mod platform_impl;
+    #[cfg(target_os = "windows")]
+    #[path = "win32/mod.rs"]
+    pub mod platform;
 
-#[cfg(target_os = "linux")]
-#[path = "linux/mod.rs"]
-mod platform_impl;
+    #[cfg(target_os = "linux")]
+    #[path = "linux/mod.rs"]
+    pub mod platform;
+}
+
+#[cfg(test)]
+#[path = "."]
+mod platform_impl {
+    #[path = "mock/mod.rs"]
+    pub mod platform;
+}
+
+mod platform {
+    pub(crate) use super::platform_impl::platform::*;
+}
 
 struct DataTransferPlugin {
     _context: Context,
@@ -46,8 +59,8 @@ struct DataTransferPlugin {
 impl DataTransferPlugin {
     fn new() -> Self {
         let context = Context::new();
-        context.get_attachment(|| ClipboardWriterManager::new().register("ClipboardWriterManager"));
-        context.get_attachment(|| ClipboardReaderManager::new().register("ClipboardReaderManager"));
+        context.get_attachment(ClipboardWriterManager::new);
+        context.get_attachment(ClipboardReaderManager::new);
         DataTransferPlugin { _context: context }
     }
 }

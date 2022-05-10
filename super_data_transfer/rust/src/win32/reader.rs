@@ -13,7 +13,7 @@ use windows::Win32::{
 
 use crate::{
     error::ClipboardResult,
-    platform_impl::common::{extract_formats, format_from_string, has_data},
+    platform::common::{extract_formats, format_from_string, has_data},
 };
 
 use super::common::{format_to_string, get_data};

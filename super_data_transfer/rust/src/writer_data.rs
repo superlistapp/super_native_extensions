@@ -1,6 +1,6 @@
 use nativeshell_core::{IntoValue, TryFromValue, Value};
 
-#[derive(Debug, TryFromValue, IntoValue)]
+#[derive(Debug, TryFromValue, IntoValue, Clone, PartialEq)]
 #[nativeshell(tag = "type", rename_all = "camelCase")]
 pub enum ClipboardWriterItemData {
     #[nativeshell(rename_all = "camelCase")]
@@ -11,13 +11,13 @@ pub enum ClipboardWriterItemData {
     VirtualFile { file_size: i64, file_name: String },
 }
 
-#[derive(Debug, TryFromValue, IntoValue)]
+#[derive(Debug, TryFromValue, IntoValue, Clone, PartialEq)]
 #[nativeshell(rename_all = "camelCase")]
 pub struct ClipboardWriterItem {
     pub data: Vec<ClipboardWriterItemData>,
 }
 
-#[derive(Debug, TryFromValue, IntoValue)]
+#[derive(Debug, TryFromValue, IntoValue, Clone, PartialEq)]
 #[nativeshell(rename_all = "camelCase")]
 pub struct ClipboardWriterData {
     pub items: Vec<ClipboardWriterItem>,
