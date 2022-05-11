@@ -1,21 +1,21 @@
 PODS:
   - Flutter (1.0.0)
-  - super_data_transfer (0.0.1):
+  - super_native_extensions (0.0.1):
     - Flutter
 
 DEPENDENCIES:
   - Flutter (from `Flutter`)
-  - super_data_transfer (from `.symlinks/plugins/super_data_transfer/ios`)
+  - super_native_extensions (from `.symlinks/plugins/super_native_extensions/ios`)
 
 EXTERNAL SOURCES:
   Flutter:
     :path: Flutter
-  super_data_transfer:
-    :path: ".symlinks/plugins/super_data_transfer/ios"
+  super_native_extensions:
+    :path: ".symlinks/plugins/super_native_extensions/ios"
 
 SPEC CHECKSUMS:
   Flutter: 50d75fe2f02b26cc09d224853bb45737f8b3214a
-  super_data_transfer: 500a33e811f66c3a4cdf53007faab870efe2389c
+  super_native_extensions: 500a33e811f66c3a4cdf53007faab870efe2389c
 
 PODFILE CHECKSUM: aafe91acc616949ddb318b77800a7f51bffa2a4c
 

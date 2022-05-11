@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:super_data_transfer/super_data_transfer.dart';
+import 'package:super_native_extensions/super_data_transfer.dart';
 
 import 'common.dart';
 

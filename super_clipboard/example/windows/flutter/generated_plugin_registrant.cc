@@ -6,9 +6,9 @@
 
 #include "generated_plugin_registrant.h"
 
-#include <super_data_transfer/super_data_transfer_plugin_c_api.h>
+#include <super_native_extensions/super_native_extensions_plugin_c_api.h>
 
 void RegisterPlugins(flutter::PluginRegistry* registry) {
-  SuperDataTransferPluginCApiRegisterWithRegistrar(
-      registry->GetRegistrarForPlugin("SuperDataTransferPluginCApi"));
+  SuperNativeExtensionsPluginCApiRegisterWithRegistrar(
+      registry->GetRegistrarForPlugin("SuperNativeExtensionsPluginCApi"));
 }

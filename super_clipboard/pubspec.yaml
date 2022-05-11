@@ -11,11 +11,12 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  super_data_transfer:
-    git:
-      url: git@github.com:superlistapp/super_data_transfer.git
-      path: super_data_transfer
-      ref: 0b97ca97b23acb2674180c72cee2dc0ee5177430
+  super_native_extensions:
+    # git:
+    #   url: git@github.com:superlistapp/super_native_extensions.git
+    #   path: super_native_extensions
+    #   ref: 0b97ca97b23acb2674180c72cee2dc0ee5177430
+    path: ../super_native_extensions
 
 dev_dependencies:
   flutter_test:

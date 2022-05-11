@@ -32,7 +32,7 @@
             android:value="2" />
 
         <provider
-            android:name="com.superlist.super_data_transfer.DataProvider"
+            android:name="com.superlist.super_native_extensions.DataProvider"
             android:authorities="com.example.example.ClipboardDataProvider"
             android:exported="true"
             android:grantUriPermissions="true" >

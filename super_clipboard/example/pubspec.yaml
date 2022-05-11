@@ -33,8 +33,8 @@ dependencies:
     path: ../
 
 dependency_overrides:
-  super_data_transfer:
-    path: ../../super_data_transfer
+  super_native_extensions:
+    path: ../../super_native_extensions
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.

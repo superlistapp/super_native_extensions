@@ -1,0 +1,2 @@
+_OBJC_CLASS_$_SuperNativeExtensionsPlugin
+_super_native_extensions_init_message_channel_context

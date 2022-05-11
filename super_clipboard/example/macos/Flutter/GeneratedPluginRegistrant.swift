@@ -5,8 +5,8 @@
 import FlutterMacOS
 import Foundation
 
-import super_data_transfer
+import super_native_extensions
 
 func RegisterGeneratedPlugins(registry: FlutterPluginRegistry) {
-  SuperDataTransferPlugin.register(with: registry.registrar(forPlugin: "SuperDataTransferPlugin"))
+  SuperNativeExtensionsPlugin.register(with: registry.registrar(forPlugin: "SuperNativeExtensionsPlugin"))
 }

@@ -7,7 +7,7 @@ packages:
       name: async
       url: "https://pub.dartlang.org"
     source: hosted
-    version: "2.9.0"
+    version: "2.8.2"
   boolean_selector:
     dependency: transitive
     description:
@@ -124,11 +124,9 @@ packages:
   nativeshell_core:
     dependency: transitive
     description:
-      path: "core/dart"
-      ref: "3fa95c74a4cfaafc9631e8c1802f9ecb10531d88"
-      resolved-ref: "3fa95c74a4cfaafc9631e8c1802f9ecb10531d88"
-      url: "https://github.com/nativeshell/nativeshell_ng.git"
-    source: git
+      path: "../../../rust/nativeshell_ng/core/dart"
+      relative: true
+    source: path
     version: "0.0.1"
   path:
     dependency: transitive
@@ -177,10 +175,10 @@ packages:
       relative: true
     source: path
     version: "0.0.1"
-  super_data_transfer:
+  super_native_extensions:
     dependency: "direct overridden"
     description:
-      path: "../../super_data_transfer"
+      path: "../../super_native_extensions"
       relative: true
     source: path
     version: "0.0.1"
