@@ -10,23 +10,25 @@ jobs:
 
   Flutter:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        directory:
-          - ./super_clipboard
-          - ./super_native_extensions
-    defaults:
-      run:
-        working-directory: ${matrix.directory}
     steps:
       - uses: actions/checkout@v2
       - uses: subosito/flutter-action@v1
         with:
           channel: 'master'
       - run: flutter pub get
+        working-directory: super_clipboard
       - run: flutter format --output=none --set-exit-if-changed .
+        working-directory: super_clipboard
       - run: flutter analyze
+        working-directory: super_clipboard
+      - run: flutter test
+
+      - run: flutter pub get
+        working-directory: super_native_extensions
+      - run: flutter format --output=none --set-exit-if-changed .
+        working-directory: super_native_extensions
+      - run: flutter analyze
+        working-directory: super_native_extensions
       - run: flutter test
 
   # Rustfmt:
