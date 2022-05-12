@@ -1,6 +1,6 @@
 {
     "rust-analyzer.runnableEnv": {
-        "RUST_TEST_THREADS": 1,
+        "RUST_TEST_THREADS": "1",
     },
     // "rust-analyzer.cargo.target": "aarch64-apple-ios",
     // "rust-analyzer.cargo.target": "aarch64-linux-android"
