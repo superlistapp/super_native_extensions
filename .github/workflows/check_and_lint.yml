@@ -15,21 +15,30 @@ jobs:
       - uses: subosito/flutter-action@v1
         with:
           channel: 'master'
-      - run: flutter pub get
+      - name: flutter pub get (super_clipboard)
+        run: flutter pub get
         working-directory: super_clipboard
-      - run: flutter format --output=none --set-exit-if-changed .
+      - name: flutter format (super_clipboard)
+        run: flutter format --output=none --set-exit-if-changed .
         working-directory: super_clipboard
-      - run: flutter analyze
+      - name: flutter analyzer (super_clipboard)
+        run: flutter analyze
         working-directory: super_clipboard
-      - run: flutter test
-
-      - run: flutter pub get
+      - name: flutter test (super_clipboard)
+        run: flutter test
+        working-directory: super_clipboard
+      - name: flutter pub get (super_native_extensions)
+        run: flutter pub get
         working-directory: super_native_extensions
-      - run: flutter format --output=none --set-exit-if-changed .
+      - name: flutter format (super_native_extensions)
+        run: flutter format --output=none --set-exit-if-changed .
         working-directory: super_native_extensions
-      - run: flutter analyze
+      - name: flutter analyze (super_native_extensions)
+        run: flutter analyze
         working-directory: super_native_extensions
-      - run: flutter test
+      - name: flutter test (super_native_extensions)
+        run: flutter test
+        working-directory: super_native_extensions
 
   # Rustfmt:
   #   runs-on: ubuntu-latest
