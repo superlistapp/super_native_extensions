@@ -11,11 +11,9 @@ use windows::Win32::{
     UI::Shell::DROPFILES,
 };
 
-use crate::{
-    error::ClipboardResult,
-};
+use crate::error::ClipboardResult;
 
-use super::common::{format_to_string, get_data, extract_formats, format_from_string, has_data};
+use super::common::{extract_formats, format_from_string, format_to_string, get_data, has_data};
 
 pub struct PlatformClipboardReader {
     data_object: IDataObject,
