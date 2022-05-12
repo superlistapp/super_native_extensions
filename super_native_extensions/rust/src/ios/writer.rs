@@ -77,7 +77,7 @@ impl PlatformClipboardWriter {
                 let state = Arc::new(ItemState {
                     clipboard: Capsule::new_with_sender(self.weak_self.clone(), sender.clone()),
                     index: item.0,
-                    sender: sender,
+                    sender,
                     state: state.clone(),
                 });
                 let item = state.create_item();

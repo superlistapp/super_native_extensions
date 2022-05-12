@@ -3,7 +3,7 @@ use std::{
     rc::{Rc, Weak},
 };
 
-use nativeshell_core::{IsolateId, util::Late};
+use nativeshell_core::{util::Late, IsolateId};
 use windows::{
     core::implement,
     Win32::{

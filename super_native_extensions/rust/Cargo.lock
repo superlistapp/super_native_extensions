@@ -523,7 +523,7 @@ checksum = "308cc39be01b73d0d18f82a0e7b2a3df85245f84af96fdddc5d202d27e47b86a"
 [[package]]
 name = "nativeshell_core"
 version = "0.1.0"
-source = "git+https://github.com/nativeshell/nativeshell_ng.git?rev=379bef1fdc9231fb147cbf1a4161027d5ba4b969#379bef1fdc9231fb147cbf1a4161027d5ba4b969"
+source = "git+https://github.com/nativeshell/nativeshell_ng.git?rev=e58cf947f78c1e00ff66bedff6d5b42b3046577d#e58cf947f78c1e00ff66bedff6d5b42b3046577d"
 dependencies = [
  "async-trait",
  "core-foundation",
@@ -536,7 +536,7 @@ dependencies = [
 [[package]]
 name = "nativeshell_derive"
 version = "0.1.1"
-source = "git+https://github.com/nativeshell/nativeshell_ng.git?rev=379bef1fdc9231fb147cbf1a4161027d5ba4b969#379bef1fdc9231fb147cbf1a4161027d5ba4b969"
+source = "git+https://github.com/nativeshell/nativeshell_ng.git?rev=e58cf947f78c1e00ff66bedff6d5b42b3046577d#e58cf947f78c1e00ff66bedff6d5b42b3046577d"
 dependencies = [
  "proc-macro-error",
  "proc-macro2",

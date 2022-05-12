@@ -79,7 +79,7 @@ impl PlatformClipboardReader {
 
     #[no_mangle]
     #[allow(non_snake_case)]
-    pub extern "C" fn Java_com_superlist_super_1data_1transfer_ClipDataUtil_onData (
+    pub extern "C" fn Java_com_superlist_super_1data_1transfer_ClipDataUtil_onData(
         env: jni::JNIEnv,
         _class: jni::objects::JClass,
         handle: jint,
@@ -96,17 +96,13 @@ impl PlatformClipboardReader {
             let data = move || {
                 if data.is_null() {
                     Ok(Value::Null)
+                } else if env.is_instance_of(data, "java/lang/CharSequence")? {
+                    Ok(Value::String(env.get_string(data.into())?.into()))
                 } else {
-                    if env.is_instance_of(data, "java/lang/CharSequence")? {
-                        Ok(Value::String(env.get_string(data.into())?.into()))
-                    } else {
-                        let mut res = Vec::new();
-                        res.resize(env.get_array_length(*data)? as usize, 0);
-                        env.get_byte_array_region(*data, 0, unsafe {
-                            transform_slice_mut(&mut res)
-                        })?;
-                        Ok(Value::U8List(res))
-                    }
+                    let mut res = Vec::new();
+                    res.resize(env.get_array_length(*data)? as usize, 0);
+                    env.get_byte_array_region(*data, 0, unsafe { transform_slice_mut(&mut res) })?;
+                    Ok(Value::U8List(res))
                 }
             };
             completer.complete(data());

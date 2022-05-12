@@ -160,9 +160,7 @@ impl PlatformClipboardWriter {
         for data in &item.data {
             match data {
                 ClipboardWriterItemData::Simple { types, data } => {
-                    let data = data
-                        .coerce_to_data(StringFormat::Utf8)
-                        .unwrap_or_else(|| Vec::new());
+                    let data = data.coerce_to_data(StringFormat::Utf8).unwrap_or_default();
                     for ty in types {
                         match ty.as_str() {
                             MIME_TYPE_TEXT_PLAIN => {
@@ -457,9 +455,7 @@ fn get_data_for_uri<'a>(
     mime_type: JString,
 ) -> ClipboardResult<JObject<'a>> {
     fn byte_array_from_value<'a>(env: &JNIEnv<'a>, value: &Value) -> ClipboardResult<JObject<'a>> {
-        let data = value
-            .coerce_to_data(StringFormat::Utf8)
-            .unwrap_or_else(|| Vec::new());
+        let data = value.coerce_to_data(StringFormat::Utf8).unwrap_or_default();
         let res: JObject = env.new_byte_array(data.len() as i32).unwrap().into();
         let data: &[u8] = &data;
         env.set_byte_array_region(*res, 0, unsafe { std::mem::transmute(data) })?;
@@ -491,8 +487,8 @@ fn get_data_for_uri<'a>(
                             let id = *id;
                             let class = env.new_global_ref(this)?;
                             let value = writer.sender.send_and_wait(move || {
-                                if let Some(delegate) = delegate.get_ref().unwrap().upgrade() {
-                                    Some(delegate.get_lazy_data(
+                                delegate.get_ref().unwrap().upgrade().map(|delegate| {
+                                    delegate.get_lazy_data(
                                         isolate_id,
                                         id,
                                         // Wake up the android part of the looper so that polling
@@ -507,10 +503,8 @@ fn get_data_for_uri<'a>(
                                             env.call_method(class.as_obj(), "wakeUp", "()V", &[])
                                                 .ok_log();
                                         })),
-                                    ))
-                                } else {
-                                    None
-                                }
+                                    )
+                                })
                             });
                             match value {
                                 Some(value) => {

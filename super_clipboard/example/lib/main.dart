@@ -65,15 +65,15 @@ class _MyHomePageState extends State<MyHomePage> {
   void copyLazy() async {
     final writer = ClipboardWriter();
     writer.writeLazy(typeHtml, () {
-      print('Producing lazy plain text value');
+      // print('Producing lazy plain text value');
       return '<b>Lazy <i>Html</i></b> Value';
     });
     writer.writeLazy(typePlaintext, () {
-      print('Producing lazy html value');
+      // print('Producing lazy html value');
       return 'Lazy Plaintext Value';
     });
     writer.writeLazy(customKey, () {
-      print('Producing lazy custom value');
+      // print('Producing lazy custom value');
       return Uint8List.fromList([1, 2, 3, 4, 5]);
     });
     await writer.commitToClipboard();
