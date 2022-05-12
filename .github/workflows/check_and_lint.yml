@@ -76,11 +76,6 @@ jobs:
         with:
           command: clippy
           args: --manifest-path super_native_extensions/rust/Cargo.toml -- -D warnings
-      - name: Run cargo clippy (mock)
-        uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: --features=mock -- -D warnings
       - name: Run cargo clippy (tests)
         uses: actions-rs/cargo@v1
         with:
