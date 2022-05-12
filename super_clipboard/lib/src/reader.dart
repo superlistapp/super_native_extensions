@@ -1,5 +1,5 @@
 import 'package:super_clipboard/super_clipboard.dart';
-import 'package:super_native_extensions/super_data_transfer.dart';
+import 'package:super_native_extensions/raw_clipboard.dart';
 
 class ClipboardReaderItem {
   ClipboardReaderItem._(this.rawItem);

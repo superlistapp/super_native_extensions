@@ -3,7 +3,7 @@ import 'dart:ffi';
 import 'package:flutter/foundation.dart';
 import 'package:nativeshell_core/nativeshell_core.dart';
 
-MessageChannelContext _getContext() {
+MessageChannelContext _getNativeContext() {
   final dylib = defaultTargetPlatform == TargetPlatform.android
       ? DynamicLibrary.open("libsuper_native_extensions.so")
       : (defaultTargetPlatform == TargetPlatform.windows
@@ -15,4 +15,14 @@ MessageChannelContext _getContext() {
   return MessageChannelContext.forInitFunction(function);
 }
 
-final MessageChannelContext superNativeExtensionsContext = _getContext();
+final _nativeContext = _getNativeContext();
+
+MessageChannelContext? _contextOverride;
+
+@visibleForTesting
+void setContextOverride(MessageChannelContext context) {
+  _contextOverride = context;
+}
+
+MessageChannelContext get superNativeExtensionsContext =>
+    _contextOverride ?? _nativeContext;
