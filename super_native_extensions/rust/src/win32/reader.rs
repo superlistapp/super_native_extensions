@@ -13,10 +13,9 @@ use windows::Win32::{
 
 use crate::{
     error::ClipboardResult,
-    platform::common::{extract_formats, format_from_string, has_data},
 };
 
-use super::common::{format_to_string, get_data};
+use super::common::{format_to_string, get_data, extract_formats, format_from_string, has_data};
 
 pub struct PlatformClipboardReader {
     data_object: IDataObject,
