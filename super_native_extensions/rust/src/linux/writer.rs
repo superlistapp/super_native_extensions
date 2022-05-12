@@ -62,7 +62,11 @@ impl PlatformClipboardWriter {
             let mut target = gtk_selection_data_get_target(selection_data);
             let is_text = gtk_targets_include_text(&mut target as *mut _, 1) != GFALSE;
             if is_text {
-                gtk_selection_data_set_text(selection_data, data.as_ptr(), data.len() as c_int);
+                gtk_selection_data_set_text(
+                    selection_data,
+                    data.as_ptr() as *const _,
+                    data.len() as c_int,
+                );
             } else {
                 gtk_selection_data_set(
                     selection_data,
