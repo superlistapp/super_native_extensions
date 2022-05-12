@@ -103,4 +103,4 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: -- --manifest-path super_native_extensions/rust/Cargo.toml --test-threads=1
+          args: --manifest-path super_native_extensions/rust/Cargo.toml -- --test-threads=1
