@@ -79,7 +79,7 @@ impl PlatformClipboardReader {
 
     #[no_mangle]
     #[allow(non_snake_case)]
-    pub extern "C" fn Java_com_superlist_super_1data_1transfer_ClipDataUtil_onData (
+    pub extern "C" fn Java_com_superlist_super_1data_1transfer_ClipDataUtil_onData(
         env: jni::JNIEnv,
         _class: jni::objects::JClass,
         handle: jint,

@@ -42,9 +42,6 @@ jobs:
 
   Rustfmt:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: super_native_extensions/rust
     steps:
     - uses: actions/checkout@v2
     - uses: actions-rs/toolchain@v1
@@ -56,7 +53,7 @@ jobs:
     - uses: actions-rs/cargo@v1
       with:
         command: fmt
-        args: --all -- --check
+        args: --all --manifest-path super_native_extensions/rust/Cargo.toml -- --check
 
   # Rust:
   #   runs-on: ${{ matrix.os }}
