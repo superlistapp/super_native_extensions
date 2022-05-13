@@ -163,7 +163,7 @@ impl ItemState {
                                         // TODO(knopp): Synchronize with run loop to postpone potential
                                         // nested loops (i.e. context menu)
                                         unsafe {
-                                            CFRunLoopRunInMode(kCFRunLoopDefaultMode, 1.0, !0)
+                                            CFRunLoopRunInMode(kCFRunLoopDefaultMode, 1.0, 1)
                                         };
                                     }
                                 }
