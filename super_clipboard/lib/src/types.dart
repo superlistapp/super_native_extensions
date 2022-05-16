@@ -94,7 +94,7 @@ class CustomClipboardType<T> extends ClipboardType<T> {
         return SimpleClipboardPlatformType(
             onConvertFromSystem: onConvertFromSystem,
             onConvertToSystem: onConvertToSystem,
-            types: ["application/x-private; appId=$applicationId"]);
+            types: ["application/x-private;appId=$applicationId"]);
       case ClipboardPlatform.ios:
         return SimpleClipboardPlatformType(
             onConvertFromSystem: onConvertFromSystem,
@@ -104,7 +104,7 @@ class CustomClipboardType<T> extends ClipboardType<T> {
         return SimpleClipboardPlatformType(
             onConvertFromSystem: onConvertFromSystem,
             onConvertToSystem: onConvertToSystem,
-            types: ["application/x-private; appId=$applicationId"]);
+            types: ["application/x-private;appId=$applicationId"]);
       case ClipboardPlatform.macos:
         return SimpleClipboardPlatformType(
             onConvertFromSystem: onConvertFromSystem,
