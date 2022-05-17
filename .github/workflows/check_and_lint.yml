@@ -65,6 +65,11 @@ jobs:
           - macOS-latest
           - windows-latest
     steps:
+      - name: Install SSH key
+        uses: webfactory/ssh-agent@v0.5.4
+        with:
+          ssh-private-key: |
+            ${{ secrets.SSH_KEY }}
       - name: Install GTK
         if: (matrix.os == 'ubuntu-latest')
         run: sudo apt-get update && sudo apt-get install libgtk-3-dev
