@@ -15,6 +15,11 @@ jobs:
       - uses: subosito/flutter-action@v1
         with:
           channel: 'master'
+      - name: Install SSH key
+        uses: webfactory/ssh-agent@v0.5.4
+        with:
+          ssh-private-key: |
+            ${{ secrets.SSH_KEY }}
       - name: flutter pub get (super_clipboard)
         run: flutter pub get
         working-directory: super_clipboard
@@ -65,11 +70,6 @@ jobs:
           - macOS-latest
           - windows-latest
     steps:
-      - name: Install SSH key
-        uses: webfactory/ssh-agent@v0.5.4
-        with:
-          ssh-private-key: |
-            ${{ secrets.SSH_KEY }}
       - name: Install GTK
         if: (matrix.os == 'ubuntu-latest')
         run: sudo apt-get update && sudo apt-get install libgtk-3-dev
