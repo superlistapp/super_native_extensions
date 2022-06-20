@@ -16,12 +16,16 @@ dependencies:
       url: git@github.com:superlistapp/super_native_extensions.git
       path: super_native_extensions
       ref: 4367349399b40c648c27a74b0d281b572bfa6331
-    # path: ../super_native_extensions
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^2.0.0
+
+dependency_overrides:
+  # Override to local path when testing extension
+  super_native_extensions:
+    path: ../super_native_extensions
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
