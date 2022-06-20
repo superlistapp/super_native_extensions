@@ -74,9 +74,6 @@ jobs:
         if: (matrix.os == 'ubuntu-latest')
         run: sudo apt-get update && sudo apt-get install libgtk-3-dev
       - uses: actions/checkout@v2
-      - name: Switch to nightly
-        run: rustup default nightly
-        if: (matrix.os == 'windows-latest')
       - name: Install clippy
         run: rustup component add clippy
       - name: Run cargo clippy
