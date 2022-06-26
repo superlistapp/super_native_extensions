@@ -4,11 +4,12 @@
 use std::ffi::c_void;
 
 use ::log::debug;
+use drag_drop_manager::GetDragDropManager;
 use nativeshell_core::{nativeshell_init_message_channel_context, Context, FunctionResult};
-use writer_manager::ClipboardWriterManager;
+use reader_manager::GetClipboardReaderManager;
+use writer_manager::GetClipboardWriterManager;
 
-use reader_manager::ClipboardReaderManager;
-
+mod drag_drop_manager;
 mod error;
 mod log;
 mod reader_manager;
@@ -59,8 +60,10 @@ struct DataTransferPlugin {
 impl DataTransferPlugin {
     fn new() -> Self {
         let context = Context::new();
-        context.get_attachment(ClipboardWriterManager::new);
-        context.get_attachment(ClipboardReaderManager::new);
+        // eagerly initialize
+        context.clipboard_writer_manager();
+        context.clipboard_reader_manager();
+        context.drag_drop_manager();
         DataTransferPlugin { _context: context }
     }
 }

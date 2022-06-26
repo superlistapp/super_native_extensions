@@ -22,6 +22,8 @@ class RawClipboardWriter {
     _RawClipboardWriterManager.instance.disposeWriter(_handle);
   }
 
+  int get handle => _handle;
+
   RawClipboardWriter._(this._handle, this.data);
 
   final RawClipboardWriterData data;

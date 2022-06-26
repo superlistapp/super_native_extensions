@@ -38,6 +38,7 @@ velcro = "0.5"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 core-foundation = "0.9"
+core-graphics = "0.22.3"
 objc = "0.2.7"
 once_cell = "1.8.0"
 cocoa = "0.24"

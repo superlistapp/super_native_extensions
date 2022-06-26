@@ -30,6 +30,16 @@ struct WriterEntry {
     platform_writer: Rc<PlatformClipboardWriter>,
 }
 
+pub trait GetClipboardWriterManager {
+    fn clipboard_writer_manager(&self) -> Rc<ClipboardWriterManager>;
+}
+
+impl GetClipboardWriterManager for Context {
+    fn clipboard_writer_manager(&self) -> Rc<ClipboardWriterManager> {
+        self.get_attachment(ClipboardWriterManager::new).handler()
+    }
+}
+
 impl ClipboardWriterManager {
     pub fn new() -> RegisteredAsyncMethodHandler<Self> {
         Self {
@@ -69,17 +79,21 @@ impl ClipboardWriterManager {
         Ok(())
     }
 
-    async fn write_to_clipboard(&self, clipboard: i64) -> ClipboardResult<()> {
-        let clipboard = self
-            .writers
+    pub fn get_platform_writer(
+        &self,
+        clipboard: i64,
+    ) -> ClipboardResult<Rc<PlatformClipboardWriter>> {
+        self.writers
             .borrow()
             .get(&clipboard)
-            .map(|e| e.platform_writer.clone());
-        if let Some(clipboard) = clipboard {
-            clipboard.write_to_clipboard().await
-        } else {
-            Err(ClipboardError::OtherError("Clipboard not found".into()))
-        }
+            .map(|e| e.platform_writer.clone())
+            .ok_or_else(|| ClipboardError::OtherError("Clipboard not found".into()))
+    }
+
+    async fn write_to_clipboard(&self, clipboard: i64) -> ClipboardResult<()> {
+        self.get_platform_writer(clipboard)?
+            .write_to_clipboard()
+            .await
     }
 }
 

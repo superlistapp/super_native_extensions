@@ -7,9 +7,9 @@ use std::{
 
 use async_trait::async_trait;
 use nativeshell_core::{
-    util::Late, AsyncMethodHandler, AsyncMethodInvoker, FinalizableHandle, IntoPlatformResult,
-    IntoValue, MethodCall, PlatformError, PlatformResult, RegisteredAsyncMethodHandler,
-    TryFromValue, Value,
+    util::Late, AsyncMethodHandler, AsyncMethodInvoker, Context, FinalizableHandle,
+    IntoPlatformResult, IntoValue, MethodCall, PlatformError, PlatformResult,
+    RegisteredAsyncMethodHandler, TryFromValue, Value,
 };
 
 use crate::{
@@ -27,6 +27,16 @@ pub struct ClipboardReaderManager {
 struct ReaderEntry {
     platform_reader: Rc<PlatformClipboardReader>,
     _finalizable_handle: Arc<FinalizableHandle>,
+}
+
+pub trait GetClipboardReaderManager {
+    fn clipboard_reader_manager(&self) -> Rc<ClipboardReaderManager>;
+}
+
+impl GetClipboardReaderManager for Context {
+    fn clipboard_reader_manager(&self) -> Rc<ClipboardReaderManager> {
+        self.get_attachment(ClipboardReaderManager::new).handler()
+    }
 }
 
 impl ClipboardReaderManager {

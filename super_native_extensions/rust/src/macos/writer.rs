@@ -56,17 +56,22 @@ impl PlatformClipboardWriter {
         self.weak_self.set(weak_self);
     }
 
+    pub fn create_items(&self) -> Vec<id> {
+        let mut items = Vec::<id>::new();
+        for item in self.data.items.iter().enumerate() {
+            let state = Rc::new(ItemState {
+                clipboard: self.weak_self.clone(),
+                index: item.0,
+            });
+            let item = state.create_item();
+            items.push(item.autorelease());
+        }
+        items
+    }
+
     pub async fn write_to_clipboard(&self) -> ClipboardResult<()> {
         autoreleasepool(|| unsafe {
-            let mut items = Vec::<id>::new();
-            for item in self.data.items.iter().enumerate() {
-                let state = Rc::new(ItemState {
-                    clipboard: self.weak_self.clone(),
-                    index: item.0,
-                });
-                let item = state.create_item();
-                items.push(item.autorelease());
-            }
+            let items = self.create_items();
             let array = NSArray::arrayWithObjects(nil, &items);
             let pasteboard = NSPasteboard::generalPasteboard(nil);
             NSPasteboard::clearContents(pasteboard);
