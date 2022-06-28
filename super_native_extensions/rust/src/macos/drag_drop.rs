@@ -5,7 +5,7 @@ use std::{
 };
 
 use crate::{
-    drag_drop_manager::DragRequest,
+    drag_drop_manager::{DragRequest, PlatformDragContextDelegate},
     error::NativeExtensionsResult,
     platform_impl::platform::{from_nsstring, to_nsstring},
 };
@@ -24,7 +24,7 @@ use cocoa::{
 };
 use core_foundation::base::CFRelease;
 use core_graphics::event::CGEventType;
-use nativeshell_core::IsolateId;
+
 use objc::{
     class, msg_send,
     rc::{autoreleasepool, StrongPtr},
@@ -48,8 +48,6 @@ extern "C" {
     fn CGEventCreateCopy(event: core_graphics::sys::CGEventRef) -> core_graphics::sys::CGEventRef;
 }
 
-pub type PlatformDragContextId = IsolateId;
-
 pub struct PlatformDragContext {
     id: i64,
     view: StrongPtr,
@@ -64,7 +62,7 @@ thread_local! {
 }
 
 impl PlatformDragContext {
-    pub fn new(id: i64, view_handle: i64) -> Self {
+    pub fn new(id: i64, view_handle: i64, delegate: Weak<dyn PlatformDragContextDelegate>) -> Self {
         ONCE.call_once(prepare_flutter);
         Self {
             id,

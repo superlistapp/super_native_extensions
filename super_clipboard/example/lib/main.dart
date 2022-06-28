@@ -1,9 +1,19 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:super_clipboard/super_clipboard.dart';
+import 'package:super_native_extensions/raw_drag_drop.dart';
+import 'package:super_native_extensions/raw_clipboard.dart';
 
-void main() {
+void main() async {
+  final context = await RawDragDropContext.instance();
+  await context.registerDropTypes([
+    'public.file-url',
+    'NSFilenamesPboardType',
+    'public.url',
+    'Apple URL pasteboard type',
+  ]);
   runApp(const MyApp());
 }
 
@@ -90,6 +100,20 @@ class _MyHomePageState extends State<MyHomePage> {
     });
   }
 
+  void startDrag() async {
+    final data = RawClipboardWriterData([
+      RawClipboardWriterItem([
+        RawClipboardWriterItemData.simple(
+            types: ['public.file-url'],
+            data: utf8.encode('file:///tmp/test.txt')),
+      ]),
+    ]);
+    final writer = await RawClipboardWriter.withData(data);
+    final context = await RawDragDropContext.instance();
+    await context.startDrag(
+        writer: writer, rect: const Rect.fromLTWH(0, 0, 100, 100));
+  }
+
   String _content = "";
 
   @override
@@ -109,6 +133,13 @@ class _MyHomePageState extends State<MyHomePage> {
             TextButton(onPressed: copyLazy, child: const Text('Copy Lazy')),
             TextButton(onPressed: paste, child: const Text('Paste')),
             Text(_content),
+            GestureDetector(
+              child: const Text('Drag me'),
+              onPanStart: (_) {
+                print('Start drag');
+                startDrag();
+              },
+            ),
           ],
         ),
       ),

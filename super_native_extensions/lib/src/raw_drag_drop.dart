@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:nativeshell_core/nativeshell_core.dart';
@@ -21,6 +23,7 @@ class RawDragDropContext {
   Future<void> _initialize() async {
     WidgetsFlutterBinding.ensureInitialized();
     final view = await _flutterChannel.invokeMethod('getFlutterView');
+    _channel.setMethodCallHandler(_handleMethodCall);
     await _channel.invokeMethod("newContext", {'viewHandle': view});
   }
 
@@ -32,6 +35,23 @@ class RawDragDropContext {
       }
       return _instance!;
     });
+  }
+
+  Future<dynamic> _handleMethodCall(MethodCall call) async {
+    if (call.method == 'writerForDragRequest') {
+      print('ARG ${call.arguments}');
+      final data = RawClipboardWriterData([
+        RawClipboardWriterItem([
+          RawClipboardWriterItemData.simple(
+              types: ['public.file-url'],
+              data: utf8.encode('file:///tmp/test.txt')),
+        ]),
+      ]);
+      final writer = await RawClipboardWriter.withData(data);
+      return {'writerId': writer.handle};
+    } else {
+      return null;
+    }
   }
 
   Future<void> registerDropTypes(List<String> types) {

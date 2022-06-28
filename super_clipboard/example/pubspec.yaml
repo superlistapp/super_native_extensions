@@ -31,6 +31,8 @@ dependencies:
     sdk: flutter
   super_clipboard:
     path: ../
+  super_native_extensions:
+    path: ../../super_native_extensions
 
 dependency_overrides:
   super_native_extensions:

@@ -68,21 +68,26 @@ impl PlatformClipboardWriter {
         self.weak_self.set(weak_self);
     }
 
+    pub fn create_items(&self) -> Vec<id> {
+        let mut items = Vec::<id>::new();
+        let state = self.state.clone();
+        for item in self.state.lock().unwrap().data.items.iter().enumerate() {
+            let sender = Context::get().run_loop().new_sender();
+            let state = Arc::new(ItemState {
+                clipboard: Capsule::new_with_sender(self.weak_self.clone(), sender.clone()),
+                index: item.0,
+                sender,
+                state: state.clone(),
+            });
+            let item = state.create_item();
+            items.push(item.autorelease());
+        }
+        items
+    }
+
     async fn write_to_pasteboard(&self, pasteboard: id) -> ClipboardResult<()> {
         autoreleasepool(|| unsafe {
-            let mut items = Vec::<id>::new();
-            let state = self.state.clone();
-            for item in self.state.lock().unwrap().data.items.iter().enumerate() {
-                let sender = Context::get().run_loop().new_sender();
-                let state = Arc::new(ItemState {
-                    clipboard: Capsule::new_with_sender(self.weak_self.clone(), sender.clone()),
-                    index: item.0,
-                    sender,
-                    state: state.clone(),
-                });
-                let item = state.create_item();
-                items.push(item.autorelease());
-            }
+            let items = self.create_items();
             let array = NSArray::arrayWithObjects(nil, &items);
             let () = msg_send![pasteboard, setObjects: array];
         });

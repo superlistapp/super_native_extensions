@@ -117,11 +117,9 @@ packages:
   nativeshell_core:
     dependency: transitive
     description:
-      path: "core/dart"
-      ref: "379bef1fdc9231fb147cbf1a4161027d5ba4b969"
-      resolved-ref: "379bef1fdc9231fb147cbf1a4161027d5ba4b969"
-      url: "https://github.com/nativeshell/nativeshell_ng.git"
-    source: git
+      path: "../../../rust/nativeshell_ng/core/dart"
+      relative: true
+    source: path
     version: "0.0.1"
   path:
     dependency: transitive
@@ -171,7 +169,7 @@ packages:
     source: path
     version: "0.0.1"
   super_native_extensions:
-    dependency: "direct overridden"
+    dependency: "direct main"
     description:
       path: "../../super_native_extensions"
       relative: true
