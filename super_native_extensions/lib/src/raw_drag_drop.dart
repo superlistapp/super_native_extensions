@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:ui' as ui;
 
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
@@ -6,7 +7,7 @@ import 'package:nativeshell_core/nativeshell_core.dart';
 
 import 'context.dart';
 import 'mutex.dart';
-import 'util.dart';
+import 'api_model.dart';
 import 'raw_clipboard_writer.dart';
 
 const _flutterChannel = MethodChannel('super_native_extensions');
@@ -59,10 +60,29 @@ class RawDragDropContext {
   }
 
   Future<void> startDrag({
-    required RawClipboardWriter writer,
-    required Rect rect,
-  }) {
-    return _channel.invokeMethod(
-        "startDrag", {'writer_id': writer.handle, 'rect': rect.serialize()});
+    required DragRequest request,
+  }) async {
+    return _channel.invokeMethod("startDrag", await request.serialize());
+  }
+}
+
+class DragRequest {
+  DragRequest({
+    required this.writer,
+    required this.pointInRect,
+    required this.image,
+  });
+
+  final RawClipboardWriter writer;
+  final Offset pointInRect;
+  final ui.Image image;
+
+  Future<dynamic> serialize() async {
+    final imageData = await ImageData.fromImage(image);
+    return {
+      'writerId': writer.handle,
+      'pointInRect': pointInRect.serialize(),
+      'image': imageData.serialize(),
+    };
   }
 }

@@ -50,7 +50,7 @@ impl ClipboardReaderManager {
         .register("ClipboardReaderManager")
     }
 
-    fn new_default_clipboard_reader(&self) -> Result<ClipboardReaderResult, ClipboardError> {
+    fn new_default_clipboard_reader(&self) -> Result<NewClipboardReaderResult, ClipboardError> {
         let id = self.next_id.get();
         self.next_id.replace(id + 1);
         let platform_reader = Rc::new(PlatformClipboardReader::new_default()?);
@@ -72,7 +72,7 @@ impl ClipboardReaderManager {
             },
         );
 
-        Ok(ClipboardReaderResult {
+        Ok(NewClipboardReaderResult {
             handle: id,
             finalizable_handle: finalizable_handle.into(),
         })
@@ -126,7 +126,7 @@ impl ClipboardReaderManager {
 
 #[derive(IntoValue, TryFromValue, Debug)]
 #[nativeshell(rename_all = "camelCase")]
-struct ClipboardReaderResult {
+struct NewClipboardReaderResult {
     handle: i64,
     finalizable_handle: Value,
 }
@@ -186,7 +186,7 @@ impl AsyncMethodHandler for ClipboardReaderManager {
 #[cfg(test)]
 mod tests {
     use super::ClipboardReaderManager;
-    use crate::{platform::READERS, reader_manager::ClipboardReaderResult};
+    use crate::{platform::READERS, reader_manager::NewClipboardReaderResult};
     use nativeshell_core::{Context, FinalizableHandle, GetMessageChannel, MockIsolate, Value};
     use std::{sync::Arc, time::Duration};
 
@@ -204,7 +204,7 @@ mod tests {
         // Finalizable handle
         //
 
-        let reader_id: ClipboardReaderResult = isolate_1
+        let reader_id: NewClipboardReaderResult = isolate_1
             .call_method_async(channel, "newDefaultReader", Value::Null)
             .await
             .unwrap()
@@ -226,7 +226,7 @@ mod tests {
         // disposeReader call
         //
 
-        let reader_id: ClipboardReaderResult = isolate_1
+        let reader_id: NewClipboardReaderResult = isolate_1
             .call_method_async(channel, "newDefaultReader", Value::Null)
             .await
             .unwrap()

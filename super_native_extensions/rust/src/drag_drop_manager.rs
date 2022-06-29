@@ -11,6 +11,7 @@ use nativeshell_core::{
 };
 
 use crate::{
+    api_model::{ImageData, Point},
     error::{NativeExtensionsError, NativeExtensionsResult},
     platform_impl::platform::{PlatformClipboardWriter, PlatformDragContext},
     writer_manager::GetClipboardWriterManager,
@@ -49,24 +50,12 @@ struct RegisterDropTypesRequest {
     types: Vec<String>,
 }
 
-#[derive(Clone, Debug, Default, PartialEq, TryFromValue, IntoValue)]
-pub struct Rect {
-    pub x: f64,
-    pub y: f64,
-    pub width: f64,
-    pub height: f64,
-}
-
-#[derive(Clone, Debug, Default, PartialEq, TryFromValue, IntoValue)]
-pub struct Point {
-    pub x: f64,
-    pub y: f64,
-}
-
 #[derive(TryFromValue)]
+#[nativeshell(rename_all = "camelCase")]
 pub struct DragRequest {
-    pub rect: Rect,
     pub writer_id: i64,
+    pub point_in_rect: Point,
+    pub image: ImageData,
 }
 
 pub trait GetDragDropManager {
@@ -99,7 +88,7 @@ impl DragDropManager {
             request.view_handle,
             self.weak_self.clone(),
         ));
-        context.assign_weak_self(Rc::downgrade(&context));
+        context.assign_weak_self(Rc::downgrade(&context))?;
         self.contexts.borrow_mut().insert(isolate, context);
         Ok(())
     }
@@ -187,12 +176,6 @@ impl PlatformDragContextDelegate for DragDropManager {
         let res_clone = res.clone();
         let weak_self = self.weak_self.clone();
         Context::get().run_loop().spawn(async move {
-            let v: Value = WriterRequest {
-                location: Point { x: 10.0, y: 11.0 },
-            }
-            .try_into()
-            .unwrap();
-            println!("Spawned {:?}", v);
             let this = weak_self.upgrade();
             if let Some(this) = this {
                 let writer: Result<WriterResponse, MethodCallError> = this
@@ -206,7 +189,6 @@ impl PlatformDragContextDelegate for DragDropManager {
                         .get_platform_writer(w)
                         .ok()
                 });
-                println!("Have value");
                 match writer {
                     Some(writer) => res_clone.replace(PendingWriterState::Ok { writer }),
                     None => res_clone.replace(PendingWriterState::Cancelled),

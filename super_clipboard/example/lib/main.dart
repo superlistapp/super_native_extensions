@@ -2,9 +2,15 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:super_clipboard/super_clipboard.dart';
 import 'package:super_native_extensions/raw_drag_drop.dart';
 import 'package:super_native_extensions/raw_clipboard.dart';
+
+class DragException implements Exception {
+  final String message;
+  DragException(this.message);
+}
 
 void main() async {
   final context = await RawDragDropContext.instance();
@@ -100,7 +106,22 @@ class _MyHomePageState extends State<MyHomePage> {
     });
   }
 
-  void startDrag() async {
+  void startDrag(BuildContext context, Offset globalPosition) async {
+    final renderObject_ = context.findRenderObject();
+    final renderObject = renderObject_ is RenderRepaintBoundary
+        ? renderObject_
+        : context.findAncestorRenderObjectOfType<RenderRepaintBoundary>();
+    final pr = MediaQuery.of(context).devicePixelRatio;
+    if (renderObject == null) {
+      throw DragException("Couldn't find any repaint boundary ancestor");
+    }
+    final snapshot = await renderObject.toImage(pixelRatio: pr);
+    // final rect = MatrixUtils.transformRect(renderObject.getTransformTo(null),
+    //     Rect.fromLTWH(0, 0, renderObject.size.width, renderObject.size.height));
+    final transform = renderObject.getTransformTo(null);
+    transform.invert();
+    final point = MatrixUtils.transformPoint(transform, globalPosition);
+
     final data = RawClipboardWriterData([
       RawClipboardWriterItem([
         RawClipboardWriterItemData.simple(
@@ -109,9 +130,15 @@ class _MyHomePageState extends State<MyHomePage> {
       ]),
     ]);
     final writer = await RawClipboardWriter.withData(data);
-    final context = await RawDragDropContext.instance();
-    await context.startDrag(
-        writer: writer, rect: const Rect.fromLTWH(0, 0, 100, 100));
+
+    final dragContext = await RawDragDropContext.instance();
+    await dragContext.startDrag(
+      request: DragRequest(
+        image: snapshot,
+        writer: writer,
+        pointInRect: point,
+      ),
+    );
   }
 
   String _content = "";
@@ -133,12 +160,21 @@ class _MyHomePageState extends State<MyHomePage> {
             TextButton(onPressed: copyLazy, child: const Text('Copy Lazy')),
             TextButton(onPressed: paste, child: const Text('Paste')),
             Text(_content),
-            GestureDetector(
-              child: const Text('Drag me'),
-              onPanStart: (_) {
-                print('Start drag');
-                startDrag();
-              },
+            RepaintBoundary(
+              child: Builder(builder: (context) {
+                return GestureDetector(
+                  child: Container(
+                    decoration:
+                        BoxDecoration(border: Border.all(color: Colors.red)),
+                    padding: const EdgeInsets.all(10),
+                    child: const Text('Drag me'),
+                  ),
+                  onPanStart: (details) {
+                    print('Start drag');
+                    startDrag(context, details.globalPosition);
+                  },
+                );
+              }),
             ),
           ],
         ),

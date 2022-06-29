@@ -6,6 +6,7 @@ use nativeshell_core::{PlatformError, Value};
 pub enum NativeExtensionsError {
     UnknownError,
     OtherError(String),
+    WriterNotFound,
     ReaderNotFound,
     PlatformContextNotFound,
 }
@@ -21,6 +22,7 @@ impl Display for NativeExtensionsError {
         match self {
             NativeExtensionsError::UnknownError => write!(f, "unknown error"),
             NativeExtensionsError::OtherError(m) => write!(f, "{:?}", m),
+            NativeExtensionsError::WriterNotFound => write!(f, "platform writer not found"),
             NativeExtensionsError::ReaderNotFound => write!(f, "platform reader not found"),
             NativeExtensionsError::PlatformContextNotFound => {
                 write!(f, "platform drag drop context not found")

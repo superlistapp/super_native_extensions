@@ -9,6 +9,7 @@ use nativeshell_core::{nativeshell_init_message_channel_context, Context, Functi
 use reader_manager::GetClipboardReaderManager;
 use writer_manager::GetClipboardWriterManager;
 
+mod api_model;
 mod drag_drop_manager;
 mod error;
 mod log;
@@ -107,6 +108,7 @@ mod android {
     // JNI class loader can't load our classes, so we store the data util instance;
     // If there were more classes to load we could store the class loader instead
     pub static CLIP_DATA_UTIL: OnceCell<jni::objects::GlobalRef> = OnceCell::new();
+    pub static DRAG_DROP_UTIL: OnceCell<jni::objects::GlobalRef> = OnceCell::new();
 
     #[no_mangle]
     #[allow(non_snake_case)]
@@ -115,6 +117,7 @@ mod android {
         _class: jni::objects::JClass,
         context: jni::objects::JObject,
         clip_data_util: jni::objects::JObject,
+        drag_drop_util: jni::objects::JObject,
     ) {
         use ::log::Level;
         use android_logger::Config;
@@ -135,6 +138,10 @@ mod android {
         CLIP_DATA_UTIL.get_or_init(|| {
             env.new_global_ref(clip_data_util)
                 .expect("Failed to store clip data util")
+        });
+        DRAG_DROP_UTIL.get_or_init(|| {
+            env.new_global_ref(drag_drop_util)
+                .expect("Failed to store drag drop util")
         });
         init(false);
     }

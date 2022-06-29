@@ -177,7 +177,7 @@ impl PlatformClipboardWriter {
                             }
                             MIME_TYPE_URI_LIST => {
                                 if uri.is_none() {
-                                    // do not replace UI, might be a content URI
+                                    // do not replace URI, might be a content URI
                                     uri = Some(Self::uri_from_utf8(env, &data)?);
                                 }
                                 if !contains(clipboard_mime_types, MIME_TYPE_URI_LIST) {
@@ -285,38 +285,51 @@ impl PlatformClipboardWriter {
         Ok(clip_data)
     }
 
-    pub async fn write_to_clipboard(&self) -> ClipboardResult<()> {
+    pub fn create_clip_data<'a>(&self, env: &JNIEnv<'a>) -> ClipboardResult<JObject<'a>> {
         let writers = WRITERS.lock().unwrap();
         let writer = writers.get(&self.writer_id);
         if let Some(writer) = writer.map(|s| &s.data) {
-            let env = JAVA_VM
-                .get()
-                .ok_or_else(|| ClipboardError::OtherError("JAVA_VM not set".into()))?
-                .attach_current_thread()?;
-            let context = CONTEXT.get().unwrap().as_obj();
-            let clipboard_service = env
-                .get_static_field(
-                    env.find_class("android/content/Context")?,
-                    "CLIPBOARD_SERVICE",
-                    "Ljava/lang/String;",
-                )?
-                .l()?;
-            let clipboard_manager = env
-                .call_method(
-                    context,
-                    "getSystemService",
-                    "(Ljava/lang/String;)Ljava/lang/Object;",
-                    &[clipboard_service.into()],
-                )?
-                .l()?;
-            let clip_data = Self::create_clip_data_for_writer(&env, self.writer_id, writer)?;
-            env.call_method(
-                clipboard_manager,
-                "setPrimaryClip",
-                "(Landroid/content/ClipData;)V",
-                &[clip_data.into()],
-            )?;
+            Ok(Self::create_clip_data_for_writer(
+                &env,
+                self.writer_id,
+                writer,
+            )?)
+        } else {
+            Err(ClipboardError::WriterNotFound)
         }
+    }
+
+    pub async fn write_to_clipboard(&self) -> ClipboardResult<()> {
+        let env = JAVA_VM
+            .get()
+            .ok_or_else(|| ClipboardError::OtherError("JAVA_VM not set".into()))?
+            .attach_current_thread()?;
+
+        let clip_data = self.create_clip_data(&env)?;
+
+        let context = CONTEXT.get().unwrap().as_obj();
+        let clipboard_service = env
+            .get_static_field(
+                env.find_class("android/content/Context")?,
+                "CLIPBOARD_SERVICE",
+                "Ljava/lang/String;",
+            )?
+            .l()?;
+        let clipboard_manager = env
+            .call_method(
+                context,
+                "getSystemService",
+                "(Ljava/lang/String;)Ljava/lang/Object;",
+                &[clipboard_service.into()],
+            )?
+            .l()?;
+        env.call_method(
+            clipboard_manager,
+            "setPrimaryClip",
+            "(Landroid/content/ClipData;)V",
+            &[clip_data.into()],
+        )?;
+
         Ok(())
     }
 }
