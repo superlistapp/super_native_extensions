@@ -1,17 +1,15 @@
 use std::{
     collections::HashMap,
-    ffi::c_void,
     mem::ManuallyDrop,
-    os::raw::c_char,
+    os::raw::c_void,
     rc::Weak,
-    slice,
     sync::{Arc, Mutex},
 };
 
 use block::{Block, RcBlock};
 use cocoa::{
     base::{id, nil},
-    foundation::{NSArray, NSString},
+    foundation::NSArray,
 };
 use nativeshell_core::{
     util::{Capsule, Late},
@@ -28,37 +26,40 @@ use objc::{
 use once_cell::sync::Lazy;
 
 use crate::{
-    error::ClipboardResult,
+    api_model::{DataSource, DataSourceItemRepresentation, LazyValueId},
+    data_source_manager::PlatformDataSourceDelegate,
+    error::NativeExtensionsResult,
+    util::DropNotifier,
     value_coerce::{CoerceToData, StringFormat},
     value_promise::ValuePromiseResult,
-    writer_data::{ClipboardWriterData, ClipboardWriterItemData},
-    writer_manager::PlatformClipboardWriterDelegate,
 };
 
+use super::util::{from_nsstring, to_nsstring};
+
 struct State {
-    data: ClipboardWriterData,
-    precached_values: HashMap<i64, ValuePromiseResult>,
+    source: DataSource,
+    precached_values: HashMap<(LazyValueId, String), ValuePromiseResult>,
 }
 
-pub struct PlatformClipboardWriter {
+pub struct PlatformDataSource {
     weak_self: Late<Weak<Self>>,
-    delegate: Weak<dyn PlatformClipboardWriterDelegate>,
+    delegate: Weak<dyn PlatformDataSourceDelegate>,
     isolate_id: IsolateId,
     state: Arc<Mutex<State>>,
 }
 
-impl PlatformClipboardWriter {
+impl PlatformDataSource {
     pub fn new(
-        delegate: Weak<dyn PlatformClipboardWriterDelegate>,
+        delegate: Weak<dyn PlatformDataSourceDelegate>,
         isolate_id: IsolateId,
-        data: ClipboardWriterData,
+        source: DataSource,
     ) -> Self {
         Self {
             delegate,
             isolate_id,
             weak_self: Late::new(),
             state: Arc::new(Mutex::new(State {
-                data,
+                source,
                 precached_values: HashMap::new(),
             })),
         }
@@ -68,16 +69,36 @@ impl PlatformClipboardWriter {
         self.weak_self.set(weak_self);
     }
 
-    pub fn create_items(&self) -> Vec<id> {
+    pub async fn write_to_clipboard(
+        &self,
+        drop_notifier: Arc<DropNotifier>,
+    ) -> NativeExtensionsResult<()> {
+        // iOS general pasteboard is truly braindead. It eagerly fetches all items invoking the
+        // provider callbacks on background thread, but it blocks main thread on access until
+        // the blocks return value. Which means if we try to schedule anything on main thread
+        // it will deadlock. Because iOS prefetches everything anyway, we might as well do it
+        // ourselves to avoid the deadlock.
+        self.precache().await;
+        autoreleasepool(|| unsafe {
+            let items = self.create_items(drop_notifier);
+            let array = NSArray::arrayWithObjects(nil, &items);
+            let pasteboard: id = msg_send![class!(UIPasteboard), generalPasteboard];
+            let () = msg_send![pasteboard, setObjects: array];
+        });
+        Ok(())
+    }
+
+    pub fn create_items(&self, drop_notifier: Arc<DropNotifier>) -> Vec<id> {
         let mut items = Vec::<id>::new();
         let state = self.state.clone();
-        for item in self.state.lock().unwrap().data.items.iter().enumerate() {
+        for item in self.state.lock().unwrap().source.items.iter().enumerate() {
             let sender = Context::get().run_loop().new_sender();
             let state = Arc::new(ItemState {
-                clipboard: Capsule::new_with_sender(self.weak_self.clone(), sender.clone()),
+                source: Capsule::new_with_sender(self.weak_self.clone(), sender.clone()),
                 index: item.0,
                 sender,
                 state: state.clone(),
+                _drop_notifier: drop_notifier.clone(),
             });
             let item = state.create_item();
             items.push(item.autorelease());
@@ -85,25 +106,19 @@ impl PlatformClipboardWriter {
         items
     }
 
-    async fn write_to_pasteboard(&self, pasteboard: id) -> ClipboardResult<()> {
-        autoreleasepool(|| unsafe {
-            let items = self.create_items();
-            let array = NSArray::arrayWithObjects(nil, &items);
-            let () = msg_send![pasteboard, setObjects: array];
-        });
-        Ok(())
-    }
-
     async fn precache(&self) {
         let to_fetch = {
             let state = self.state.lock().unwrap();
-            let mut items = Vec::<i64>::new();
-            for item in &state.data.items {
-                for data in &item.data {
+            let mut items = Vec::<(LazyValueId, String)>::new();
+            for item in &state.source.items {
+                for data in &item.representations {
                     match data {
-                        ClipboardWriterItemData::Lazy { types: _, id } => {
-                            if !state.precached_values.contains_key(id) {
-                                items.push(*id);
+                        DataSourceItemRepresentation::Lazy { formats, id } => {
+                            for format in formats {
+                                let key = (*id, format.clone());
+                                if !state.precached_values.contains_key(&key) {
+                                    items.push(key);
+                                }
                             }
                         }
                         _ => {}
@@ -114,52 +129,23 @@ impl PlatformClipboardWriter {
         };
 
         if let Some(delegate) = self.delegate.upgrade() {
-            for id in to_fetch {
-                let res = delegate.get_lazy_data_async(self.isolate_id, id).await;
+            for item in to_fetch {
+                let res = delegate
+                    .get_lazy_data_async(self.isolate_id, item.0, item.1.clone())
+                    .await;
                 let mut state = self.state.lock().unwrap();
-                state.precached_values.insert(id, res);
+                state.precached_values.insert(item, res);
             }
         }
     }
-
-    pub async fn write_to_clipboard(&self) -> ClipboardResult<()> {
-        // iOS general pasteboard is truly braindead. It eagerly fetches all items invoking the
-        // provider callbacks on background thread, but it blocks main thread on access until
-        // the blocks return value. Which means if we try to schedule anything on main thread
-        // it will deadlock. Because iOS prefetches everything anyway, we might as well do it
-        // ourselves to avoid the deadlock.
-        self.precache().await;
-
-        let pasteboard =
-            unsafe { StrongPtr::retain(msg_send![class!(UIPasteboard), generalPasteboard]) };
-        self.write_to_pasteboard(*pasteboard).await
-    }
-}
-
-pub fn to_nsstring(string: &str) -> StrongPtr {
-    unsafe {
-        let ptr = NSString::alloc(nil).init_str(string);
-        StrongPtr::new(ptr)
-    }
-}
-
-const UTF8_ENCODING: usize = 4;
-
-pub unsafe fn from_nsstring(ns_string: id) -> String {
-    let bytes: *const c_char = msg_send![ns_string, UTF8String];
-    let bytes = bytes as *const u8;
-
-    let len = msg_send![ns_string, lengthOfBytesUsingEncoding: UTF8_ENCODING];
-
-    let bytes = slice::from_raw_parts(bytes, len);
-    std::str::from_utf8(bytes).unwrap().into()
 }
 
 struct ItemState {
-    clipboard: Capsule<Weak<PlatformClipboardWriter>>,
+    source: Capsule<Weak<PlatformDataSource>>,
     index: usize,
     sender: RunLoopSender,
     state: Arc<Mutex<State>>,
+    _drop_notifier: Arc<DropNotifier>,
 }
 
 impl ItemState {
@@ -174,24 +160,24 @@ impl ItemState {
 
     fn writable_types(&self) -> id {
         let state = self.state.lock().unwrap();
-        let item = &state.data.items[self.index];
+        let item = &state.source.items[self.index];
         let types: Vec<_> = item
-            .data
+            .representations
             .iter()
             .filter_map(|d| match d {
-                crate::writer_data::ClipboardWriterItemData::Simple { types, data: _ } => Some(
-                    types
+                DataSourceItemRepresentation::Simple { formats, data: _ } => Some(
+                    formats
                         .iter()
                         .map(|t| to_nsstring(t).autorelease())
                         .collect::<Vec<_>>(),
                 ),
-                crate::writer_data::ClipboardWriterItemData::Lazy { types, id: _ } => Some(
-                    types
+                DataSourceItemRepresentation::Lazy { formats, id: _ } => Some(
+                    formats
                         .iter()
                         .map(|t| to_nsstring(t).autorelease())
                         .collect::<Vec<_>>() as Vec<_>,
                 ),
-                crate::writer_data::ClipboardWriterItemData::VirtualFile {
+                DataSourceItemRepresentation::VirtualFile {
                     file_size: _,
                     file_name: _,
                 } => None,
@@ -216,15 +202,17 @@ impl ItemState {
         }
     }
 
-    fn fetch_value(&self, id: i64, handler: RcBlock<(id, id), ()>) {
-        let clipboard = self.clipboard.clone();
+    fn fetch_value(&self, id: LazyValueId, format: String, handler: RcBlock<(id, id), ()>) {
+        let source = self.source.clone();
         let handler = Movable(handler);
         self.sender.send(move || {
             let handler = handler;
-            if let Some(clipboard) = clipboard.get_ref().ok().and_then(|c| c.upgrade()) {
+            if let Some(source) = source.get_ref().ok().and_then(|c| c.upgrade()) {
                 Context::get().run_loop().spawn(async move {
-                    if let Some(delegate) = clipboard.delegate.upgrade() {
-                        let data = delegate.get_lazy_data_async(clipboard.isolate_id, id).await;
+                    if let Some(delegate) = source.delegate.upgrade() {
+                        let data = delegate
+                            .get_lazy_data_async(source.isolate_id, id, format)
+                            .await;
                         unsafe {
                             handler
                                 .0
@@ -243,56 +231,60 @@ impl ItemState {
     fn data_for_type(&self, pasteboard_type: id, handler: RcBlock<(id, id), ()>) -> id {
         let state = self.state.lock().unwrap();
 
-        let ty = unsafe { from_nsstring(pasteboard_type) };
-        let item = &state.data.items[self.index];
-        for data in &item.data {
+        let format = unsafe { from_nsstring(pasteboard_type) };
+        let item = &state.source.items[self.index];
+        for data in &item.representations {
             match data {
-                crate::writer_data::ClipboardWriterItemData::Simple { types, data } => {
-                    if types.contains(&ty) {
+                DataSourceItemRepresentation::Simple { formats, data } => {
+                    if formats.contains(&format) {
                         unsafe { handler.call((Self::value_to_nsdata(data), nil)) };
                         return nil;
                     }
                 }
-                crate::writer_data::ClipboardWriterItemData::Lazy { types, id } => {
-                    if types.contains(&ty) {
-                        let precached = state.precached_values.get(id);
+                DataSourceItemRepresentation::Lazy { formats, id } => {
+                    if formats.contains(&format) {
+                        let precached = state.precached_values.get(&(*id, format.clone()));
                         match precached {
                             Some(value) => unsafe {
                                 handler.call((Self::value_promise_res_to_nsdata(value), nil));
                             },
                             None => {
-                                self.fetch_value(*id, handler);
+                                self.fetch_value(*id, format, handler);
                             }
                         }
                         return nil;
                     }
                 }
-                crate::writer_data::ClipboardWriterItemData::VirtualFile {
-                    file_size: _,
-                    file_name: _,
-                } => {}
+                _ => {}
             }
         }
         nil
     }
 }
 
-fn item_state(this: &Object) -> Arc<ItemState> {
+fn item_state(this: &Object) -> Option<Arc<ItemState>> {
     unsafe {
         let state_ptr = {
             let state_ptr: *mut c_void = *this.get_ivar("imState");
             state_ptr as *const ItemState
         };
-        let ptr = Arc::from_raw(state_ptr);
-        let res = ptr.clone();
-        let _ = ManuallyDrop::new(ptr);
-        res
+        if state_ptr.is_null() {
+            None
+        } else {
+            let state = Arc::from_raw(state_ptr);
+            let res = state.clone();
+            let _ = ManuallyDrop::new(state);
+            Some(res)
+        }
     }
 }
 
 extern "C" fn writable_types_for_item_provider(this: &Object, _sel: Sel) -> id {
-    let state = item_state(this);
-    state.writable_types()
+    if let Some(state) = item_state(this) {
+        state.writable_types()
+    } else {
+        nil
+    }
 }
 
 extern "C" fn writable_types_for_item_provider_(_this: &Class, _sel: Sel) -> id {
@@ -310,19 +302,31 @@ extern "C" fn load_data_with_type_identifier(
     identifier: id,
     handler: id,
 ) -> id {
-    let handler = unsafe { &mut *(handler as *mut Block<(id, id), ()>) };
-    let handler = unsafe { RcBlock::copy(handler as *mut _) };
-    let state = item_state(this);
-    state.data_for_type(identifier, handler)
+    if let Some(state) = item_state(this) {
+        let handler = unsafe { &mut *(handler as *mut Block<(id, id), ()>) };
+        let handler = unsafe { RcBlock::copy(handler as *mut _) };
+        state.data_for_type(identifier, handler)
+    } else {
+        nil
+    }
 }
 
-extern "C" fn dealloc(this: &Object, _sel: Sel) {
+extern "C" fn dispose_state(this: &mut Object, _sel: Sel) {
     unsafe {
         let state_ptr = {
             let state_ptr: *mut c_void = *this.get_ivar("imState");
             state_ptr as *const ItemState
         };
-        Arc::from_raw(state_ptr);
+        if !state_ptr.is_null() {
+            Arc::from_raw(state_ptr);
+            this.set_ivar("imState", std::ptr::null_mut() as *mut c_void);
+        }
+    }
+}
+
+extern "C" fn dealloc(this: &Object, _sel: Sel) {
+    unsafe {
+        let _: () = msg_send![this, disposeState];
 
         let superclass = superclass(this);
         let () = msg_send![super(this, superclass), dealloc];
@@ -336,6 +340,10 @@ static PASTEBOARD_WRITER_CLASS: Lazy<&'static Class> = Lazy::new(|| unsafe {
     if let Some(protocol) = Protocol::get("NSItemProviderWriting") {
         decl.add_protocol(protocol);
     }
+    decl.add_method(
+        sel!(disposeState),
+        dispose_state as extern "C" fn(&mut Object, Sel),
+    );
     decl.add_method(sel!(dealloc), dealloc as extern "C" fn(&Object, Sel));
     decl.add_class_method(
         sel!(writable_types_for_item_provider),

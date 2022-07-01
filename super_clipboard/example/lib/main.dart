@@ -75,7 +75,10 @@ class _MyHomePageState extends State<MyHomePage> {
     writer.write(typeHtml, '<b><i>Html</i></b> Value');
     writer.write(typePlaintext, 'Plaintext Value');
     writer.write(customKey, Uint8List.fromList([1, 2, 3, 4]));
-    await writer.commitToClipboard();
+    final disposeListener = await writer.commitToClipboard();
+    disposeListener.addListener(() {
+      print('Clipboard disposed');
+    });
   }
 
   void copyLazy() async {
@@ -92,7 +95,10 @@ class _MyHomePageState extends State<MyHomePage> {
       // print('Producing lazy custom value');
       return Uint8List.fromList([1, 2, 3, 4, 5]);
     });
-    await writer.commitToClipboard();
+    final disposeListener = await writer.commitToClipboard();
+    disposeListener.addListener(() {
+      print('Clipboard lazy disposed');
+    });
   }
 
   void paste() async {
@@ -122,23 +128,23 @@ class _MyHomePageState extends State<MyHomePage> {
     transform.invert();
     final point = MatrixUtils.transformPoint(transform, globalPosition);
 
-    final data = RawClipboardWriterData([
-      RawClipboardWriterItem([
-        RawClipboardWriterItemData.simple(
-            types: ['public.file-url'],
-            data: utf8.encode('file:///tmp/test.txt')),
-      ]),
-    ]);
-    final writer = await RawClipboardWriter.withData(data);
+    // final data = RawClipboardWriterData([
+    //   RawClipboardWriterItem([
+    //     RawClipboardWriterItemData.simple(
+    //         types: ['public.file-url'],
+    //         data: utf8.encode('file:///tmp/test.txt')),
+    //   ]),
+    // ]);
+    // final writer = await RawClipboardWriter.withData(data);
 
-    final dragContext = await RawDragDropContext.instance();
-    await dragContext.startDrag(
-      request: DragRequest(
-        image: snapshot,
-        writer: writer,
-        pointInRect: point,
-      ),
-    );
+    // final dragContext = await RawDragDropContext.instance();
+    // await dragContext.startDrag(
+    //   request: DragRequest(
+    //     image: snapshot,
+    //     writer: writer,
+    //     pointInRect: point,
+    //   ),
+    // );
   }
 
   String _content = "";

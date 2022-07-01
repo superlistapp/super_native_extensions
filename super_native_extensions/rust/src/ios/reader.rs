@@ -19,16 +19,16 @@ use objc::{
     sel, sel_impl,
 };
 
-use crate::{error::ClipboardResult, log::OkLog};
+use crate::{error::NativeExtensionsResult, log::OkLog};
 
-use super::{from_nsstring, to_nsstring};
+use super::util::{from_nsstring, to_nsstring};
 
 pub struct PlatformClipboardReader {
     pasteboard: StrongPtr,
 }
 
 impl PlatformClipboardReader {
-    pub async fn get_items(&self) -> ClipboardResult<Vec<i64>> {
+    pub async fn get_items(&self) -> NativeExtensionsResult<Vec<i64>> {
         let count = autoreleasepool(|| unsafe {
             let count: NSInteger = msg_send![*self.pasteboard, numberOfItems];
             count as i64
@@ -36,7 +36,7 @@ impl PlatformClipboardReader {
         Ok((0..count).collect())
     }
 
-    pub async fn get_types_for_item(&self, item: i64) -> ClipboardResult<Vec<String>> {
+    pub async fn get_types_for_item(&self, item: i64) -> NativeExtensionsResult<Vec<String>> {
         let types = autoreleasepool(|| unsafe {
             let providers: id = msg_send![*self.pasteboard, itemProviders];
             if item < NSArray::count(providers) as i64 {
@@ -54,7 +54,11 @@ impl PlatformClipboardReader {
         Ok(types)
     }
 
-    pub async fn get_data_for_item(&self, item: i64, data_type: String) -> ClipboardResult<Value> {
+    pub async fn get_data_for_item(
+        &self,
+        item: i64,
+        data_type: String,
+    ) -> NativeExtensionsResult<Value> {
         let (future, completer) = FutureCompleter::new();
         autoreleasepool(|| unsafe {
             let providers: id = msg_send![*self.pasteboard, itemProviders];
@@ -89,7 +93,7 @@ impl PlatformClipboardReader {
         future.await
     }
 
-    pub fn new_default() -> ClipboardResult<Self> {
+    pub fn new_default() -> NativeExtensionsResult<Self> {
         Ok(Self {
             pasteboard: unsafe {
                 StrongPtr::retain(msg_send![class!(UIPasteboard), generalPasteboard])

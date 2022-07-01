@@ -1,4 +1,5 @@
 use std::{
+    cell::RefCell,
     mem::ManuallyDrop,
     os::raw::c_void,
     rc::{Rc, Weak},
@@ -6,7 +7,7 @@ use std::{
 
 use cocoa::{
     base::{id, nil},
-    foundation::NSArray,
+    foundation::{NSArray, NSUInteger},
 };
 use core_foundation::{runloop::CFRunLoopRunInMode, string::CFStringRef};
 use nativeshell_core::util::Late;
@@ -21,18 +22,19 @@ use objc::{
 use once_cell::sync::Lazy;
 
 use crate::{
-    drag_drop_manager::{DragRequest, PendingWriterState, PlatformDragContextDelegate, Point},
-    error::NativeExtensionsResult,
-    platform_impl::platform::to_nsstring,
+    api_model::Point,
+    drag_drop_manager::{DragRequest, PendingWriterState, PlatformDragContextDelegate},
+    error::{NativeExtensionsError, NativeExtensionsResult},
 };
 
-use super::{superclass, PlatformClipboardWriter};
+use super::{superclass, util::to_nsstring, PlatformDataSource};
 
 pub struct PlatformDragContext {
     id: i64,
     view: StrongPtr,
     delegate: Weak<dyn PlatformDragContextDelegate>,
     platform_delegate: Late<StrongPtr>,
+    current_items: RefCell<Vec<StrongPtr>>,
 }
 
 impl PlatformDragContext {
@@ -43,10 +45,11 @@ impl PlatformDragContext {
             view: unsafe { StrongPtr::retain(view_handle as *mut _) },
             delegate,
             platform_delegate: Late::new(),
+            current_items: RefCell::new(Vec::new()),
         }
     }
 
-    pub fn assign_weak_self(&self, weak_self: Weak<Self>) {
+    pub fn assign_weak_self(&self, weak_self: Weak<Self>) -> NativeExtensionsResult<()> {
         autoreleasepool(|| unsafe {
             let delegate: id = msg_send![*DELEGATE_CLASS, alloc];
             let delegate: id = msg_send![delegate, init];
@@ -58,6 +61,7 @@ impl PlatformDragContext {
             let interaction: id = msg_send![interaction, autorelease];
             let _: () = msg_send![*self.view, addInteraction: interaction];
         });
+        Ok(())
     }
 
     pub fn register_drop_types(&self, types: &[String]) -> NativeExtensionsResult<()> {
@@ -67,23 +71,30 @@ impl PlatformDragContext {
     pub async fn start_drag(
         &self,
         request: DragRequest,
-        writer: Rc<PlatformClipboardWriter>,
+        source: Rc<PlatformDataSource>,
     ) -> NativeExtensionsResult<()> {
-        Ok(())
+        Err(NativeExtensionsError::UnsupportedOperation)
     }
 
     fn items_for_beginning(&self, interaction: id, session: id) -> id {
         if let Some(delegate) = self.delegate.upgrade() {
             let items = delegate.writer_for_drag_request(self.id, Point { x: 10.0, y: 10.0 });
+            self.current_items.borrow_mut().clear();
             loop {
                 {
                     let items = items.borrow();
                     match &*items {
-                        PendingWriterState::Ok { writer } => unsafe {
-                            let items = writer.create_items();
+                        PendingWriterState::Ok {
+                            source,
+                            drop_notifier,
+                        } => unsafe {
+                            let items = source.create_items(drop_notifier.clone());
                             println!("Items {:?}", items.len());
                             let mut dragging_items = Vec::<id>::new();
                             for item in items {
+                                self.current_items
+                                    .borrow_mut()
+                                    .push(StrongPtr::retain(item));
                                 let item_provider: id = msg_send![class!(NSItemProvider), alloc];
                                 let item_provider: id =
                                     msg_send![item_provider, initWithObject: item];
@@ -107,6 +118,18 @@ impl PlatformDragContext {
         } else {
             nil
         }
+    }
+
+    fn did_end_with_operation(&self, interaction: id, session: id, operation: UIDropOperation) {
+        {
+            let mut items = self.current_items.borrow_mut();
+            for item in items.iter() {
+                let _: () = unsafe { msg_send![**item, disposeState] };
+            }
+            items.clear();
+        }
+
+        println!("Did end with operation {:?}", operation);
     }
 }
 
@@ -155,6 +178,22 @@ extern "C" fn items_for_beginning(
     )
 }
 
+type UIDropOperation = NSUInteger;
+
+extern "C" fn did_end_with_operation(
+    this: &mut Object,
+    _sel: Sel,
+    interaction: id,
+    session: id,
+    operation: UIDropOperation,
+) {
+    with_state(
+        this,
+        |state| state.did_end_with_operation(interaction, session, operation),
+        || {},
+    );
+}
+
 static DELEGATE_CLASS: Lazy<&'static Class> = Lazy::new(|| unsafe {
     let superclass = class!(NSObject);
     let mut decl = ClassDecl::new("IMDragDropInteractionDelegate", superclass).unwrap();
@@ -164,6 +203,10 @@ static DELEGATE_CLASS: Lazy<&'static Class> = Lazy::new(|| unsafe {
     decl.add_method(
         sel!(dragInteraction:itemsForBeginningSession:),
         items_for_beginning as extern "C" fn(&mut Object, Sel, id, id) -> id,
+    );
+    decl.add_method(
+        sel!(dragInteraction:session:didEndWithOperation:),
+        did_end_with_operation as extern "C" fn(&mut Object, Sel, id, id, UIDropOperation),
     );
     decl.register()
 });

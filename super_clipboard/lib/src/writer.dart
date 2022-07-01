@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:super_native_extensions/raw_clipboard.dart';
 
 import 'common.dart';
@@ -8,10 +9,10 @@ class ClipboardWriter {
   void write<T>(ClipboardType<T> key, T value) {
     _actions.add(() async {
       final platformKey = key.platformType();
-      for (final type in platformKey.writableSystemTypes()) {
-        final data = await platformKey.convertToSystem(value, type);
-        _currentItemData
-            .add(RawClipboardWriterItemData.simple(types: [type], data: data));
+      for (final format in platformKey.writableSystemTypes()) {
+        final data = await platformKey.convertToSystem(value, format);
+        _currentItemData.add(
+            DataSourceItemRepresentation.simple(formats: [format], data: data));
       }
     });
   }
@@ -19,12 +20,12 @@ class ClipboardWriter {
   void writeLazy<T>(ClipboardType<T> key, FutureOr<T> Function() itemProvider) {
     _actions.add(() {
       final platformKey = key.platformType();
-      for (final type in platformKey.writableSystemTypes()) {
-        _currentItemData.add(RawClipboardWriterItemData.lazy(
-            types: [type],
-            dataProvider: () async {
+      for (final format in platformKey.writableSystemTypes()) {
+        _currentItemData.add(DataSourceItemRepresentation.lazy(
+            formats: [format],
+            dataProvider: (format) async {
               final value = await itemProvider();
-              return await platformKey.convertToSystem(value, type);
+              return await platformKey.convertToSystem(value, format);
             }));
       }
     });
@@ -32,37 +33,31 @@ class ClipboardWriter {
 
   void nextItem() {
     _actions.add(() {
-      _items.add(RawClipboardWriterItem(_currentItemData));
+      _items.add(DataSourceItem(_currentItemData));
       _currentItemData = [];
     });
   }
 
-  static RawClipboardWriter? _currentWriter;
-
-  Future<void> commitToClipboard() async {
+  Future<Listenable> commitToClipboard() async {
     final data = await _buildWriterData();
-    final writer = await RawClipboardWriter.withData(data);
-    final previousWriter = _currentWriter;
-    _currentWriter = writer;
-    await writer.writeToClipboard();
-    if (previousWriter != null) {
-      await previousWriter.dispose();
-    }
+    final handle = await data.register();
+    await RawClipboardWriter.instance.write(handle);
+    return handle.onDispose;
   }
 
-  Future<RawClipboardWriterData> _buildWriterData() async {
+  Future<DataSource> _buildWriterData() async {
     _items = [];
     _currentItemData = [];
     for (final action in _actions) {
       await action();
     }
     if (_currentItemData.isNotEmpty) {
-      _items.add(RawClipboardWriterItem(_currentItemData));
+      _items.add(DataSourceItem(_currentItemData));
     }
-    return RawClipboardWriterData(_items);
+    return DataSource(_items);
   }
 
   final _actions = <FutureOr<void> Function()>[];
-  List<RawClipboardWriterItem> _items = [];
-  List<RawClipboardWriterItemData> _currentItemData = [];
+  List<DataSourceItem> _items = [];
+  List<DataSourceItemRepresentation> _currentItemData = [];
 }

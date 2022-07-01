@@ -2,6 +2,7 @@ use std::{
     cell::RefCell,
     collections::HashMap,
     rc::{Rc, Weak},
+    sync::Arc,
 };
 
 use async_trait::async_trait;
@@ -11,17 +12,21 @@ use nativeshell_core::{
 };
 
 use crate::{
-    api_model::{ImageData, Point},
+    api_model::{DataSourceId, ImageData, Point},
+    data_source_manager::GetDataSourceManager,
     error::{NativeExtensionsError, NativeExtensionsResult},
-    platform_impl::platform::{PlatformClipboardWriter, PlatformDragContext},
-    writer_manager::GetClipboardWriterManager,
+    platform_impl::platform::{PlatformDataSource, PlatformDragContext},
+    util::DropNotifier,
 };
 
 pub type PlatformDragContextId = IsolateId;
 
 pub enum PendingWriterState {
     Pending,
-    Ok { writer: Rc<PlatformClipboardWriter> },
+    Ok {
+        source: Rc<PlatformDataSource>,
+        drop_notifier: Arc<DropNotifier>,
+    },
     Cancelled,
 }
 
@@ -53,7 +58,7 @@ struct RegisterDropTypesRequest {
 #[derive(TryFromValue)]
 #[nativeshell(rename_all = "camelCase")]
 pub struct DragRequest {
-    pub writer_id: i64,
+    pub writer_id: DataSourceId,
     pub point_in_rect: Point,
     pub image: ImageData,
 }
@@ -119,9 +124,14 @@ impl DragDropManager {
             .cloned()
             .ok_or_else(|| NativeExtensionsError::PlatformContextNotFound)?;
         let writer = Context::get()
-            .clipboard_writer_manager()
-            .get_platform_writer(request.writer_id)?;
+            .data_source_manager()
+            .get_platform_data_source(request.writer_id)?;
         context.start_drag(request, writer).await
+    }
+
+    fn on_dropped(&self, isolate_id: IsolateId, source_id: DataSourceId) {
+        self.invoker
+            .call_method_sync(isolate_id, "releaseDataSource", source_id, |_| {})
     }
 }
 
@@ -159,14 +169,14 @@ impl AsyncMethodHandler for DragDropManager {
 
 #[derive(IntoValue)]
 #[nativeshell(rename_all = "camelCase")]
-struct WriterRequest {
+struct DataSourceRequest {
     location: Point,
 }
 
 #[derive(TryFromValue)]
 #[nativeshell(rename_all = "camelCase")]
-struct WriterResponse {
-    writer_id: Option<i64>,
+struct DataSourceResponse {
+    data_source_id: Option<DataSourceId>,
 }
 
 #[async_trait(?Send)]
@@ -178,19 +188,37 @@ impl PlatformDragContextDelegate for DragDropManager {
         Context::get().run_loop().spawn(async move {
             let this = weak_self.upgrade();
             if let Some(this) = this {
-                let writer: Result<WriterResponse, MethodCallError> = this
+                let data_source: Result<DataSourceResponse, MethodCallError> = this
                     .invoker
-                    .call_method_cv(id, "writerForDragRequest", WriterRequest { location })
+                    .call_method_cv(
+                        id,
+                        "dataSourceForDragRequest",
+                        DataSourceRequest { location },
+                    )
                     .await;
 
-                let writer = writer.ok().and_then(|w| w.writer_id).and_then(|w| {
-                    Context::get()
-                        .clipboard_writer_manager()
-                        .get_platform_writer(w)
-                        .ok()
-                });
-                match writer {
-                    Some(writer) => res_clone.replace(PendingWriterState::Ok { writer }),
+                let data_source = data_source
+                    .ok()
+                    .and_then(|d| d.data_source_id)
+                    .and_then(|d| {
+                        Context::get()
+                            .data_source_manager()
+                            .get_platform_data_source(d)
+                            .ok()
+                            .map(|s| (d, s))
+                    });
+                match data_source {
+                    Some((data_source_id, data_source)) => {
+                        let notifier = Arc::new(DropNotifier::new(move || {
+                            if let Some(this) = weak_self.upgrade() {
+                                this.on_dropped(id, data_source_id);
+                            }
+                        }));
+                        res_clone.replace(PendingWriterState::Ok {
+                            source: data_source,
+                            drop_notifier: notifier,
+                        })
+                    }
                     None => res_clone.replace(PendingWriterState::Cancelled),
                 };
             } else {

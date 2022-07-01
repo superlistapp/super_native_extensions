@@ -13,7 +13,7 @@ use nativeshell_core::{
 };
 
 use crate::{
-    error::{ClipboardError, ClipboardResult},
+    error::{NativeExtensionsError, NativeExtensionsResult},
     platform::PlatformClipboardReader,
 };
 
@@ -50,7 +50,7 @@ impl ClipboardReaderManager {
         .register("ClipboardReaderManager")
     }
 
-    fn new_default_clipboard_reader(&self) -> Result<NewClipboardReaderResult, ClipboardError> {
+    fn new_default_clipboard_reader(&self) -> NativeExtensionsResult<NewClipboardReaderResult> {
         let id = self.next_id.get();
         self.next_id.replace(id + 1);
         let platform_reader = Rc::new(PlatformClipboardReader::new_default()?);
@@ -78,12 +78,12 @@ impl ClipboardReaderManager {
         })
     }
 
-    fn dispose_reader(&self, reader: i64) -> ClipboardResult<()> {
+    fn dispose_reader(&self, reader: i64) -> NativeExtensionsResult<()> {
         self.readers.borrow_mut().remove(&reader);
         Ok(())
     }
 
-    async fn get_items(&self, reader: i64) -> ClipboardResult<Vec<i64>> {
+    async fn get_items(&self, reader: i64) -> NativeExtensionsResult<Vec<i64>> {
         let reader = self
             .readers
             .borrow()
@@ -91,11 +91,14 @@ impl ClipboardReaderManager {
             .map(|r| r.platform_reader.clone());
         match reader {
             Some(reader) => reader.get_items().await,
-            None => Err(ClipboardError::ReaderNotFound),
+            None => Err(NativeExtensionsError::ReaderNotFound),
         }
     }
 
-    async fn get_item_types(&self, request: ItemTypesRequest) -> ClipboardResult<Vec<String>> {
+    async fn get_item_types(
+        &self,
+        request: ItemTypesRequest,
+    ) -> NativeExtensionsResult<Vec<String>> {
         let reader = self
             .readers
             .borrow()
@@ -103,11 +106,11 @@ impl ClipboardReaderManager {
             .map(|r| r.platform_reader.clone());
         match reader {
             Some(reader) => reader.get_types_for_item(request.item_handle).await,
-            None => Err(ClipboardError::ReaderNotFound),
+            None => Err(NativeExtensionsError::ReaderNotFound),
         }
     }
 
-    async fn get_item_data(&self, request: ItemDataRequest) -> ClipboardResult<Value> {
+    async fn get_item_data(&self, request: ItemDataRequest) -> NativeExtensionsResult<Value> {
         let reader = self
             .readers
             .borrow()
@@ -119,7 +122,7 @@ impl ClipboardReaderManager {
                     .get_data_for_item(request.item_handle, request.data_type)
                     .await
             }
-            None => Err(ClipboardError::ReaderNotFound),
+            None => Err(NativeExtensionsError::ReaderNotFound),
         }
     }
 }
@@ -176,7 +179,7 @@ impl AsyncMethodHandler for ClipboardReaderManager {
                 .into_platform_result(),
             _ => Err(PlatformError {
                 code: "invalid_method".into(),
-                message: None,
+                message: Some(format!("Unknown Method: {}", call.method)),
                 detail: Value::Null,
             }),
         }

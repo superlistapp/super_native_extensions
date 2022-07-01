@@ -12,17 +12,17 @@ use nativeshell_core::{
 };
 
 use crate::{
+    api_model::{ClipboardWriterData, LazyValueId, PlatformWriterId},
     error::{ClipboardError, ClipboardResult},
     platform::PlatformClipboardWriter,
     value_promise::{ValuePromise, ValuePromiseResult},
-    writer_data::ClipboardWriterData,
 };
 
 pub struct ClipboardWriterManager {
     weak_self: Late<Weak<Self>>,
     invoker: Late<AsyncMethodInvoker>,
     next_id: Cell<i64>,
-    writers: RefCell<HashMap<i64, WriterEntry>>,
+    writers: RefCell<HashMap<PlatformWriterId, WriterEntry>>,
 }
 
 struct WriterEntry {
@@ -65,7 +65,7 @@ impl ClipboardWriterManager {
         ));
         platform_clipboard.assign_weak_self(Rc::downgrade(&platform_clipboard));
         self.writers.borrow_mut().insert(
-            id,
+            id.into(),
             WriterEntry {
                 isolate_id,
                 platform_writer: platform_clipboard,
@@ -74,14 +74,14 @@ impl ClipboardWriterManager {
         Ok(id)
     }
 
-    fn unregister_writer(&self, writer: i64) -> ClipboardResult<()> {
+    fn unregister_writer(&self, writer: PlatformWriterId) -> ClipboardResult<()> {
         self.writers.borrow_mut().remove(&writer);
         Ok(())
     }
 
     pub fn get_platform_writer(
         &self,
-        clipboard: i64,
+        clipboard: PlatformWriterId,
     ) -> ClipboardResult<Rc<PlatformClipboardWriter>> {
         self.writers
             .borrow()
@@ -90,10 +90,8 @@ impl ClipboardWriterManager {
             .ok_or_else(|| ClipboardError::OtherError("Clipboard not found".into()))
     }
 
-    async fn write_to_clipboard(&self, clipboard: i64) -> ClipboardResult<()> {
-        self.get_platform_writer(clipboard)?
-            .write_to_clipboard()
-            .await
+    async fn write_to_clipboard(&self, writer: PlatformWriterId) -> ClipboardResult<()> {
+        self.get_platform_writer(writer)?.write_to_clipboard().await
     }
 }
 
@@ -113,7 +111,7 @@ impl AsyncMethodHandler for ClipboardWriterManager {
                 .into_platform_result(),
             _ => Err(PlatformError {
                 code: "invalid_method".into(),
-                message: None,
+                message: Some(format!("Unknown Method: {}", call.method)),
                 detail: Value::Null,
             }),
         }
@@ -151,11 +149,15 @@ pub trait PlatformClipboardWriterDelegate {
     fn get_lazy_data(
         &self,
         isolate_id: IsolateId,
-        data_id: i64,
+        data_id: LazyValueId,
         on_done: Option<Box<dyn FnOnce()>>,
     ) -> Arc<ValuePromise>;
 
-    async fn get_lazy_data_async(&self, isolate_id: IsolateId, data_id: i64) -> ValuePromiseResult;
+    async fn get_lazy_data_async(
+        &self,
+        isolate_id: IsolateId,
+        data_id: LazyValueId,
+    ) -> ValuePromiseResult;
 }
 
 #[async_trait(?Send)]
@@ -163,7 +165,7 @@ impl PlatformClipboardWriterDelegate for ClipboardWriterManager {
     fn get_lazy_data(
         &self,
         isolate_id: IsolateId,
-        data_id: i64,
+        data_id: LazyValueId,
         on_done: Option<Box<dyn FnOnce()>>,
     ) -> Arc<ValuePromise> {
         let res = Arc::new(ValuePromise::new());
@@ -184,7 +186,11 @@ impl PlatformClipboardWriterDelegate for ClipboardWriterManager {
         res
     }
 
-    async fn get_lazy_data_async(&self, isolate_id: IsolateId, data_id: i64) -> ValuePromiseResult {
+    async fn get_lazy_data_async(
+        &self,
+        isolate_id: IsolateId,
+        data_id: LazyValueId,
+    ) -> ValuePromiseResult {
         let res = self
             .invoker
             .call_method_cv(isolate_id, "getLazyData", data_id)

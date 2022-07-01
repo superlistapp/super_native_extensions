@@ -6,27 +6,27 @@ use nativeshell_core::{PlatformError, Value};
 pub enum NativeExtensionsError {
     UnknownError,
     OtherError(String),
-    WriterNotFound,
+    DataSourceNotFound,
     ReaderNotFound,
     PlatformContextNotFound,
+    UnsupportedOperation,
 }
 
 pub type NativeExtensionsResult<T> = Result<T, NativeExtensionsError>;
-
-// TODO(knopp): Remove
-pub type ClipboardError = NativeExtensionsError;
-pub type ClipboardResult<T> = NativeExtensionsResult<T>;
 
 impl Display for NativeExtensionsError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             NativeExtensionsError::UnknownError => write!(f, "unknown error"),
             NativeExtensionsError::OtherError(m) => write!(f, "{:?}", m),
-            NativeExtensionsError::WriterNotFound => write!(f, "platform writer not found"),
+            NativeExtensionsError::DataSourceNotFound => {
+                write!(f, "Platform data source not found")
+            }
             NativeExtensionsError::ReaderNotFound => write!(f, "platform reader not found"),
             NativeExtensionsError::PlatformContextNotFound => {
                 write!(f, "platform drag drop context not found")
             }
+            NativeExtensionsError::UnsupportedOperation => write!(f, "unsupported operation"),
         }
     }
 }

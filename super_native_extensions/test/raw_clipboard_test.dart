@@ -70,68 +70,68 @@ void main() {
     await reader.dispose();
     expect(disposeReaderCalled, isTrue);
   });
-  test('TestWriter', () async {
-    var registerCalled = false;
-    var writeCalled = false;
-    var receivedLazyData = false;
-    var unregisterCalled = false;
-    const channel = 'ClipboardWriterManager';
-    context.registerMockMethodCallHandler(channel, (call) async {
-      if (call.method == 'registerClipboardWriter') {
-        final expected = {
-          'items': [
-            {
-              'data': [
-                {
-                  'type': 'simple',
-                  'types': ['t1', 't2'],
-                  'data': 'Data'
-                },
-                {
-                  'type': 'lazy',
-                  'id': 1,
-                  'types': ['t1']
-                },
-              ]
-            }
-          ]
-        };
-        expect(call.arguments, equals(expected));
-        registerCalled = true;
-        return 10;
-      }
-      if (call.method == 'writeToClipboard') {
-        expect(call.arguments, equals(10));
-        writeCalled = true;
-        final lazy = await context.invokeMethod(channel, 'getLazyData', 1);
-        expect(lazy, equals({'type': 'ok', 'value': 'LazyValue'}));
-        receivedLazyData = true;
-        return null;
-      }
-      if (call.method == 'unregisterClipboardWriter') {
-        expect(call.arguments, equals(10));
-        unregisterCalled = true;
-        return null;
-      }
-      assert(false, 'Unexpected call $call');
-    });
+  // test('TestWriter', () async {
+  //   var registerCalled = false;
+  //   var writeCalled = false;
+  //   var receivedLazyData = false;
+  //   var unregisterCalled = false;
+  //   const channel = 'ClipboardWriterManager';
+  //   context.registerMockMethodCallHandler(channel, (call) async {
+  //     if (call.method == 'registerClipboardWriter') {
+  //       final expected = {
+  //         'items': [
+  //           {
+  //             'data': [
+  //               {
+  //                 'type': 'simple',
+  //                 'types': ['t1', 't2'],
+  //                 'data': 'Data'
+  //               },
+  //               {
+  //                 'type': 'lazy',
+  //                 'id': 1,
+  //                 'types': ['t1']
+  //               },
+  //             ]
+  //           }
+  //         ]
+  //       };
+  //       expect(call.arguments, equals(expected));
+  //       registerCalled = true;
+  //       return 10;
+  //     }
+  //     if (call.method == 'writeToClipboard') {
+  //       expect(call.arguments, equals(10));
+  //       writeCalled = true;
+  //       final lazy = await context.invokeMethod(channel, 'getLazyData', 1);
+  //       expect(lazy, equals({'type': 'ok', 'value': 'LazyValue'}));
+  //       receivedLazyData = true;
+  //       return null;
+  //     }
+  //     if (call.method == 'unregisterClipboardWriter') {
+  //       expect(call.arguments, equals(10));
+  //       unregisterCalled = true;
+  //       return null;
+  //     }
+  //     assert(false, 'Unexpected call $call');
+  //   });
 
-    final data = RawClipboardWriterData([
-      RawClipboardWriterItem([
-        RawClipboardWriterItemData.simple(types: ['t1', 't2'], data: 'Data'),
-        RawClipboardWriterItemData.lazy(
-            types: ['t1'],
-            dataProvider: () {
-              return 'LazyValue';
-            })
-      ]),
-    ]);
-    final writer = await RawClipboardWriter.withData(data);
-    expect(registerCalled, isTrue);
-    await writer.writeToClipboard();
-    expect(writeCalled, isTrue);
-    expect(receivedLazyData, isTrue);
-    await writer.dispose();
-    expect(unregisterCalled, isTrue);
-  });
+  //   final data = RawClipboardWriterData([
+  //     RawClipboardWriterItem([
+  //       RawClipboardWriterItemData.simple(types: ['t1', 't2'], data: 'Data'),
+  //       RawClipboardWriterItemData.lazy(
+  //           types: ['t1'],
+  //           dataProvider: () {
+  //             return 'LazyValue';
+  //           })
+  //     ]),
+  //   ]);
+  //   final writer = await RawClipboardWriter.withData(data);
+  //   expect(registerCalled, isTrue);
+  //   await writer.writeToClipboard();
+  //   expect(writeCalled, isTrue);
+  //   expect(receivedLazyData, isTrue);
+  //   await writer.dispose();
+  //   expect(unregisterCalled, isTrue);
+  // });
 }

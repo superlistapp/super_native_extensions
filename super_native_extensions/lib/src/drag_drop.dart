@@ -4,16 +4,20 @@ import 'dart:ui' as ui;
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:nativeshell_core/nativeshell_core.dart';
+import 'package:super_native_extensions/raw_clipboard.dart';
 
 import 'context.dart';
 import 'mutex.dart';
 import 'api_model.dart';
-import 'raw_clipboard_writer.dart';
 
 const _flutterChannel = MethodChannel('super_native_extensions');
 
 final _channel = NativeMethodChannel('DragDropManager',
     context: superNativeExtensionsContext);
+
+abstract class RawDragDropContextDelegate {
+  Future<DataSourceHandle?> getDataSourceForDragRequest({ui.Offset location});
+}
 
 class RawDragDropContext {
   RawDragDropContext._();
@@ -39,17 +43,20 @@ class RawDragDropContext {
   }
 
   Future<dynamic> _handleMethodCall(MethodCall call) async {
-    if (call.method == 'writerForDragRequest') {
+    if (call.method == 'dataSourceForDragRequest') {
       print('ARG ${call.arguments}');
-      final data = RawClipboardWriterData([
-        RawClipboardWriterItem([
-          RawClipboardWriterItemData.simple(
-              types: ['public.file-url'],
+      final data = DataSource([
+        DataSourceItem([
+          DataSourceItemRepresentation.simple(
+              formats: ['public.file-url'],
               data: utf8.encode('file:///tmp/test.txt')),
         ]),
       ]);
-      final writer = await RawClipboardWriter.withData(data);
-      return {'writerId': writer.handle};
+      // final writer = await RawClipboardWriter.withData(data);
+      final handle = await data.register();
+      return {'dataSourceId': handle.id};
+    } else if (call.method == 'releaseDataSource') {
+      print('Release source ${call.arguments as int}');
     } else {
       return null;
     }
@@ -68,19 +75,19 @@ class RawDragDropContext {
 
 class DragRequest {
   DragRequest({
-    required this.writer,
+    required this.dataSource,
     required this.pointInRect,
     required this.image,
   });
 
-  final RawClipboardWriter writer;
+  final DataSourceHandle dataSource;
   final Offset pointInRect;
   final ui.Image image;
 
   Future<dynamic> serialize() async {
     final imageData = await ImageData.fromImage(image);
     return {
-      'writerId': writer.handle,
+      'dataSource': dataSource.id,
       'pointInRect': pointInRect.serialize(),
       'image': imageData.serialize(),
     };
