@@ -1,29 +1,23 @@
 use std::{
     collections::HashMap,
-    mem::ManuallyDrop,
-    os::raw::c_void,
     rc::Weak,
     sync::{Arc, Mutex},
 };
 
-use block::{Block, RcBlock};
+use block::{Block, ConcreteBlock, RcBlock};
 use cocoa::{
     base::{id, nil},
-    foundation::NSArray,
+    foundation::{NSArray, NSUInteger},
 };
 use nativeshell_core::{
     util::{Capsule, Late},
     Context, IsolateId, RunLoopSender, Value,
 };
 use objc::{
-    class,
-    declare::ClassDecl,
-    msg_send,
+    class, msg_send,
     rc::{autoreleasepool, StrongPtr},
-    runtime::{Class, Object, Protocol, Sel},
     sel, sel_impl,
 };
-use once_cell::sync::Lazy;
 
 use crate::{
     api_model::{DataSource, DataSourceItemRepresentation, LazyValueId},
@@ -34,7 +28,7 @@ use crate::{
     value_promise::ValuePromiseResult,
 };
 
-use super::util::{from_nsstring, to_nsstring};
+use super::util::to_nsstring;
 
 struct State {
     source: DataSource,
@@ -69,6 +63,48 @@ impl PlatformDataSource {
         self.weak_self.set(weak_self);
     }
 
+    pub fn create_items(
+        &self,
+        drop_notifier: Arc<DropNotifier>,
+        delegate: Weak<dyn SessionDelegate>,
+    ) -> (Vec<id>, Arc<Session>) {
+        let mut items = Vec::<id>::new();
+        let session = Session::new(
+            self.state.clone(),
+            drop_notifier,
+            self.weak_self.clone(),
+            delegate,
+        );
+
+        let state = self.state.lock().unwrap();
+        for (index, item) in state.source.items.iter().enumerate() {
+            unsafe {
+                let item_provider: id = msg_send![class!(NSItemProvider), new];
+                let item_provider: id = msg_send![item_provider, autorelease];
+
+                for representation in &item.representations {
+                    let formats = match representation {
+                        DataSourceItemRepresentation::Simple { formats, data: _ } => Some(formats),
+                        DataSourceItemRepresentation::Lazy { formats, id: _ } => Some(formats),
+                        _ => None,
+                    };
+                    if let Some(formats) = formats {
+                        for format in formats {
+                            let session_clone = session.clone();
+                            let format_clone = format.clone();
+                            register_data_representation(item_provider, &format, move |callback| {
+                                session_clone.value_for_index(index, &format_clone, callback)
+                            });
+                        }
+                    }
+                }
+
+                items.push(item_provider);
+            }
+        }
+        (items, session)
+    }
+
     pub async fn write_to_clipboard(
         &self,
         drop_notifier: Arc<DropNotifier>,
@@ -80,30 +116,12 @@ impl PlatformDataSource {
         // ourselves to avoid the deadlock.
         self.precache().await;
         autoreleasepool(|| unsafe {
-            let items = self.create_items(drop_notifier);
+            let (items, _) = self.create_items(drop_notifier, self.weak_self.clone());
             let array = NSArray::arrayWithObjects(nil, &items);
             let pasteboard: id = msg_send![class!(UIPasteboard), generalPasteboard];
-            let () = msg_send![pasteboard, setObjects: array];
+            let () = msg_send![pasteboard, setItemProviders: array];
         });
         Ok(())
-    }
-
-    pub fn create_items(&self, drop_notifier: Arc<DropNotifier>) -> Vec<id> {
-        let mut items = Vec::<id>::new();
-        let state = self.state.clone();
-        for item in self.state.lock().unwrap().source.items.iter().enumerate() {
-            let sender = Context::get().run_loop().new_sender();
-            let state = Arc::new(ItemState {
-                source: Capsule::new_with_sender(self.weak_self.clone(), sender.clone()),
-                index: item.0,
-                sender,
-                state: state.clone(),
-                _drop_notifier: drop_notifier.clone(),
-            });
-            let item = state.create_item();
-            items.push(item.autorelease());
-        }
-        items
     }
 
     async fn precache(&self) {
@@ -140,230 +158,55 @@ impl PlatformDataSource {
     }
 }
 
-struct ItemState {
-    source: Capsule<Weak<PlatformDataSource>>,
-    index: usize,
-    sender: RunLoopSender,
-    state: Arc<Mutex<State>>,
-    _drop_notifier: Arc<DropNotifier>,
-}
-
-impl ItemState {
-    fn create_item(self: Arc<Self>) -> StrongPtr {
-        unsafe {
-            let item: id = msg_send![*PASTEBOARD_WRITER_CLASS, alloc];
-            let () = msg_send![item, init];
-            (*item).set_ivar("imState", Arc::into_raw(self) as *mut c_void);
-            StrongPtr::new(item)
-        }
-    }
-
-    fn writable_types(&self) -> id {
-        let state = self.state.lock().unwrap();
-        let item = &state.source.items[self.index];
-        let types: Vec<_> = item
-            .representations
-            .iter()
-            .filter_map(|d| match d {
-                DataSourceItemRepresentation::Simple { formats, data: _ } => Some(
-                    formats
-                        .iter()
-                        .map(|t| to_nsstring(t).autorelease())
-                        .collect::<Vec<_>>(),
-                ),
-                DataSourceItemRepresentation::Lazy { formats, id: _ } => Some(
-                    formats
-                        .iter()
-                        .map(|t| to_nsstring(t).autorelease())
-                        .collect::<Vec<_>>() as Vec<_>,
-                ),
-                DataSourceItemRepresentation::VirtualFile {
-                    file_size: _,
-                    file_name: _,
-                } => None,
-            })
-            .flatten()
-            .collect();
-        unsafe { NSArray::arrayWithObjects(nil, &types) }
-    }
-
-    fn value_to_nsdata(value: &Value) -> id {
-        let buf = value.coerce_to_data(StringFormat::Utf8);
-        match buf {
-            Some(data) => to_nsdata(&data).autorelease(),
-            None => nil,
-        }
-    }
-
-    fn value_promise_res_to_nsdata(value: &ValuePromiseResult) -> id {
-        match value {
-            ValuePromiseResult::Ok { value } => Self::value_to_nsdata(value),
-            ValuePromiseResult::Cancelled => nil,
-        }
-    }
-
-    fn fetch_value(&self, id: LazyValueId, format: String, handler: RcBlock<(id, id), ()>) {
-        let source = self.source.clone();
-        let handler = Movable(handler);
-        self.sender.send(move || {
-            let handler = handler;
-            if let Some(source) = source.get_ref().ok().and_then(|c| c.upgrade()) {
-                Context::get().run_loop().spawn(async move {
-                    if let Some(delegate) = source.delegate.upgrade() {
-                        let data = delegate
-                            .get_lazy_data_async(source.isolate_id, id, format)
-                            .await;
-                        unsafe {
-                            handler
-                                .0
-                                .call((Self::value_promise_res_to_nsdata(&data), nil))
-                        };
-                    } else {
-                        unsafe { handler.0.call((nil, nil)) };
-                    }
-                });
-            } else {
-                unsafe { handler.0.call((nil, nil)) };
-            }
-        });
-    }
-
-    fn data_for_type(&self, pasteboard_type: id, handler: RcBlock<(id, id), ()>) -> id {
-        let state = self.state.lock().unwrap();
-
-        let format = unsafe { from_nsstring(pasteboard_type) };
-        let item = &state.source.items[self.index];
-        for data in &item.representations {
-            match data {
-                DataSourceItemRepresentation::Simple { formats, data } => {
-                    if formats.contains(&format) {
-                        unsafe { handler.call((Self::value_to_nsdata(data), nil)) };
-                        return nil;
-                    }
-                }
-                DataSourceItemRepresentation::Lazy { formats, id } => {
-                    if formats.contains(&format) {
-                        let precached = state.precached_values.get(&(*id, format.clone()));
-                        match precached {
-                            Some(value) => unsafe {
-                                handler.call((Self::value_promise_res_to_nsdata(value), nil));
-                            },
-                            None => {
-                                self.fetch_value(*id, format, handler);
-                            }
-                        }
-                        return nil;
-                    }
-                }
-                _ => {}
-            }
-        }
-        nil
+impl SessionDelegate for PlatformDataSource {
+    fn should_fetch_items(&self) -> bool {
+        true
     }
 }
 
-fn item_state(this: &Object) -> Option<Arc<ItemState>> {
-    unsafe {
-        let state_ptr = {
-            let state_ptr: *mut c_void = *this.get_ivar("imState");
-            state_ptr as *const ItemState
-        };
-        if state_ptr.is_null() {
-            None
-        } else {
-            let state = Arc::from_raw(state_ptr);
-            let res = state.clone();
-            let _ = ManuallyDrop::new(state);
-            Some(res)
-        }
-    }
-}
-
-extern "C" fn writable_types_for_item_provider(this: &Object, _sel: Sel) -> id {
-    if let Some(state) = item_state(this) {
-        state.writable_types()
-    } else {
-        nil
-    }
-}
-
-extern "C" fn writable_types_for_item_provider_(_this: &Class, _sel: Sel) -> id {
-    // Class method - we're not interested in this
-    unsafe { NSArray::arrayWithObjects(nil, &[]) }
-}
-
+#[derive(Clone)]
 struct Movable<T>(T);
 
 unsafe impl<T> Send for Movable<T> {}
 
-extern "C" fn load_data_with_type_identifier(
-    this: &Object,
-    _sel: Sel,
-    identifier: id,
-    handler: id,
-) -> id {
-    if let Some(state) = item_state(this) {
-        let handler = unsafe { &mut *(handler as *mut Block<(id, id), ()>) };
-        let handler = unsafe { RcBlock::copy(handler as *mut _) };
-        state.data_for_type(identifier, handler)
-    } else {
-        nil
-    }
-}
-
-extern "C" fn dispose_state(this: &mut Object, _sel: Sel) {
-    unsafe {
-        let state_ptr = {
-            let state_ptr: *mut c_void = *this.get_ivar("imState");
-            state_ptr as *const ItemState
+fn register_data_representation<F>(item_provider: id, type_identifier: &str, handler: F)
+where
+    F: Fn(Box<dyn Fn(id, id) + 'static + Send>) -> id + 'static + Send,
+{
+    let handler = Box::new(handler);
+    let block = ConcreteBlock::new(move |completion_block: id| -> id {
+        let completion_block = unsafe { &mut *(completion_block as *mut Block<(id, id), ()>) };
+        let completion_block = unsafe { RcBlock::copy(completion_block) };
+        let completion_block = Movable(completion_block);
+        let completion_fn = move |data: id, err: id| {
+            let completion_block = completion_block.clone();
+            unsafe { completion_block.0.call((data, err)) };
         };
-        if !state_ptr.is_null() {
-            Arc::from_raw(state_ptr);
-            this.set_ivar("imState", std::ptr::null_mut() as *mut c_void);
-        }
-    }
-}
-
-extern "C" fn dealloc(this: &Object, _sel: Sel) {
+        handler(Box::new(completion_fn))
+    });
+    let block = block.copy();
+    let type_identifier = to_nsstring(type_identifier);
     unsafe {
-        let _: () = msg_send![this, disposeState];
-
-        let superclass = superclass(this);
-        let () = msg_send![super(this, superclass), dealloc];
+        let () = msg_send![item_provider,
+            registerDataRepresentationForTypeIdentifier:*type_identifier
+            visibility: 0 as NSUInteger // all
+            loadHandler: &*block];
     }
 }
 
-static PASTEBOARD_WRITER_CLASS: Lazy<&'static Class> = Lazy::new(|| unsafe {
-    let superclass = class!(NSObject);
-    let mut decl = ClassDecl::new("IMItemDataProviderWriter", superclass).unwrap();
-    decl.add_ivar::<*mut c_void>("imState");
-    if let Some(protocol) = Protocol::get("NSItemProviderWriting") {
-        decl.add_protocol(protocol);
+fn value_to_nsdata(value: &Value) -> StrongPtr {
+    let buf = value.coerce_to_data(StringFormat::Utf8);
+    match buf {
+        Some(data) => to_nsdata(&data),
+        None => unsafe { StrongPtr::new(std::ptr::null_mut()) },
     }
-    decl.add_method(
-        sel!(disposeState),
-        dispose_state as extern "C" fn(&mut Object, Sel),
-    );
-    decl.add_method(sel!(dealloc), dealloc as extern "C" fn(&Object, Sel));
-    decl.add_class_method(
-        sel!(writable_types_for_item_provider),
-        writable_types_for_item_provider_ as extern "C" fn(&Class, Sel) -> id,
-    );
-    decl.add_method(
-        sel!(writableTypeIdentifiersForItemProvider),
-        writable_types_for_item_provider as extern "C" fn(&Object, Sel) -> id,
-    );
-    decl.add_method(
-        sel!(loadDataWithTypeIdentifier:forItemProviderCompletionHandler:),
-        load_data_with_type_identifier as extern "C" fn(&Object, Sel, id, id) -> id,
-    );
+}
 
-    decl.register()
-});
-
-pub unsafe fn superclass(this: &Object) -> &Class {
-    let superclass: id = msg_send![this, superclass];
-    &*(superclass as *const _)
+fn value_promise_res_to_nsdata(value: &ValuePromiseResult) -> StrongPtr {
+    match value {
+        ValuePromiseResult::Ok { value } => value_to_nsdata(value),
+        ValuePromiseResult::Cancelled => unsafe { StrongPtr::new(std::ptr::null_mut()) },
+    }
 }
 
 pub fn to_nsdata(data: &[u8]) -> StrongPtr {
@@ -371,5 +214,136 @@ pub fn to_nsdata(data: &[u8]) -> StrongPtr {
         let d: id = msg_send![class!(NSData), alloc];
         let d: id = msg_send![d, initWithBytes:data.as_ptr() length:data.len()];
         StrongPtr::new(d)
+    }
+}
+
+pub trait SessionDelegate {
+    fn should_fetch_items(&self) -> bool;
+}
+
+struct SessionInner {
+    state: Arc<Mutex<State>>,
+    _drop_notifier: Arc<DropNotifier>,
+    sender: RunLoopSender,
+    platform_source: Mutex<Capsule<Weak<PlatformDataSource>>>,
+    delegate: Mutex<Capsule<Weak<dyn SessionDelegate>>>,
+}
+
+impl SessionInner {
+    fn fetch_value(
+        &self,
+        id: LazyValueId,
+        format: String,
+        callback: Box<dyn Fn(id, id) + Send>,
+    ) -> id {
+        let platform_source = self.platform_source.lock().unwrap().clone();
+        let session_delegate = self.delegate.lock().unwrap().clone();
+        self.sender.send(move || {
+            if let Some(session_delegate) =
+                session_delegate.get_ref().ok().and_then(|s| s.upgrade())
+            {
+                // For some reason iOS seems to eagerly fetch items immediatelly
+                // at the beginning of drag (before even  dragInteraction:sessionWillBegin:).
+                // If we detect that return empty data.
+                if !session_delegate.should_fetch_items() {
+                    callback(nil, nil);
+                    return;
+                }
+            }
+            println!("Fetch data!!!");
+            if let Some(source) = platform_source.get_ref().ok().and_then(|c| c.upgrade()) {
+                if let Some(delegate) = source.delegate.upgrade() {
+                    Context::get().run_loop().spawn(async move {
+                        let data = delegate
+                            .get_lazy_data_async(source.isolate_id, id, format)
+                            .await;
+                        callback(*value_promise_res_to_nsdata(&data), nil);
+                    });
+                } else {
+                    callback(nil, nil);
+                }
+            }
+        });
+        nil // NSProgress
+    }
+
+    fn value_for_index(
+        self: &Arc<Self>,
+        index: usize,
+        format: &String,
+        callback: Box<dyn Fn(id, id) + Send>,
+    ) -> id {
+        let state = self.state.lock().unwrap();
+        let item = &state.source.items[index];
+        for representation in &item.representations {
+            match representation {
+                DataSourceItemRepresentation::Simple { formats, data } => {
+                    if formats.contains(format) {
+                        let data = value_to_nsdata(data);
+                        callback(*data, nil);
+                        return nil;
+                    }
+                }
+                DataSourceItemRepresentation::Lazy { formats, id } => {
+                    if formats.contains(format) {
+                        let precached = state.precached_values.get(&(*id, format.clone()));
+                        match precached {
+                            Some(value) => {
+                                let data = value_promise_res_to_nsdata(value);
+                                callback(*data, nil);
+                                return nil;
+                            }
+                            None => return self.fetch_value(*id, format.clone(), callback),
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+        callback(nil, nil);
+        nil // NSProgress
+    }
+}
+
+pub struct Session {
+    inner: Mutex<Option<Arc<SessionInner>>>,
+}
+
+impl Session {
+    fn new(
+        state: Arc<Mutex<State>>,
+        drop_notifier: Arc<DropNotifier>,
+        platform_source: Weak<PlatformDataSource>,
+        delegate: Weak<dyn SessionDelegate>,
+    ) -> Arc<Self> {
+        Arc::new(Self {
+            inner: Mutex::new(Some(Arc::new(SessionInner {
+                state,
+                _drop_notifier: drop_notifier,
+                sender: Context::get().run_loop().new_sender(),
+                platform_source: Mutex::new(Capsule::new(platform_source)),
+                delegate: Mutex::new(Capsule::new(delegate)),
+            }))),
+        })
+    }
+
+    fn value_for_index(
+        self: &Arc<Self>,
+        index: usize,
+        format: &String,
+        callback: Box<dyn Fn(id, id) + Send>,
+    ) -> id {
+        let inner = self.inner.lock().unwrap();
+        match &*inner {
+            Some(inner) => inner.value_for_index(index, format, callback),
+            None => {
+                callback(nil, nil);
+                nil
+            }
+        }
+    }
+
+    pub fn dispose(self: &Arc<Self>) {
+        self.inner.lock().unwrap().take();
     }
 }
