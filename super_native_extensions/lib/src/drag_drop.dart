@@ -47,9 +47,9 @@ class RawDragDropContext {
       print('ARG ${call.arguments}');
       final data = DataSource([
         DataSourceItem([
-          DataSourceItemRepresentation.simple(
-              formats: ['public.file-url'],
-              data: utf8.encode('file:///tmp/test.txt')),
+          DataSourceItemRepresentation.lazy(
+              formats: ['public.url'],
+              dataProvider: (_) => utf8.encode('https://airflow.app')),
         ]),
       ]);
       // final writer = await RawClipboardWriter.withData(data);

@@ -1,8 +1,9 @@
 use std::{
-    cell::RefCell,
+    cell::{Cell, RefCell},
     mem::ManuallyDrop,
     os::raw::c_void,
     rc::{Rc, Weak},
+    sync::Arc,
 };
 
 use cocoa::{
@@ -25,16 +26,19 @@ use crate::{
     api_model::Point,
     drag_drop_manager::{DragRequest, PendingWriterState, PlatformDragContextDelegate},
     error::{NativeExtensionsError, NativeExtensionsResult},
+    platform_impl::platform::util::from_nsstring,
 };
 
-use super::{superclass, util::to_nsstring, PlatformDataSource};
+use super::{util::to_nsstring, PlatformDataSource, Session, SessionDelegate};
 
 pub struct PlatformDragContext {
     id: i64,
+    weak_self: Late<Weak<Self>>,
     view: StrongPtr,
     delegate: Weak<dyn PlatformDragContextDelegate>,
     platform_delegate: Late<StrongPtr>,
-    current_items: RefCell<Vec<StrongPtr>>,
+    session: RefCell<Option<Arc<Session>>>,
+    in_progress: Cell<bool>,
 }
 
 impl PlatformDragContext {
@@ -42,14 +46,17 @@ impl PlatformDragContext {
         println!("VIEW {:?}", view_handle);
         Self {
             id,
+            weak_self: Late::new(),
             view: unsafe { StrongPtr::retain(view_handle as *mut _) },
             delegate,
             platform_delegate: Late::new(),
-            current_items: RefCell::new(Vec::new()),
+            session: RefCell::new(None),
+            in_progress: Cell::new(false),
         }
     }
 
     pub fn assign_weak_self(&self, weak_self: Weak<Self>) -> NativeExtensionsResult<()> {
+        self.weak_self.set(weak_self.clone());
         autoreleasepool(|| unsafe {
             let delegate: id = msg_send![*DELEGATE_CLASS, alloc];
             let delegate: id = msg_send![delegate, init];
@@ -78,8 +85,11 @@ impl PlatformDragContext {
 
     fn items_for_beginning(&self, interaction: id, session: id) -> id {
         if let Some(delegate) = self.delegate.upgrade() {
+            self.in_progress.replace(false);
             let items = delegate.writer_for_drag_request(self.id, Point { x: 10.0, y: 10.0 });
-            self.current_items.borrow_mut().clear();
+            if let Some(previous) = self.session.take() {
+                previous.dispose();
+            }
             loop {
                 {
                     let items = items.borrow();
@@ -88,23 +98,19 @@ impl PlatformDragContext {
                             source,
                             drop_notifier,
                         } => unsafe {
-                            let items = source.create_items(drop_notifier.clone());
+                            let (items, session) =
+                                source.create_items(drop_notifier.clone(), self.weak_self.clone());
                             println!("Items {:?}", items.len());
                             let mut dragging_items = Vec::<id>::new();
                             for item in items {
-                                self.current_items
-                                    .borrow_mut()
-                                    .push(StrongPtr::retain(item));
-                                let item_provider: id = msg_send![class!(NSItemProvider), alloc];
-                                let item_provider: id =
-                                    msg_send![item_provider, initWithObject: item];
-                                let item_provider: id = msg_send![item_provider, autorelease];
+                                let item_provider = item;
                                 let drag_item: id = msg_send![class!(UIDragItem), alloc];
                                 let drag_item: id =
                                     msg_send![drag_item, initWithItemProvider: item_provider];
                                 let drag_item: id = msg_send![drag_item, autorelease];
                                 dragging_items.push(drag_item);
                             }
+                            self.session.replace(Some(session));
 
                             return NSArray::arrayWithObjects(nil, &dragging_items);
                         },
@@ -120,16 +126,39 @@ impl PlatformDragContext {
         }
     }
 
+    fn drag_will_begin(&self, interaction: id, session: id) {
+        self.in_progress.replace(true);
+    }
+
     fn did_end_with_operation(&self, interaction: id, session: id, operation: UIDropOperation) {
         {
-            let mut items = self.current_items.borrow_mut();
-            for item in items.iter() {
-                let _: () = unsafe { msg_send![**item, disposeState] };
+            // let mut items = self.current_items.borrow_mut();
+            // for item in items.iter() {
+            //     unsafe {
+            //         let identifiers: id = msg_send![**item, registeredTypeIdentifiers];
+            //         for i in 0..NSArray::count(identifiers) {
+            //             let identifier = NSArray::objectAtIndex(identifiers, i);
+            //             println!("DISPOSING {:?}", from_nsstring(identifier));
+            //             let () = msg_send![**item, registerItemForTypeIdentifier: identifier
+            //                              loadHandler: nil];
+            //         }
+            //     }
+            //     let () = { unsafe { msg_send![**item, release] } };
+            //     // let _: () = unsafe { msg_send![**item, disposeState] };
+            // }
+            // items.clear();
+            if let Some(session) = self.session.take() {
+                session.dispose();
             }
-            items.clear();
         }
 
         println!("Did end with operation {:?}", operation);
+    }
+}
+
+impl SessionDelegate for PlatformDragContext {
+    fn should_fetch_items(&self) -> bool {
+        self.in_progress.get()
     }
 }
 
@@ -165,6 +194,11 @@ extern "C" fn dealloc(this: &Object, _sel: Sel) {
     }
 }
 
+pub unsafe fn superclass(this: &Object) -> &Class {
+    let superclass: id = msg_send![this, superclass];
+    &*(superclass as *const _)
+}
+
 extern "C" fn items_for_beginning(
     this: &mut Object,
     _sel: Sel,
@@ -175,6 +209,14 @@ extern "C" fn items_for_beginning(
         this,
         |state| state.items_for_beginning(interaction, session),
         || nil,
+    )
+}
+
+extern "C" fn drag_will_begin(this: &mut Object, _sel: Sel, interaction: id, session: id) {
+    with_state(
+        this,
+        |state| state.drag_will_begin(interaction, session),
+        || (),
     )
 }
 
@@ -203,6 +245,10 @@ static DELEGATE_CLASS: Lazy<&'static Class> = Lazy::new(|| unsafe {
     decl.add_method(
         sel!(dragInteraction:itemsForBeginningSession:),
         items_for_beginning as extern "C" fn(&mut Object, Sel, id, id) -> id,
+    );
+    decl.add_method(
+        sel!(dragInteraction:sessionWillBegin:),
+        drag_will_begin as extern "C" fn(&mut Object, Sel, id, id),
     );
     decl.add_method(
         sel!(dragInteraction:session:didEndWithOperation:),

@@ -43,11 +43,11 @@ impl ClipboardWriter {
             .get_platform_data_source(source_id)?;
         let weak_self = self.weak_self.clone();
         source
-            .write_to_clipboard(Arc::new(DropNotifier::new(move || {
+            .write_to_clipboard(DropNotifier::new(move || {
                 if let Some(this) = weak_self.upgrade() {
                     this.on_dropped(isolate_id, source_id);
                 }
-            })))
+            }))
             .await?;
         Ok(())
     }

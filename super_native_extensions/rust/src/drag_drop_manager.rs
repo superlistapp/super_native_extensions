@@ -209,11 +209,11 @@ impl PlatformDragContextDelegate for DragDropManager {
                     });
                 match data_source {
                     Some((data_source_id, data_source)) => {
-                        let notifier = Arc::new(DropNotifier::new(move || {
+                        let notifier = DropNotifier::new(move || {
                             if let Some(this) = weak_self.upgrade() {
                                 this.on_dropped(id, data_source_id);
                             }
-                        }));
+                        });
                         res_clone.replace(PendingWriterState::Ok {
                             source: data_source,
                             drop_notifier: notifier,
