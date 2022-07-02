@@ -1,7 +1,4 @@
-use std::{
-    rc::{Rc, Weak},
-    sync::Arc,
-};
+use std::rc::{Rc, Weak};
 
 use async_trait::async_trait;
 use nativeshell_core::{

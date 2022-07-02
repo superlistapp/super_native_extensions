@@ -27,15 +27,18 @@ class DataSource {
 
 /// Single item of data source. Item can have multiple representation;
 class DataSourceItem {
-  DataSourceItem(
-    this.representations,
-  );
+  DataSourceItem({
+    required this.representations,
+    this.suggestedName,
+  });
 
   dynamic serialize() => {
         'representations': representations.map((e) => e.serialize()),
+        'suggestedName': suggestedName,
       };
 
   final List<DataSourceItemRepresentation> representations;
+  final String? suggestedName;
 }
 
 @sealed
@@ -57,6 +60,16 @@ abstract class DataSourceItemRepresentation {
         formats: formats,
         dataProvider: dataProvider,
       );
+
+  static DataSourceItemRepresentationVirtualFile virtualFile({
+    required String format,
+    required VirtualFileProvider virtualFileProvider,
+    int? fileSize,
+  }) =>
+      DataSourceItemRepresentationVirtualFile._(
+          format: format,
+          fileSize: fileSize,
+          virtualFileProvider: virtualFileProvider);
 
   dynamic serialize();
 }
@@ -98,6 +111,45 @@ class DataSourceItemRepresentationLazy extends DataSourceItemRepresentation {
   final int id;
   final List<String> formats;
   final FutureOr<Object> Function(String format) dataProvider;
+}
+
+class Progress {
+  Progress(this.onCancel, ValueNotifier<double> onProgress)
+      : _onProgress = onProgress;
+
+  void updateProgress(double progress) {
+    _onProgress.value = progress;
+  }
+
+  final Listenable onCancel;
+  final ValueNotifier<double> _onProgress;
+}
+
+typedef ErrorCallback = void Function(String);
+
+typedef VirtualFileProvider = void Function(String targetPath,
+    Progress progress, VoidCallback onComplete, ErrorCallback onError);
+
+class DataSourceItemRepresentationVirtualFile
+    extends DataSourceItemRepresentation {
+  DataSourceItemRepresentationVirtualFile._({
+    required this.format,
+    required this.fileSize,
+    required this.virtualFileProvider,
+  }) : id = _nextId++;
+
+  @override
+  serialize() => {
+        'type': 'virtualFile',
+        'id': id,
+        'format': format,
+        'fileSize': fileSize,
+      };
+
+  final int id;
+  final String format;
+  final int? fileSize;
+  final VirtualFileProvider virtualFileProvider;
 }
 
 class DataSourceHandle {
@@ -145,6 +197,8 @@ class _DataSourceManager {
       for (final data in item.representations) {
         if (data is DataSourceItemRepresentationLazy) {
           _lazyData[data.id] = data;
+        } else if (data is DataSourceItemRepresentationVirtualFile) {
+          _virtualFile[data.id] = data;
         }
       }
     }
@@ -159,23 +213,80 @@ class _DataSourceManager {
         for (final data in item.representations) {
           if (data is DataSourceItemRepresentationLazy) {
             _lazyData.remove(data.id);
+          } else if (data is DataSourceItemRepresentationVirtualFile) {
+            _virtualFile.remove(data.id);
           }
         }
       }
     }
   }
 
+  Future<dynamic> getVirtualFile({
+    required int sessionId,
+    required int virtualFileId,
+    required String targetPath,
+  }) async {
+    final progressNotifier = ValueNotifier<double>(0.0);
+    progressNotifier.addListener(() {
+      _channel.invokeMethod('virtualFileUpdateProgress', {
+        'sessionId': sessionId,
+        'progress': progressNotifier.value,
+      });
+    });
+    final progress = Progress(_SimpleNotifier(), progressNotifier);
+    _progressMap[sessionId] = progress;
+
+    void onComplete() {
+      _channel.invokeMethod('virtualFileComplete', {
+        'sessionId': sessionId,
+      });
+      _progressMap.remove(sessionId);
+    }
+
+    void onError(String errorMessage) {
+      _channel.invokeMethod('virtualFileError', {
+        'sessionId': sessionId,
+        'errorMessage': errorMessage,
+      });
+      _progressMap.remove(sessionId);
+    }
+
+    final virtualFile = _virtualFile[virtualFileId];
+    if (virtualFile != null) {
+      virtualFile.virtualFileProvider(
+          targetPath, progress, onComplete, onError);
+    } else {
+      onError('Virtual file not found');
+    }
+    return null;
+  }
+
   Future<dynamic> _onMethodCall(MethodCall call) async {
     if (call.method == 'getLazyData') {
       final args = call.arguments as Map;
-      final id = args["id"] as int;
+      final valueId = args["value_id"] as int;
       final format = args["format"] as String;
-      final lazyData = _lazyData[id];
+      final lazyData = _lazyData[valueId];
       if (lazyData != null) {
         return _ValuePromiseResult.ok(await lazyData.dataProvider(format))
             .serialize();
       } else {
         return _ValuePromiseResult.cancelled().serialize();
+      }
+    } else if (call.method == 'getVirtualFile') {
+      final args = call.arguments;
+      final sessionId = args['sessionId'] as int;
+      final virtualFileId = args['virtualFileId'] as int;
+      final targetPath = args['targetPath'] as String;
+      return getVirtualFile(
+          sessionId: sessionId,
+          virtualFileId: virtualFileId,
+          targetPath: targetPath);
+    } else if (call.method == 'cancelVirtualFile') {
+      final sessionId = call.arguments as int;
+      final progress = _progressMap.remove(sessionId);
+      if (progress != null) {
+        (progress.onCancel as _SimpleNotifier).notify();
       }
     }
   }
@@ -187,6 +298,8 @@ class _DataSourceManager {
 
   final _handles = <int, DataSourceHandle>{};
   final _lazyData = <int, DataSourceItemRepresentationLazy>{};
+  final _virtualFile = <int, DataSourceItemRepresentationVirtualFile>{};
+  final _progressMap = <int, Progress>{};
 }
 
 abstract class _ValuePromiseResult {

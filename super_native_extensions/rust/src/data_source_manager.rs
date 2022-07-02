@@ -8,13 +8,15 @@ use std::{
 use async_trait::async_trait;
 use nativeshell_core::{
     util::Late, AsyncMethodHandler, AsyncMethodInvoker, Context, IntoPlatformResult, IntoValue,
-    IsolateId, MethodCall, PlatformError, PlatformResult, RegisteredAsyncMethodHandler, Value,
+    IsolateId, MethodCall, PlatformError, PlatformResult, RegisteredAsyncMethodHandler,
+    TryFromValue, Value,
 };
 
 use crate::{
-    api_model::{DataSource, DataSourceId, LazyValueId},
+    api_model::{DataSource, DataSourceId, DataSourceValueId},
     error::{NativeExtensionsError, NativeExtensionsResult},
     platform_impl::platform::PlatformDataSource,
+    util::DropNotifier,
     value_promise::{ValuePromise, ValuePromiseResult},
 };
 
@@ -23,7 +25,7 @@ pub trait PlatformDataSourceDelegate {
     fn get_lazy_data(
         &self,
         isolate_id: IsolateId,
-        data_id: LazyValueId,
+        data_id: DataSourceValueId,
         format: String,
         on_done: Option<Box<dyn FnOnce()>>,
     ) -> Arc<ValuePromise>;
@@ -31,9 +33,34 @@ pub trait PlatformDataSourceDelegate {
     async fn get_lazy_data_async(
         &self,
         isolate_id: IsolateId,
-        data_id: LazyValueId,
+        data_id: DataSourceValueId,
         format: String,
     ) -> ValuePromiseResult;
+
+    fn get_virtual_file(
+        &self,
+        isolate_id: IsolateId,
+        virtual_file_id: DataSourceValueId,
+        target_path: String,
+        on_progress: Box<dyn Fn(f64 /* 0.0-1.0 */)>,
+        on_done: Box<dyn FnOnce()>,
+        on_error: Box<dyn FnOnce(String)>,
+    ) -> Arc<DropNotifier>;
+}
+
+struct VirtualFileSession {
+    on_progress: Box<dyn Fn(f64 /* 0.0-1.0 */)>,
+    on_done: Box<dyn FnOnce()>,
+    on_error: Box<dyn FnOnce(String)>,
+}
+
+#[derive(Debug, TryFromValue, IntoValue, Clone, Copy, PartialEq, Hash, Eq)]
+struct VirtualSessionId(i64);
+
+impl From<i64> for VirtualSessionId {
+    fn from(value: i64) -> Self {
+        Self(value)
+    }
 }
 
 pub struct DataSourceManager {
@@ -41,6 +68,7 @@ pub struct DataSourceManager {
     invoker: Late<AsyncMethodInvoker>,
     next_id: Cell<i64>,
     sources: RefCell<HashMap<DataSourceId, DataSourceEntry>>,
+    virtual_sessions: RefCell<HashMap<VirtualSessionId, VirtualFileSession>>,
 }
 
 struct DataSourceEntry {
@@ -65,6 +93,7 @@ impl DataSourceManager {
             invoker: Late::new(),
             next_id: Cell::new(1),
             sources: RefCell::new(HashMap::new()),
+            virtual_sessions: RefCell::new(HashMap::new()),
         }
         .register("DataSourceManager")
     }
@@ -80,21 +109,26 @@ impl DataSourceManager {
             .ok_or_else(|| NativeExtensionsError::DataSourceNotFound)
     }
 
+    fn next_id(&self) -> i64 {
+        let id = self.next_id.get();
+        self.next_id.replace(id + 1);
+        id
+    }
+
     fn register_source(
         &self,
         source: DataSource,
         isolate_id: IsolateId,
-    ) -> NativeExtensionsResult<i64> {
-        let id = self.next_id.get();
-        self.next_id.replace(id + 1);
+    ) -> NativeExtensionsResult<DataSourceId> {
         let platform_data_source = Rc::new(PlatformDataSource::new(
             self.weak_self.clone(),
             isolate_id,
             source,
         ));
+        let id = self.next_id().into();
         platform_data_source.assign_weak_self(Rc::downgrade(&platform_data_source));
         self.sources.borrow_mut().insert(
-            id.into(),
+            id,
             DataSourceEntry {
                 isolate_id,
                 platform_data_source,
@@ -107,6 +141,58 @@ impl DataSourceManager {
         self.sources.borrow_mut().remove(&source);
         Ok(())
     }
+
+    fn virtual_file_update_progress(
+        &self,
+        progress: VirtualFileUpdateProgress,
+    ) -> NativeExtensionsResult<()> {
+        let sessions = self.virtual_sessions.borrow();
+        let session = sessions
+            .get(&&progress.session_id)
+            .ok_or_else(|| NativeExtensionsError::VirtualFileSessionNotFound)?;
+        (session.on_progress)(progress.progress);
+        Ok(())
+    }
+
+    fn virtual_file_complete(&self, complete: VirtualFileComplete) -> NativeExtensionsResult<()> {
+        let session = self
+            .virtual_sessions
+            .borrow_mut()
+            .remove(&complete.session_id)
+            .ok_or_else(|| NativeExtensionsError::VirtualFileSessionNotFound)?;
+        (session.on_done)();
+        Ok(())
+    }
+
+    fn virtual_file_error(&self, error: VirtualFileError) -> NativeExtensionsResult<()> {
+        let session = self
+            .virtual_sessions
+            .borrow_mut()
+            .remove(&error.session_id)
+            .ok_or_else(|| NativeExtensionsError::VirtualFileSessionNotFound)?;
+        (session.on_error)(error.error_message);
+        Ok(())
+    }
+}
+
+#[derive(Debug, TryFromValue)]
+#[nativeshell(rename_all = "camelCase")]
+struct VirtualFileUpdateProgress {
+    session_id: VirtualSessionId,
+    progress: f64,
+}
+
+#[derive(Debug, TryFromValue)]
+#[nativeshell(rename_all = "camelCase")]
+struct VirtualFileComplete {
+    session_id: VirtualSessionId,
+}
+
+#[derive(Debug, TryFromValue)]
+#[nativeshell(rename_all = "camelCase")]
+struct VirtualFileError {
+    session_id: VirtualSessionId,
+    error_message: String,
 }
 
 #[async_trait(?Send)]
@@ -118,6 +204,15 @@ impl AsyncMethodHandler for DataSourceManager {
                 .into_platform_result(),
             "unregisterDataSource" => self
                 .unregister_source(call.args.try_into()?)
+                .into_platform_result(),
+            "virtualFileUpdateProgress" => self
+                .virtual_file_update_progress(call.args.try_into()?)
+                .into_platform_result(),
+            "virtualFileComplete" => self
+                .virtual_file_complete(call.args.try_into()?)
+                .into_platform_result(),
+            "virtualFileError" => self
+                .virtual_file_error(call.args.try_into()?)
                 .into_platform_result(),
             _ => Err(PlatformError {
                 code: "invalid_method".into(),
@@ -159,7 +254,7 @@ impl PlatformDataSourceDelegate for DataSourceManager {
     fn get_lazy_data(
         &self,
         isolate_id: IsolateId,
-        data_id: LazyValueId,
+        data_id: DataSourceValueId,
         format: String,
         on_done: Option<Box<dyn FnOnce()>>,
     ) -> Arc<ValuePromise> {
@@ -184,13 +279,13 @@ impl PlatformDataSourceDelegate for DataSourceManager {
     async fn get_lazy_data_async(
         &self,
         isolate_id: IsolateId,
-        data_id: LazyValueId,
+        data_id: DataSourceValueId,
         format: String,
     ) -> ValuePromiseResult {
         #[derive(IntoValue)]
         #[nativeshell(rename_all = "camelCase")]
         struct LazyDataRequest {
-            id: LazyValueId,
+            value_id: DataSourceValueId,
             format: String,
         }
 
@@ -200,7 +295,7 @@ impl PlatformDataSourceDelegate for DataSourceManager {
                 isolate_id,
                 "getLazyData",
                 LazyDataRequest {
-                    id: data_id,
+                    value_id: data_id,
                     format,
                 },
             )
@@ -209,5 +304,50 @@ impl PlatformDataSourceDelegate for DataSourceManager {
             Ok(res) => res,
             Err(_) => ValuePromiseResult::Cancelled,
         }
+    }
+
+    fn get_virtual_file(
+        &self,
+        isolate_id: IsolateId,
+        virtual_file_id: DataSourceValueId,
+        target_path: String,
+        on_progress: Box<dyn Fn(f64 /* 0.0-1.0 */)>,
+        on_done: Box<dyn FnOnce()>,
+        on_error: Box<dyn FnOnce(String)>,
+    ) -> Arc<DropNotifier> {
+        let weak_self = self.weak_self.clone();
+        let session_id: VirtualSessionId = self.next_id().into();
+        let sesion = VirtualFileSession {
+            on_progress,
+            on_done,
+            on_error,
+        };
+        self.virtual_sessions
+            .borrow_mut()
+            .insert(session_id, sesion);
+        #[derive(IntoValue)]
+        #[nativeshell(rename_all = "camelCase")]
+        struct VirtualFileRequest {
+            session_id: VirtualSessionId,
+            virtual_file_id: DataSourceValueId,
+            target_path: String,
+        }
+        self.invoker.call_method_sync(
+            isolate_id,
+            "getVirtualFile",
+            VirtualFileRequest {
+                session_id,
+                virtual_file_id,
+                target_path,
+            },
+            |_| {},
+        );
+        DropNotifier::new(move || {
+            if let Some(this) = weak_self.upgrade() {
+                this.virtual_sessions.borrow_mut().remove(&session_id);
+                this.invoker
+                    .call_method_sync(isolate_id, "cancelVirtualFile", session_id, |_| {});
+            }
+        })
     }
 }

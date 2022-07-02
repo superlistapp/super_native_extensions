@@ -10,6 +10,7 @@ pub enum NativeExtensionsError {
     ReaderNotFound,
     PlatformContextNotFound,
     UnsupportedOperation,
+    VirtualFileSessionNotFound,
 }
 
 pub type NativeExtensionsResult<T> = Result<T, NativeExtensionsError>;
@@ -27,6 +28,9 @@ impl Display for NativeExtensionsError {
                 write!(f, "platform drag drop context not found")
             }
             NativeExtensionsError::UnsupportedOperation => write!(f, "unsupported operation"),
+            &NativeExtensionsError::VirtualFileSessionNotFound => {
+                write!(f, "virtual session not found")
+            }
         }
     }
 }

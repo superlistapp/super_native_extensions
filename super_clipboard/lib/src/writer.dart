@@ -33,7 +33,7 @@ class ClipboardWriter {
 
   void nextItem() {
     _actions.add(() {
-      _items.add(DataSourceItem(_currentItemData));
+      _items.add(DataSourceItem(representations: _currentItemData));
       _currentItemData = [];
     });
   }
@@ -52,7 +52,7 @@ class ClipboardWriter {
       await action();
     }
     if (_currentItemData.isNotEmpty) {
-      _items.add(DataSourceItem(_currentItemData));
+      _items.add(DataSourceItem(representations: _currentItemData));
     }
     return DataSource(_items);
   }

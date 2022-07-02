@@ -46,7 +46,7 @@ class RawDragDropContext {
     if (call.method == 'dataSourceForDragRequest') {
       print('ARG ${call.arguments}');
       final data = DataSource([
-        DataSourceItem([
+        DataSourceItem(representations: [
           DataSourceItemRepresentation.lazy(
               formats: ['public.url'],
               dataProvider: (_) => utf8.encode('https://airflow.app')),

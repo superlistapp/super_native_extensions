@@ -20,7 +20,7 @@ use objc::{
 };
 
 use crate::{
-    api_model::{DataSource, DataSourceItemRepresentation, LazyValueId},
+    api_model::{DataSource, DataSourceItemRepresentation, DataSourceValueId},
     data_source_manager::PlatformDataSourceDelegate,
     error::NativeExtensionsResult,
     util::DropNotifier,
@@ -32,7 +32,7 @@ use super::util::to_nsstring;
 
 struct State {
     source: DataSource,
-    precached_values: HashMap<(LazyValueId, String), ValuePromiseResult>,
+    precached_values: HashMap<(DataSourceValueId, String), ValuePromiseResult>,
 }
 
 pub struct PlatformDataSource {
@@ -81,7 +81,10 @@ impl PlatformDataSource {
             unsafe {
                 let item_provider: id = msg_send![class!(NSItemProvider), new];
                 let item_provider: id = msg_send![item_provider, autorelease];
-
+                if let Some(name) = &item.suggested_name {
+                    let name = to_nsstring(name);
+                    let () = msg_send![item_provider, setSuggestedName:*name];
+                }
                 for representation in &item.representations {
                     let formats = match representation {
                         DataSourceItemRepresentation::Simple { formats, data: _ } => Some(formats),
@@ -127,7 +130,7 @@ impl PlatformDataSource {
     async fn precache(&self) {
         let to_fetch = {
             let state = self.state.lock().unwrap();
-            let mut items = Vec::<(LazyValueId, String)>::new();
+            let mut items = Vec::<(DataSourceValueId, String)>::new();
             for item in &state.source.items {
                 for data in &item.representations {
                     match data {
@@ -232,7 +235,7 @@ struct SessionInner {
 impl SessionInner {
     fn fetch_value(
         &self,
-        id: LazyValueId,
+        id: DataSourceValueId,
         format: String,
         callback: Box<dyn Fn(id, id) + Send>,
     ) -> id {

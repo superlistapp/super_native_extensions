@@ -14,19 +14,21 @@ impl DropNotifier {
             sender: Context::get().run_loop().new_sender(),
         })
     }
+
+    fn dispose(&self) {
+        let callback = self.callback.lock().unwrap().take();
+
+        if let Some(mut callback) = callback {
+            self.sender.send(move || {
+                let callback = callback.take().unwrap();
+                callback();
+            });
+        }
+    }
 }
 
 impl Drop for DropNotifier {
     fn drop(&mut self) {
-        let mut callback = self
-            .callback
-            .lock()
-            .unwrap()
-            .take()
-            .expect("callback already called");
-        self.sender.send(move || {
-            let callback = callback.take().unwrap();
-            callback();
-        });
+        self.dispose();
     }
 }
