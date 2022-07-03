@@ -7,8 +7,8 @@ use std::{
 
 use async_trait::async_trait;
 use nativeshell_core::{
-    util::Late, AsyncMethodHandler, AsyncMethodInvoker, Context, IntoPlatformResult, IntoValue,
-    IsolateId, MethodCallError, PlatformResult, RegisteredAsyncMethodHandler, TryFromValue, Value,
+    util::Late, AsyncMethodHandler, AsyncMethodInvoker, Context, IntoPlatformResult, IsolateId,
+    PlatformResult, RegisteredAsyncMethodHandler, TryFromValue, Value, MethodCallError, IntoValue,
 };
 
 use crate::{
@@ -37,22 +37,26 @@ pub trait PlatformDragContextDelegate {
     fn writer_for_drag_request(&self, id: PlatformDragContextId, location: Point) -> WriterResult;
 }
 
-pub struct DragDropManager {
+pub struct DragManager {
     weak_self: Late<Weak<Self>>,
     invoker: Late<AsyncMethodInvoker>,
     contexts: RefCell<HashMap<PlatformDragContextId, Rc<PlatformDragContext>>>,
 }
 
-#[derive(TryFromValue)]
-#[nativeshell(rename_all = "camelCase")]
-struct DragDropInitRequest {
-    view_handle: i64,
+pub trait GetDragManager {
+    fn drag_manager(&self) -> Rc<DragManager>;
+}
+
+impl GetDragManager for Context {
+    fn drag_manager(&self) -> Rc<DragManager> {
+        self.get_attachment(DragManager::new).handler()
+    }
 }
 
 #[derive(TryFromValue)]
 #[nativeshell(rename_all = "camelCase")]
-struct RegisterDropTypesRequest {
-    types: Vec<String>,
+struct DragContextInitRequest {
+    view_handle: i64,
 }
 
 #[derive(TryFromValue)]
@@ -63,30 +67,20 @@ pub struct DragRequest {
     pub image: ImageData,
 }
 
-pub trait GetDragDropManager {
-    fn drag_drop_manager(&self) -> Rc<DragDropManager>;
-}
-
-impl GetDragDropManager for Context {
-    fn drag_drop_manager(&self) -> Rc<DragDropManager> {
-        self.get_attachment(DragDropManager::new).handler()
-    }
-}
-
-impl DragDropManager {
+impl DragManager {
     pub fn new() -> RegisteredAsyncMethodHandler<Self> {
         Self {
             weak_self: Late::new(),
             invoker: Late::new(),
             contexts: RefCell::new(HashMap::new()),
         }
-        .register("DragDropManager")
+        .register("DragManager")
     }
 
     fn new_context(
         &self,
         isolate: IsolateId,
-        request: DragDropInitRequest,
+        request: DragContextInitRequest,
     ) -> NativeExtensionsResult<()> {
         let context = Rc::new(PlatformDragContext::new(
             isolate,
@@ -96,20 +90,6 @@ impl DragDropManager {
         context.assign_weak_self(Rc::downgrade(&context))?;
         self.contexts.borrow_mut().insert(isolate, context);
         Ok(())
-    }
-
-    fn register_drop_types(
-        &self,
-        isolate: IsolateId,
-        request: RegisterDropTypesRequest,
-    ) -> NativeExtensionsResult<()> {
-        let context = self
-            .contexts
-            .borrow()
-            .get(&isolate)
-            .cloned()
-            .ok_or_else(|| NativeExtensionsError::PlatformContextNotFound)?;
-        context.register_drop_types(&request.types)
     }
 
     async fn start_drag(
@@ -136,7 +116,7 @@ impl DragDropManager {
 }
 
 #[async_trait(?Send)]
-impl AsyncMethodHandler for DragDropManager {
+impl AsyncMethodHandler for DragManager {
     fn assign_weak_self(&self, weak_self: Weak<Self>) {
         self.weak_self.set(weak_self);
     }
@@ -151,9 +131,6 @@ impl AsyncMethodHandler for DragDropManager {
                 self.new_context(call.isolate, call.args.try_into()?)?;
                 Ok(Value::Null)
             }
-            "registerDropTypes" => self
-                .register_drop_types(call.isolate, call.args.try_into()?)
-                .into_platform_result(),
             "startDrag" => self
                 .start_drag(call.isolate, call.args.try_into()?)
                 .await
@@ -180,7 +157,7 @@ struct DataSourceResponse {
 }
 
 #[async_trait(?Send)]
-impl PlatformDragContextDelegate for DragDropManager {
+impl PlatformDragContextDelegate for DragManager {
     fn writer_for_drag_request(&self, id: PlatformDragContextId, location: Point) -> WriterResult {
         let res = Rc::new(RefCell::new(PendingWriterState::Pending));
         let res_clone = res.clone();

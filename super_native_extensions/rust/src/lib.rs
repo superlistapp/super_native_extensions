@@ -6,22 +6,23 @@ use std::ffi::c_void;
 use ::log::debug;
 use clipboard_writer::GetClipboardWriter;
 use data_source_manager::GetDataSourceManager;
-use drag_drop_manager::GetDragDropManager;
+use drag_manager::GetDragManager;
+use drop_manager::GetDropManager;
+
 use nativeshell_core::{nativeshell_init_message_channel_context, Context, FunctionResult};
 use reader_manager::GetClipboardReaderManager;
-// use writer_manager::GetClipboardWriterManager;
 
 mod api_model;
 mod clipboard_writer;
 mod data_source_manager;
-mod drag_drop_manager;
+mod drag_manager;
+mod drop_manager;
 mod error;
 mod log;
 mod reader_manager;
 mod util;
 mod value_coerce;
 mod value_promise;
-// mod writer_manager;
 
 #[cfg(not(test))]
 #[path = "."]
@@ -68,9 +69,9 @@ impl DataTransferPlugin {
         // eagerly initialize
         context.data_source_manager();
         context.clipboard_writer();
-        // context.clipboard_writer_manager();
         context.clipboard_reader_manager();
-        context.drag_drop_manager();
+        context.drag_manager();
+        context.drop_manager();
         DataTransferPlugin { _context: context }
     }
 }

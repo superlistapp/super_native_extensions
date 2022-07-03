@@ -24,7 +24,7 @@ use once_cell::sync::Lazy;
 
 use crate::{
     api_model::Point,
-    drag_drop_manager::{DragRequest, PendingWriterState, PlatformDragContextDelegate},
+    drag_manager::{DragRequest, PendingWriterState, PlatformDragContextDelegate},
     error::{NativeExtensionsError, NativeExtensionsResult},
 };
 
@@ -42,7 +42,6 @@ pub struct PlatformDragContext {
 
 impl PlatformDragContext {
     pub fn new(id: i64, view_handle: i64, delegate: Weak<dyn PlatformDragContextDelegate>) -> Self {
-        println!("VIEW {:?}", view_handle);
         Self {
             id,
             weak_self: Late::new(),
@@ -67,10 +66,6 @@ impl PlatformDragContext {
             let interaction: id = msg_send![interaction, autorelease];
             let _: () = msg_send![*self.view, addInteraction: interaction];
         });
-        Ok(())
-    }
-
-    pub fn register_drop_types(&self, types: &[String]) -> NativeExtensionsResult<()> {
         Ok(())
     }
 
@@ -236,7 +231,7 @@ extern "C" fn did_transfer_items(this: &mut Object, _sel: Sel, interaction: id, 
 
 static DELEGATE_CLASS: Lazy<&'static Class> = Lazy::new(|| unsafe {
     let superclass = class!(NSObject);
-    let mut decl = ClassDecl::new("SNEDragDropInteractionDelegate", superclass).unwrap();
+    let mut decl = ClassDecl::new("SNEDragInteractionDelegate", superclass).unwrap();
     decl.add_protocol(Protocol::get("UIDragInteractionDelegate").unwrap());
     decl.add_ivar::<*mut c_void>("context");
     decl.add_method(sel!(dealloc), dealloc as extern "C" fn(&Object, Sel));

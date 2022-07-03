@@ -469,9 +469,7 @@ impl SessionInner {
             let progress = StrongPtr::retain(
                 msg_send![class!(NSProgress), progressWithTotalUnitCount: 100 as u64],
             );
-
             self.fetch_virtual_file(id, progress.clone(), callback);
-
             *progress
         }
     }

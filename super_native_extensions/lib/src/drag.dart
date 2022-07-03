@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -6,37 +5,35 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:nativeshell_core/nativeshell_core.dart';
 import 'package:super_native_extensions/raw_clipboard.dart';
+import 'package:super_native_extensions/src/context.dart';
 
-import 'context.dart';
 import 'mutex.dart';
 import 'api_model.dart';
 
-const _flutterChannel = MethodChannel('super_native_extensions');
-
-final _channel = NativeMethodChannel('DragDropManager',
-    context: superNativeExtensionsContext);
-
-abstract class RawDragDropContextDelegate {
+abstract class RawDragContextDelegate {
   Future<DataSourceHandle?> getDataSourceForDragRequest({ui.Offset location});
 }
 
-class RawDragDropContext {
-  RawDragDropContext._();
+final _channel =
+    NativeMethodChannel('DragManager', context: superNativeExtensionsContext);
 
-  static RawDragDropContext? _instance;
+class RawDragContext {
+  RawDragContext._();
+
+  static RawDragContext? _instance;
   static final _mutex = Mutex();
 
   Future<void> _initialize() async {
     WidgetsFlutterBinding.ensureInitialized();
-    final view = await _flutterChannel.invokeMethod('getFlutterView');
+    final view = await getFlutterView();
     _channel.setMethodCallHandler(_handleMethodCall);
     await _channel.invokeMethod("newContext", {'viewHandle': view});
   }
 
-  static Future<RawDragDropContext> instance() {
+  static Future<RawDragContext> instance() {
     return _mutex.protect(() async {
       if (_instance == null) {
-        _instance = RawDragDropContext._();
+        _instance = RawDragContext._();
         await _instance!._initialize();
       }
       return _instance!;
@@ -78,32 +75,32 @@ class RawDragDropContext {
                 }
               }),
         ], suggestedName: 'File1.txt'),
-        DataSourceItem(representations: [
-          DataSourceItemRepresentation.virtualFile(
-              format: 'public.utf8-plain-text',
-              virtualFileProvider: (targetPath, progress, onComplete, onError) {
-                final cancelled = [false];
-                print('Requested file at path 2 $targetPath');
-                progress.onCancel.addListener(() {
-                  print('Cancelled 2');
-                  cancelled[0] = true;
-                });
-                for (var i = 0; i < 10; ++i) {
-                  Future.delayed(Duration(milliseconds: i * 1000), () {
-                    if (cancelled[0]) {
-                      return;
-                    }
-                    progress.updateProgress(i * 10);
-                    if (i == 9) {
-                      print('Done 2');
-                      final file = File(targetPath);
-                      file.writeAsStringSync('Hello world 22');
-                      onComplete();
-                    }
-                  });
-                }
-              }),
-        ], suggestedName: 'File2.txt'),
+        // DataSourceItem(representations: [
+        //   DataSourceItemRepresentation.virtualFile(
+        //       format: 'public.utf8-plain-text',
+        //       virtualFileProvider: (targetPath, progress, onComplete, onError) {
+        //         final cancelled = [false];
+        //         print('Requested file at path 2 $targetPath');
+        //         progress.onCancel.addListener(() {
+        //           print('Cancelled 2');
+        //           cancelled[0] = true;
+        //         });
+        //         for (var i = 0; i < 10; ++i) {
+        //           Future.delayed(Duration(milliseconds: i * 1000), () {
+        //             if (cancelled[0]) {
+        //               return;
+        //             }
+        //             progress.updateProgress(i * 10);
+        //             if (i == 9) {
+        //               print('Done 2');
+        //               final file = File(targetPath);
+        //               file.writeAsStringSync('Hello world 22');
+        //               onComplete();
+        //             }
+        //           });
+        //         }
+        //       }),
+        // ], suggestedName: 'File2.txt'),
       ]);
       // final writer = await RawClipboardWriter.withData(data);
       final handle = await data.register();
@@ -113,10 +110,6 @@ class RawDragDropContext {
     } else {
       return null;
     }
-  }
-
-  Future<void> registerDropTypes(List<String> types) {
-    return _channel.invokeMethod("registerDropTypes", {'types': types});
   }
 
   Future<void> startDrag({

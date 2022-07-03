@@ -13,13 +13,14 @@ class DragException implements Exception {
 }
 
 void main() async {
-  final context = await RawDragDropContext.instance();
-  await context.registerDropTypes([
+  final dropContext = await RawDropContext.instance();
+  await dropContext.registerDropTypes([
     'public.file-url',
     'NSFilenamesPboardType',
     'public.url',
     'Apple URL pasteboard type',
   ]);
+  await RawDragContext.instance();
   runApp(const MyApp());
 }
 
