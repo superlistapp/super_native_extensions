@@ -15,7 +15,7 @@ impl DropNotifier {
         })
     }
 
-    fn dispose(&self) {
+    pub fn dispose(&self) {
         let callback = self.callback.lock().unwrap().take();
 
         if let Some(mut callback) = callback {

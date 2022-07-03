@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:flutter/services.dart';
@@ -47,10 +48,62 @@ class RawDragDropContext {
       print('ARG ${call.arguments}');
       final data = DataSource([
         DataSourceItem(representations: [
-          DataSourceItemRepresentation.lazy(
-              formats: ['public.url'],
-              dataProvider: (_) => utf8.encode('https://airflow.app')),
-        ]),
+          // DataSourceItemRepresentation.lazy(
+          //   formats: ['public.url'],
+          //   // data: utf8.encode('https://airflow.app'),
+          //   dataProvider: (_) => utf8.encode('https://airflow.app'),
+          // ),
+          DataSourceItemRepresentation.virtualFile(
+              format: 'public.utf8-plain-text',
+              virtualFileProvider: (targetPath, progress, onComplete, onError) {
+                final cancelled = [false];
+                print('Requested file at path $targetPath');
+                progress.onCancel.addListener(() {
+                  print('Cancelled');
+                  cancelled[0] = true;
+                });
+                for (var i = 0; i < 10; ++i) {
+                  Future.delayed(Duration(milliseconds: i * 1000), () {
+                    if (cancelled[0]) {
+                      return;
+                    }
+                    progress.updateProgress(i * 10);
+                    if (i == 9) {
+                      print('Done');
+                      final file = File(targetPath);
+                      file.writeAsStringSync('Hello world!');
+                      onComplete();
+                    }
+                  });
+                }
+              }),
+        ], suggestedName: 'File1.txt'),
+        DataSourceItem(representations: [
+          DataSourceItemRepresentation.virtualFile(
+              format: 'public.utf8-plain-text',
+              virtualFileProvider: (targetPath, progress, onComplete, onError) {
+                final cancelled = [false];
+                print('Requested file at path 2 $targetPath');
+                progress.onCancel.addListener(() {
+                  print('Cancelled 2');
+                  cancelled[0] = true;
+                });
+                for (var i = 0; i < 10; ++i) {
+                  Future.delayed(Duration(milliseconds: i * 1000), () {
+                    if (cancelled[0]) {
+                      return;
+                    }
+                    progress.updateProgress(i * 10);
+                    if (i == 9) {
+                      print('Done 2');
+                      final file = File(targetPath);
+                      file.writeAsStringSync('Hello world 22');
+                      onComplete();
+                    }
+                  });
+                }
+              }),
+        ], suggestedName: 'File2.txt'),
       ]);
       // final writer = await RawClipboardWriter.withData(data);
       final handle = await data.register();

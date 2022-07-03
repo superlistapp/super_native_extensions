@@ -1,13 +1,14 @@
 use std::{
     collections::HashMap,
-    rc::Weak,
+    env::temp_dir,
+    rc::{Rc, Weak},
     sync::{Arc, Mutex},
 };
 
 use block::{Block, ConcreteBlock, RcBlock};
 use cocoa::{
-    base::{id, nil},
-    foundation::{NSArray, NSUInteger},
+    base::{id, nil, BOOL},
+    foundation::{NSArray, NSInteger, NSProcessInfo, NSUInteger, NSURL},
 };
 use nativeshell_core::{
     util::{Capsule, Late},
@@ -28,7 +29,7 @@ use crate::{
     value_promise::ValuePromiseResult,
 };
 
-use super::util::to_nsstring;
+use super::util::{from_nsstring, to_nserror, to_nsstring};
 
 struct State {
     source: DataSource,
@@ -99,6 +100,21 @@ impl PlatformDataSource {
                                 session_clone.value_for_index(index, &format_clone, callback)
                             });
                         }
+                    }
+                    if let DataSourceItemRepresentation::VirtualFile {
+                        id,
+                        file_size: _,
+                        format,
+                    } = representation
+                    {
+                        let session_clone = session.clone();
+                        let id = *id;
+                        register_file_representation(
+                            item_provider,
+                            &format,
+                            true,
+                            move |callback| session_clone.file_for_index(id, callback),
+                        );
                     }
                 }
 
@@ -174,7 +190,7 @@ unsafe impl<T> Send for Movable<T> {}
 
 fn register_data_representation<F>(item_provider: id, type_identifier: &str, handler: F)
 where
-    F: Fn(Box<dyn Fn(id, id) + 'static + Send>) -> id + 'static + Send,
+    F: Fn(Box<dyn Fn(id /* NSData */, id /* NSError */) + 'static + Send>) -> id + 'static + Send,
 {
     let handler = Box::new(handler);
     let block = ConcreteBlock::new(move |completion_block: id| -> id {
@@ -194,6 +210,42 @@ where
             registerDataRepresentationForTypeIdentifier:*type_identifier
             visibility: 0 as NSUInteger // all
             loadHandler: &*block];
+    }
+}
+
+fn register_file_representation<F>(
+    item_provider: id,
+    type_identifier: &str,
+    open_in_place: bool,
+    handler: F,
+) where
+    F: Fn(
+            Box<dyn Fn(id /* NSURL */, bool /* coordinated */, id /* NSError */) + 'static + Send>,
+        ) -> id /* NSProgress */
+        + 'static
+        + Send,
+{
+    let handler = Box::new(handler);
+    let block = ConcreteBlock::new(move |completion_block: id| -> id {
+        let completion_block =
+            unsafe { &mut *(completion_block as *mut Block<(id, BOOL, id), ()>) };
+        let completion_block = unsafe { RcBlock::copy(completion_block) };
+        let completion_block = Movable(completion_block);
+        let completion_fn = move |data: id, coordinated: bool, err: id| {
+            let completion_block = completion_block.clone();
+            unsafe { completion_block.0.call((data, coordinated as BOOL, err)) };
+        };
+        handler(Box::new(completion_fn))
+    });
+    let block = block.copy();
+    let type_identifier = to_nsstring(type_identifier);
+    unsafe {
+        let () = msg_send![item_provider,
+            registerFileRepresentationForTypeIdentifier:*type_identifier
+            fileOptions: if open_in_place { 1 } else { 0 } as NSInteger
+            visibility: 0 as NSUInteger // all
+            loadHandler: &*block
+        ];
     }
 }
 
@@ -230,41 +282,65 @@ struct SessionInner {
     sender: RunLoopSender,
     platform_source: Mutex<Capsule<Weak<PlatformDataSource>>>,
     delegate: Mutex<Capsule<Weak<dyn SessionDelegate>>>,
+    virtual_files: Mutex<Vec<Arc<DropNotifier>>>,
 }
 
 impl SessionInner {
+    fn on_platform_thread<F>(&self, f: F)
+    where
+        F: FnOnce(
+                Option<(
+                    Rc<PlatformDataSource>,
+                    Rc<dyn PlatformDataSourceDelegate>,
+                    Rc<dyn SessionDelegate>,
+                )>,
+            )
+            + 'static
+            + Send,
+    {
+        let platform_source = self.platform_source.lock().unwrap().clone();
+        let session_delegate = self.delegate.lock().unwrap().clone();
+        self.sender.send(move || {
+            // TODO(knopp) Simplify this if let_chain gets stabilized
+            if let (Some(session_delegate), Some((source, source_delegate))) = (
+                session_delegate.get_ref().ok().and_then(|s| s.upgrade()),
+                platform_source
+                    .get_ref()
+                    .ok()
+                    .and_then(|c| c.upgrade())
+                    .and_then(|s| s.delegate.upgrade().map(|delegate| (s, delegate))),
+            ) {
+                f(Some((source, source_delegate, session_delegate)));
+            } else {
+                f(None)
+            }
+        });
+    }
+
     fn fetch_value(
         &self,
         id: DataSourceValueId,
         format: String,
         callback: Box<dyn Fn(id, id) + Send>,
     ) -> id {
-        let platform_source = self.platform_source.lock().unwrap().clone();
-        let session_delegate = self.delegate.lock().unwrap().clone();
-        self.sender.send(move || {
-            if let Some(session_delegate) =
-                session_delegate.get_ref().ok().and_then(|s| s.upgrade())
-            {
+        Self::on_platform_thread(&self, move |s| match s {
+            Some((source, source_delegate, session_delegate)) => {
                 // For some reason iOS seems to eagerly fetch items immediatelly
-                // at the beginning of drag (before even  dragInteraction:sessionWillBegin:).
+                // at the beginning of drag (before even dragInteraction:sessionWillBegin:).
                 // If we detect that return empty data.
                 if !session_delegate.should_fetch_items() {
                     callback(nil, nil);
                     return;
                 }
+                Context::get().run_loop().spawn(async move {
+                    let data = source_delegate
+                        .get_lazy_data_async(source.isolate_id, id, format)
+                        .await;
+                    callback(*value_promise_res_to_nsdata(&data), nil);
+                });
             }
-            println!("Fetch data!!!");
-            if let Some(source) = platform_source.get_ref().ok().and_then(|c| c.upgrade()) {
-                if let Some(delegate) = source.delegate.upgrade() {
-                    Context::get().run_loop().spawn(async move {
-                        let data = delegate
-                            .get_lazy_data_async(source.isolate_id, id, format)
-                            .await;
-                        callback(*value_promise_res_to_nsdata(&data), nil);
-                    });
-                } else {
-                    callback(nil, nil);
-                }
+            None => {
+                callback(nil, nil);
             }
         });
         nil // NSProgress
@@ -306,6 +382,99 @@ impl SessionInner {
         callback(nil, nil);
         nil // NSProgress
     }
+
+    fn temp_file_path() -> String {
+        let guid = unsafe {
+            let info = NSProcessInfo::processInfo(nil);
+            let string: id = msg_send![info, globallyUniqueString];
+            from_nsstring(string)
+        };
+        temp_dir().join(guid).to_string_lossy().into()
+    }
+
+    fn fetch_virtual_file(
+        self: &Arc<Self>,
+        id: DataSourceValueId,
+        progress: StrongPtr,
+        callback: Box<dyn Fn(id, bool, id) + Send>,
+    ) {
+        let progress = Movable(progress);
+        let self_clone = self.clone();
+        Self::on_platform_thread(&self, move |s| match s {
+            Some((source, source_delegate, session_delegate)) => {
+                let progress = progress;
+                let progress = progress.0;
+                // For some reason iOS seems to eagerly fetch items immediatelly
+                // at the beginning of drag (before even dragInteraction:sessionWillBegin:).
+                // If we detect that return empty data.
+                if !session_delegate.should_fetch_items() {
+                    callback(nil, false, nil);
+                    return;
+                }
+                let path = Self::temp_file_path();
+                let progress_clone = progress.clone();
+                let notifier = source_delegate.get_virtual_file(
+                    source.isolate_id,
+                    id,
+                    path.clone(),
+                    Box::new(move |cnt| {
+                        let () = unsafe {
+                            msg_send![*progress_clone, setCompletedUnitCount: cnt as u64]
+                        };
+                    }),
+                    Box::new(move |result| match result {
+                        Ok(()) => {
+                            let url = unsafe {
+                                let url = NSURL::fileURLWithPath_(nil, *to_nsstring(&path));
+                                let () =
+                                    msg_send![class!(SNEDeletingPresenter), deleteAfterRead: url];
+                                url
+                            };
+                            callback(url, true /* must use presenter */, nil);
+                        }
+                        Err(message) => {
+                            let error = to_nserror("super_dnd", 0, &message);
+                            callback(nil, false, *error);
+                        }
+                    }),
+                );
+                self_clone
+                    .virtual_files
+                    .lock()
+                    .unwrap()
+                    .push(notifier.clone());
+                let notifier = Arc::downgrade(&notifier);
+                let cancellation_handler = ConcreteBlock::new(move || {
+                    if let Some(notifier) = notifier.upgrade() {
+                        notifier.dispose();
+                    }
+                });
+                let cancellation_handler = cancellation_handler.copy();
+                unsafe {
+                    let () = msg_send![*progress, setCancellationHandler:&*cancellation_handler];
+                }
+            }
+            None => {
+                callback(nil, false, nil);
+            }
+        });
+    }
+
+    fn file_for_index(
+        self: &Arc<Self>,
+        id: DataSourceValueId,
+        callback: Box<dyn Fn(id, bool, id) + Send>,
+    ) -> id {
+        unsafe {
+            let progress = StrongPtr::retain(
+                msg_send![class!(NSProgress), progressWithTotalUnitCount: 100 as u64],
+            );
+
+            self.fetch_virtual_file(id, progress.clone(), callback);
+
+            *progress
+        }
+    }
 }
 
 pub struct Session {
@@ -326,6 +495,7 @@ impl Session {
                 sender: Context::get().run_loop().new_sender(),
                 platform_source: Mutex::new(Capsule::new(platform_source)),
                 delegate: Mutex::new(Capsule::new(delegate)),
+                virtual_files: Mutex::new(Vec::new()),
             }))),
         })
     }
@@ -346,6 +516,22 @@ impl Session {
         }
     }
 
+    fn file_for_index(
+        self: &Arc<Self>,
+        id: DataSourceValueId,
+        callback: Box<dyn Fn(id, bool, id) + Send>,
+    ) -> id {
+        let inner = self.inner.lock().unwrap();
+        match &*inner {
+            Some(inner) => inner.file_for_index(id, callback),
+            None => {
+                callback(nil, false, nil);
+                nil
+            }
+        }
+    }
+
+    /// Drag and drop leaks on iOS so we clean the session manually :-/
     pub fn dispose(self: &Arc<Self>) {
         self.inner.lock().unwrap().take();
     }

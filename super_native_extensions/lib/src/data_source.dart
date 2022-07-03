@@ -114,15 +114,16 @@ class DataSourceItemRepresentationLazy extends DataSourceItemRepresentation {
 }
 
 class Progress {
-  Progress(this.onCancel, ValueNotifier<double> onProgress)
+  Progress(this.onCancel, ValueNotifier<int> onProgress)
       : _onProgress = onProgress;
 
-  void updateProgress(double progress) {
+  /// Updates operation progress. Range is 0 to 100.
+  void updateProgress(int progress) {
     _onProgress.value = progress;
   }
 
   final Listenable onCancel;
-  final ValueNotifier<double> _onProgress;
+  final ValueNotifier<int> _onProgress;
 }
 
 typedef ErrorCallback = void Function(String);
@@ -226,7 +227,7 @@ class _DataSourceManager {
     required int virtualFileId,
     required String targetPath,
   }) async {
-    final progressNotifier = ValueNotifier<double>(0.0);
+    final progressNotifier = ValueNotifier<int>(0);
     progressNotifier.addListener(() {
       _channel.invokeMethod('virtualFileUpdateProgress', {
         'sessionId': sessionId,
@@ -256,7 +257,7 @@ class _DataSourceManager {
       virtualFile.virtualFileProvider(
           targetPath, progress, onComplete, onError);
     } else {
-      onError('Virtual file not found');
+      onError('Virtual file ($virtualFileId)not found');
     }
     return null;
   }
@@ -264,7 +265,7 @@ class _DataSourceManager {
   Future<dynamic> _onMethodCall(MethodCall call) async {
     if (call.method == 'getLazyData') {
       final args = call.arguments as Map;
-      final valueId = args["value_id"] as int;
+      final valueId = args["valueId"] as int;
       final format = args["format"] as String;
       final lazyData = _lazyData[valueId];
       if (lazyData != null) {

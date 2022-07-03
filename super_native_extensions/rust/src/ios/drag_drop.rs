@@ -26,7 +26,6 @@ use crate::{
     api_model::Point,
     drag_drop_manager::{DragRequest, PendingWriterState, PlatformDragContextDelegate},
     error::{NativeExtensionsError, NativeExtensionsResult},
-    platform_impl::platform::util::from_nsstring,
 };
 
 use super::{util::to_nsstring, PlatformDataSource, Session, SessionDelegate};
@@ -77,8 +76,8 @@ impl PlatformDragContext {
 
     pub async fn start_drag(
         &self,
-        request: DragRequest,
-        source: Rc<PlatformDataSource>,
+        _request: DragRequest,
+        _source: Rc<PlatformDataSource>,
     ) -> NativeExtensionsResult<()> {
         Err(NativeExtensionsError::UnsupportedOperation)
     }
@@ -131,28 +130,19 @@ impl PlatformDragContext {
     }
 
     fn did_end_with_operation(&self, interaction: id, session: id, operation: UIDropOperation) {
-        {
-            // let mut items = self.current_items.borrow_mut();
-            // for item in items.iter() {
-            //     unsafe {
-            //         let identifiers: id = msg_send![**item, registeredTypeIdentifiers];
-            //         for i in 0..NSArray::count(identifiers) {
-            //             let identifier = NSArray::objectAtIndex(identifiers, i);
-            //             println!("DISPOSING {:?}", from_nsstring(identifier));
-            //             let () = msg_send![**item, registerItemForTypeIdentifier: identifier
-            //                              loadHandler: nil];
-            //         }
-            //     }
-            //     let () = { unsafe { msg_send![**item, release] } };
-            //     // let _: () = unsafe { msg_send![**item, disposeState] };
-            // }
-            // items.clear();
+        if operation == 0 {
             if let Some(session) = self.session.take() {
                 session.dispose();
             }
         }
 
         println!("Did end with operation {:?}", operation);
+    }
+
+    fn did_transfer_items(&self, interaction: id, session: id) {
+        if let Some(session) = self.session.take() {
+            session.dispose();
+        }
     }
 }
 
@@ -236,9 +226,17 @@ extern "C" fn did_end_with_operation(
     );
 }
 
+extern "C" fn did_transfer_items(this: &mut Object, _sel: Sel, interaction: id, session: id) {
+    with_state(
+        this,
+        |state| state.did_transfer_items(interaction, session),
+        || {},
+    );
+}
+
 static DELEGATE_CLASS: Lazy<&'static Class> = Lazy::new(|| unsafe {
     let superclass = class!(NSObject);
-    let mut decl = ClassDecl::new("IMDragDropInteractionDelegate", superclass).unwrap();
+    let mut decl = ClassDecl::new("SNEDragDropInteractionDelegate", superclass).unwrap();
     decl.add_protocol(Protocol::get("UIDragInteractionDelegate").unwrap());
     decl.add_ivar::<*mut c_void>("context");
     decl.add_method(sel!(dealloc), dealloc as extern "C" fn(&Object, Sel));
@@ -253,6 +251,10 @@ static DELEGATE_CLASS: Lazy<&'static Class> = Lazy::new(|| unsafe {
     decl.add_method(
         sel!(dragInteraction:session:didEndWithOperation:),
         did_end_with_operation as extern "C" fn(&mut Object, Sel, id, id, UIDropOperation),
+    );
+    decl.add_method(
+        sel!(dragInteraction:sessionDidTransferItems:),
+        did_transfer_items as extern "C" fn(&mut Object, Sel, id, id),
     );
     decl.register()
 });

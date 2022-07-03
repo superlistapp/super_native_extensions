@@ -42,16 +42,14 @@ pub trait PlatformDataSourceDelegate {
         isolate_id: IsolateId,
         virtual_file_id: DataSourceValueId,
         target_path: String,
-        on_progress: Box<dyn Fn(f64 /* 0.0-1.0 */)>,
-        on_done: Box<dyn FnOnce()>,
-        on_error: Box<dyn FnOnce(String)>,
+        on_progress: Box<dyn Fn(i32 /* 0 - 100 */)>,
+        on_done: Box<dyn FnOnce(Result<(), String>)>,
     ) -> Arc<DropNotifier>;
 }
 
 struct VirtualFileSession {
-    on_progress: Box<dyn Fn(f64 /* 0.0-1.0 */)>,
-    on_done: Box<dyn FnOnce()>,
-    on_error: Box<dyn FnOnce(String)>,
+    on_progress: Box<dyn Fn(i32 /* 0 - 100 */)>,
+    on_done: Box<dyn FnOnce(Result<(), String>)>,
 }
 
 #[derive(Debug, TryFromValue, IntoValue, Clone, Copy, PartialEq, Hash, Eq)]
@@ -160,7 +158,7 @@ impl DataSourceManager {
             .borrow_mut()
             .remove(&complete.session_id)
             .ok_or_else(|| NativeExtensionsError::VirtualFileSessionNotFound)?;
-        (session.on_done)();
+        (session.on_done)(Ok(()));
         Ok(())
     }
 
@@ -170,7 +168,7 @@ impl DataSourceManager {
             .borrow_mut()
             .remove(&error.session_id)
             .ok_or_else(|| NativeExtensionsError::VirtualFileSessionNotFound)?;
-        (session.on_error)(error.error_message);
+        (session.on_done)(Err(error.error_message));
         Ok(())
     }
 }
@@ -179,7 +177,7 @@ impl DataSourceManager {
 #[nativeshell(rename_all = "camelCase")]
 struct VirtualFileUpdateProgress {
     session_id: VirtualSessionId,
-    progress: f64,
+    progress: i32,
 }
 
 #[derive(Debug, TryFromValue)]
@@ -311,16 +309,14 @@ impl PlatformDataSourceDelegate for DataSourceManager {
         isolate_id: IsolateId,
         virtual_file_id: DataSourceValueId,
         target_path: String,
-        on_progress: Box<dyn Fn(f64 /* 0.0-1.0 */)>,
-        on_done: Box<dyn FnOnce()>,
-        on_error: Box<dyn FnOnce(String)>,
+        on_progress: Box<dyn Fn(i32 /* 0 - 100 */)>,
+        on_done: Box<dyn FnOnce(Result<(), String>)>,
     ) -> Arc<DropNotifier> {
         let weak_self = self.weak_self.clone();
         let session_id: VirtualSessionId = self.next_id().into();
         let sesion = VirtualFileSession {
             on_progress,
             on_done,
-            on_error,
         };
         self.virtual_sessions
             .borrow_mut()
