@@ -67,10 +67,10 @@ impl PlatformDataSource {
     pub fn create_items(
         &self,
         drop_notifier: Arc<DropNotifier>,
-        delegate: Weak<dyn SessionDelegate>,
-    ) -> (Vec<id>, Arc<Session>) {
+        delegate: Weak<dyn DataSourceSessionDelegate>,
+    ) -> (Vec<id>, Arc<DataSourceSession>) {
         let mut items = Vec::<id>::new();
-        let session = Session::new(
+        let session = DataSourceSession::new(
             self.state.clone(),
             drop_notifier,
             self.weak_self.clone(),
@@ -177,7 +177,7 @@ impl PlatformDataSource {
     }
 }
 
-impl SessionDelegate for PlatformDataSource {
+impl DataSourceSessionDelegate for PlatformDataSource {
     fn should_fetch_items(&self) -> bool {
         true
     }
@@ -272,27 +272,27 @@ pub fn to_nsdata(data: &[u8]) -> StrongPtr {
     }
 }
 
-pub trait SessionDelegate {
+pub trait DataSourceSessionDelegate {
     fn should_fetch_items(&self) -> bool;
 }
 
-struct SessionInner {
+struct DataSourceSessionInner {
     state: Arc<Mutex<State>>,
     _drop_notifier: Arc<DropNotifier>,
     sender: RunLoopSender,
     platform_source: Mutex<Capsule<Weak<PlatformDataSource>>>,
-    delegate: Mutex<Capsule<Weak<dyn SessionDelegate>>>,
+    delegate: Mutex<Capsule<Weak<dyn DataSourceSessionDelegate>>>,
     virtual_files: Mutex<Vec<Arc<DropNotifier>>>,
 }
 
-impl SessionInner {
+impl DataSourceSessionInner {
     fn on_platform_thread<F>(&self, f: F)
     where
         F: FnOnce(
                 Option<(
                     Rc<PlatformDataSource>,
                     Rc<dyn PlatformDataSourceDelegate>,
-                    Rc<dyn SessionDelegate>,
+                    Rc<dyn DataSourceSessionDelegate>,
                 )>,
             )
             + 'static
@@ -475,19 +475,19 @@ impl SessionInner {
     }
 }
 
-pub struct Session {
-    inner: Mutex<Option<Arc<SessionInner>>>,
+pub struct DataSourceSession {
+    inner: Mutex<Option<Arc<DataSourceSessionInner>>>,
 }
 
-impl Session {
+impl DataSourceSession {
     fn new(
         state: Arc<Mutex<State>>,
         drop_notifier: Arc<DropNotifier>,
         platform_source: Weak<PlatformDataSource>,
-        delegate: Weak<dyn SessionDelegate>,
+        delegate: Weak<dyn DataSourceSessionDelegate>,
     ) -> Arc<Self> {
         Arc::new(Self {
-            inner: Mutex::new(Some(Arc::new(SessionInner {
+            inner: Mutex::new(Some(Arc::new(DataSourceSessionInner {
                 state,
                 _drop_notifier: drop_notifier,
                 sender: Context::get().run_loop().new_sender(),

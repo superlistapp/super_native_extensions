@@ -7,8 +7,8 @@ use std::{
 
 use async_trait::async_trait;
 use nativeshell_core::{
-    util::Late, AsyncMethodHandler, AsyncMethodInvoker, Context, IntoPlatformResult, IsolateId,
-    PlatformResult, RegisteredAsyncMethodHandler, TryFromValue, Value, MethodCallError, IntoValue,
+    util::Late, AsyncMethodHandler, AsyncMethodInvoker, Context, IntoPlatformResult, IntoValue,
+    IsolateId, MethodCallError, PlatformResult, RegisteredAsyncMethodHandler, TryFromValue, Value,
 };
 
 use crate::{
@@ -21,20 +21,24 @@ use crate::{
 
 pub type PlatformDragContextId = IsolateId;
 
-pub enum PendingWriterState {
+pub enum PendingSourceState {
     Pending,
     Ok {
         source: Rc<PlatformDataSource>,
-        drop_notifier: Arc<DropNotifier>,
+        source_drop_notifier: Arc<DropNotifier>,
     },
     Cancelled,
 }
 
-pub type WriterResult = Rc<RefCell<PendingWriterState>>;
+pub type WriterResult = Rc<RefCell<PendingSourceState>>;
 
 #[async_trait(?Send)]
 pub trait PlatformDragContextDelegate {
-    fn writer_for_drag_request(&self, id: PlatformDragContextId, location: Point) -> WriterResult;
+    fn data_source_for_drag_request(
+        &self,
+        id: PlatformDragContextId,
+        location: Point,
+    ) -> WriterResult;
 }
 
 pub struct DragManager {
@@ -158,8 +162,12 @@ struct DataSourceResponse {
 
 #[async_trait(?Send)]
 impl PlatformDragContextDelegate for DragManager {
-    fn writer_for_drag_request(&self, id: PlatformDragContextId, location: Point) -> WriterResult {
-        let res = Rc::new(RefCell::new(PendingWriterState::Pending));
+    fn data_source_for_drag_request(
+        &self,
+        id: PlatformDragContextId,
+        location: Point,
+    ) -> WriterResult {
+        let res = Rc::new(RefCell::new(PendingSourceState::Pending));
         let res_clone = res.clone();
         let weak_self = self.weak_self.clone();
         Context::get().run_loop().spawn(async move {
@@ -191,15 +199,15 @@ impl PlatformDragContextDelegate for DragManager {
                                 this.on_dropped(id, data_source_id);
                             }
                         });
-                        res_clone.replace(PendingWriterState::Ok {
+                        res_clone.replace(PendingSourceState::Ok {
                             source: data_source,
-                            drop_notifier: notifier,
+                            source_drop_notifier: notifier,
                         })
                     }
-                    None => res_clone.replace(PendingWriterState::Cancelled),
+                    None => res_clone.replace(PendingSourceState::Cancelled),
                 };
             } else {
-                res_clone.replace(PendingWriterState::Cancelled);
+                res_clone.replace(PendingSourceState::Cancelled);
             }
         });
         res
