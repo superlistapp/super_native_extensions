@@ -15,8 +15,9 @@ use crate::{
     api_model::{DataSourceId, ImageData, Point},
     data_source_manager::GetDataSourceManager,
     error::{NativeExtensionsError, NativeExtensionsResult},
+    log::OkLog,
     platform_impl::platform::{PlatformDataSource, PlatformDragContext},
-    util::DropNotifier, log::OkLog,
+    util::DropNotifier,
 };
 
 pub type PlatformDragContextId = IsolateId;
@@ -66,8 +67,9 @@ struct DragContextInitRequest {
 #[derive(TryFromValue)]
 #[nativeshell(rename_all = "camelCase")]
 pub struct DragRequest {
-    pub writer_id: DataSourceId,
+    pub data_source_id: DataSourceId,
     pub point_in_rect: Point,
+    pub drag_position: Point,
     pub image: ImageData,
 }
 
@@ -91,7 +93,7 @@ impl DragManager {
             request.view_handle,
             self.weak_self.clone(),
         ));
-        context.assign_weak_self(Rc::downgrade(&context))?;
+        context.assign_weak_self(Rc::downgrade(&context));
         self.contexts.borrow_mut().insert(isolate, context);
         Ok(())
     }
@@ -107,10 +109,18 @@ impl DragManager {
             .get(&isolate)
             .cloned()
             .ok_or_else(|| NativeExtensionsError::PlatformContextNotFound)?;
-        let writer = Context::get()
+        let data_source = Context::get()
             .data_source_manager()
-            .get_platform_data_source(request.writer_id)?;
-        context.start_drag(request, writer).await
+            .get_platform_data_source(request.data_source_id)?;
+
+        let weak_self = self.weak_self.clone();
+        let source_id = request.data_source_id;
+        let notifier = DropNotifier::new(move || {
+            if let Some(this) = weak_self.upgrade() {
+                this.on_dropped(isolate, source_id);
+            }
+        });
+        context.start_drag(request, data_source, notifier).await
     }
 
     fn on_dropped(&self, isolate_id: IsolateId, source_id: DataSourceId) {

@@ -116,7 +116,7 @@ impl PlatformDragContext {
         }
     }
 
-    pub fn assign_weak_self(&self, weak_self: Weak<Self>) -> NativeExtensionsResult<()> {
+    pub fn assign_weak_self(&self, weak_self: Weak<Self>) {
         self.weak_self.set(weak_self.clone());
         autoreleasepool(|| unsafe {
             let delegate: id = msg_send![*DELEGATE_CLASS, alloc];
@@ -128,13 +128,13 @@ impl PlatformDragContext {
             self.interaction.set(StrongPtr::new(interaction));
             let () = msg_send![*self.view, addInteraction: interaction];
         });
-        Ok(())
     }
 
     pub async fn start_drag(
         &self,
         _request: DragRequest,
         _source: Rc<PlatformDataSource>,
+        _notifier: Arc<DropNotifier>,
     ) -> NativeExtensionsResult<()> {
         Err(NativeExtensionsError::UnsupportedOperation)
     }

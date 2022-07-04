@@ -26,8 +26,7 @@ impl PlatformDropContext {
         Ok(())
     }
 
-    pub fn assign_weak_self(&self, weak_self: Weak<Self>) -> NativeExtensionsResult<()> {
+    pub fn assign_weak_self(&self, weak_self: Weak<Self>) {
         self.weak_self.set(weak_self.clone());
-        Ok(())
     }
 }

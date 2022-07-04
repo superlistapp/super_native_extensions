@@ -13,13 +13,13 @@ class DragException implements Exception {
 }
 
 void main() async {
-  final dropContext = await RawDropContext.instance();
-  await dropContext.registerDropTypes([
-    'public.file-url',
-    'NSFilenamesPboardType',
-    'public.url',
-    'Apple URL pasteboard type',
-  ]);
+  // final dropContext = await RawDropContext.instance();
+  // await dropContext.registerDropTypes([
+  //   'public.file-url',
+  //   'NSFilenamesPboardType',
+  //   'public.url',
+  //   'Apple URL pasteboard type',
+  // ]);
   await RawDragContext.instance();
   runApp(const MyApp());
 }
@@ -129,23 +129,24 @@ class _MyHomePageState extends State<MyHomePage> {
     transform.invert();
     final point = MatrixUtils.transformPoint(transform, globalPosition);
 
-    // final data = RawClipboardWriterData([
-    //   RawClipboardWriterItem([
-    //     RawClipboardWriterItemData.simple(
-    //         types: ['public.file-url'],
-    //         data: utf8.encode('file:///tmp/test.txt')),
-    //   ]),
-    // ]);
-    // final writer = await RawClipboardWriter.withData(data);
+    final data = DataSource([
+      DataSourceItem(representations: [
+        DataSourceItemRepresentation.simple(
+            formats: ['public.file-url'],
+            data: utf8.encode('file:///tmp/test.txt')),
+      ]),
+    ]);
+    final handle = await data.register();
 
-    // final dragContext = await RawDragDropContext.instance();
-    // await dragContext.startDrag(
-    //   request: DragRequest(
-    //     image: snapshot,
-    //     writer: writer,
-    //     pointInRect: point,
-    //   ),
-    // );
+    final dragContext = await RawDragContext.instance();
+    await dragContext.startDrag(
+      request: DragRequest(
+        image: snapshot,
+        dataSource: handle,
+        pointInRect: point,
+        dragPosition: globalPosition,
+      ),
+    );
   }
 
   String _content = "";

@@ -2,17 +2,20 @@ use std::{
     cell::RefCell,
     collections::HashMap,
     rc::{Rc, Weak},
+    sync::Arc,
 };
 
 use crate::{
-    drag_drop_manager::{DragRequest, PlatformDragContextDelegate},
+    api_model::Rect,
+    drag_manager::{DragRequest, PlatformDragContextDelegate},
     error::NativeExtensionsResult,
-    platform_impl::platform::{from_nsstring, to_nsstring},
+    util::DropNotifier,
 };
 
 use super::{
+    drag_common::{NSDragOperation, NSDragOperationMove, NSDragOperationNone},
     util::{class_decl_from_name, flip_rect},
-    PlatformClipboardWriter,
+    PlatformDataSource,
 };
 use cocoa::{
     appkit::{
@@ -31,17 +34,6 @@ use objc::{
     runtime::{Object, Sel},
     sel, sel_impl,
 };
-
-pub type NSDragOperation = NSUInteger;
-
-#[allow(non_upper_case_globals)]
-const NSDragOperationNone: NSDragOperation = 0;
-#[allow(non_upper_case_globals)]
-const NSDragOperationCopy: NSDragOperation = 1;
-#[allow(non_upper_case_globals)]
-const NSDragOperationLink: NSDragOperation = 2;
-#[allow(non_upper_case_globals)]
-const NSDragOperationMove: NSDragOperation = 16;
 
 extern "C" {
     fn CGEventSetType(event: core_graphics::sys::CGEventRef, eventType: CGEventType);
@@ -78,18 +70,6 @@ impl PlatformDragContext {
         });
     }
 
-    pub fn register_drop_types(&self, types: &[String]) -> NativeExtensionsResult<()> {
-        autoreleasepool(|| unsafe {
-            let types: Vec<id> = types
-                .iter()
-                .map(|ty| to_nsstring(&ty).autorelease())
-                .collect();
-            let types = NSArray::arrayWithObjects(nil, &types);
-            let _: id = msg_send![*self.view, registerForDraggedTypes: types];
-        });
-        Ok(())
-    }
-
     unsafe fn synthetize_mouse_up_event(&self) {
         if let Some(event) = self.last_mouse_down.borrow().as_ref().clone().cloned() {
             let opposite = match event.eventType() {
@@ -113,12 +93,20 @@ impl PlatformDragContext {
     pub async fn start_drag(
         &self,
         request: DragRequest,
-        writer: Rc<PlatformClipboardWriter>,
+        data_source: Rc<PlatformDataSource>,
+        drop_notifier: Arc<DropNotifier>,
     ) -> NativeExtensionsResult<()> {
         autoreleasepool(|| unsafe {
             self.synthetize_mouse_up_event();
-            let items = writer.create_items();
-            let mut rect: NSRect = request.rect.into();
+            let items = data_source.create_items(drop_notifier);
+
+            let mut rect: NSRect = Rect {
+                x: request.drag_position.x,
+                y: request.drag_position.y,
+                width: 100.0,
+                height: 100.0,
+            }
+            .into();
             flip_rect(*self.view, &mut rect);
             let mut dragging_items = Vec::<id>::new();
             for item in items {
@@ -155,13 +143,6 @@ impl PlatformDragContext {
         }
     }
 
-    fn dragging_updated(&self, event: id) -> NSDragOperation {
-        unsafe {
-            println!("Draaag {:?}", from_nsstring(msg_send![event, description]));
-        }
-        NSDragOperationCopy
-    }
-
     fn source_operation_mask_for_dragging_context(
         &self,
         _session: id,
@@ -190,16 +171,6 @@ impl Drop for PlatformDragContext {
 fn prepare_flutter() {
     unsafe {
         let mut class = class_decl_from_name("FlutterView");
-
-        class.add_method(
-            sel!(draggingEntered:),
-            dragging_updated as extern "C" fn(&mut Object, Sel, id) -> NSDragOperation,
-        );
-
-        class.add_method(
-            sel!(draggingUpdated:),
-            dragging_updated as extern "C" fn(&mut Object, Sel, id) -> NSDragOperation,
-        );
 
         class.add_method(
             sel!(draggingSession:sourceOperationMaskForDraggingContext:),
@@ -258,14 +229,6 @@ extern "C" fn mouse_up(this: &mut Object, _sel: Sel, event: id) -> () {
     unsafe {
         let _: () = msg_send![super(this, class!(NSView)), mouseUp: event];
     }
-}
-
-extern "C" fn dragging_updated(this: &mut Object, _: Sel, event: id) -> NSDragOperation {
-    with_state(
-        this,
-        |state| state.dragging_updated(event),
-        || NSDragOperationNone,
-    )
 }
 
 extern "C" fn source_operation_mask_for_dragging_context(

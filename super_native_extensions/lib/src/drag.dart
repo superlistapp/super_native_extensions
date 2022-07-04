@@ -126,18 +126,21 @@ class DragRequest {
   DragRequest({
     required this.dataSource,
     required this.pointInRect,
+    required this.dragPosition,
     required this.image,
   });
 
   final DataSourceHandle dataSource;
   final Offset pointInRect;
+  final Offset dragPosition;
   final ui.Image image;
 
   Future<dynamic> serialize() async {
     final imageData = await ImageData.fromImage(image);
     return {
-      'dataSource': dataSource.id,
+      'dataSourceId': dataSource.id,
       'pointInRect': pointInRect.serialize(),
+      'dragPosition': dragPosition.serialize(),
       'image': imageData.serialize(),
     };
   }
