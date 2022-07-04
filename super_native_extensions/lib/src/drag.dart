@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -49,12 +50,13 @@ class RawDragContext {
           //   formats: ['public.url'],
           //   // data: utf8.encode('https://airflow.app'),
           //   dataProvider: (_) => utf8.encode('https://airflow.app'),
-          // ),
+          // )
           DataSourceItemRepresentation.virtualFile(
               format: 'public.utf8-plain-text',
-              virtualFileProvider: (targetPath, progress, onComplete, onError) {
+              storageSuggestion: VirtualFileStorage.temporaryFile,
+              virtualFileProvider: (sink, progress) {
                 final cancelled = [false];
-                print('Requested file at path $targetPath');
+                print('Requested file');
                 progress.onCancel.addListener(() {
                   print('Cancelled');
                   cancelled[0] = true;
@@ -67,9 +69,10 @@ class RawDragContext {
                     progress.updateProgress(i * 10);
                     if (i == 9) {
                       print('Done');
-                      final file = File(targetPath);
-                      file.writeAsStringSync('Hello world!');
-                      onComplete();
+                      sink.add(utf8.encode('Hello, cruel world!\n'));
+                      sink.add(utf8.encode('Hello, cruel world!'));
+                      // sink.addError('Something went wrong');
+                      sink.close();
                     }
                   });
                 }

@@ -16,7 +16,7 @@ use crate::{
     data_source_manager::GetDataSourceManager,
     error::{NativeExtensionsError, NativeExtensionsResult},
     platform_impl::platform::{PlatformDataSource, PlatformDragContext},
-    util::DropNotifier,
+    util::DropNotifier, log::OkLog,
 };
 
 pub type PlatformDragContextId = IsolateId;
@@ -183,7 +183,7 @@ impl PlatformDragContextDelegate for DragManager {
                     .await;
 
                 let data_source = data_source
-                    .ok()
+                    .ok_log()
                     .and_then(|d| d.data_source_id)
                     .and_then(|d| {
                         Context::get()

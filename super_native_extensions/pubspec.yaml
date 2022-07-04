@@ -14,6 +14,7 @@ dependencies:
   flutter_web_plugins:
     sdk: flutter
   meta: ^1.7.0
+  ffi: ^2.0.1
   nativeshell_core:
     path:
       ../../rust/nativeshell_ng/core/dart

@@ -1,6 +1,10 @@
 use std::{
+    cell::Cell,
     collections::HashMap,
     env::temp_dir,
+    fs::File,
+    io::Write,
+    path::PathBuf,
     rc::{Rc, Weak},
     sync::{Arc, Mutex},
 };
@@ -19,17 +23,64 @@ use objc::{
     rc::{autoreleasepool, StrongPtr},
     sel, sel_impl,
 };
+use once_cell::sync::Lazy;
 
 use crate::{
-    api_model::{DataSource, DataSourceItemRepresentation, DataSourceValueId},
+    api_model::{DataSource, DataSourceItemRepresentation, DataSourceValueId, VirtualFileStorage},
     data_source_manager::PlatformDataSourceDelegate,
     error::NativeExtensionsResult,
+    log::OkLog,
     util::DropNotifier,
     value_coerce::{CoerceToData, StringFormat},
     value_promise::ValuePromiseResult,
 };
 
 use super::util::{from_nsstring, to_nserror, to_nsstring};
+
+enum StreamEntry {
+    File { path: PathBuf, file: File },
+    Memory { buffer: Vec<u8> },
+}
+
+static STREAM_ENTRIES: Lazy<Mutex<HashMap<i32, StreamEntry>>> =
+    Lazy::new(|| Mutex::new(HashMap::new()));
+
+pub fn platform_stream_write(handle: i32, data: &[u8]) -> i32 {
+    let mut entries = STREAM_ENTRIES.lock().unwrap();
+    let entry = entries.get_mut(&handle);
+    if let Some(mut entry) = entry {
+        match &mut entry {
+            StreamEntry::File { path: _, file } => match file.write_all(data) {
+                Ok(_) => 1,
+                Err(_) => 0,
+            },
+            StreamEntry::Memory { buffer } => {
+                buffer.extend_from_slice(data);
+                1
+            }
+        }
+    } else {
+        0
+    }
+}
+
+pub fn platform_stream_close(handle: i32, delete: bool) {
+    if delete {
+        let entry = {
+            let mut entries = STREAM_ENTRIES.lock().unwrap();
+            entries.remove(&handle)
+        };
+        if let Some(entry) = entry {
+            match entry {
+                StreamEntry::File { path, file } => {
+                    drop(file);
+                    std::fs::remove_file(path).unwrap();
+                }
+                StreamEntry::Memory { buffer: _ } => {}
+            }
+        }
+    }
+}
 
 struct State {
     source: DataSource,
@@ -105,16 +156,38 @@ impl PlatformDataSource {
                         id,
                         file_size: _,
                         format,
+                        storage_suggestion,
                     } = representation
                     {
+                        let storage =
+                            storage_suggestion.unwrap_or(VirtualFileStorage::TemporaryFile);
                         let session_clone = session.clone();
                         let id = *id;
-                        register_file_representation(
-                            item_provider,
-                            &format,
-                            true,
-                            move |callback| session_clone.file_for_index(id, callback),
-                        );
+                        match storage {
+                            VirtualFileStorage::TemporaryFile => {
+                                register_file_representation(
+                                    item_provider,
+                                    &format,
+                                    true,
+                                    move |callback| {
+                                        session_clone.file_for_index(id, storage, callback)
+                                    },
+                                );
+                            }
+                            VirtualFileStorage::Memory => {
+                                register_data_representation(
+                                    item_provider,
+                                    &format,
+                                    move |callback| {
+                                        let callback2 =
+                                            Box::new(move |data: id, _: bool, error: id| {
+                                                callback(data, error)
+                                            });
+                                        session_clone.file_for_index(id, storage, callback2)
+                                    },
+                                );
+                            }
+                        }
                     }
                 }
 
@@ -383,19 +456,71 @@ impl DataSourceSessionInner {
         nil // NSProgress
     }
 
-    fn temp_file_path() -> String {
+    fn temp_file_path() -> PathBuf {
         let guid = unsafe {
             let info = NSProcessInfo::processInfo(nil);
             let string: id = msg_send![info, globallyUniqueString];
             from_nsstring(string)
         };
-        temp_dir().join(guid).to_string_lossy().into()
+        temp_dir().join(guid)
+    }
+
+    fn new_stream_handle_for_storage(storage: VirtualFileStorage) -> Option<i32> {
+        fn next_stream_entry_handle() -> i32 {
+            thread_local! {
+                static NEXT_STREAM_ENTRY_HANDLE : Cell<i32>  = Cell::new(0)
+            }
+            NEXT_STREAM_ENTRY_HANDLE.with(|handle| {
+                let res = handle.get();
+                handle.set(res + 1);
+                res
+            })
+        }
+        match storage {
+            VirtualFileStorage::TemporaryFile => {
+                let path = Self::temp_file_path();
+                let file = File::create(&path).ok_log()?;
+                let handle = next_stream_entry_handle();
+                STREAM_ENTRIES
+                    .lock()
+                    .unwrap()
+                    .insert(handle, StreamEntry::File { path, file });
+                Some(handle)
+            }
+            VirtualFileStorage::Memory => {
+                let handle = next_stream_entry_handle();
+                STREAM_ENTRIES
+                    .lock()
+                    .unwrap()
+                    .insert(handle, StreamEntry::Memory { buffer: Vec::new() });
+                Some(handle)
+            }
+        }
+    }
+
+    fn finish_stream_handle(stream_handle: i32) -> id {
+        let stream_entry = STREAM_ENTRIES.lock().unwrap().remove(&stream_handle);
+        match stream_entry {
+            Some(StreamEntry::File { path, file }) => {
+                drop(file);
+                let path = path.to_string_lossy();
+                let url = unsafe {
+                    let url = NSURL::fileURLWithPath_(nil, *to_nsstring(&path));
+                    let () = msg_send![class!(SNEDeletingPresenter), deleteAfterRead: url];
+                    url
+                };
+                url
+            }
+            Some(StreamEntry::Memory { buffer }) => to_nsdata(&buffer).autorelease(),
+            None => nil,
+        }
     }
 
     fn fetch_virtual_file(
         self: &Arc<Self>,
         id: DataSourceValueId,
         progress: StrongPtr,
+        storage: VirtualFileStorage,
         callback: Box<dyn Fn(id, bool, id) + Send>,
     ) {
         let progress = Movable(progress);
@@ -411,12 +536,23 @@ impl DataSourceSessionInner {
                     callback(nil, false, nil);
                     return;
                 }
-                let path = Self::temp_file_path();
+
+                let stream_handle = Self::new_stream_handle_for_storage(storage);
+                if stream_handle.is_none() {
+                    callback(
+                        nil,
+                        false,
+                        *to_nserror("super_dnd", 0, "Failed to open temporary file for writing"),
+                    );
+                    return;
+                }
+                let stream_handle = stream_handle.unwrap();
+
                 let progress_clone = progress.clone();
                 let notifier = source_delegate.get_virtual_file(
                     source.isolate_id,
                     id,
-                    path.clone(),
+                    stream_handle,
                     Box::new(move |cnt| {
                         let () = unsafe {
                             msg_send![*progress_clone, setCompletedUnitCount: cnt as u64]
@@ -424,13 +560,8 @@ impl DataSourceSessionInner {
                     }),
                     Box::new(move |result| match result {
                         Ok(()) => {
-                            let url = unsafe {
-                                let url = NSURL::fileURLWithPath_(nil, *to_nsstring(&path));
-                                let () =
-                                    msg_send![class!(SNEDeletingPresenter), deleteAfterRead: url];
-                                url
-                            };
-                            callback(url, true /* must use presenter */, nil);
+                            let data = Self::finish_stream_handle(stream_handle);
+                            callback(data, true /* must use presenter */, nil);
                         }
                         Err(message) => {
                             let error = to_nserror("super_dnd", 0, &message);
@@ -463,13 +594,14 @@ impl DataSourceSessionInner {
     fn file_for_index(
         self: &Arc<Self>,
         id: DataSourceValueId,
+        storage: VirtualFileStorage,
         callback: Box<dyn Fn(id, bool, id) + Send>,
     ) -> id {
         unsafe {
             let progress = StrongPtr::retain(
                 msg_send![class!(NSProgress), progressWithTotalUnitCount: 100 as u64],
             );
-            self.fetch_virtual_file(id, progress.clone(), callback);
+            self.fetch_virtual_file(id, progress.clone(), storage, callback);
             *progress
         }
     }
@@ -486,13 +618,17 @@ impl DataSourceSession {
         platform_source: Weak<PlatformDataSource>,
         delegate: Weak<dyn DataSourceSessionDelegate>,
     ) -> Arc<Self> {
+        let sender = Context::get().run_loop().new_sender();
         Arc::new(Self {
             inner: Mutex::new(Some(Arc::new(DataSourceSessionInner {
                 state,
                 _drop_notifier: drop_notifier,
-                sender: Context::get().run_loop().new_sender(),
-                platform_source: Mutex::new(Capsule::new(platform_source)),
-                delegate: Mutex::new(Capsule::new(delegate)),
+                sender: sender.clone(),
+                platform_source: Mutex::new(Capsule::new_with_sender(
+                    platform_source,
+                    sender.clone(),
+                )),
+                delegate: Mutex::new(Capsule::new_with_sender(delegate, sender)),
                 virtual_files: Mutex::new(Vec::new()),
             }))),
         })
@@ -517,11 +653,12 @@ impl DataSourceSession {
     fn file_for_index(
         self: &Arc<Self>,
         id: DataSourceValueId,
+        storage: VirtualFileStorage,
         callback: Box<dyn Fn(id, bool, id) + Send>,
     ) -> id {
         let inner = self.inner.lock().unwrap();
         match &*inner {
-            Some(inner) => inner.file_for_index(id, callback),
+            Some(inner) => inner.file_for_index(id, storage, callback),
             None => {
                 callback(nil, false, nil);
                 nil

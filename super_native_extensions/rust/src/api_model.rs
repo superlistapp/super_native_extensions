@@ -54,6 +54,13 @@ impl From<i64> for DataSourceId {
     }
 }
 
+#[derive(Debug, TryFromValue, IntoValue, Copy, Clone, PartialEq)]
+#[nativeshell(rename_all = "camelCase")]
+pub enum VirtualFileStorage {
+    TemporaryFile,
+    Memory,
+}
+
 #[derive(Debug, TryFromValue, IntoValue, Clone, PartialEq)]
 #[nativeshell(tag = "type", rename_all = "camelCase")]
 pub enum DataSourceItemRepresentation {
@@ -69,6 +76,7 @@ pub enum DataSourceItemRepresentation {
         id: DataSourceValueId,
         file_size: Option<i64>,
         format: String,
+        storage_suggestion: Option<VirtualFileStorage>,
     },
 }
 

@@ -1,7 +1,9 @@
 use std::{
     cell::{Cell, RefCell},
     collections::HashMap,
+    ffi::c_void,
     rc::{Rc, Weak},
+    slice,
     sync::Arc,
 };
 
@@ -15,7 +17,7 @@ use nativeshell_core::{
 use crate::{
     api_model::{DataSource, DataSourceId, DataSourceValueId},
     error::{NativeExtensionsError, NativeExtensionsResult},
-    platform_impl::platform::PlatformDataSource,
+    platform_impl::platform::{platform_stream_close, platform_stream_write, PlatformDataSource},
     util::DropNotifier,
     value_promise::{ValuePromise, ValuePromiseResult},
 };
@@ -41,7 +43,7 @@ pub trait PlatformDataSourceDelegate {
         &self,
         isolate_id: IsolateId,
         virtual_file_id: DataSourceValueId,
-        target_path: String,
+        stream_handle: i32,
         on_progress: Box<dyn Fn(i32 /* 0 - 100 */)>,
         on_done: Box<dyn FnOnce(Result<(), String>)>,
     ) -> Arc<DropNotifier>;
@@ -171,6 +173,21 @@ impl DataSourceManager {
         (session.on_done)(Err(error.error_message));
         Ok(())
     }
+}
+
+#[no_mangle]
+pub extern "C" fn super_native_extensions_stream_write(
+    handle: i32,
+    data: *mut c_void,
+    len: i64,
+) -> i32 {
+    let buf = unsafe { slice::from_raw_parts(data as *const u8, len as usize) };
+    platform_stream_write(handle, &buf)
+}
+
+#[no_mangle]
+pub extern "C" fn super_native_extensions_stream_close(handle: i32, delete: bool) {
+    platform_stream_close(handle, delete);
 }
 
 #[derive(Debug, TryFromValue)]
@@ -308,7 +325,7 @@ impl PlatformDataSourceDelegate for DataSourceManager {
         &self,
         isolate_id: IsolateId,
         virtual_file_id: DataSourceValueId,
-        target_path: String,
+        stream_handle: i32,
         on_progress: Box<dyn Fn(i32 /* 0 - 100 */)>,
         on_done: Box<dyn FnOnce(Result<(), String>)>,
     ) -> Arc<DropNotifier> {
@@ -326,7 +343,7 @@ impl PlatformDataSourceDelegate for DataSourceManager {
         struct VirtualFileRequest {
             session_id: VirtualSessionId,
             virtual_file_id: DataSourceValueId,
-            target_path: String,
+            stream_handle: i32,
         }
         self.invoker.call_method_sync(
             isolate_id,
@@ -334,7 +351,7 @@ impl PlatformDataSourceDelegate for DataSourceManager {
             VirtualFileRequest {
                 session_id,
                 virtual_file_id,
-                target_path,
+                stream_handle,
             },
             |_| {},
         );
