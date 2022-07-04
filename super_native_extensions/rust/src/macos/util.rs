@@ -3,13 +3,14 @@ use std::{ffi::CString, mem::ManuallyDrop, os::raw::c_char, slice};
 use cocoa::{
     appkit::NSView,
     base::{id, nil},
-    foundation::{NSPoint, NSRect, NSSize, NSString},
+    foundation::{NSPoint, NSRect, NSSize, NSString, NSInteger, NSDictionary},
 };
 use objc::{
     declare::ClassDecl,
     msg_send,
+    rc::StrongPtr,
     runtime::{objc_getClass, Class, Object},
-    sel, sel_impl, rc::StrongPtr,
+    sel, sel_impl, class,
 };
 
 use crate::api_model::Rect;
@@ -74,4 +75,18 @@ pub unsafe fn from_nsstring(ns_string: id) -> String {
 
     let bytes = slice::from_raw_parts(bytes, len);
     std::str::from_utf8(bytes).unwrap().into()
+}
+
+pub fn to_nserror(domain: &str, code: NSInteger, message: &str) -> StrongPtr {
+    unsafe {
+        let user_info = NSDictionary::dictionaryWithObject_forKey_(
+            nil,
+            *to_nsstring(message),
+            *to_nsstring("NSLocalizedDescription"),
+        );
+        let error: id = msg_send![class!(NSError), alloc];
+        let error: id =
+            msg_send![error, initWithDomain:to_nsstring(domain) code:code userInfo:user_info];
+        StrongPtr::new(error)
+    }
 }

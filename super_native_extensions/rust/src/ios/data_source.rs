@@ -27,7 +27,7 @@ use once_cell::sync::Lazy;
 
 use crate::{
     api_model::{DataSource, DataSourceItemRepresentation, DataSourceValueId, VirtualFileStorage},
-    data_source_manager::PlatformDataSourceDelegate,
+    data_source_manager::{PlatformDataSourceDelegate, VirtualFileResult},
     error::NativeExtensionsResult,
     log::OkLog,
     util::DropNotifier,
@@ -559,13 +559,16 @@ impl DataSourceSessionInner {
                         };
                     }),
                     Box::new(move |result| match result {
-                        Ok(()) => {
+                        VirtualFileResult::Done => {
                             let data = Self::finish_stream_handle(stream_handle);
                             callback(data, true /* must use presenter */, nil);
                         }
-                        Err(message) => {
+                        VirtualFileResult::Error { message } => {
                             let error = to_nserror("super_dnd", 0, &message);
                             callback(nil, false, *error);
+                        }
+                        VirtualFileResult::Cancelled => {
+                            callback(nil, false, nil);
                         }
                     }),
                 );

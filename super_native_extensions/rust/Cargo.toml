@@ -25,31 +25,29 @@ async-trait = "0.1"
 # git = "https://github.com/nativeshell/nativeshell_ng.git"
 # rev = "e58cf947f78c1e00ff66bedff6d5b42b3046577d"
 path = "../../../rust/nativeshell_ng/core/rust"
-features = [ "derive" ]
+features = ["derive"]
 
 [dev-dependencies.nativeshell_core]
 # git = "https://github.com/nativeshell/nativeshell_ng.git"
 # rev = "e58cf947f78c1e00ff66bedff6d5b42b3046577d"
 path = "../../../rust/nativeshell_ng/core/rust"
-features = [ "derive", "mock" ]
+features = ["derive", "mock"]
 
 [dev-dependencies]
 velcro = "0.5"
 
-[target.'cfg(target_os = "macos")'.dependencies]
+[target.'cfg(any(target_os = "macos", target_os = "ios"))'.dependencies]
 core-foundation = "0.9"
-core-graphics = "0.22.3"
 objc = "0.2.7"
 once_cell = "1.8.0"
 cocoa = "0.24"
+block = "0.1.6"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+core-graphics = "0.22.3"
 
 [target.'cfg(target_os = "ios")'.dependencies]
-once_cell = "1.8.0"
-objc = "0.2.7"
-cocoa = "0.24"
 oslog = "0.2.0"
-block = "0.1.6"
-core-foundation = "0.9"
 
 [target.'cfg(target_os = "android")'.dependencies]
 jni = "0.19"

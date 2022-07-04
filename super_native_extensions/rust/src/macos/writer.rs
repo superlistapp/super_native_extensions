@@ -91,7 +91,7 @@ impl ItemState {
         unsafe {
             let item: id = msg_send![*PASTEBOARD_WRITER_CLASS, alloc];
             let () = msg_send![item, init];
-            (*item).set_ivar("imState", Rc::into_raw(self) as *mut c_void);
+            (*item).set_ivar("sneState", Rc::into_raw(self) as *mut c_void);
             StrongPtr::new(item)
         }
     }
@@ -190,7 +190,7 @@ impl ItemState {
 fn item_state(this: &Object) -> Rc<ItemState> {
     unsafe {
         let state_ptr = {
-            let state_ptr: *mut c_void = *this.get_ivar("imState");
+            let state_ptr: *mut c_void = *this.get_ivar("sneState");
             state_ptr as *const ItemState
         };
         let ptr = Rc::from_raw(state_ptr);
@@ -222,7 +222,7 @@ extern "C" fn pasteboard_property_list_for_type(this: &Object, _sel: Sel, ty: id
 extern "C" fn dealloc(this: &Object, _sel: Sel) {
     unsafe {
         let state_ptr = {
-            let state_ptr: *mut c_void = *this.get_ivar("imState");
+            let state_ptr: *mut c_void = *this.get_ivar("sneState");
             state_ptr as *const ItemState
         };
         Rc::from_raw(state_ptr);
@@ -235,7 +235,7 @@ extern "C" fn dealloc(this: &Object, _sel: Sel) {
 static PASTEBOARD_WRITER_CLASS: Lazy<&'static Class> = Lazy::new(|| unsafe {
     let superclass = class!(NSObject);
     let mut decl = ClassDecl::new("IMPasteboardWriter", superclass).unwrap();
-    decl.add_ivar::<*mut c_void>("imState");
+    decl.add_ivar::<*mut c_void>("sneState");
     if let Some(protocol) = Protocol::get("NSPasteboardWriting") {
         decl.add_protocol(protocol);
     }

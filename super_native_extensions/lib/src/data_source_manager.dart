@@ -49,7 +49,7 @@ class DataSourceManager {
     }
   }
 
-  Future<dynamic> getVirtualFile({
+  Future<dynamic> _getVirtualFile({
     required int sessionId,
     required int virtualFileId,
     required int streamHandle,
@@ -88,8 +88,11 @@ class DataSourceManager {
     } else {
       onError('Virtual file ($virtualFileId)not found');
     }
-    progress.onCancel.addListener(() {
+    progress.onCancel.addListener(() async {
       sink._close(delete: true);
+      await _channel.invokeMethod('virtualFileCancel', {
+        'sessionId': sessionId,
+      });
     });
     return null;
   }
@@ -110,8 +113,8 @@ class DataSourceManager {
       final args = call.arguments;
       final sessionId = args['sessionId'] as int;
       final virtualFileId = args['virtualFileId'] as int;
-      final fileHandle = args['fileHandle'] as int;
-      return getVirtualFile(
+      final fileHandle = args['streamHandle'] as int;
+      return _getVirtualFile(
           sessionId: sessionId,
           virtualFileId: virtualFileId,
           streamHandle: fileHandle);

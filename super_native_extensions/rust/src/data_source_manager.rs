@@ -22,6 +22,12 @@ use crate::{
     value_promise::{ValuePromise, ValuePromiseResult},
 };
 
+pub enum VirtualFileResult {
+    Done,
+    Error { message: String },
+    Cancelled,
+}
+
 #[async_trait(?Send)]
 pub trait PlatformDataSourceDelegate {
     fn get_lazy_data(
@@ -45,13 +51,13 @@ pub trait PlatformDataSourceDelegate {
         virtual_file_id: DataSourceValueId,
         stream_handle: i32,
         on_progress: Box<dyn Fn(i32 /* 0 - 100 */)>,
-        on_done: Box<dyn FnOnce(Result<(), String>)>,
+        on_done: Box<dyn FnOnce(VirtualFileResult)>,
     ) -> Arc<DropNotifier>;
 }
 
 struct VirtualFileSession {
     on_progress: Box<dyn Fn(i32 /* 0 - 100 */)>,
-    on_done: Box<dyn FnOnce(Result<(), String>)>,
+    on_done: Box<dyn FnOnce(VirtualFileResult)>,
 }
 
 #[derive(Debug, TryFromValue, IntoValue, Clone, Copy, PartialEq, Hash, Eq)]
@@ -160,7 +166,7 @@ impl DataSourceManager {
             .borrow_mut()
             .remove(&complete.session_id)
             .ok_or_else(|| NativeExtensionsError::VirtualFileSessionNotFound)?;
-        (session.on_done)(Ok(()));
+        (session.on_done)(VirtualFileResult::Done);
         Ok(())
     }
 
@@ -170,7 +176,19 @@ impl DataSourceManager {
             .borrow_mut()
             .remove(&error.session_id)
             .ok_or_else(|| NativeExtensionsError::VirtualFileSessionNotFound)?;
-        (session.on_done)(Err(error.error_message));
+        (session.on_done)(VirtualFileResult::Error {
+            message: error.error_message,
+        });
+        Ok(())
+    }
+
+    fn virtual_file_cancel(&self, complete: VirtualFileCancel) -> NativeExtensionsResult<()> {
+        let session = self
+            .virtual_sessions
+            .borrow_mut()
+            .remove(&complete.session_id)
+            .ok_or_else(|| NativeExtensionsError::VirtualFileSessionNotFound)?;
+        (session.on_done)(VirtualFileResult::Cancelled);
         Ok(())
     }
 }
@@ -205,6 +223,12 @@ struct VirtualFileComplete {
 
 #[derive(Debug, TryFromValue)]
 #[nativeshell(rename_all = "camelCase")]
+struct VirtualFileCancel {
+    session_id: VirtualSessionId,
+}
+
+#[derive(Debug, TryFromValue)]
+#[nativeshell(rename_all = "camelCase")]
 struct VirtualFileError {
     session_id: VirtualSessionId,
     error_message: String,
@@ -228,6 +252,9 @@ impl AsyncMethodHandler for DataSourceManager {
                 .into_platform_result(),
             "virtualFileError" => self
                 .virtual_file_error(call.args.try_into()?)
+                .into_platform_result(),
+            "virtualFileCancel" => self
+                .virtual_file_cancel(call.args.try_into()?)
                 .into_platform_result(),
             _ => Err(PlatformError {
                 code: "invalid_method".into(),
@@ -327,7 +354,7 @@ impl PlatformDataSourceDelegate for DataSourceManager {
         virtual_file_id: DataSourceValueId,
         stream_handle: i32,
         on_progress: Box<dyn Fn(i32 /* 0 - 100 */)>,
-        on_done: Box<dyn FnOnce(Result<(), String>)>,
+        on_done: Box<dyn FnOnce(VirtualFileResult)>,
     ) -> Arc<DropNotifier> {
         let weak_self = self.weak_self.clone();
         let session_id: VirtualSessionId = self.next_id().into();
@@ -357,7 +384,6 @@ impl PlatformDataSourceDelegate for DataSourceManager {
         );
         DropNotifier::new(move || {
             if let Some(this) = weak_self.upgrade() {
-                this.virtual_sessions.borrow_mut().remove(&session_id);
                 this.invoker
                     .call_method_sync(isolate_id, "cancelVirtualFile", session_id, |_| {});
             }
