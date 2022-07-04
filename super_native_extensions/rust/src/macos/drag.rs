@@ -3,6 +3,7 @@ use std::{
     collections::HashMap,
     rc::{Rc, Weak},
     sync::Arc,
+    time::Duration,
 };
 
 use crate::{
@@ -28,6 +29,7 @@ use cocoa::{
 use core_foundation::base::CFRelease;
 use core_graphics::event::CGEventType;
 
+use nativeshell_core::Context;
 use objc::{
     class, msg_send,
     rc::{autoreleasepool, StrongPtr},
@@ -45,6 +47,7 @@ pub struct PlatformDragContext {
     view: StrongPtr,
     last_mouse_down: RefCell<Option<StrongPtr>>,
     last_mouse_up: RefCell<Option<StrongPtr>>,
+    sessions: RefCell<HashMap<id, Arc<DropNotifier>>>,
 }
 
 static ONCE: std::sync::Once = std::sync::Once::new();
@@ -61,6 +64,7 @@ impl PlatformDragContext {
             view: unsafe { StrongPtr::retain(view_handle as *mut _) },
             last_mouse_down: RefCell::new(None),
             last_mouse_up: RefCell::new(None),
+            sessions: RefCell::new(HashMap::new()),
         }
     }
 
@@ -98,7 +102,7 @@ impl PlatformDragContext {
     ) -> NativeExtensionsResult<()> {
         autoreleasepool(|| unsafe {
             self.synthetize_mouse_up_event();
-            let items = data_source.create_items(drop_notifier);
+            let items = data_source.create_items(drop_notifier.clone(), false);
 
             let mut rect: NSRect = Rect {
                 x: request.drag_position.x,
@@ -122,11 +126,12 @@ impl PlatformDragContext {
             let event = self.last_mouse_down.borrow().as_ref().cloned().unwrap();
             let dragging_items = NSArray::arrayWithObjects(nil, &dragging_items);
 
-            let _session: id = msg_send![*self.view,
+            let session: id = msg_send![*self.view,
                 beginDraggingSessionWithItems:dragging_items
                 event:*event
                 source:*self.view
             ];
+            self.sessions.borrow_mut().insert(session, drop_notifier);
         });
         Ok(())
     }
@@ -151,8 +156,21 @@ impl PlatformDragContext {
         NSDragOperationMove
     }
 
-    pub fn drag_ended(&self, _session: id, _point: NSPoint, operation: NSDragOperation) {
-        println!("Drag ended");
+    pub fn drag_ended(&self, session: id, _point: NSPoint, operation: NSDragOperation) {
+        let notifier = self
+            .sessions
+            .borrow_mut()
+            .remove(&session)
+            .expect("Drag session notifier unexpectedly missing");
+        // Wait a bit to ensure drop site had enough time to request data.
+        // Note that for file promises the drop notifier lifetime is extended
+        // until the promise is fulfilled in data source.
+        Context::get()
+            .run_loop()
+            .schedule(Duration::from_secs(3), move || {
+                let _notifier = notifier;
+            })
+            .detach();
     }
 }
 

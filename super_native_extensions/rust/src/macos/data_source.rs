@@ -87,13 +87,23 @@ impl PlatformDataSource {
         self.weak_self.set(weak_self);
     }
 
-    pub fn create_items(&self, drop_notifier: Arc<DropNotifier>) -> Vec<id> {
+    pub fn create_items(
+        &self,
+        drop_notifier: Arc<DropNotifier>,
+        retain_drop_notifier: bool,
+    ) -> Vec<id> {
         let mut items = Vec::<id>::new();
         for item in self.data.items.iter().enumerate() {
             let state = Rc::new(ItemState {
                 data_source: self.weak_self.clone(),
                 index: item.0,
-                _drop_notifier: drop_notifier.clone(),
+                drop_notifier: Arc::downgrade(&drop_notifier),
+                _retained_drop_notifier: if retain_drop_notifier {
+                    Some(drop_notifier.clone())
+                } else {
+                    None
+                },
+                virtual_files: RefCell::new(Vec::new()),
             });
             let item = state.create_item();
             items.push(item.autorelease());
@@ -106,7 +116,7 @@ impl PlatformDataSource {
         drop_notifier: Arc<DropNotifier>,
     ) -> NativeExtensionsResult<()> {
         autoreleasepool(|| unsafe {
-            let items = self.create_items(drop_notifier);
+            let items = self.create_items(drop_notifier, true);
             let array = NSArray::arrayWithObjects(nil, &items);
             let pasteboard = NSPasteboard::generalPasteboard(nil);
             NSPasteboard::clearContents(pasteboard);
@@ -119,7 +129,9 @@ impl PlatformDataSource {
 struct ItemState {
     data_source: Weak<PlatformDataSource>,
     index: usize,
-    _drop_notifier: Arc<DropNotifier>,
+    drop_notifier: std::sync::Weak<DropNotifier>,
+    _retained_drop_notifier: Option<Arc<DropNotifier>>,
+    virtual_files: RefCell<Vec<Arc<DropNotifier>>>,
 }
 
 struct VirtualFileInfo {
@@ -290,11 +302,13 @@ impl ItemState {
     }
 
     fn file_promise_do_write(
+        self: &Rc<Self>,
         url: id,
         completion_fn: Box<dyn FnOnce(id)>,
         info: VirtualFileInfo,
         data_source: Rc<PlatformDataSource>,
         delegate: Rc<dyn PlatformDataSourceDelegate>,
+        drop_notifier: Arc<DropNotifier>,
     ) {
         let progress = Self::progress_for_url(url);
 
@@ -311,9 +325,6 @@ impl ItemState {
         let descriptor = file.into_raw_fd();
         FILE_PATHS.lock().unwrap().insert(descriptor, path.clone());
 
-        // Keep the notifier alive until the block is alive.
-        let notifier_holder = Rc::new(RefCell::new(Option::<Arc<DropNotifier>>::None));
-        let notifier_holder_clone = notifier_holder.clone();
         let progress_clone = progress.clone();
         let progress_clone2 = progress.clone();
         let notifier = delegate.get_virtual_file(
@@ -324,7 +335,7 @@ impl ItemState {
                 let () = unsafe { msg_send![*progress_clone, setCompletedUnitCount: cnt as u64] };
             }),
             Box::new(move |result| {
-                let _notifier = notifier_holder_clone;
+                let _drop_notifier = drop_notifier;
                 unsafe {
                     let () = msg_send![*progress_clone2, unpublish];
                 }
@@ -338,29 +349,35 @@ impl ItemState {
                 }
             }),
         );
-        let notifier_clone = notifier.clone();
-        let progress_clone = progress.clone();
+        self.virtual_files.borrow_mut().push(notifier.clone());
+        let notifier = Arc::downgrade(&notifier);
         let cancellation_handler = ConcreteBlock::new(move || {
-            unsafe {
-                let () = msg_send![*progress_clone, unpublish];
+            if let Some(notifier) = notifier.upgrade() {
+                notifier.dispose();
             }
-            notifier_clone.dispose();
         });
         let cancellation_handler = cancellation_handler.copy();
         unsafe {
             let () = msg_send![*progress, setCancellationHandler:&*cancellation_handler];
         }
-        notifier_holder.borrow_mut().replace(notifier);
     }
 
     fn file_promise_write_to_url(self: &Rc<Self>, url: id, completion_fn: Box<dyn FnOnce(id)>) {
         let info = self.virtual_file_info();
         let data_source = self.data_source.upgrade();
         let delegate = data_source.as_ref().and_then(|c| c.delegate.upgrade());
+        let drop_notifier = self.drop_notifier.upgrade();
 
-        match (info, data_source, delegate) {
-            (Some(info), Some(clipboard), Some(delegate)) => {
-                Self::file_promise_do_write(url, completion_fn, info, clipboard, delegate);
+        match (info, data_source, delegate, drop_notifier) {
+            (Some(info), Some(clipboard), Some(delegate), Some(drop_notifier)) => {
+                self.file_promise_do_write(
+                    url,
+                    completion_fn,
+                    info,
+                    clipboard,
+                    delegate,
+                    drop_notifier,
+                );
             }
             _ => {
                 let error = to_nserror("super_dnd", 0, "data not found");
