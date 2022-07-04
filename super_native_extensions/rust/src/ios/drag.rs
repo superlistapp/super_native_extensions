@@ -30,7 +30,7 @@ use crate::{
     util::DropNotifier,
 };
 
-use super::{util::to_nsstring, DataSourceSession, DataSourceSessionDelegate, PlatformDataSource};
+use super::{util::to_nsstring, DataSourceSessionDelegate, PlatformDataSource};
 
 pub struct PlatformDragContext {
     id: i64,
@@ -46,7 +46,7 @@ struct Session {
     context_delegate: Weak<dyn PlatformDragContextDelegate>,
     weak_self: Late<Weak<Self>>,
     in_progress: Cell<bool>,
-    data_source_session: RefCell<Option<Arc<DataSourceSession>>>,
+    data_source_notifier: RefCell<Option<Arc<DropNotifier>>>,
 }
 
 impl Session {
@@ -55,7 +55,7 @@ impl Session {
             context_delegate,
             weak_self: Late::new(),
             in_progress: Cell::new(false),
-            data_source_session: RefCell::new(None),
+            data_source_notifier: RefCell::new(None),
         }
     }
 
@@ -66,12 +66,18 @@ impl Session {
     fn create_items(
         &self,
         source: Rc<PlatformDataSource>,
-        source_drop_notifier: Arc<DropNotifier>,
+        data_source_notifier: Arc<DropNotifier>,
     ) -> id {
-        let (items, session) =
-            source.create_items(source_drop_notifier.clone(), self.weak_self.clone());
+        // We manage the data source notifier ourselves. Unfortunately the
+        // NSItemProvider leaks and never gets released on iOS.
+        // So after dragging is finished we manually drop the notifier releasing
+        // everything data-source related. The DataSourceSession will be kept
+        // alive but it only has weak references to PlatformDataSource and
+        // PlatformDataSourceState.
+        self.data_source_notifier
+            .replace(Some(data_source_notifier));
+        let items = source.create_items(None, self.weak_self.clone());
         let mut dragging_items = Vec::<id>::new();
-        self.data_source_session.replace(Some(session));
         unsafe {
             for item in items {
                 let item_provider = item;
@@ -97,8 +103,8 @@ impl DataSourceSessionDelegate for Session {
 
 impl Drop for Session {
     fn drop(&mut self) {
-        if let Some(session) = self.data_source_session.take() {
-            session.dispose();
+        if let Some(notifier) = self.data_source_notifier.take() {
+            notifier.dispose();
         }
     }
 }

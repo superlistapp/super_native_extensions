@@ -82,7 +82,8 @@ pub fn platform_stream_close(handle: i32, delete: bool) {
     }
 }
 
-struct State {
+/// DataSource state that may be accessed from multiple threads
+struct PlatformDataSourceState {
     source: DataSource,
     precached_values: HashMap<(DataSourceValueId, String), ValuePromiseResult>,
 }
@@ -91,7 +92,7 @@ pub struct PlatformDataSource {
     weak_self: Late<Weak<Self>>,
     delegate: Weak<dyn PlatformDataSourceDelegate>,
     isolate_id: IsolateId,
-    state: Arc<Mutex<State>>,
+    state: Arc<Mutex<PlatformDataSourceState>>,
 }
 
 impl PlatformDataSource {
@@ -104,7 +105,7 @@ impl PlatformDataSource {
             delegate,
             isolate_id,
             weak_self: Late::new(),
-            state: Arc::new(Mutex::new(State {
+            state: Arc::new(Mutex::new(PlatformDataSourceState {
                 source,
                 precached_values: HashMap::new(),
             })),
@@ -117,9 +118,9 @@ impl PlatformDataSource {
 
     pub fn create_items(
         &self,
-        drop_notifier: Arc<DropNotifier>,
+        drop_notifier: Option<Arc<DropNotifier>>,
         delegate: Weak<dyn DataSourceSessionDelegate>,
-    ) -> (Vec<id>, Arc<DataSourceSession>) {
+    ) -> Vec<id> {
         let mut items = Vec::<id>::new();
         let session = DataSourceSession::new(
             self.state.clone(),
@@ -194,7 +195,7 @@ impl PlatformDataSource {
                 items.push(item_provider);
             }
         }
-        (items, session)
+        items
     }
 
     pub async fn write_to_clipboard(
@@ -208,7 +209,7 @@ impl PlatformDataSource {
         // ourselves to avoid the deadlock.
         self.precache().await;
         autoreleasepool(|| unsafe {
-            let (items, _) = self.create_items(drop_notifier, self.weak_self.clone());
+            let items = self.create_items(Some(drop_notifier), self.weak_self.clone());
             let array = NSArray::arrayWithObjects(nil, &items);
             let pasteboard: id = msg_send![class!(UIPasteboard), generalPasteboard];
             let () = msg_send![pasteboard, setItemProviders: array];
@@ -349,16 +350,36 @@ pub trait DataSourceSessionDelegate {
     fn should_fetch_items(&self) -> bool;
 }
 
-struct DataSourceSessionInner {
-    state: Arc<Mutex<State>>,
-    _drop_notifier: Arc<DropNotifier>,
+// Make sure that DataSourceSession only has weak refernces to
+// DataSource and DataSourceState. It may not get released because of iOS
+// drag&drop memory leak where the item provider never gets released.
+pub struct DataSourceSession {
+    state: std::sync::Weak<Mutex<PlatformDataSourceState>>,
+    _drop_notifier: Option<Arc<DropNotifier>>,
     sender: RunLoopSender,
     platform_source: Mutex<Capsule<Weak<PlatformDataSource>>>,
     delegate: Mutex<Capsule<Weak<dyn DataSourceSessionDelegate>>>,
     virtual_files: Mutex<Vec<Arc<DropNotifier>>>,
 }
 
-impl DataSourceSessionInner {
+impl DataSourceSession {
+    fn new(
+        state: Arc<Mutex<PlatformDataSourceState>>,
+        drop_notifier: Option<Arc<DropNotifier>>,
+        platform_source: Weak<PlatformDataSource>,
+        delegate: Weak<dyn DataSourceSessionDelegate>,
+    ) -> Arc<Self> {
+        let sender = Context::get().run_loop().new_sender();
+        Arc::new(Self {
+            state: Arc::downgrade(&state),
+            _drop_notifier: drop_notifier,
+            sender: sender.clone(),
+            platform_source: Mutex::new(Capsule::new_with_sender(platform_source, sender.clone())),
+            delegate: Mutex::new(Capsule::new_with_sender(delegate, sender)),
+            virtual_files: Mutex::new(Vec::new()),
+        })
+    }
+
     fn on_platform_thread<F>(&self, f: F)
     where
         F: FnOnce(
@@ -425,7 +446,14 @@ impl DataSourceSessionInner {
         format: &String,
         callback: Box<dyn Fn(id, id) + Send>,
     ) -> id {
-        let state = self.state.lock().unwrap();
+        let state = match self.state.upgrade() {
+            Some(state) => state,
+            None => {
+                callback(nil, nil);
+                return nil;
+            }
+        };
+        let state = state.lock().unwrap();
         let item = &state.source.items[index];
         for representation in &item.representations {
             match representation {
@@ -607,70 +635,5 @@ impl DataSourceSessionInner {
             self.fetch_virtual_file(id, progress.clone(), storage, callback);
             *progress
         }
-    }
-}
-
-pub struct DataSourceSession {
-    inner: Mutex<Option<Arc<DataSourceSessionInner>>>,
-}
-
-impl DataSourceSession {
-    fn new(
-        state: Arc<Mutex<State>>,
-        drop_notifier: Arc<DropNotifier>,
-        platform_source: Weak<PlatformDataSource>,
-        delegate: Weak<dyn DataSourceSessionDelegate>,
-    ) -> Arc<Self> {
-        let sender = Context::get().run_loop().new_sender();
-        Arc::new(Self {
-            inner: Mutex::new(Some(Arc::new(DataSourceSessionInner {
-                state,
-                _drop_notifier: drop_notifier,
-                sender: sender.clone(),
-                platform_source: Mutex::new(Capsule::new_with_sender(
-                    platform_source,
-                    sender.clone(),
-                )),
-                delegate: Mutex::new(Capsule::new_with_sender(delegate, sender)),
-                virtual_files: Mutex::new(Vec::new()),
-            }))),
-        })
-    }
-
-    fn value_for_index(
-        self: &Arc<Self>,
-        index: usize,
-        format: &String,
-        callback: Box<dyn Fn(id, id) + Send>,
-    ) -> id {
-        let inner = self.inner.lock().unwrap();
-        match &*inner {
-            Some(inner) => inner.value_for_index(index, format, callback),
-            None => {
-                callback(nil, nil);
-                nil
-            }
-        }
-    }
-
-    fn file_for_index(
-        self: &Arc<Self>,
-        id: DataSourceValueId,
-        storage: VirtualFileStorage,
-        callback: Box<dyn Fn(id, bool, id) + Send>,
-    ) -> id {
-        let inner = self.inner.lock().unwrap();
-        match &*inner {
-            Some(inner) => inner.file_for_index(id, storage, callback),
-            None => {
-                callback(nil, false, nil);
-                nil
-            }
-        }
-    }
-
-    /// Drag and drop leaks on iOS so we clean the session manually :-/
-    pub fn dispose(self: &Arc<Self>) {
-        self.inner.lock().unwrap().take();
     }
 }
