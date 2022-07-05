@@ -24,7 +24,7 @@ use objc::{
 use once_cell::sync::Lazy;
 
 use crate::{
-    error::ClipboardResult,
+    error::NativeExtensionsResult,
     log::OkLog,
     value_promise::ValuePromiseResult,
     writer_data::{ClipboardWriterData, ClipboardWriterItemData},
@@ -69,7 +69,7 @@ impl PlatformClipboardWriter {
         items
     }
 
-    pub async fn write_to_clipboard(&self) -> ClipboardResult<()> {
+    pub async fn write_to_clipboard(&self) -> NativeExtensionsResult<()> {
         autoreleasepool(|| unsafe {
             let items = self.create_items();
             let array = NSArray::arrayWithObjects(nil, &items);

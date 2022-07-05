@@ -1,6 +1,6 @@
 use std::{
     mem::{size_of, ManuallyDrop},
-    rc::{Rc, Weak},
+    rc::{Rc, Weak}, sync::Arc,
 };
 
 use nativeshell_core::{util::Late, IsolateId};
@@ -31,27 +31,36 @@ use windows::{
 };
 
 use crate::{
-    error::ClipboardResult,
+    api_model::{DataSource, DataSourceItemRepresentation, DataSourceValueId},
+    data_source_manager::PlatformDataSourceDelegate,
+    error::NativeExtensionsResult,
+    util::DropNotifier,
     value_coerce::{CoerceToData, StringFormat},
     value_promise::ValuePromiseResult,
-    writer_data::ClipboardWriterData,
-    writer_manager::PlatformClipboardWriterDelegate,
 };
 
 use super::common::{as_u8_slice, format_from_string, format_to_string, make_format_with_tymed};
 
-pub struct PlatformClipboardWriter {
-    weak_self: Late<Weak<Self>>,
-    isolate_id: IsolateId,
-    delegate: Weak<dyn PlatformClipboardWriterDelegate>,
-    data: ClipboardWriterData,
+pub fn platform_stream_write(handle: i32, data: &[u8]) -> i32 {
+    todo!()
 }
 
-impl PlatformClipboardWriter {
+pub fn platform_stream_close(handle: i32, delete: bool) {
+    todo!()
+}
+
+pub struct PlatformDataSource {
+    weak_self: Late<Weak<Self>>,
+    isolate_id: IsolateId,
+    delegate: Weak<dyn PlatformDataSourceDelegate>,
+    data: DataSource,
+}
+
+impl PlatformDataSource {
     pub fn new(
-        delegate: Weak<dyn PlatformClipboardWriterDelegate>,
+        delegate: Weak<dyn PlatformDataSourceDelegate>,
         isolate_id: IsolateId,
-        data: ClipboardWriterData,
+        data: DataSource,
     ) -> Self {
         Self {
             weak_self: Late::new(),
@@ -65,7 +74,10 @@ impl PlatformClipboardWriter {
         self.weak_self.set(weak_self);
     }
 
-    pub async fn write_to_clipboard(&self) -> ClipboardResult<()> {
+    pub async fn write_to_clipboard(
+        &self,
+        drop_notifier: Arc<DropNotifier>,
+    ) -> NativeExtensionsResult<()> {
         let data_object = DataObject::create(self.weak_self.upgrade().unwrap());
         unsafe {
             OleSetClipboard(data_object)?;
@@ -76,14 +88,14 @@ impl PlatformClipboardWriter {
 
 #[implement(IDataObject)]
 struct DataObject {
-    writer: Rc<PlatformClipboardWriter>,
+    writer: Rc<PlatformDataSource>,
 }
 
 struct IStreamWrapper(IStream);
 unsafe impl Send for IStreamWrapper {}
 
 impl DataObject {
-    fn create(writer: Rc<PlatformClipboardWriter>) -> IDataObject {
+    fn create(writer: Rc<PlatformDataSource>) -> IDataObject {
         let data_object = Self { writer };
         data_object.into()
     }
@@ -103,7 +115,7 @@ impl DataObject {
         }
     }
 
-    fn lazy_data_for_id(&self, id: i64) -> Option<Vec<u8>> {
+    fn lazy_data_for_id(&self, format: String, id: DataSourceValueId) -> Option<Vec<u8>> {
         let delegate = self.writer.delegate.upgrade();
         if let Some(delegate) = delegate {
             // Find hwnds of our task runner and flutter task runner
@@ -127,7 +139,7 @@ impl DataObject {
                     }
                 }
             };
-            let data = delegate.get_lazy_data(self.writer.isolate_id, id, None);
+            let data = delegate.get_lazy_data(self.writer.isolate_id, id, format, None);
             loop {
                 match data.try_take() {
                     Some(ValuePromiseResult::Ok { value }) => {
@@ -168,19 +180,19 @@ impl DataObject {
         let item = self.writer.data.items.get(index);
         if let Some(item) = item {
             let format = format_to_string(format);
-            for data in &item.data {
-                match data {
-                    crate::writer_data::ClipboardWriterItemData::Simple { types, data } => {
-                        for ty in types {
+            for representation in &item.representations {
+                match representation {
+                    DataSourceItemRepresentation::Simple { formats, data } => {
+                        for ty in formats {
                             if ty == &format {
                                 return data.coerce_to_data(StringFormat::Utf16NullTerminated);
                             }
                         }
                     }
-                    crate::writer_data::ClipboardWriterItemData::Lazy { types, id } => {
-                        for ty in types {
+                    DataSourceItemRepresentation::Lazy { formats, id } => {
+                        for ty in formats {
                             if ty == &format {
-                                return self.lazy_data_for_id(*id);
+                                return self.lazy_data_for_id(ty.clone(), *id);
                             }
                         }
                     }
@@ -231,24 +243,21 @@ impl DataObject {
         let first_item = self.writer.data.items.first();
         let mut res = Vec::<FORMATETC>::new();
         if let Some(item) = first_item {
-            for data in &item.data {
-                match data {
-                    crate::writer_data::ClipboardWriterItemData::Simple { types, data: _ } => {
-                        for ty in types {
+            for representation in &item.representations {
+                match representation {
+                    DataSourceItemRepresentation::Simple { formats, data: _ } => {
+                        for ty in formats {
                             let format = format_from_string(ty);
                             res.push(make_format_with_tymed(format, TYMED_HGLOBAL));
                         }
                     }
-                    crate::writer_data::ClipboardWriterItemData::Lazy { types, id: _ } => {
-                        for ty in types {
+                    DataSourceItemRepresentation::Lazy { formats, id: _ } => {
+                        for ty in formats {
                             let format = format_from_string(ty);
                             res.push(make_format_with_tymed(format, TYMED_HGLOBAL));
                         }
                     }
-                    crate::writer_data::ClipboardWriterItemData::VirtualFile {
-                        file_size: _,
-                        file_name: _,
-                    } => {}
+                    _ => {}
                 }
             }
         }

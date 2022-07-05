@@ -6,7 +6,7 @@ use nativeshell_core::{
 };
 
 use crate::{
-    error::ClipboardResult,
+    error::NativeExtensionsResult,
     value_promise::ValuePromiseResult,
     writer_data::{ClipboardWriterData, ClipboardWriterItemData},
     writer_manager::PlatformClipboardWriterDelegate,
@@ -48,7 +48,7 @@ impl PlatformClipboardWriter {
         })
     }
 
-    pub async fn write_to_clipboard(&self) -> ClipboardResult<()> {
+    pub async fn write_to_clipboard(&self) -> NativeExtensionsResult<()> {
         self.written_data.replace(Some(self.data.clone()));
         Ok(())
     }

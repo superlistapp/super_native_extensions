@@ -19,7 +19,7 @@ use url::Url;
 
 use crate::{
     android::{CONTEXT, JAVA_VM},
-    error::{ClipboardError, ClipboardResult},
+    error::{ClipboardError, NativeExtensionsResult},
     log::OkLog,
     value_coerce::{CoerceToData, StringFormat},
     value_promise::{ValuePromise, ValuePromiseResult},
@@ -130,7 +130,7 @@ impl PlatformClipboardWriter {
         env: &JNIEnv<'a>,
         writer_id: i64,
         index: usize,
-    ) -> ClipboardResult<JObject<'a>> {
+    ) -> NativeExtensionsResult<JObject<'a>> {
         let context = CONTEXT
             .get()
             .ok_or_else(|| ClipboardError::OtherError("Missing Android Context".into()))?
@@ -152,7 +152,7 @@ impl PlatformClipboardWriter {
         item: &ClipboardWriterItem,
         index: usize,
         clipboard_mime_types: &mut Vec<String>,
-    ) -> ClipboardResult<Option<JObject<'a>>> {
+    ) -> NativeExtensionsResult<Option<JObject<'a>>> {
         let mut text = None::<JObject>;
         let mut text_html = None::<JObject>;
         let mut uri = None::<JObject>;
@@ -232,7 +232,7 @@ impl PlatformClipboardWriter {
         env: &JNIEnv<'a>,
         writer_id: i64,
         writer: &ClipboardWriterData,
-    ) -> ClipboardResult<JObject<'a>> {
+    ) -> NativeExtensionsResult<JObject<'a>> {
         let mut clipboard_mime_types = Vec::<String>::new();
         let mut items = Vec::<JObject>::new();
         for (index, item) in writer.items.iter().enumerate() {
@@ -285,7 +285,7 @@ impl PlatformClipboardWriter {
         Ok(clip_data)
     }
 
-    pub fn create_clip_data<'a>(&self, env: &JNIEnv<'a>) -> ClipboardResult<JObject<'a>> {
+    pub fn create_clip_data<'a>(&self, env: &JNIEnv<'a>) -> NativeExtensionsResult<JObject<'a>> {
         let writers = WRITERS.lock().unwrap();
         let writer = writers.get(&self.writer_id);
         if let Some(writer) = writer.map(|s| &s.data) {
@@ -299,7 +299,7 @@ impl PlatformClipboardWriter {
         }
     }
 
-    pub async fn write_to_clipboard(&self) -> ClipboardResult<()> {
+    pub async fn write_to_clipboard(&self) -> NativeExtensionsResult<()> {
         let env = JAVA_VM
             .get()
             .ok_or_else(|| ClipboardError::OtherError("JAVA_VM not set".into()))?
@@ -367,7 +367,7 @@ fn get_mime_types_for_uri<'a>(
     env: &JNIEnv<'a>,
     uri_string: JString,
     filter: JString,
-) -> ClipboardResult<JObject<'a>> {
+) -> NativeExtensionsResult<JObject<'a>> {
     let info = UriInfo::parse(env, uri_string)
         .ok_or_else(|| ClipboardError::OtherError("Malformed URI".into()))?;
 
@@ -420,7 +420,7 @@ fn get_mime_types_for_uri<'a>(
     Ok(res)
 }
 
-fn get_value(env: &JNIEnv, promise: Arc<ValuePromise>) -> ClipboardResult<ValuePromiseResult> {
+fn get_value(env: &JNIEnv, promise: Arc<ValuePromise>) -> NativeExtensionsResult<ValuePromiseResult> {
     if Context::current().is_some() {
         // this is main thread - we need to poll the event loop while waiting
         let context = CONTEXT.get().unwrap().as_obj();
@@ -466,8 +466,8 @@ fn get_data_for_uri<'a>(
     this: JClass,
     uri_string: JString,
     mime_type: JString,
-) -> ClipboardResult<JObject<'a>> {
-    fn byte_array_from_value<'a>(env: &JNIEnv<'a>, value: &Value) -> ClipboardResult<JObject<'a>> {
+) -> NativeExtensionsResult<JObject<'a>> {
+    fn byte_array_from_value<'a>(env: &JNIEnv<'a>, value: &Value) -> NativeExtensionsResult<JObject<'a>> {
         let data = value.coerce_to_data(StringFormat::Utf8).unwrap_or_default();
         let res: JObject = env.new_byte_array(data.len() as i32).unwrap().into();
         let data: &[u8] = &data;

@@ -19,7 +19,7 @@ use nativeshell_core::{util::Late, IsolateId};
 use scopeguard::defer;
 
 use crate::{
-    error::ClipboardResult,
+    error::NativeExtensionsResult,
     value_coerce::{CoerceToData, StringFormat},
     writer_data::{ClipboardWriterData, ClipboardWriterItem},
     writer_manager::PlatformClipboardWriterDelegate,
@@ -165,7 +165,7 @@ impl PlatformClipboardWriter {
         Weak::from_raw(user_data);
     }
 
-    pub async fn write_to_clipboard(&self) -> ClipboardResult<()> {
+    pub async fn write_to_clipboard(&self) -> NativeExtensionsResult<()> {
         unsafe {
             let target_list = self.create_target_list();
             defer! { gtk_target_list_unref(target_list); }

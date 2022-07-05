@@ -274,19 +274,19 @@ impl AsyncMethodHandler for DataSourceManager {
 
     // Called when engine is about to be destroyed.
     fn on_isolate_destroyed(&self, isolate_id: IsolateId) {
-        let mut writers = self.sources.borrow_mut();
-        let sources_to_remove: Vec<_> = writers
+        let mut sources = self.sources.borrow_mut();
+        let sources_to_remove: Vec<_> = sources
             .iter()
-            .filter_map(|(id, writer)| {
-                if writer.isolate_id == isolate_id {
+            .filter_map(|(id, source)| {
+                if source.isolate_id == isolate_id {
                     Some(*id)
                 } else {
                     None
                 }
             })
             .collect();
-        for writer_id in sources_to_remove {
-            writers.remove(&writer_id);
+        for source_id in sources_to_remove {
+            sources.remove(&source_id);
         }
     }
 }

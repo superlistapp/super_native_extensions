@@ -11,7 +11,7 @@ use windows::Win32::{
     UI::Shell::DROPFILES,
 };
 
-use crate::error::ClipboardResult;
+use crate::error::NativeExtensionsResult;
 
 use super::common::{extract_formats, format_from_string, format_to_string, get_data, has_data};
 
@@ -20,11 +20,11 @@ pub struct PlatformClipboardReader {
 }
 
 impl PlatformClipboardReader {
-    pub async fn get_items(&self) -> ClipboardResult<Vec<i64>> {
+    pub async fn get_items(&self) -> NativeExtensionsResult<Vec<i64>> {
         Ok((0..self.item_count()? as i64).collect())
     }
 
-    fn item_count(&self) -> ClipboardResult<usize> {
+    fn item_count(&self) -> NativeExtensionsResult<usize> {
         let hdrop_len = self.get_hdrop()?.map(|f| f.len()).unwrap_or(0);
         if hdrop_len > 0 {
             Ok(hdrop_len)
@@ -35,7 +35,7 @@ impl PlatformClipboardReader {
         }
     }
 
-    fn supported_formats(&self) -> ClipboardResult<Vec<u32>> {
+    fn supported_formats(&self) -> NativeExtensionsResult<Vec<u32>> {
         let formats = extract_formats(&self.data_object)?
             .iter()
             .filter_map(|f| {
@@ -49,7 +49,7 @@ impl PlatformClipboardReader {
         Ok(formats)
     }
 
-    pub async fn get_types_for_item(&self, item: i64) -> ClipboardResult<Vec<String>> {
+    pub async fn get_types_for_item(&self, item: i64) -> NativeExtensionsResult<Vec<String>> {
         if item == 0 {
             return Ok(self
                 .supported_formats()?
@@ -65,7 +65,11 @@ impl PlatformClipboardReader {
         Ok(vec![])
     }
 
-    pub async fn get_data_for_item(&self, item: i64, data_type: String) -> ClipboardResult<Value> {
+    pub async fn get_data_for_item(
+        &self,
+        item: i64,
+        data_type: String,
+    ) -> NativeExtensionsResult<Value> {
         let format = format_from_string(&data_type);
         if format == CF_HDROP.0 as u32 {
             let item = item as usize;
@@ -81,14 +85,14 @@ impl PlatformClipboardReader {
         }
     }
 
-    pub fn new_default() -> ClipboardResult<Self> {
+    pub fn new_default() -> NativeExtensionsResult<Self> {
         let data_object = unsafe { OleGetClipboard() }?;
         Ok(PlatformClipboardReader { data_object })
     }
 
     pub fn assign_weak_self(&self, _weak: Weak<PlatformClipboardReader>) {}
 
-    fn get_hdrop(&self) -> ClipboardResult<Option<Vec<String>>> {
+    fn get_hdrop(&self) -> NativeExtensionsResult<Option<Vec<String>>> {
         if has_data(&self.data_object, CF_HDROP.0 as u32) {
             let data = get_data(&self.data_object, CF_HDROP.0 as u32)?;
             Ok(Some(Self::extract_files(data)))

@@ -14,7 +14,7 @@ use nativeshell_core::{util::FutureCompleter, Value};
 
 use crate::{
     android::{CLIP_DATA_UTIL, CONTEXT, JAVA_VM},
-    error::{ClipboardError, ClipboardResult},
+    error::{ClipboardError, NativeExtensionsResult},
 };
 
 pub struct PlatformClipboardReader {
@@ -22,7 +22,7 @@ pub struct PlatformClipboardReader {
 }
 
 impl PlatformClipboardReader {
-    fn get_env_and_context() -> ClipboardResult<(AttachGuard<'static>, JObject<'static>)> {
+    fn get_env_and_context() -> NativeExtensionsResult<(AttachGuard<'static>, JObject<'static>)> {
         let env = JAVA_VM
             .get()
             .ok_or_else(|| ClipboardError::OtherError("JAVA_VM not set".into()))?
@@ -31,7 +31,7 @@ impl PlatformClipboardReader {
         Ok((env, context))
     }
 
-    pub async fn get_items(&self) -> ClipboardResult<Vec<i64>> {
+    pub async fn get_items(&self) -> NativeExtensionsResult<Vec<i64>> {
         match &self.clip_data {
             Some(clip_data) => {
                 let (env, _) = Self::get_env_and_context()?;
@@ -44,7 +44,7 @@ impl PlatformClipboardReader {
         }
     }
 
-    pub async fn get_types_for_item(&self, item: i64) -> ClipboardResult<Vec<String>> {
+    pub async fn get_types_for_item(&self, item: i64) -> NativeExtensionsResult<Vec<String>> {
         match &self.clip_data {
             Some(clip_data) => {
                 let (env, context) = Self::get_env_and_context()?;
@@ -74,7 +74,7 @@ impl PlatformClipboardReader {
     thread_local! {
         static NEXT_HANDLE: Cell<i64> = Cell::new(1);
         static PENDING:
-            RefCell<HashMap<i64,FutureCompleter<ClipboardResult<Value>>>> = RefCell::new(HashMap::new());
+            RefCell<HashMap<i64,FutureCompleter<NativeExtensionsResult<Value>>>> = RefCell::new(HashMap::new());
     }
 
     #[no_mangle]
@@ -109,7 +109,7 @@ impl PlatformClipboardReader {
         }
     }
 
-    pub async fn get_data_for_item(&self, item: i64, data_type: String) -> ClipboardResult<Value> {
+    pub async fn get_data_for_item(&self, item: i64, data_type: String) -> NativeExtensionsResult<Value> {
         match &self.clip_data {
             Some(clip_data) => {
                 let (future, completer) = FutureCompleter::new();
@@ -141,7 +141,7 @@ impl PlatformClipboardReader {
         }
     }
 
-    pub fn new_default() -> ClipboardResult<Self> {
+    pub fn new_default() -> NativeExtensionsResult<Self> {
         let (env, context) = Self::get_env_and_context()?;
         let clipboard_service = env
             .get_static_field(

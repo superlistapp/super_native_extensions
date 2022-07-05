@@ -18,7 +18,7 @@ use nativeshell_core::{
     Value,
 };
 
-use crate::error::ClipboardResult;
+use crate::error::NativeExtensionsResult;
 
 use super::{atom_from_string, atom_to_string, TYPE_TEXT, TYPE_URI};
 
@@ -48,14 +48,14 @@ impl PlatformClipboardReader {
         }
     }
 
-    pub async fn get_items(&self) -> ClipboardResult<Vec<i64>> {
+    pub async fn get_items(&self) -> NativeExtensionsResult<Vec<i64>> {
         self.init().await;
         // uris from urilist are represented as separate items
         let num_items = 1.max(self.inner.uris.len());
         Ok((0..num_items as i64).collect())
     }
 
-    pub async fn get_types_for_item(&self, item: i64) -> ClipboardResult<Vec<String>> {
+    pub async fn get_types_for_item(&self, item: i64) -> NativeExtensionsResult<Vec<String>> {
         self.init().await;
         if item == 0 {
             Ok(self.inner.targets.clone())
@@ -66,7 +66,7 @@ impl PlatformClipboardReader {
         }
     }
 
-    pub async fn get_data_for_item(&self, item: i64, data_type: String) -> ClipboardResult<Value> {
+    pub async fn get_data_for_item(&self, item: i64, data_type: String) -> NativeExtensionsResult<Value> {
         let item = item as usize;
         if data_type == TYPE_URI && item < self.inner.uris.len() {
             Ok(self.inner.uris[item].clone().into())
@@ -83,7 +83,7 @@ impl PlatformClipboardReader {
         }
     }
 
-    pub fn new_default() -> ClipboardResult<Self> {
+    pub fn new_default() -> NativeExtensionsResult<Self> {
         let clipboard = unsafe {
             let display = gdk_display_get_default();
             let clipboard = gtk_clipboard_get_default(display);

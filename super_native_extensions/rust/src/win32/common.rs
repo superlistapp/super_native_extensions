@@ -7,7 +7,7 @@ use windows::Win32::System::{
     Ole::ReleaseStgMedium,
 };
 
-use crate::error::ClipboardError;
+use crate::error::NativeExtensionsError;
 
 const INTERNAL_PREFIX: &str = "NativeShell_InternalWindowsFormat_";
 
@@ -39,9 +39,9 @@ pub fn make_format_with_tymed(format: u32, tymed: TYMED) -> FORMATETC {
     }
 }
 
-impl From<windows::core::Error> for ClipboardError {
+impl From<windows::core::Error> for NativeExtensionsError {
     fn from(error: windows::core::Error) -> Self {
-        ClipboardError::OtherError(format!("Windows Error: {}", error))
+        NativeExtensionsError::OtherError(format!("Windows Error: {}", error))
     }
 }
 

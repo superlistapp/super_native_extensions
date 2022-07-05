@@ -13,7 +13,7 @@ use nativeshell_core::{
 
 use crate::{
     api_model::{ClipboardWriterData, LazyValueId, PlatformWriterId},
-    error::{ClipboardError, ClipboardResult},
+    error::{ClipboardError, NativeExtensionsResult},
     platform::PlatformClipboardWriter,
     value_promise::{ValuePromise, ValuePromiseResult},
 };
@@ -55,7 +55,7 @@ impl ClipboardWriterManager {
         &self,
         data: ClipboardWriterData,
         isolate_id: IsolateId,
-    ) -> ClipboardResult<i64> {
+    ) -> NativeExtensionsResult<i64> {
         let id = self.next_id.get();
         self.next_id.replace(id + 1);
         let platform_clipboard = Rc::new(PlatformClipboardWriter::new(
@@ -74,7 +74,7 @@ impl ClipboardWriterManager {
         Ok(id)
     }
 
-    fn unregister_writer(&self, writer: PlatformWriterId) -> ClipboardResult<()> {
+    fn unregister_writer(&self, writer: PlatformWriterId) -> NativeExtensionsResult<()> {
         self.writers.borrow_mut().remove(&writer);
         Ok(())
     }
@@ -82,7 +82,7 @@ impl ClipboardWriterManager {
     pub fn get_platform_writer(
         &self,
         clipboard: PlatformWriterId,
-    ) -> ClipboardResult<Rc<PlatformClipboardWriter>> {
+    ) -> NativeExtensionsResult<Rc<PlatformClipboardWriter>> {
         self.writers
             .borrow()
             .get(&clipboard)
@@ -90,7 +90,7 @@ impl ClipboardWriterManager {
             .ok_or_else(|| ClipboardError::OtherError("Clipboard not found".into()))
     }
 
-    async fn write_to_clipboard(&self, writer: PlatformWriterId) -> ClipboardResult<()> {
+    async fn write_to_clipboard(&self, writer: PlatformWriterId) -> NativeExtensionsResult<()> {
         self.get_platform_writer(writer)?.write_to_clipboard().await
     }
 }
