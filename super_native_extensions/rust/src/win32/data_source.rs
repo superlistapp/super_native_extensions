@@ -1,12 +1,15 @@
 use std::{
+    cell::RefCell,
+    collections::HashMap,
     mem::{size_of, ManuallyDrop},
     rc::{Rc, Weak},
+    slice,
     sync::Arc,
 };
 
 use nativeshell_core::{util::Late, IsolateId};
 use windows::{
-    core::implement,
+    core::{implement, HRESULT},
     Win32::{
         Foundation::{
             DATA_S_SAMEFORMATETC, DV_E_FORMATETC, E_NOTIMPL, E_OUTOFMEMORY, HWND,
@@ -17,8 +20,10 @@ use windows::{
                 IDataObject, IDataObject_Impl, IStream, DATADIR_GET, FORMATETC, STGMEDIUM,
                 STGMEDIUM_0, STREAM_SEEK_END, TYMED_HGLOBAL, TYMED_ISTREAM,
             },
-            Memory::{GlobalAlloc, GlobalFree, GlobalLock, GlobalUnlock, GLOBAL_ALLOC_FLAGS},
-            Ole::OleSetClipboard,
+            Memory::{
+                GlobalAlloc, GlobalFree, GlobalLock, GlobalSize, GlobalUnlock, GLOBAL_ALLOC_FLAGS,
+            },
+            Ole::{OleSetClipboard, ReleaseStgMedium},
             SystemServices::CF_HDROP,
         },
         UI::{
@@ -88,19 +93,24 @@ impl PlatformDataSource {
 }
 
 #[implement(IDataObject)]
-struct DataObject {
-    writer: Rc<PlatformDataSource>,
+pub struct DataObject {
+    data_source: Rc<PlatformDataSource>,
     _drop_notifier: Arc<DropNotifier>,
+    extra_data: RefCell<HashMap<u16, Vec<u8>>>,
 }
 
 struct IStreamWrapper(IStream);
 unsafe impl Send for IStreamWrapper {}
 
 impl DataObject {
-    fn create(writer: Rc<PlatformDataSource>, drop_notifier: Arc<DropNotifier>) -> IDataObject {
+    pub fn create(
+        data_source: Rc<PlatformDataSource>,
+        drop_notifier: Arc<DropNotifier>,
+    ) -> IDataObject {
         let data_object = Self {
-            writer,
+            data_source,
             _drop_notifier: drop_notifier,
+            extra_data: RefCell::new(HashMap::new()),
         };
         data_object.into()
     }
@@ -121,17 +131,11 @@ impl DataObject {
     }
 
     fn lazy_data_for_id(&self, format: String, id: DataSourceValueId) -> Option<Vec<u8>> {
-        let delegate = self.writer.delegate.upgrade();
+        let delegate = self.data_source.delegate.upgrade();
         if let Some(delegate) = delegate {
             // Find hwnds of our task runner and flutter task runner
             let mut hwnds = Vec::<HWND>::new();
             unsafe {
-                hwnds.push(FindWindowExW(
-                    HWND_MESSAGE,
-                    None,
-                    "FlutterTaskRunnerWindow",
-                    None,
-                ));
                 // There might be multiple nativeshell core event loops in the process, find
                 // all hwnds
                 let mut last: HWND = HWND(0);
@@ -144,7 +148,7 @@ impl DataObject {
                     }
                 }
             };
-            let data = delegate.get_lazy_data(self.writer.isolate_id, id, format, None);
+            let data = delegate.get_lazy_data(self.data_source.isolate_id, id, format, None);
             loop {
                 match data.try_take() {
                     Some(ValuePromiseResult::Ok { value }) => {
@@ -152,7 +156,7 @@ impl DataObject {
                     }
                     Some(ValuePromiseResult::Cancelled) => return None,
                     None => unsafe {
-                        // Process messages, but only from ours and flutter event loop
+                        // Process messages, but only from ours event loop
                         MsgWaitForMultipleObjects(&[], false, 10000000, QS_POSTMESSAGE);
                         let mut message = MSG::default();
                         loop {
@@ -182,7 +186,7 @@ impl DataObject {
     }
 
     fn data_for_format(&self, format: u32, index: usize) -> Option<Vec<u8>> {
-        let item = self.writer.data.items.get(index);
+        let item = self.data_source.data.items.get(index);
         if let Some(item) = item {
             let format = format_to_string(format);
             for representation in &item.representations {
@@ -233,7 +237,7 @@ impl DataObject {
     }
 
     fn data_for_hdrop(&self) -> Option<Vec<u8>> {
-        let n_items = self.writer.data.items.len();
+        let n_items = self.data_source.data.items.len();
         let files: Vec<_> = (0..n_items)
             .filter_map(|i| self.data_for_format(CF_HDROP.0 as u32, i))
             .collect();
@@ -245,7 +249,7 @@ impl DataObject {
     }
 
     fn get_formats(&self) -> Vec<FORMATETC> {
-        let first_item = self.writer.data.items.first();
+        let first_item = self.data_source.data.items.first();
         let mut res = Vec::<FORMATETC>::new();
         if let Some(item) = first_item {
             for representation in &item.representations {
@@ -271,10 +275,10 @@ impl DataObject {
 }
 
 impl Drop for DataObject {
-    fn drop(&mut self) {
-        // self.run_loop.stop();
-    }
+    fn drop(&mut self) {}
 }
+
+const DATA_E_FORMATETC: HRESULT = HRESULT(-2147221404 + 1);
 
 impl IDataObject_Impl for DataObject {
     fn GetData(
@@ -282,11 +286,18 @@ impl IDataObject_Impl for DataObject {
         pformatetcin: *const windows::Win32::System::Com::FORMATETC,
     ) -> windows::core::Result<windows::Win32::System::Com::STGMEDIUM> {
         let format = unsafe { &*pformatetcin };
-        let data = if format.cfFormat as u32 == CF_HDROP.0 {
-            self.data_for_hdrop()
-        } else {
-            self.data_for_format(format.cfFormat as u32, 0)
-        };
+        let data = self
+            .extra_data
+            .borrow()
+            .get(&format.cfFormat)
+            .cloned()
+            .or_else(|| {
+                if format.cfFormat as u32 == CF_HDROP.0 {
+                    self.data_for_hdrop()
+                } else {
+                    self.data_for_format(format.cfFormat as u32, 0)
+                }
+            });
 
         match data {
             Some(data) => {
@@ -340,24 +351,95 @@ impl IDataObject_Impl for DataObject {
         });
         match index {
             Some(_) => Ok(()),
-            None => Err(S_FALSE.into()),
+            None => {
+                // possibly extra data
+                if (format.tymed == TYMED_HGLOBAL.0 as u32
+                    || format.tymed == TYMED_ISTREAM.0 as u32)
+                    && self.extra_data.borrow().contains_key(&format.cfFormat)
+                {
+                    Ok(())
+                } else {
+                    Err(S_FALSE.into())
+                }
+            }
         }
     }
 
     fn GetCanonicalFormatEtc(
         &self,
-        _pformatectin: *const windows::Win32::System::Com::FORMATETC,
-    ) -> windows::core::Result<windows::Win32::System::Com::FORMATETC> {
-        Err(DATA_S_SAMEFORMATETC.into())
+        _pformatectin: *const FORMATETC,
+        _pformatetcout: *mut FORMATETC,
+    ) -> ::windows::core::HRESULT {
+        DATA_S_SAMEFORMATETC
     }
 
     fn SetData(
         &self,
-        _pformatetc: *const windows::Win32::System::Com::FORMATETC,
-        _pmedium: *const windows::Win32::System::Com::STGMEDIUM,
-        _frelease: windows::Win32::Foundation::BOOL,
+        pformatetc: *const windows::Win32::System::Com::FORMATETC,
+        pmedium: *const windows::Win32::System::Com::STGMEDIUM,
+        frelease: windows::Win32::Foundation::BOOL,
     ) -> windows::core::Result<()> {
-        Err(E_NOTIMPL.into())
+        let format = unsafe { &*pformatetc };
+        if format.tymed == TYMED_HGLOBAL.0 as u32 {
+            unsafe {
+                let medium = &*pmedium;
+                let size = GlobalSize(medium.Anonymous.hGlobal);
+                let global_data = GlobalLock(medium.Anonymous.hGlobal);
+
+                let v = slice::from_raw_parts(global_data as *const u8, size);
+                let global_data: Vec<u8> = v.into();
+
+                GlobalUnlock(medium.Anonymous.hGlobal);
+                self.extra_data
+                    .borrow_mut()
+                    .insert(format.cfFormat, global_data);
+
+                if frelease.as_bool() {
+                    ReleaseStgMedium(pmedium as *mut _);
+                }
+            }
+
+            Ok(())
+        } else if format.tymed == TYMED_ISTREAM.0 as u32 {
+            unsafe {
+                let medium = &*pmedium;
+                let stream = medium.Anonymous.pstm.as_ref().cloned();
+                let mut stream_data = Vec::<u8>::new();
+                let mut buf: [u8; 4096] = [0; 4096];
+                if let Some(stream) = stream {
+                    loop {
+                        let mut num_read: u32 = 0;
+                        if stream
+                            .Read(
+                                buf.as_mut_ptr() as *mut _,
+                                buf.len() as u32,
+                                &mut num_read as *mut _,
+                            )
+                            .is_err()
+                        {
+                            break;
+                        }
+
+                        if num_read == 0 {
+                            break;
+                        }
+                        stream_data.extend_from_slice(&buf[..num_read as usize]);
+                    }
+                }
+
+                self.extra_data
+                    .borrow_mut()
+                    .insert(format.cfFormat, stream_data);
+
+                if frelease.as_bool() {
+                    ReleaseStgMedium(pmedium as *mut _);
+                }
+            }
+
+            Ok(())
+        } else {
+            Err(DATA_E_FORMATETC.into())
+        }
     }
 
     fn EnumFormatEtc(
