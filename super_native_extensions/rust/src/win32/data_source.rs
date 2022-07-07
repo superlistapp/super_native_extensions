@@ -1,6 +1,7 @@
 use std::{
     mem::{size_of, ManuallyDrop},
-    rc::{Rc, Weak}, sync::Arc,
+    rc::{Rc, Weak},
+    sync::Arc,
 };
 
 use nativeshell_core::{util::Late, IsolateId};
@@ -78,7 +79,7 @@ impl PlatformDataSource {
         &self,
         drop_notifier: Arc<DropNotifier>,
     ) -> NativeExtensionsResult<()> {
-        let data_object = DataObject::create(self.weak_self.upgrade().unwrap());
+        let data_object = DataObject::create(self.weak_self.upgrade().unwrap(), drop_notifier);
         unsafe {
             OleSetClipboard(data_object)?;
         }
@@ -89,14 +90,18 @@ impl PlatformDataSource {
 #[implement(IDataObject)]
 struct DataObject {
     writer: Rc<PlatformDataSource>,
+    _drop_notifier: Arc<DropNotifier>,
 }
 
 struct IStreamWrapper(IStream);
 unsafe impl Send for IStreamWrapper {}
 
 impl DataObject {
-    fn create(writer: Rc<PlatformDataSource>) -> IDataObject {
-        let data_object = Self { writer };
+    fn create(writer: Rc<PlatformDataSource>, drop_notifier: Arc<DropNotifier>) -> IDataObject {
+        let data_object = Self {
+            writer,
+            _drop_notifier: drop_notifier,
+        };
         data_object.into()
     }
 
