@@ -24,6 +24,9 @@ mod util;
 mod value_coerce;
 mod value_promise;
 
+#[allow(dead_code)]
+mod segmented_queue;
+
 #[cfg(not(test))]
 #[path = "."]
 mod platform_impl {

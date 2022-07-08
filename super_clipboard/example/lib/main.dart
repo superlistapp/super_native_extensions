@@ -20,7 +20,7 @@ void main() async {
   //   'public.url',
   //   'Apple URL pasteboard type',
   // ]);
-  await RawDragContext.instance();
+  await RawDropContext.instance();
   runApp(const MyApp());
 }
 
@@ -131,6 +131,44 @@ class _MyHomePageState extends State<MyHomePage> {
 
     final data = DataSource(
       [
+        // DataSourceItem(representations: [
+        //   DataSourceItemRepresentation.simple(
+        //       formats: ['public.file-url'],
+        //       data: utf8.encode('file:///tmp/test.txt')),
+        //   DataSourceItemRepresentation.virtualFile(
+        //       format: 'public.utf8-plain-text',
+        //       storageSuggestion: VirtualFileStorage.temporaryFile,
+        //       virtualFileProvider: (sinkProvider, progress) {
+        //         final sink = sinkProvider(fileSize: 41);
+        //         print('Writing and close');
+        //         // sink.add(utf8.encode('Hello World 1\n'));
+        //         // Future.delayed(const Duration(seconds: 3), () {
+        //         //   sink.add(utf8.encode('Hello World 2!'));
+        //         //   sink.close();
+        //         // });
+        //         final cancelled = [false];
+        //         print('Requested file');
+        //         progress.onCancel.addListener(() {
+        //           print('Cancelled');
+        //           cancelled[0] = true;
+        //         });
+        //         for (var i = 0; i < 10; ++i) {
+        //           Future.delayed(Duration(milliseconds: i * 1000), () {
+        //             if (cancelled[0]) {
+        //               return;
+        //             }
+        //             progress.updateProgress(i * 10);
+        //             if (i == 9) {
+        //               print('Done');
+        //               sink.add(utf8.encode('Hello, cruel world!\n'));
+        //               sink.add(utf8.encode('Hello, cruel world!'));
+        //               // sink.addError('Something went wrong');
+        //               sink.close();
+        //             }
+        //           });
+        //         }
+        //       }),
+        // ], suggestedName: 'File1.txt'),
         DataSourceItem(representations: [
           DataSourceItemRepresentation.simple(
               formats: ['public.file-url'],
@@ -138,7 +176,8 @@ class _MyHomePageState extends State<MyHomePage> {
           DataSourceItemRepresentation.virtualFile(
               format: 'public.utf8-plain-text',
               storageSuggestion: VirtualFileStorage.temporaryFile,
-              virtualFileProvider: (sink, progress) {
+              virtualFileProvider: (sinkProvider, progress) {
+                final sink = sinkProvider(fileSize: 41);
                 print('Writing and close');
                 // sink.add(utf8.encode('Hello World 1\n'));
                 // Future.delayed(const Duration(seconds: 3), () {

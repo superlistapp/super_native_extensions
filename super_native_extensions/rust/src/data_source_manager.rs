@@ -17,9 +17,10 @@ use nativeshell_core::{
 use crate::{
     api_model::{DataSource, DataSourceId, DataSourceValueId},
     error::{NativeExtensionsError, NativeExtensionsResult},
+    log::OkLog,
     platform_impl::platform::{platform_stream_close, platform_stream_write, PlatformDataSource},
     util::DropNotifier,
-    value_promise::{ValuePromise, ValuePromiseResult},
+    value_promise::{ValuePromise, ValuePromiseResult, ValuePromiseSetCancel},
 };
 
 pub enum VirtualFileResult {
@@ -50,12 +51,16 @@ pub trait PlatformDataSourceDelegate {
         isolate_id: IsolateId,
         virtual_file_id: DataSourceValueId,
         stream_handle: i32,
+        on_size_known: Box<dyn Fn(Option<i64>)>,
         on_progress: Box<dyn Fn(i32 /* 0 - 100 */)>,
         on_done: Box<dyn FnOnce(VirtualFileResult)>,
     ) -> Arc<DropNotifier>;
 }
 
 struct VirtualFileSession {
+    isolate_id: IsolateId,
+    size_known: Cell<bool>,
+    on_size_known: Box<dyn Fn(Option<i64>)>,
     on_progress: Box<dyn Fn(i32 /* 0 - 100 */)>,
     on_done: Box<dyn FnOnce(VirtualFileResult)>,
 }
@@ -160,12 +165,29 @@ impl DataSourceManager {
         Ok(())
     }
 
+    fn virtual_file_size_known(
+        &self,
+        size_known: VirtualFileSizeKnown,
+    ) -> NativeExtensionsResult<()> {
+        let session = self
+            .virtual_sessions
+            .borrow_mut()
+            .remove(&size_known.session_id)
+            .ok_or_else(|| NativeExtensionsError::VirtualFileSessionNotFound)?;
+        session.size_known.replace(true);
+        (session.on_size_known)(Some(size_known.file_size));
+        Ok(())
+    }
+
     fn virtual_file_complete(&self, complete: VirtualFileComplete) -> NativeExtensionsResult<()> {
         let session = self
             .virtual_sessions
             .borrow_mut()
             .remove(&complete.session_id)
             .ok_or_else(|| NativeExtensionsError::VirtualFileSessionNotFound)?;
+        if session.size_known.get() == false {
+            (session.on_size_known)(None);
+        }
         (session.on_done)(VirtualFileResult::Done);
         Ok(())
     }
@@ -176,6 +198,9 @@ impl DataSourceManager {
             .borrow_mut()
             .remove(&error.session_id)
             .ok_or_else(|| NativeExtensionsError::VirtualFileSessionNotFound)?;
+        if session.size_known.get() == false {
+            (session.on_size_known)(None);
+        }
         (session.on_done)(VirtualFileResult::Error {
             message: error.error_message,
         });
@@ -188,6 +213,9 @@ impl DataSourceManager {
             .borrow_mut()
             .remove(&complete.session_id)
             .ok_or_else(|| NativeExtensionsError::VirtualFileSessionNotFound)?;
+        if session.size_known.get() == false {
+            (session.on_size_known)(None);
+        }
         (session.on_done)(VirtualFileResult::Cancelled);
         Ok(())
     }
@@ -213,6 +241,13 @@ pub extern "C" fn super_native_extensions_stream_close(handle: i32, delete: bool
 struct VirtualFileUpdateProgress {
     session_id: VirtualSessionId,
     progress: i32,
+}
+
+#[derive(Debug, TryFromValue)]
+#[nativeshell(rename_all = "camelCase")]
+struct VirtualFileSizeKnown {
+    session_id: VirtualSessionId,
+    file_size: i64,
 }
 
 #[derive(Debug, TryFromValue)]
@@ -246,6 +281,9 @@ impl AsyncMethodHandler for DataSourceManager {
                 .into_platform_result(),
             "virtualFileUpdateProgress" => self
                 .virtual_file_update_progress(call.args.try_into()?)
+                .into_platform_result(),
+            "virtualFileSizeKnown" => self
+                .virtual_file_size_known(call.args.try_into()?)
                 .into_platform_result(),
             "virtualFileComplete" => self
                 .virtual_file_complete(call.args.try_into()?)
@@ -287,6 +325,24 @@ impl AsyncMethodHandler for DataSourceManager {
             .collect();
         for source_id in sources_to_remove {
             sources.remove(&source_id);
+        }
+
+        let sessions_to_remove: Vec<_> = {
+            self.virtual_sessions
+                .borrow()
+                .iter()
+                .filter_map(|(k, v)| {
+                    if v.isolate_id == isolate_id {
+                        Some(*k)
+                    } else {
+                        None
+                    }
+                })
+                .collect()
+        };
+        for session_id in sessions_to_remove {
+            self.virtual_file_cancel(VirtualFileCancel { session_id })
+                .ok_log();
         }
     }
 }
@@ -353,12 +409,16 @@ impl PlatformDataSourceDelegate for DataSourceManager {
         isolate_id: IsolateId,
         virtual_file_id: DataSourceValueId,
         stream_handle: i32,
+        on_size_known: Box<dyn Fn(Option<i64>)>,
         on_progress: Box<dyn Fn(i32 /* 0 - 100 */)>,
         on_done: Box<dyn FnOnce(VirtualFileResult)>,
     ) -> Arc<DropNotifier> {
         let weak_self = self.weak_self.clone();
         let session_id: VirtualSessionId = self.next_id().into();
         let sesion = VirtualFileSession {
+            isolate_id,
+            size_known: Cell::new(false),
+            on_size_known,
             on_progress,
             on_done,
         };

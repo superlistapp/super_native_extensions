@@ -59,7 +59,7 @@ url = "2.2.2"
 byte-slice-cast = "1.2.1"
 
 [target.'cfg(target_os = "windows")'.dependencies.windows]
-version = "0.34.0"
+version = "0.38.0"
 features = [
     "alloc",
     "implement",

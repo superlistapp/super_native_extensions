@@ -1,20 +1,28 @@
 use std::{mem::size_of, os::raw::c_void, ptr::null_mut, slice};
 
-use windows::{Win32::{
-    Foundation::{HANDLE, HWND},
-    Graphics::Gdi::{
-        CreateDIBSection, GetDC, ReleaseDC, BITMAPINFO, BITMAPINFOHEADER, BI_RGB, DIB_RGB_COLORS,
-        HBITMAP,
-    },
-    System::{
-        Com::{
-            IDataObject, DATADIR_GET, DVASPECT_CONTENT, FORMATETC, STGMEDIUM, TYMED, TYMED_HGLOBAL, CoCreateInstance, CLSCTX_ALL,
+use windows::{
+    core::{Interface, GUID},
+    Win32::{
+        Foundation::{HANDLE, HWND},
+        Graphics::Gdi::{
+            CreateDIBSection, GetDC, ReleaseDC, BITMAPINFO, BITMAPINFOHEADER, BI_RGB,
+            DIB_RGB_COLORS, HBITMAP,
         },
-        DataExchange::{GetClipboardFormatNameW, RegisterClipboardFormatW},
-        Memory::{GlobalLock, GlobalSize, GlobalUnlock},
-        Ole::ReleaseStgMedium,
+        System::{
+            Com::{
+                CoCreateInstance, IDataObject, CLSCTX_ALL, DATADIR_GET, DVASPECT_CONTENT,
+                FORMATETC, STGMEDIUM, TYMED, TYMED_HGLOBAL,
+            },
+            DataExchange::{GetClipboardFormatNameW, RegisterClipboardFormatW},
+            Memory::{GlobalLock, GlobalSize, GlobalUnlock},
+            Ole::ReleaseStgMedium,
+        },
+        UI::WindowsAndMessaging::{
+            DispatchMessageW, FindWindowExW, MsgWaitForMultipleObjects, PeekMessageW, HWND_MESSAGE,
+            MSG, PM_NOYIELD, PM_REMOVE, QS_POSTMESSAGE, TranslateMessage,
+        },
     },
-}, core::{Interface, GUID}};
+};
 
 use crate::{
     api_model::ImageData,
@@ -42,11 +50,15 @@ pub fn format_from_string(format: &str) -> u32 {
 }
 
 pub fn make_format_with_tymed(format: u32, tymed: TYMED) -> FORMATETC {
+    make_format_with_tymed_index(format, tymed, -1)
+}
+
+pub fn make_format_with_tymed_index(format: u32, tymed: TYMED, index: i32) -> FORMATETC {
     FORMATETC {
         cfFormat: format as u16,
         ptd: null_mut(),
         dwAspect: DVASPECT_CONTENT.0 as u32,
-        lindex: -1,
+        lindex: index,
         tymed: tymed.0 as u32,
     }
 }
@@ -175,4 +187,42 @@ pub fn image_data_to_hbitmap(image: &ImageData) -> NativeExtensionsResult<HBITMA
 
 pub fn create_instance<T: Interface>(clsid: &GUID) -> windows::core::Result<T> {
     unsafe { CoCreateInstance(clsid, None, CLSCTX_ALL) }
+}
+
+/// Finds all hwnds for NativeShell RunLoop(s)
+pub fn message_loop_hwnds() -> Vec<HWND> {
+    let mut hwnds = Vec::<HWND>::new();
+    unsafe {
+        // There might be multiple nativeshell core event loops in the process, find
+        // all hwnds
+        let mut last: HWND = HWND(0);
+        loop {
+            last = FindWindowExW(HWND_MESSAGE, last, "NativeShellCoreMessageWindow", None);
+            if last.0 != 0 {
+                hwnds.push(last);
+            } else {
+                break;
+            }
+        }
+    };
+    hwnds
+}
+
+pub fn pump_message_loop(hwnds: &[HWND]) {
+    unsafe {
+        // Process messages, but only from ours event loop
+        MsgWaitForMultipleObjects(&[], false, 10000000, QS_POSTMESSAGE);
+        let mut message = MSG::default();
+        loop {
+            let res = hwnds.iter().any(|hwnd| {
+                PeekMessageW(&mut message as *mut _, hwnd, 0, 0, PM_REMOVE | PM_NOYIELD).into()
+            });
+            if res {
+                TranslateMessage(&message as *const _);
+                DispatchMessageW(&message as *const _);
+            } else {
+                break;
+            }
+        }
+    }
 }

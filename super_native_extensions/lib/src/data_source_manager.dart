@@ -11,6 +11,15 @@ import 'context.dart';
 import 'data_source.dart';
 import 'util.dart';
 
+class _VirtualSession {
+  _VirtualSession({
+    required this.progress,
+  });
+
+  int? _fileSize;
+  final Progress progress;
+}
+
 class DataSourceManager {
   DataSourceManager._() {
     _channel.setMethodCallHandler(_onMethodCall);
@@ -62,13 +71,14 @@ class DataSourceManager {
       });
     });
     final progress = Progress(SimpleNotifier(), progressNotifier);
-    _progressMap[sessionId] = progress;
+    final session = _VirtualSession(progress: progress);
+    _virtualSessions[sessionId] = session;
 
     Future<void> onComplete() async {
       await _channel.invokeMethod('virtualFileComplete', {
         'sessionId': sessionId,
       });
-      _progressMap.remove(sessionId);
+      _virtualSessions.remove(sessionId);
     }
 
     Future<void> onError(String errorMessage) async {
@@ -76,7 +86,7 @@ class DataSourceManager {
         'sessionId': sessionId,
         'errorMessage': errorMessage,
       });
-      _progressMap.remove(sessionId);
+      _virtualSessions.remove(sessionId);
     }
 
     final sink = _VirtualFileSink(
@@ -84,7 +94,21 @@ class DataSourceManager {
 
     final virtualFile = _virtualFile[virtualFileId];
     if (virtualFile != null) {
-      virtualFile.virtualFileProvider(sink, progress);
+      EventSink provider({required int fileSize}) {
+        if (session._fileSize != null && session._fileSize != fileSize) {
+          throw StateError("File size can not be changed");
+        }
+        if (session._fileSize == null) {
+          _channel.invokeMethod("virtualFileSizeKnown", {
+            'sessionId': sessionId,
+            'fileSize': fileSize,
+          });
+          session._fileSize = fileSize;
+        }
+        return sink;
+      }
+
+      virtualFile.virtualFileProvider(provider, progress);
     } else {
       onError('Virtual file ($virtualFileId)not found');
     }
@@ -120,10 +144,8 @@ class DataSourceManager {
           streamHandle: fileHandle);
     } else if (call.method == 'cancelVirtualFile') {
       final sessionId = call.arguments as int;
-      final progress = _progressMap.remove(sessionId);
-      if (progress != null) {
-        (progress.onCancel as SimpleNotifier).notify();
-      }
+      final session = _virtualSessions.remove(sessionId);
+      (session?.progress.onCancel as SimpleNotifier).notify();
     }
   }
 
@@ -135,7 +157,7 @@ class DataSourceManager {
   final _handles = <int, DataSourceHandle>{};
   final _lazyData = <int, DataSourceItemRepresentationLazy>{};
   final _virtualFile = <int, DataSourceItemRepresentationVirtualFile>{};
-  final _progressMap = <int, Progress>{};
+  final _virtualSessions = <int, _VirtualSession>{};
 }
 
 class _NativeFunctions {

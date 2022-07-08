@@ -54,7 +54,8 @@ class RawDragContext {
           DataSourceItemRepresentation.virtualFile(
               format: 'public.utf8-plain-text',
               storageSuggestion: VirtualFileStorage.temporaryFile,
-              virtualFileProvider: (sink, progress) {
+              virtualFileProvider: (sinkProvider, progress) async {
+                final sink = await sinkProvider(fileSize: 32);
                 final cancelled = [false];
                 print('Requested file');
                 progress.onCancel.addListener(() {

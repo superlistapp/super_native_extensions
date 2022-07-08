@@ -1,4 +1,5 @@
 mod common;
+mod data_object;
 mod data_source;
 mod drag;
 mod drop;

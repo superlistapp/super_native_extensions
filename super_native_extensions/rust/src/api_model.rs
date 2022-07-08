@@ -65,10 +65,24 @@ pub enum DataSourceItemRepresentation {
     #[nativeshell(rename_all = "camelCase")]
     VirtualFile {
         id: DataSourceValueId,
-        file_size: Option<i64>,
         format: String,
         storage_suggestion: Option<VirtualFileStorage>,
     },
+}
+
+impl DataSourceItemRepresentation {
+    pub fn is_virtual_file(&self) -> bool {
+        if let Self::VirtualFile {
+            id: _,
+            format: _,
+            storage_suggestion: _,
+        } = self
+        {
+            true
+        } else {
+            false
+        }
+    }
 }
 
 #[derive(Debug, TryFromValue, IntoValue, Clone, PartialEq)]

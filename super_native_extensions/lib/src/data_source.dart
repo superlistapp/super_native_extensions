@@ -63,13 +63,11 @@ abstract class DataSourceItemRepresentation {
   static DataSourceItemRepresentationVirtualFile virtualFile({
     required String format,
     required VirtualFileProvider virtualFileProvider,
-    int? fileSize,
     VirtualFileStorage? storageSuggestion,
   }) =>
       DataSourceItemRepresentationVirtualFile._(
         format: format,
         virtualFileProvider: virtualFileProvider,
-        fileSize: fileSize,
         storageSuggestion: storageSuggestion,
       );
 
@@ -128,7 +126,11 @@ class Progress {
   final ValueNotifier<int> _onProgress;
 }
 
-typedef VirtualFileProvider = void Function(EventSink sink, Progress progress);
+typedef VirtualFileEventSinkProvider = EventSink Function(
+    {required int fileSize});
+
+typedef VirtualFileProvider = void Function(
+    VirtualFileEventSinkProvider sinkProvider, Progress progress);
 
 enum VirtualFileStorage { temporaryFile, memory }
 
@@ -137,7 +139,6 @@ class DataSourceItemRepresentationVirtualFile
   DataSourceItemRepresentationVirtualFile._({
     required this.format,
     required this.virtualFileProvider,
-    this.fileSize,
     this.storageSuggestion,
   }) : id = _nextId++;
 
@@ -146,14 +147,13 @@ class DataSourceItemRepresentationVirtualFile
         'type': 'virtualFile',
         'id': id,
         'format': format,
-        'fileSize': fileSize,
         'storageSuggestion': storageSuggestion?.name,
       };
 
   final int id;
   final String format;
   final VirtualFileProvider virtualFileProvider;
-  final int? fileSize;
+
   final VirtualFileStorage? storageSuggestion;
 }
 
