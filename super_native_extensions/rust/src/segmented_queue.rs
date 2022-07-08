@@ -79,7 +79,7 @@ impl Segment for MemorySegment {
     }
 }
 
-type BoxedSegment = Box<dyn Segment>;
+type BoxedSegment = Box<dyn Segment + Send + Sync>;
 
 struct QueueStateInner {
     segments: Vec<Arc<BoxedSegment>>,
@@ -132,12 +132,12 @@ impl QueueState {
     }
 }
 
-pub struct QueueReader {
+pub struct SegmentedQueueReader {
     state: Arc<QueueState>,
     current_segment: Cell<usize>,
 }
 
-impl QueueReader {
+impl SegmentedQueueReader {
     fn new(state: Arc<QueueState>) -> Self {
         Self {
             state: state,
@@ -145,7 +145,7 @@ impl QueueReader {
         }
     }
 
-    pub fn read(&self, max_len: usize) -> Option<Vec<u8>> {
+    pub fn read_some(&self, max_len: usize) -> Vec<u8> {
         loop {
             let segment = self.state.get_segment_at_index(self.current_segment.get());
             match segment {
@@ -154,22 +154,35 @@ impl QueueReader {
                     if data.len() == 0 {
                         self.current_segment.replace(self.current_segment.get() + 1);
                     } else {
-                        return Some(data);
+                        return data;
                     }
                 }
-                None => return None,
+                None => return Vec::new(),
             }
         }
     }
+
+    pub fn read(&self, len: usize) -> Vec<u8> {
+        let mut res = Vec::new();
+        while res.len() < len {
+            let to_read = len - res.len();
+            let data = self.read_some(to_read);
+            res.extend_from_slice(&data);
+            if data.is_empty() {
+                break;
+            }
+        }
+        res
+    }
 }
 
-pub struct QueueWriter {
+pub struct SegmentedQueueWriter {
     memory_segment_max_size: usize,
     state: Arc<QueueState>,
     current_segment: RefCell<Arc<BoxedSegment>>,
 }
 
-impl QueueWriter {
+impl SegmentedQueueWriter {
     fn new(state: Arc<QueueState>, memory_segment_max_size: usize) -> Self {
         let segment: BoxedSegment = Box::new(MemorySegment::new(memory_segment_max_size));
         let segment = Arc::new(segment);
@@ -203,10 +216,12 @@ impl QueueWriter {
     }
 }
 
-pub fn new_segmented_queue(memory_segment_max_size: usize) -> (QueueWriter, QueueReader) {
+pub fn new_segmented_queue(
+    memory_segment_max_size: usize,
+) -> (SegmentedQueueWriter, SegmentedQueueReader) {
     let state = Arc::new(QueueState::new());
-    let writer = QueueWriter::new(state.clone(), memory_segment_max_size);
-    let reader = QueueReader::new(state);
+    let writer = SegmentedQueueWriter::new(state.clone(), memory_segment_max_size);
+    let reader = SegmentedQueueReader::new(state);
     (writer, reader)
 }
 

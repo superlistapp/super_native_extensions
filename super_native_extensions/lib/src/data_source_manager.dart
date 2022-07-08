@@ -226,7 +226,7 @@ class _VirtualFileSink extends EventSink<Uint8List> {
   void _close({
     bool delete = false,
   }) {
-    _closed = true;
+    print('Closing');
     if (_buffer != null) {
       malloc.free(_buffer!);
       _buffer = null;
@@ -239,8 +239,9 @@ class _VirtualFileSink extends EventSink<Uint8List> {
     if (_closed) {
       return;
     }
+    _closed = true;
+    await onError(error.toString());
     _close(delete: true);
-    return onError(error.toString());
   }
 
   @override
@@ -248,6 +249,7 @@ class _VirtualFileSink extends EventSink<Uint8List> {
     if (_closed) {
       return;
     }
+    _closed = true;
     _close();
     return onClose();
   }

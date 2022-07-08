@@ -36,17 +36,22 @@ use windows::{
 
 use crate::{
     api_model::{DataSourceItemRepresentation, DataSourceValueId, VirtualFileStorage},
+    data_source_manager::VirtualFileResult,
+    error,
+    segmented_queue::new_segmented_queue,
     util::DropNotifier,
     value_coerce::{CoerceToData, StringFormat},
-    value_promise::ValuePromiseResult,
+    value_promise::{Promise, ValuePromiseResult},
 };
 
 use super::{
+    add_stream_entry,
     common::{
         as_u8_slice, format_from_string, format_to_string, make_format_with_tymed,
         make_format_with_tymed_index, message_loop_hwnds, pump_message_loop,
     },
-    MyStream, PlatformDataSource,
+    virtual_file_stream::VirtualFileStream,
+    PlatformDataSource,
 };
 
 const DATA_E_FORMATETC: HRESULT = HRESULT(-2147221404 + 1);
@@ -262,13 +267,37 @@ impl DataObject {
 
     fn stream_for_virtual_file(
         &self,
-        id: DataSourceValueId,
+        virtual_file_id: DataSourceValueId,
         storage_suggestion: &Option<VirtualFileStorage>,
     ) -> Option<IStream> {
         if let Some(delegate) = self.data_source.delegate.upgrade() {
-            // delegate.get_virtual_file(isolate_id, virtual_file_id, stream_handle, on_size_known, on_progress, on_done)
+            let (writer, reader) = new_segmented_queue(1024);
+            let stream_handle = add_stream_entry(writer);
+            let size_promise = Arc::new(Promise::<Option<i64>>::new());
+            let size_promise_clone = size_promise.clone();
+            let error_promise = Arc::new(Promise::<String>::new());
+            let error_promise_clone = error_promise.clone();
+            let drop_notifier = delegate.get_virtual_file(
+                self.data_source.isolate_id,
+                virtual_file_id,
+                stream_handle,
+                Box::new(move |size| size_promise_clone.set(size)),
+                Box::new(move |_progress| {}),
+                Box::new(move |result| {
+                    if let VirtualFileResult::Error { message } = result {
+                        error_promise_clone.set(message);
+                    }
+                }),
+            );
+            Some(VirtualFileStream::create_on_another_thread(
+                reader,
+                size_promise,
+                error_promise,
+                drop_notifier,
+            ))
+        } else {
+            None
         }
-        Some(MyStream::create_on_another_thread())
     }
 
     fn stream_for_virtual_file_index(&self, mut index: usize) -> Option<IStream> {
@@ -407,6 +436,7 @@ impl IDataObject_Impl for DataObject {
         frelease: windows::Win32::Foundation::BOOL,
     ) -> windows::core::Result<()> {
         let format = unsafe { &*pformatetc };
+        println!("SET DATA {:?}", format.cfFormat);
         if format.tymed == TYMED_HGLOBAL.0 as u32 {
             unsafe {
                 let medium = &*pmedium;

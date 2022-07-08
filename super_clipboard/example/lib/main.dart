@@ -176,8 +176,10 @@ class _MyHomePageState extends State<MyHomePage> {
           DataSourceItemRepresentation.virtualFile(
               format: 'public.utf8-plain-text',
               storageSuggestion: VirtualFileStorage.temporaryFile,
-              virtualFileProvider: (sinkProvider, progress) {
-                final sink = sinkProvider(fileSize: 41);
+              virtualFileProvider: (sinkProvider, progress) async {
+                final line = utf8.encode("This is a single line\n");
+                const count = 100;
+                final sink = sinkProvider(fileSize: line.length * count);
                 print('Writing and close');
                 // sink.add(utf8.encode('Hello World 1\n'));
                 // Future.delayed(const Duration(seconds: 3), () {
@@ -190,21 +192,31 @@ class _MyHomePageState extends State<MyHomePage> {
                   print('Cancelled');
                   cancelled[0] = true;
                 });
-                for (var i = 0; i < 10; ++i) {
-                  Future.delayed(Duration(milliseconds: i * 1000), () {
-                    if (cancelled[0]) {
-                      return;
-                    }
-                    progress.updateProgress(i * 10);
-                    if (i == 9) {
-                      print('Done');
-                      sink.add(utf8.encode('Hello, cruel world!\n'));
-                      sink.add(utf8.encode('Hello, cruel world!'));
-                      // sink.addError('Something went wrong');
-                      sink.close();
-                    }
-                  });
+                for (var i = 0; i < count / 2; ++i) {
+                  if (cancelled[0]) {
+                    return;
+                  }
+                  sink.add(line);
+                  await Future.delayed(const Duration(milliseconds: 100));
                 }
+                // sink.close();
+                sink.addError("Something bad");
+                sink.close();
+                // for (var i = 0; i < 10; ++i) {
+                //   Future.delayed(Duration(milliseconds: i * 1000), () {
+                //     if (cancelled[0]) {
+                //       return;
+                //     }
+                //     progress.updateProgress(i * 10);
+                //     if (i == 9) {
+                //       print('Done');
+                //       sink.add(utf8.encode('Hello, cruel world!\n'));
+                //       sink.add(utf8.encode('Hello, cruel world!'));
+                //       // sink.addError('Something went wrong');
+                //       sink.close();
+                //     }
+                //   });
+                // }
               }),
         ], suggestedName: 'File2.txt'),
       ],

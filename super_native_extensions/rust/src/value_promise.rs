@@ -38,6 +38,23 @@ impl<T> Promise<T> {
     }
 }
 
+impl<T: Clone> Promise<T> {
+    pub fn try_clone(&self) -> Option<T> {
+        let lock = self.data.lock().unwrap();
+        lock.as_ref().map(|c| c.clone())
+    }
+
+    pub fn wait_clone(&self) -> T {
+        let mut lock = self.data.lock().unwrap();
+        loop {
+            match lock.as_ref() {
+                Some(res) => return res.clone(),
+                None => lock = self.condition.wait(lock).unwrap(),
+            }
+        }
+    }
+}
+
 #[derive(Debug, TryFromValue, PartialEq)]
 #[nativeshell(tag = "type", rename_all = "camelCase")]
 pub enum ValuePromiseResult {

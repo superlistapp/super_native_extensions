@@ -23,6 +23,7 @@ use crate::{
     value_promise::{ValuePromise, ValuePromiseResult, ValuePromiseSetCancel},
 };
 
+#[derive(Debug)]
 pub enum VirtualFileResult {
     Done,
     Error { message: String },
@@ -54,7 +55,7 @@ pub trait PlatformDataSourceDelegate {
         on_size_known: Box<dyn Fn(Option<i64>)>,
         on_progress: Box<dyn Fn(i32 /* 0 - 100 */)>,
         on_done: Box<dyn FnOnce(VirtualFileResult)>,
-    ) -> Arc<DropNotifier>;
+    ) -> Arc<DropNotifier>; // keeps the virtual session alive
 }
 
 struct VirtualFileSession {
@@ -169,10 +170,9 @@ impl DataSourceManager {
         &self,
         size_known: VirtualFileSizeKnown,
     ) -> NativeExtensionsResult<()> {
-        let session = self
-            .virtual_sessions
-            .borrow_mut()
-            .remove(&size_known.session_id)
+        let sessions = self.virtual_sessions.borrow();
+        let session = sessions
+            .get(&size_known.session_id)
             .ok_or_else(|| NativeExtensionsError::VirtualFileSessionNotFound)?;
         session.size_known.replace(true);
         (session.on_size_known)(Some(size_known.file_size));
