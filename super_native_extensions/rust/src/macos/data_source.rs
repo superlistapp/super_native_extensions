@@ -171,7 +171,6 @@ impl ItemState {
             item.representations.iter().find_map(|item| match item {
                 DataSourceItemRepresentation::VirtualFile {
                     id,
-                    file_size: _,
                     format,
                     storage_suggestion: _,
                 } => Some(VirtualFileInfo {
@@ -331,6 +330,7 @@ impl ItemState {
             data_source.isolate_id,
             info.id,
             descriptor,
+            Box::new(|_| {}),
             Box::new(move |cnt| {
                 let () = unsafe { msg_send![*progress_clone, setCompletedUnitCount: cnt as u64] };
             }),

@@ -155,7 +155,6 @@ impl PlatformDataSource {
                     }
                     if let DataSourceItemRepresentation::VirtualFile {
                         id,
-                        file_size: _,
                         format,
                         storage_suggestion,
                     } = representation
@@ -581,6 +580,7 @@ impl DataSourceSession {
                     source.isolate_id,
                     id,
                     stream_handle,
+                    Box::new(move |_| {}),
                     Box::new(move |cnt| {
                         let () = unsafe {
                             msg_send![*progress_clone, setCompletedUnitCount: cnt as u64]
