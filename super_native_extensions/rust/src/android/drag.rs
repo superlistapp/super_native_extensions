@@ -13,6 +13,7 @@ use crate::{
     api_model::ImageData,
     drag_manager::{DragRequest, PlatformDragContextDelegate},
     error::{NativeExtensionsError, NativeExtensionsResult},
+    log::OkLog,
     util::DropNotifier,
 };
 
@@ -38,7 +39,7 @@ impl PlatformDragContext {
         }
     }
 
-    pub fn assign_weak_self(&self, weak_self: Weak<Self>) -> NativeExtensionsResult<()> {
+    pub fn _assign_weak_self(&self, weak_self: Weak<Self>) -> NativeExtensionsResult<()> {
         CONTEXTS.with(|c| c.borrow_mut().insert(self.id, weak_self));
 
         let env = JAVA_VM
@@ -47,6 +48,10 @@ impl PlatformDragContext {
             .attach_current_thread()?;
 
         Ok(())
+    }
+
+    pub fn assign_weak_self(&self, weak_self: Weak<Self>) {
+        self._assign_weak_self(weak_self).ok_log();
     }
 
     fn create_bitmap<'a>(

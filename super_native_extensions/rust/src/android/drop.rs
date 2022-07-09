@@ -16,6 +16,7 @@ use crate::{
     api_model::ImageData,
     drop_manager::PlatformDropContextDelegate,
     error::{NativeExtensionsError, NativeExtensionsResult},
+    log::OkLog,
     platform,
 };
 
@@ -39,7 +40,7 @@ impl PlatformDropContext {
         }
     }
 
-    pub fn assign_weak_self(&self, weak_self: Weak<Self>) -> NativeExtensionsResult<()> {
+    fn _assign_weak_self(&self, weak_self: Weak<Self>) -> NativeExtensionsResult<()> {
         CONTEXTS.with(|c| c.borrow_mut().insert(self.id, weak_self));
 
         let env = JAVA_VM
@@ -53,8 +54,11 @@ impl PlatformDropContext {
             "(JJ)V",
             &[self.view_handle.into(), self.id.into()],
         )?;
-
         Ok(())
+    }
+
+    pub fn assign_weak_self(&self, weak_self: Weak<Self>) {
+        self._assign_weak_self(weak_self).ok_log();
     }
 
     pub fn register_drop_types(&self, types: &[String]) -> NativeExtensionsResult<()> {
