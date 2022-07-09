@@ -8,8 +8,8 @@ use nativeshell_core::{
 use crate::{
     error::NativeExtensionsResult,
     value_promise::ValuePromiseResult,
-    writer_data::{ClipboardWriterData, ClipboardWriterItemData},
-    writer_manager::PlatformClipboardWriterDelegate,
+    writer_data::{DataSource, ClipboardWriterItemData},
+    writer_manager::PlatformDataSourceDelegate,
 };
 
 thread_local! {
@@ -19,17 +19,17 @@ thread_local! {
 pub struct PlatformClipboardWriter {
     weak_self: Late<Weak<Self>>,
     pub isolate_id: IsolateId,
-    data: ClipboardWriterData,
-    pub written_data: RefCell<Option<ClipboardWriterData>>,
-    delegate: Weak<dyn PlatformClipboardWriterDelegate>,
+    data: DataSource,
+    pub written_data: RefCell<Option<DataSource>>,
+    delegate: Weak<dyn PlatformDataSourceDelegate>,
     pub lazy_data: RefCell<HashMap<i64, ValuePromiseResult>>,
 }
 
 impl PlatformClipboardWriter {
     pub fn new(
-        delegate: Weak<dyn PlatformClipboardWriterDelegate>,
+        delegate: Weak<dyn PlatformDataSourceDelegate>,
         isolate_id: IsolateId,
-        data: ClipboardWriterData,
+        data: DataSource,
     ) -> Self {
         Self {
             weak_self: Late::new(),

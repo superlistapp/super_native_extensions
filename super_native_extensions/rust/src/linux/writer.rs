@@ -21,8 +21,8 @@ use scopeguard::defer;
 use crate::{
     error::NativeExtensionsResult,
     value_coerce::{CoerceToData, StringFormat},
-    writer_data::{ClipboardWriterData, ClipboardWriterItem},
-    writer_manager::PlatformClipboardWriterDelegate,
+    writer_data::{DataSource, ClipboardWriterItem},
+    writer_manager::PlatformDataSourceDelegate,
 };
 
 // Use gtk function to set/retrieve text (there are multiple possible format,
@@ -35,15 +35,15 @@ pub const TYPE_URI: &str = "text/uri-list";
 
 pub struct PlatformClipboardWriter {
     weak_self: Late<Weak<Self>>,
-    delegate: Weak<dyn PlatformClipboardWriterDelegate>,
+    delegate: Weak<dyn PlatformDataSourceDelegate>,
     isolate_id: IsolateId,
-    source: ClipboardWriterData,
+    source: DataSource,
 }
 impl PlatformClipboardWriter {
     pub fn new(
-        delegate: Weak<dyn PlatformClipboardWriterDelegate>,
+        delegate: Weak<dyn PlatformDataSourceDelegate>,
         isolate_id: IsolateId,
-        source: ClipboardWriterData,
+        source: DataSource,
     ) -> Self {
         Self {
             delegate,

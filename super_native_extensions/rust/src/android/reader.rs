@@ -14,7 +14,7 @@ use nativeshell_core::{util::FutureCompleter, Value};
 
 use crate::{
     android::{CLIP_DATA_UTIL, CONTEXT, JAVA_VM},
-    error::{ClipboardError, NativeExtensionsResult},
+    error::{NativeExtensionsError, NativeExtensionsResult},
 };
 
 pub struct PlatformClipboardReader {
@@ -25,7 +25,7 @@ impl PlatformClipboardReader {
     fn get_env_and_context() -> NativeExtensionsResult<(AttachGuard<'static>, JObject<'static>)> {
         let env = JAVA_VM
             .get()
-            .ok_or_else(|| ClipboardError::OtherError("JAVA_VM not set".into()))?
+            .ok_or_else(|| NativeExtensionsError::OtherError("JAVA_VM not set".into()))?
             .attach_current_thread()?;
         let context = CONTEXT.get().unwrap().as_obj();
         Ok((env, context))

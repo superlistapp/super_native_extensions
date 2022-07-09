@@ -27,22 +27,22 @@ use crate::{
     error::NativeExtensionsResult,
     log::OkLog,
     value_promise::ValuePromiseResult,
-    writer_data::{ClipboardWriterData, ClipboardWriterItemData},
-    writer_manager::PlatformClipboardWriterDelegate,
+    writer_data::{DataSource, ClipboardWriterItemData},
+    writer_manager::PlatformDataSourceDelegate,
 };
 
 pub struct PlatformClipboardWriter {
     weak_self: Late<Weak<Self>>,
-    delegate: Weak<dyn PlatformClipboardWriterDelegate>,
+    delegate: Weak<dyn PlatformDataSourceDelegate>,
     isolate_id: IsolateId,
-    data: ClipboardWriterData,
+    data: DataSource,
 }
 
 impl PlatformClipboardWriter {
     pub fn new(
-        delegate: Weak<dyn PlatformClipboardWriterDelegate>,
+        delegate: Weak<dyn PlatformDataSourceDelegate>,
         isolate_id: IsolateId,
-        data: ClipboardWriterData,
+        data: DataSource,
     ) -> Self {
         Self {
             delegate,

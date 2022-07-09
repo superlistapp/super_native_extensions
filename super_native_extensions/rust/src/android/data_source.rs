@@ -1,5 +1,5 @@
 use std::{
-    cell::Cell,
+    cell::{Cell, RefCell},
     collections::HashMap,
     rc::Weak,
     sync::{Arc, Mutex},
@@ -10,6 +10,7 @@ use jni::{
     sys::{jobject, jsize},
     JNIEnv,
 };
+use log::info;
 use nativeshell_core::{
     util::{Capsule, Late},
     Context, IsolateId, RunLoopSender, Value,
@@ -19,32 +20,34 @@ use url::Url;
 
 use crate::{
     android::{CONTEXT, JAVA_VM},
-    error::{ClipboardError, NativeExtensionsResult},
+    api_model::{DataSource, DataSourceItem, DataSourceItemRepresentation},
+    data_source_manager::PlatformDataSourceDelegate,
+    error::{NativeExtensionsError, NativeExtensionsResult},
     log::OkLog,
+    util::DropNotifier,
     value_coerce::{CoerceToData, StringFormat},
     value_promise::{ValuePromise, ValuePromiseResult},
-    writer_data::{ClipboardWriterData, ClipboardWriterItem, ClipboardWriterItemData},
-    writer_manager::PlatformClipboardWriterDelegate,
 };
 
 type JniResult<T> = jni::errors::Result<T>;
 
-struct WriterRecord {
-    data: ClipboardWriterData,
-    delegate: Capsule<Weak<dyn PlatformClipboardWriterDelegate>>,
+struct DataSourceRecord {
+    data: DataSource,
+    delegate: Capsule<Weak<dyn PlatformDataSourceDelegate>>,
     isolate_id: IsolateId,
     sender: RunLoopSender,
 }
 
-static WRITERS: Lazy<Mutex<HashMap<i64, WriterRecord>>> = Lazy::new(|| Mutex::new(HashMap::new()));
+static DATA_SOURCES: Lazy<Mutex<HashMap<i64, DataSourceRecord>>> =
+    Lazy::new(|| Mutex::new(HashMap::new()));
 
 thread_local! {
     static NEXT_ID: Cell<i64> = Cell::new(1);
 }
 
-pub struct PlatformClipboardWriter {
+pub struct PlatformDataSource {
     weak_self: Late<Weak<Self>>,
-    writer_id: i64,
+    data_source_id: i64,
 }
 
 // Compare mime type against another type or pattern; Use existing implementation for compatibility
@@ -64,13 +67,19 @@ fn compare_mime_types(env: &JNIEnv, concrete_type: &str, desired_type: &str) -> 
     .z()
 }
 
+pub fn platform_stream_write(handle: i32, data: &[u8]) -> i32 {
+    1
+}
+
+pub fn platform_stream_close(handle: i32, delete: bool) {}
+
 const MIME_TYPE_TEXT_PLAIN: &str = "text/plain";
 const MIME_TYPE_TEXT_HTML: &str = "text/html";
 const MIME_TYPE_URI_LIST: &str = "text/uri-list";
 
-impl From<jni::errors::Error> for ClipboardError {
+impl From<jni::errors::Error> for NativeExtensionsError {
     fn from(error: jni::errors::Error) -> Self {
-        ClipboardError::OtherError(format!("JNI: {}", error))
+        NativeExtensionsError::OtherError(format!("JNI: {}", error))
     }
 }
 
@@ -78,18 +87,18 @@ fn contains(l: &[String], s: &str) -> bool {
     l.iter().any(|v| v == s)
 }
 
-impl PlatformClipboardWriter {
+impl PlatformDataSource {
     pub fn new(
-        delegate: Weak<dyn PlatformClipboardWriterDelegate>,
+        delegate: Weak<dyn PlatformDataSourceDelegate>,
         isolate_id: IsolateId,
-        data: ClipboardWriterData,
+        data: DataSource,
     ) -> Self {
         let id = NEXT_ID.with(|f| f.replace(f.get() + 1));
-        let mut writers = WRITERS.lock().unwrap();
+        let mut data_sources = DATA_SOURCES.lock().unwrap();
         let sender = Context::get().run_loop().new_sender();
-        writers.insert(
+        data_sources.insert(
             id,
-            WriterRecord {
+            DataSourceRecord {
                 data,
                 delegate: Capsule::new_with_sender(delegate, sender.clone()),
                 isolate_id,
@@ -97,7 +106,7 @@ impl PlatformClipboardWriter {
             },
         );
         Self {
-            writer_id: id,
+            data_source_id: id,
             weak_self: Late::new(),
         }
     }
@@ -128,12 +137,12 @@ impl PlatformClipboardWriter {
 
     fn content_provider_uri<'a>(
         env: &JNIEnv<'a>,
-        writer_id: i64,
+        data_source_id: i64,
         index: usize,
     ) -> NativeExtensionsResult<JObject<'a>> {
         let context = CONTEXT
             .get()
-            .ok_or_else(|| ClipboardError::OtherError("Missing Android Context".into()))?
+            .ok_or_else(|| NativeExtensionsError::OtherError("Missing Android Context".into()))?
             .as_obj();
         let package_name = env
             .call_method(context, "getPackageName", "()Ljava/lang/String;", &[])?
@@ -141,15 +150,15 @@ impl PlatformClipboardWriter {
         let package_name: String = env.get_string(package_name.into())?.into();
         let uri = format!(
             "content://{}.ClipboardDataProvider/{}/{}",
-            package_name, writer_id, index
+            package_name, data_source_id, index
         );
         Ok(Self::uri_from_string(env, &uri)?)
     }
 
-    fn create_clip_item_for_writer_item<'a>(
+    fn create_clip_item_for_data_source_item<'a>(
         env: &JNIEnv<'a>,
-        writer_id: i64,
-        item: &ClipboardWriterItem,
+        data_source_id: i64,
+        item: &DataSourceItem,
         index: usize,
         clipboard_mime_types: &mut Vec<String>,
     ) -> NativeExtensionsResult<Option<JObject<'a>>> {
@@ -157,12 +166,12 @@ impl PlatformClipboardWriter {
         let mut text_html = None::<JObject>;
         let mut uri = None::<JObject>;
 
-        for data in &item.data {
-            match data {
-                ClipboardWriterItemData::Simple { types, data } => {
+        for repr in &item.representations {
+            match repr {
+                DataSourceItemRepresentation::Simple { formats, data } => {
                     let data = data.coerce_to_data(StringFormat::Utf8).unwrap_or_default();
-                    for ty in types {
-                        match ty.as_str() {
+                    for format in formats {
+                        match format.as_str() {
                             MIME_TYPE_TEXT_PLAIN => {
                                 text = Some(Self::jstring_from_utf8(env, &data)?.into());
                                 if !contains(clipboard_mime_types, MIME_TYPE_TEXT_PLAIN) {
@@ -185,7 +194,7 @@ impl PlatformClipboardWriter {
                                 }
                             }
                             other_type => {
-                                uri = Some(Self::content_provider_uri(env, writer_id, index)?);
+                                uri = Some(Self::content_provider_uri(env, data_source_id, index)?);
                                 if !contains(clipboard_mime_types, other_type) {
                                     clipboard_mime_types.push(other_type.into())
                                 }
@@ -193,13 +202,13 @@ impl PlatformClipboardWriter {
                         }
                     }
                 }
-                ClipboardWriterItemData::Lazy { types, id: _ } => {
-                    for ty in types {
+                DataSourceItemRepresentation::Lazy { formats, id: _ } => {
+                    for ty in formats {
                         if !contains(clipboard_mime_types, ty) {
                             clipboard_mime_types.push(ty.into())
                         }
                         // always use URI for lazy data
-                        uri = Some(Self::content_provider_uri(env, writer_id, index)?);
+                        uri = Some(Self::content_provider_uri(env, data_source_id, index)?);
                     }
                 }
                 _ => {}
@@ -207,7 +216,7 @@ impl PlatformClipboardWriter {
         }
 
         if text.is_none() && text_html.is_some() {
-            return Err(ClipboardError::OtherError(
+            return Err(NativeExtensionsError::OtherError(
                 "You must provide plain text fallback for HTML clipboard text".into(),
             ));
         }
@@ -228,17 +237,17 @@ impl PlatformClipboardWriter {
         }
     }
 
-    fn create_clip_data_for_writer<'a>(
+    fn create_clip_data_for_data_source<'a>(
         env: &JNIEnv<'a>,
-        writer_id: i64,
-        writer: &ClipboardWriterData,
+        data_source_id: i64,
+        data_source: &DataSource,
     ) -> NativeExtensionsResult<JObject<'a>> {
         let mut clipboard_mime_types = Vec::<String>::new();
         let mut items = Vec::<JObject>::new();
-        for (index, item) in writer.items.iter().enumerate() {
-            let item = Self::create_clip_item_for_writer_item(
+        for (index, item) in data_source.items.iter().enumerate() {
+            let item = Self::create_clip_item_for_data_source_item(
                 env,
-                writer_id,
+                data_source_id,
                 item,
                 index,
                 &mut clipboard_mime_types,
@@ -286,23 +295,33 @@ impl PlatformClipboardWriter {
     }
 
     pub fn create_clip_data<'a>(&self, env: &JNIEnv<'a>) -> NativeExtensionsResult<JObject<'a>> {
-        let writers = WRITERS.lock().unwrap();
-        let writer = writers.get(&self.writer_id);
-        if let Some(writer) = writer.map(|s| &s.data) {
-            Ok(Self::create_clip_data_for_writer(
+        let data_sources = DATA_SOURCES.lock().unwrap();
+        let data_source = data_sources.get(&self.data_source_id);
+        if let Some(data_source) = data_source.map(|s| &s.data) {
+            Ok(Self::create_clip_data_for_data_source(
                 &env,
-                self.writer_id,
-                writer,
+                self.data_source_id,
+                data_source,
             )?)
         } else {
-            Err(ClipboardError::WriterNotFound)
+            Err(NativeExtensionsError::DataSourceNotFound)
         }
     }
 
-    pub async fn write_to_clipboard(&self) -> NativeExtensionsResult<()> {
+    pub async fn write_to_clipboard(
+        &self,
+        drop_notifier: Arc<DropNotifier>,
+    ) -> NativeExtensionsResult<()> {
+        thread_local! {
+            static CURRENT_CLIP: RefCell<Arc<DropNotifier>> = RefCell::new(DropNotifier::new(||{}));
+        }
+        // ClipManager doesn't provide any lifetime management for clip so just
+        // keep the data awake until the clip is replaced.
+        CURRENT_CLIP.with(|r| r.replace(drop_notifier));
+
         let env = JAVA_VM
             .get()
-            .ok_or_else(|| ClipboardError::OtherError("JAVA_VM not set".into()))?
+            .ok_or_else(|| NativeExtensionsError::OtherError("JAVA_VM not set".into()))?
             .attach_current_thread()?;
 
         let clip_data = self.create_clip_data(&env)?;
@@ -334,16 +353,16 @@ impl PlatformClipboardWriter {
     }
 }
 
-impl Drop for PlatformClipboardWriter {
+impl Drop for PlatformDataSource {
     fn drop(&mut self) {
-        let mut writers = WRITERS.lock().unwrap();
-        writers.remove(&self.writer_id);
+        let mut data_sources = DATA_SOURCES.lock().unwrap();
+        data_sources.remove(&self.data_source_id);
     }
 }
 
 #[derive(Debug)]
 struct UriInfo {
-    writer_id: i64,
+    data_source_id: i64,
     index: usize,
 }
 
@@ -353,13 +372,16 @@ impl UriInfo {
         let uri = Url::parse(&uri.to_string_lossy()).ok()?;
         let mut path_segments = uri.path_segments()?;
 
-        let writer_id = path_segments.next()?;
-        let writer_id = writer_id.parse::<i64>().ok()?;
+        let data_source_id = path_segments.next()?;
+        let data_source_id = data_source_id.parse::<i64>().ok()?;
 
         let index = path_segments.next()?;
         let index = index.parse::<usize>().ok()?;
 
-        Some(UriInfo { writer_id, index })
+        Some(UriInfo {
+            data_source_id,
+            index,
+        })
     }
 }
 
@@ -369,31 +391,31 @@ fn get_mime_types_for_uri<'a>(
     filter: JString,
 ) -> NativeExtensionsResult<JObject<'a>> {
     let info = UriInfo::parse(env, uri_string)
-        .ok_or_else(|| ClipboardError::OtherError("Malformed URI".into()))?;
+        .ok_or_else(|| NativeExtensionsError::OtherError("Malformed URI".into()))?;
 
     let filter = env.get_string(filter)?;
     let filter = filter.to_string_lossy();
 
     let mut mime_types = Vec::<String>::new();
 
-    let writers = WRITERS.lock().unwrap();
-    let writer = writers.get(&info.writer_id);
-    if let Some(writer) = writer {
-        let item = &writer.data.items.get(info.index);
+    let data_sources = DATA_SOURCES.lock().unwrap();
+    let data_source = data_sources.get(&info.data_source_id);
+    if let Some(data_source) = data_source {
+        let item = data_source.data.items.get(info.index);
         if let Some(item) = item {
-            for data in item.data.iter() {
-                match data {
-                    ClipboardWriterItemData::Simple { types, data: _ } => {
-                        for ty in types {
-                            if compare_mime_types(env, ty, &filter)? {
-                                mime_types.push(ty.to_owned())
+            for repr in &item.representations {
+                match repr {
+                    DataSourceItemRepresentation::Simple { formats, data: _ } => {
+                        for format in formats {
+                            if compare_mime_types(env, format, &filter)? {
+                                mime_types.push(format.to_owned())
                             }
                         }
                     }
-                    ClipboardWriterItemData::Lazy { types, id: _ } => {
-                        for ty in types {
-                            if compare_mime_types(env, ty, &filter)? {
-                                mime_types.push(ty.to_owned())
+                    DataSourceItemRepresentation::Lazy { formats, id: _ } => {
+                        for format in formats {
+                            if compare_mime_types(env, format, &filter)? {
+                                mime_types.push(format.to_owned())
                             }
                         }
                     }
@@ -420,7 +442,10 @@ fn get_mime_types_for_uri<'a>(
     Ok(res)
 }
 
-fn get_value(env: &JNIEnv, promise: Arc<ValuePromise>) -> NativeExtensionsResult<ValuePromiseResult> {
+fn get_value(
+    env: &JNIEnv,
+    promise: Arc<ValuePromise>,
+) -> NativeExtensionsResult<ValuePromiseResult> {
     if Context::current().is_some() {
         // this is main thread - we need to poll the event loop while waiting
         let context = CONTEXT.get().unwrap().as_obj();
@@ -467,7 +492,10 @@ fn get_data_for_uri<'a>(
     uri_string: JString,
     mime_type: JString,
 ) -> NativeExtensionsResult<JObject<'a>> {
-    fn byte_array_from_value<'a>(env: &JNIEnv<'a>, value: &Value) -> NativeExtensionsResult<JObject<'a>> {
+    fn byte_array_from_value<'a>(
+        env: &JNIEnv<'a>,
+        value: &Value,
+    ) -> NativeExtensionsResult<JObject<'a>> {
         let data = value.coerce_to_data(StringFormat::Utf8).unwrap_or_default();
         let res: JObject = env.new_byte_array(data.len() as i32).unwrap().into();
         let data: &[u8] = &data;
@@ -476,34 +504,37 @@ fn get_data_for_uri<'a>(
     }
 
     let info = UriInfo::parse(env, uri_string)
-        .ok_or_else(|| ClipboardError::OtherError("Malformed URI".into()))?;
+        .ok_or_else(|| NativeExtensionsError::OtherError("Malformed URI".into()))?;
+
+    info!("Getting data from URI {:?}", info);
 
     let mime_type = env.get_string(mime_type)?;
-    let mime_type = mime_type.to_string_lossy();
+    let mime_type: String = mime_type.to_string_lossy().into();
 
-    let writers = WRITERS.lock().unwrap();
-    let writer = writers.get(&info.writer_id);
-    if let Some(writer) = writer {
-        let item = &writer.data.items.get(info.index);
+    let data_sources = DATA_SOURCES.lock().unwrap();
+    let data_source = data_sources.get(&info.data_source_id);
+    if let Some(data_source) = data_source {
+        let item = &data_source.data.items.get(info.index);
         if let Some(item) = item {
-            for data in item.data.iter() {
+            for data in &item.representations {
                 match data {
-                    ClipboardWriterItemData::Simple { types, data } => {
-                        if contains(types, &mime_type) {
+                    DataSourceItemRepresentation::Simple { formats, data } => {
+                        if contains(formats, &mime_type) {
                             return byte_array_from_value(env, data);
                         }
                     }
-                    ClipboardWriterItemData::Lazy { types, id } => {
-                        if contains(types, &mime_type) {
-                            let delegate = writer.delegate.clone();
-                            let isolate_id = writer.isolate_id;
+                    DataSourceItemRepresentation::Lazy { formats, id } => {
+                        if contains(&formats, &mime_type) {
+                            let delegate = data_source.delegate.clone();
+                            let isolate_id = data_source.isolate_id;
                             let id = *id;
                             let class = env.new_global_ref(this)?;
-                            let value = writer.sender.send_and_wait(move || {
+                            let value = data_source.sender.send_and_wait(move || {
                                 delegate.get_ref().unwrap().upgrade().map(|delegate| {
                                     delegate.get_lazy_data(
                                         isolate_id,
                                         id,
+                                        mime_type,
                                         // Wake up the android part of the looper so that polling
                                         // above will continue (normally RunLoopSender only wakes up the
                                         // native part of Looper).

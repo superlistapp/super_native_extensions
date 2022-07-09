@@ -12,8 +12,8 @@ use nativeshell_core::{
 };
 
 use crate::{
-    api_model::{ClipboardWriterData, LazyValueId, PlatformWriterId},
-    error::{ClipboardError, NativeExtensionsResult},
+    api_model::{DataSource, LazyValueId, PlatformWriterId},
+    error::{NativeExtensionsError, NativeExtensionsResult},
     platform::PlatformClipboardWriter,
     value_promise::{ValuePromise, ValuePromiseResult},
 };
@@ -53,7 +53,7 @@ impl ClipboardWriterManager {
 
     fn register_writer(
         &self,
-        data: ClipboardWriterData,
+        data: DataSource,
         isolate_id: IsolateId,
     ) -> NativeExtensionsResult<i64> {
         let id = self.next_id.get();
@@ -87,7 +87,7 @@ impl ClipboardWriterManager {
             .borrow()
             .get(&clipboard)
             .map(|e| e.platform_writer.clone())
-            .ok_or_else(|| ClipboardError::OtherError("Clipboard not found".into()))
+            .ok_or_else(|| NativeExtensionsError::OtherError("Clipboard not found".into()))
     }
 
     async fn write_to_clipboard(&self, writer: PlatformWriterId) -> NativeExtensionsResult<()> {
@@ -145,7 +145,7 @@ impl AsyncMethodHandler for ClipboardWriterManager {
 }
 
 #[async_trait(?Send)]
-pub trait PlatformClipboardWriterDelegate {
+pub trait PlatformDataSourceDelegate {
     fn get_lazy_data(
         &self,
         isolate_id: IsolateId,
@@ -161,7 +161,7 @@ pub trait PlatformClipboardWriterDelegate {
 }
 
 #[async_trait(?Send)]
-impl PlatformClipboardWriterDelegate for ClipboardWriterManager {
+impl PlatformDataSourceDelegate for ClipboardWriterManager {
     fn get_lazy_data(
         &self,
         isolate_id: IsolateId,
@@ -207,7 +207,7 @@ mod tests {
     use super::ClipboardWriterManager;
     use crate::{
         platform::WRITERS,
-        writer_data::{ClipboardWriterData, ClipboardWriterItem, ClipboardWriterItemData},
+        writer_data::{DataSource, ClipboardWriterItem, ClipboardWriterItemData},
     };
     use nativeshell_core::{Context, GetMessageChannel, MockIsolate};
     use velcro::hash_map;
@@ -255,7 +255,7 @@ mod tests {
         });
         let isolate_2 = isolate_2.attach(&context.message_channel());
 
-        let data_1 = ClipboardWriterData {
+        let data_1 = DataSource {
             items: vec![
                 ClipboardWriterItem {
                     data: vec![ClipboardWriterItemData::Simple {
@@ -278,7 +278,7 @@ mod tests {
             ],
         };
 
-        let data_2 = ClipboardWriterData {
+        let data_2 = DataSource {
             items: vec![
                 ClipboardWriterItem {
                     data: vec![ClipboardWriterItemData::Simple {
