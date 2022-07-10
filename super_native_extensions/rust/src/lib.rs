@@ -27,15 +27,11 @@ mod value_promise;
 #[allow(dead_code)]
 mod segmented_queue;
 
-#[cfg(not(test))]
+// #[cfg(not(test))]
 #[path = "."]
 mod platform_impl {
-    #[cfg(target_os = "macos")]
-    #[path = "macos/mod.rs"]
-    pub mod platform;
-
-    #[cfg(target_os = "ios")]
-    #[path = "ios/mod.rs"]
+    #[cfg(any(target_os = "ios", target_os = "macos"))]
+    #[path = "darwin/mod.rs"]
     pub mod platform;
 
     #[cfg(target_os = "android")]
@@ -51,12 +47,12 @@ mod platform_impl {
     pub mod platform;
 }
 
-#[cfg(test)]
-#[path = "."]
-mod platform_impl {
-    #[path = "mock/mod.rs"]
-    pub mod platform;
-}
+// #[cfg(test)]
+// #[path = "."]
+// mod platform_impl {
+//     #[path = "mock/mod.rs"]
+//     pub mod platform;
+// }
 
 mod platform {
     pub(crate) use super::platform_impl::platform::*;

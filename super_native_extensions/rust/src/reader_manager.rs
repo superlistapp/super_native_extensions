@@ -186,85 +186,85 @@ impl AsyncMethodHandler for ClipboardReaderManager {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::ClipboardReaderManager;
-    use crate::{platform::READERS, reader_manager::NewClipboardReaderResult};
-    use nativeshell_core::{Context, FinalizableHandle, GetMessageChannel, MockIsolate, Value};
-    use std::{sync::Arc, time::Duration};
+// #[cfg(test)]
+// mod tests {
+//     use super::ClipboardReaderManager;
+//     use crate::{platform::READERS, reader_manager::NewClipboardReaderResult};
+//     use nativeshell_core::{Context, FinalizableHandle, GetMessageChannel, MockIsolate, Value};
+//     use std::{sync::Arc, time::Duration};
 
-    async fn test_dispose_main() {
-        let _reader_manager = ClipboardReaderManager::new();
-        let context = Context::get();
-        let channel = "ClipboardReaderManager";
+//     async fn test_dispose_main() {
+//         let _reader_manager = ClipboardReaderManager::new();
+//         let context = Context::get();
+//         let channel = "ClipboardReaderManager";
 
-        let isolate_1 = MockIsolate::new();
-        let isolate_1 = isolate_1.attach(&context.message_channel());
+//         let isolate_1 = MockIsolate::new();
+//         let isolate_1 = isolate_1.attach(&context.message_channel());
 
-        assert_eq!(READERS.with(|c| c.borrow().len()), 0);
+//         assert_eq!(READERS.with(|c| c.borrow().len()), 0);
 
-        //
-        // Finalizable handle
-        //
+//         //
+//         // Finalizable handle
+//         //
 
-        let reader_id: NewClipboardReaderResult = isolate_1
-            .call_method_async(channel, "newDefaultReader", Value::Null)
-            .await
-            .unwrap()
-            .try_into()
-            .unwrap();
+//         let reader_id: NewClipboardReaderResult = isolate_1
+//             .call_method_async(channel, "newDefaultReader", Value::Null)
+//             .await
+//             .unwrap()
+//             .try_into()
+//             .unwrap();
 
-        assert_eq!(READERS.with(|c| c.borrow().len()), 1);
+//         assert_eq!(READERS.with(|c| c.borrow().len()), 1);
 
-        let handle: Arc<FinalizableHandle> = reader_id.finalizable_handle.try_into().unwrap();
-        // Simulate finalizing handle
-        handle.finalize();
+//         let handle: Arc<FinalizableHandle> = reader_id.finalizable_handle.try_into().unwrap();
+//         // Simulate finalizing handle
+//         handle.finalize();
 
-        // wait one run loop turn
-        context.run_loop().wait(Duration::from_secs(0)).await;
+//         // wait one run loop turn
+//         context.run_loop().wait(Duration::from_secs(0)).await;
 
-        assert_eq!(READERS.with(|c| c.borrow().len()), 0);
+//         assert_eq!(READERS.with(|c| c.borrow().len()), 0);
 
-        //
-        // disposeReader call
-        //
+//         //
+//         // disposeReader call
+//         //
 
-        let reader_id: NewClipboardReaderResult = isolate_1
-            .call_method_async(channel, "newDefaultReader", Value::Null)
-            .await
-            .unwrap()
-            .try_into()
-            .unwrap();
+//         let reader_id: NewClipboardReaderResult = isolate_1
+//             .call_method_async(channel, "newDefaultReader", Value::Null)
+//             .await
+//             .unwrap()
+//             .try_into()
+//             .unwrap();
 
-        assert_eq!(READERS.with(|c| c.borrow().len()), 1);
+//         assert_eq!(READERS.with(|c| c.borrow().len()), 1);
 
-        isolate_1
-            .call_method_async(channel, "disposeReader", reader_id.handle.into())
-            .await
-            .unwrap();
+//         isolate_1
+//             .call_method_async(channel, "disposeReader", reader_id.handle.into())
+//             .await
+//             .unwrap();
 
-        assert_eq!(READERS.with(|c| c.borrow().len()), 0);
+//         assert_eq!(READERS.with(|c| c.borrow().len()), 0);
 
-        //
-        // Removing isolate
-        //
+//         //
+//         // Removing isolate
+//         //
 
-        isolate_1
-            .call_method_async(channel, "newDefaultReader", Value::Null)
-            .await
-            .unwrap();
+//         isolate_1
+//             .call_method_async(channel, "newDefaultReader", Value::Null)
+//             .await
+//             .unwrap();
 
-        assert_eq!(READERS.with(|c| c.borrow().len()), 1);
+//         assert_eq!(READERS.with(|c| c.borrow().len()), 1);
 
-        drop(isolate_1);
+//         drop(isolate_1);
 
-        context.run_loop().wait(Duration::from_secs(0)).await;
+//         context.run_loop().wait(Duration::from_secs(0)).await;
 
-        assert_eq!(READERS.with(|c| c.borrow().len()), 0);
-    }
+//         assert_eq!(READERS.with(|c| c.borrow().len()), 0);
+//     }
 
-    #[test]
-    fn test_dispose() {
-        Context::run_test(test_dispose_main());
-    }
-}
+//     #[test]
+//     fn test_dispose() {
+//         Context::run_test(test_dispose_main());
+//     }
+// }

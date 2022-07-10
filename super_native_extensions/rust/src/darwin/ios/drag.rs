@@ -27,10 +27,10 @@ use crate::{
     api_model::Point,
     drag_manager::{DragRequest, PendingSourceState, PlatformDragContextDelegate},
     error::{NativeExtensionsError, NativeExtensionsResult},
-    util::DropNotifier,
+    util::DropNotifier, platform_impl::platform::common::to_nsstring,
 };
 
-use super::{util::to_nsstring, DataSourceSessionDelegate, PlatformDataSource};
+use super::{DataSourceSessionDelegate, PlatformDataSource};
 
 pub struct PlatformDragContext {
     id: i64,

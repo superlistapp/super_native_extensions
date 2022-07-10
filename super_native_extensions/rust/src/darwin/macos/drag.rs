@@ -24,7 +24,7 @@ use cocoa::{
         NSEventType::{NSLeftMouseDown, NSRightMouseDown},
     },
     base::{id, nil},
-    foundation::{NSArray, NSInteger, NSPoint, NSRect, NSUInteger},
+    foundation::{NSArray, NSInteger, NSPoint, NSRect},
 };
 use core_foundation::base::CFRelease;
 use core_graphics::event::CGEventType;

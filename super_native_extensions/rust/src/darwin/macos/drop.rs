@@ -16,11 +16,14 @@ use objc::{
     sel, sel_impl,
 };
 
-use crate::{drop_manager::PlatformDropContextDelegate, error::NativeExtensionsResult};
+use crate::{
+    drop_manager::PlatformDropContextDelegate, error::NativeExtensionsResult,
+    platform_impl::platform::common::to_nsstring,
+};
 
 use super::{
     drag_common::{NSDragOperation, NSDragOperationCopy, NSDragOperationNone},
-    util::{class_decl_from_name, from_nsstring, to_nsstring},
+    util::class_decl_from_name,
 };
 
 pub struct PlatformDropContext {

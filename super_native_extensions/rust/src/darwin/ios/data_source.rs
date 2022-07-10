@@ -32,10 +32,8 @@ use crate::{
     log::OkLog,
     util::DropNotifier,
     value_coerce::{CoerceToData, StringFormat},
-    value_promise::ValuePromiseResult,
+    value_promise::ValuePromiseResult, platform_impl::platform::common::{to_nsstring, from_nsstring, to_nserror},
 };
-
-use super::util::{from_nsstring, to_nserror, to_nsstring};
 
 enum StreamEntry {
     File { path: PathBuf, file: File },

@@ -37,11 +37,12 @@ use crate::{
     data_source_manager::{PlatformDataSourceDelegate, VirtualFileResult},
     error::NativeExtensionsResult,
     log::OkLog,
+    platform_impl::platform::common::{from_nsstring, to_nserror, to_nsstring},
     util::DropNotifier,
     value_promise::ValuePromiseResult,
 };
 
-use super::util::{from_nsstring, superclass, to_nserror, to_nsstring};
+use super::util::superclass;
 
 pub fn platform_stream_write(handle: i32, data: &[u8]) -> i32 {
     let mut file = ManuallyDrop::new(unsafe { File::from_raw_fd(handle) });

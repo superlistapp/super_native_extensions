@@ -14,9 +14,9 @@ use objc::{
     sel, sel_impl,
 };
 
-use crate::{error::NativeExtensionsResult, log::OkLog};
-
-use super::util::{from_nsstring, to_nsstring};
+use crate::{
+    error::NativeExtensionsResult, log::OkLog, platform_impl::platform::common::{to_nsstring, from_nsstring},
+};
 
 pub struct PlatformClipboardReader {
     pasteboard: StrongPtr,
