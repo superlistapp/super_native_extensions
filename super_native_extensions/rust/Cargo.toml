@@ -20,6 +20,7 @@ crate-type = ["cdylib", "staticlib"]
 log = "0.4"
 simple_logger = "2.1"
 async-trait = "0.1"
+rand = "0.8.5"
 
 [dependencies.nativeshell_core]
 # git = "https://github.com/nativeshell/nativeshell_ng.git"

@@ -1,14 +1,30 @@
 use std::{
     cell::{Cell, RefCell},
+    env,
+    fs::{File, OpenOptions},
+    ops::Deref,
+    os::unix::prelude::FileExt,
+    path::PathBuf,
     sync::{Arc, Condvar, Mutex},
 };
 
+use rand::{distributions::Alphanumeric, Rng};
+
+use crate::log::OkLog;
+
 trait Segment {
+    /// Writes data to segment. Error is returned if segment already reached
+    /// or exceeded its capacity.
     fn write(&self, data: &[u8]) -> Result<(), ()>;
+
+    /// Marks segment as completed. Unblock reader.
     fn complete(&self);
 
+    /// Blocking read from segment. Blocks until any data is available
+    /// or segment is completed, in which case returns empty data.
     fn read(&self, max_len: usize) -> Vec<u8>;
 
+    /// Returns the amount of memory used.
     fn memory_used(&self) -> usize;
 }
 
@@ -18,6 +34,7 @@ struct MemorySegmentInner {
     completed: bool,
 }
 
+/// In memory implementation of [Segment].
 struct MemorySegment {
     inner: Mutex<MemorySegmentInner>,
     max_size: usize,
@@ -79,6 +96,140 @@ impl Segment for MemorySegment {
     }
 }
 
+struct FileHolder {
+    file: File,
+    path: PathBuf,
+}
+
+impl FileHolder {
+    fn new_temporary() -> Self {
+        let path = Self::temp_path();
+        Self {
+            file: OpenOptions::new()
+                .create(true)
+                .read(true)
+                .write(true)
+                .truncate(true)
+                .open(&path)
+                .unwrap(),
+
+            path,
+        }
+    }
+
+    fn temp_path() -> PathBuf {
+        let temp_dir = env::temp_dir();
+        let file_name: String = rand::thread_rng()
+            .sample_iter(&Alphanumeric)
+            .take(30)
+            .map(char::from)
+            .collect();
+        temp_dir.join(&file_name)
+    }
+}
+
+impl Drop for FileHolder {
+    fn drop(&mut self) {
+        std::fs::remove_file(&self.path).ok_log();
+    }
+}
+
+impl Deref for FileHolder {
+    type Target = File;
+
+    fn deref(&self) -> &Self::Target {
+        &self.file
+    }
+}
+
+struct FileSegmentInner {
+    file: Option<FileHolder>,
+    write_position: u64,
+    read_position: u64,
+    completed: bool,
+}
+
+struct FileSegment {
+    max_file_length: u64,
+    inner: Mutex<FileSegmentInner>,
+    condition: Condvar,
+}
+
+impl FileSegment {
+    fn new(max_file_length: u64) -> FileSegment {
+        FileSegment {
+            max_file_length,
+            inner: Mutex::new(FileSegmentInner {
+                file: Some(FileHolder::new_temporary()),
+                read_position: 0,
+                write_position: 0,
+                completed: false,
+            }),
+            condition: Condvar::new(),
+        }
+    }
+}
+
+impl Segment for FileSegment {
+    fn write(&self, data: &[u8]) -> Result<(), ()> {
+        let mut inner = self.inner.lock().unwrap();
+        match &inner.file {
+            Some(file) => {
+                if inner.write_position >= self.max_file_length {
+                    Err(())
+                } else {
+                    file.write_all_at(data, inner.write_position).ok();
+                    inner.write_position += data.len() as u64;
+                    inner.completed |= inner.write_position >= self.max_file_length;
+                    self.condition.notify_all();
+                    Ok(())
+                }
+            }
+            None => Err(()),
+        }
+    }
+
+    fn complete(&self) {
+        let mut inner = self.inner.lock().unwrap();
+        inner.completed = true;
+        if inner.read_position >= inner.write_position {
+            inner.file.take();
+        }
+        self.condition.notify_all();
+    }
+
+    fn read(&self, max_len: usize) -> Vec<u8> {
+        let mut inner = self.inner.lock().unwrap();
+        loop {
+            if inner.read_position < inner.write_position {
+                match &inner.file {
+                    Some(file) => {
+                        let mut buf = Vec::<u8>::new();
+                        buf.resize(max_len, 0);
+                        let res = file
+                            .read_at(&mut buf, inner.read_position)
+                            .ok_log()
+                            .unwrap_or(0);
+                        inner.read_position += res as u64;
+                        buf.resize(res, 0);
+                        return buf;
+                    }
+                    None => return Vec::new(),
+                }
+            } else if inner.completed {
+                inner.file.take();
+                return Vec::new();
+            } else {
+                inner = self.condition.wait(inner).unwrap();
+            }
+        }
+    }
+
+    fn memory_used(&self) -> usize {
+        0
+    }
+}
+
 type BoxedSegment = Box<dyn Segment + Send + Sync>;
 
 struct QueueStateInner {
@@ -117,6 +268,8 @@ impl QueueState {
         }
     }
 
+    /// Inserts segment. Potentially unblock readers waiting for
+    /// get_segment_at_index.
     fn insert_segment(&self, segment: Arc<BoxedSegment>) {
         let mut inner = self.inner.lock().unwrap();
         if !inner.completed {
@@ -125,10 +278,21 @@ impl QueueState {
         self.condition.notify_all();
     }
 
+    /// Marks wirting as completed. If there is reader waiting for
+    /// get_segment_at_index unblocks it.
     fn complete(&self) {
         let mut inner = self.inner.lock().unwrap();
         inner.completed = true;
         self.condition.notify_all();
+    }
+
+    fn total_memory_usage(&self) -> usize {
+        let inner = self.inner.lock().unwrap();
+        let mut size = 0;
+        for segment in &inner.segments {
+            size += segment.memory_used();
+        }
+        size
     }
 }
 
@@ -145,6 +309,8 @@ impl SegmentedQueueReader {
         }
     }
 
+    /// Reads up to `max_len` bytes from queue. Blocks until data is available.
+    /// Returns empty vector if queue is completed and no more data is available.
     pub fn read_some(&self, max_len: usize) -> Vec<u8> {
         loop {
             let segment = self.state.get_segment_at_index(self.current_segment.get());
@@ -162,6 +328,8 @@ impl SegmentedQueueReader {
         }
     }
 
+    /// Reads len amount of bytes from queue. Blocks until data is available.
+    /// If returned amount of bytes is less than len, the queue is completed.x
     pub fn read(&self, len: usize) -> Vec<u8> {
         let mut res = Vec::new();
         while res.len() < len {
@@ -176,26 +344,55 @@ impl SegmentedQueueReader {
     }
 }
 
-pub struct SegmentedQueueWriter {
+pub struct QueueConfiguration {
+    /// Maximum size for single memory segment
     memory_segment_max_size: usize,
+
+    /// Maximum length for file of single file segment
+    file_segment_max_length: u64,
+
+    /// Total maximum memory used. When queue memory usage gets over this
+    /// threshold next created segment will be file segment. Otherwise (or when
+    /// not set) the next created segment will be memory segment.
+    /// If None all segments in queue will be memory segments.
+    max_memory_usage: Option<usize>,
+}
+
+pub struct SegmentedQueueWriter {
+    configuration: QueueConfiguration,
     state: Arc<QueueState>,
     current_segment: RefCell<Arc<BoxedSegment>>,
 }
 
 impl SegmentedQueueWriter {
-    fn new(state: Arc<QueueState>, memory_segment_max_size: usize) -> Self {
-        let segment: BoxedSegment = Box::new(MemorySegment::new(memory_segment_max_size));
+    fn new(state: Arc<QueueState>, configuration: QueueConfiguration) -> Self {
+        // Always start with a memory segment
+        let segment: BoxedSegment =
+            Box::new(MemorySegment::new(configuration.memory_segment_max_size));
         let segment = Arc::new(segment);
         state.insert_segment(segment.clone());
         Self {
-            memory_segment_max_size,
+            configuration,
             state,
             current_segment: RefCell::new(segment),
         }
     }
 
     fn next_segment(&self) {
-        let segment: BoxedSegment = Box::new(MemorySegment::new(self.memory_segment_max_size));
+        let segment: BoxedSegment = match self.configuration.max_memory_usage {
+            Some(max_memory_usage) => {
+                if self.state.total_memory_usage() >= max_memory_usage {
+                    Box::new(FileSegment::new(self.configuration.file_segment_max_length))
+                } else {
+                    Box::new(MemorySegment::new(
+                        self.configuration.memory_segment_max_size,
+                    ))
+                }
+            }
+            None => Box::new(MemorySegment::new(
+                self.configuration.memory_segment_max_size,
+            )),
+        };
         let segment = Arc::new(segment);
         self.state.insert_segment(segment.clone());
         self.current_segment.replace(segment);
@@ -217,18 +414,83 @@ impl SegmentedQueueWriter {
 }
 
 pub fn new_segmented_queue(
-    memory_segment_max_size: usize,
+    configuration: QueueConfiguration,
 ) -> (SegmentedQueueWriter, SegmentedQueueReader) {
     let state = Arc::new(QueueState::new());
-    let writer = SegmentedQueueWriter::new(state.clone(), memory_segment_max_size);
+    let writer = SegmentedQueueWriter::new(state.clone(), configuration);
     let reader = SegmentedQueueReader::new(state);
     (writer, reader)
 }
 
 #[cfg(test)]
 mod test {
+    use std::{sync::Arc, thread, time::Duration};
+
+    use crate::{
+        segmented_queue::{FileSegment, MemorySegment},
+        value_promise::Promise,
+    };
+
+    use super::BoxedSegment;
+
+    fn read_from_segment(size: usize, segment: &Arc<BoxedSegment>) -> Arc<Promise<Vec<u8>>> {
+        let promise = Arc::new(Promise::<Vec<u8>>::new());
+        let segment_clone = segment.clone();
+        let promise_clone = promise.clone();
+        thread::spawn(move || {
+            let r = segment_clone.read(size);
+            promise_clone.set(r);
+        });
+        promise
+    }
+
+    fn test_segment(segment: Arc<BoxedSegment>) {
+        let r = read_from_segment(5, &segment);
+        thread::sleep(Duration::from_millis(50));
+        assert!(segment.write(&[1, 2]).is_ok());
+        assert_eq!(r.wait().as_slice(), &[1, 2]);
+
+        let r = read_from_segment(3, &segment);
+        thread::sleep(Duration::from_millis(50));
+        assert!(segment.write(&[1, 2, 3, 4, 5]).is_ok());
+        assert_eq!(r.wait().as_slice(), &[1, 2, 3]);
+
+        let r = read_from_segment(3, &segment);
+        assert_eq!(r.wait().as_slice(), &[4, 5]);
+
+        // last one
+        assert!(segment.write(&[1, 2, 3]).is_ok());
+
+        let r = read_from_segment(3, &segment);
+        assert_eq!(r.wait().as_slice(), &[1, 2, 3]);
+
+        // Not blocking any more, segment is completed (reached size)
+        let r = read_from_segment(3, &segment);
+        assert_eq!(r.wait().as_slice(), &[]);
+
+        // Can't write to completed segment
+        assert!(segment.write(&[1, 2, 3]).is_err());
+    }
+
+    fn test_segment_complete(segment: Arc<BoxedSegment>) {
+        let r = read_from_segment(5, &segment);
+        thread::sleep(Duration::from_millis(50));
+        assert!(segment.write(&[1, 2]).is_ok());
+        assert_eq!(r.wait().as_slice(), &[1, 2]);
+
+        let r = read_from_segment(5, &segment);
+        thread::sleep(Duration::from_millis(50));
+        assert!(r.try_take().is_none());
+        segment.complete();
+        assert_eq!(r.wait().as_slice(), &[]);
+    }
+
     #[test]
     fn test1() {
-        println!("Hello");
+        test_segment(Arc::new(Box::new(MemorySegment::new(8))));
+        test_segment_complete(Arc::new(Box::new(MemorySegment::new(8))));
+
+        test_segment(Arc::new(Box::new(FileSegment::new(8))));
+        test_segment_complete(Arc::new(Box::new(FileSegment::new(8))));
     }
 }

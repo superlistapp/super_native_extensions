@@ -38,6 +38,7 @@ impl<T> Promise<T> {
     }
 }
 
+#[allow(dead_code)]
 impl<T: Clone> Promise<T> {
     pub fn try_clone(&self) -> Option<T> {
         let lock = self.data.lock().unwrap();
