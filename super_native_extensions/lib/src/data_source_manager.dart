@@ -226,7 +226,6 @@ class _VirtualFileSink extends EventSink<Uint8List> {
   void _close({
     bool delete = false,
   }) {
-    print('Closing');
     if (_buffer != null) {
       malloc.free(_buffer!);
       _buffer = null;

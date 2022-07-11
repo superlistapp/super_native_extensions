@@ -113,7 +113,8 @@ pub struct DragRequest {
 #[nativeshell(rename_all = "camelCase")]
 pub enum DropOperation {
     None,
-    Copy,
-    Link,
-    Move,
+    Forbidden, // Used on iOS, maps to None on other platforms
+    Copy, // macOS, iOS, Windows, Linux, Android
+    Move, // macOS, iOS, Windows, Linux
+    Link, // macOS, Windows, Linux
 }

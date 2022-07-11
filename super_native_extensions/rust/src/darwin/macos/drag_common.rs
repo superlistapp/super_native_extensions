@@ -23,6 +23,7 @@ impl DropOperationExt for DropOperation {
     fn to_platform(&self) -> NSDragOperation {
         match self {
             DropOperation::None => NSDragOperationNone,
+            DropOperation::Forbidden => NSDragOperationNone,
             DropOperation::Copy => NSDragOperationCopy,
             DropOperation::Link => NSDragOperationLink,
             DropOperation::Move => NSDragOperationMove,

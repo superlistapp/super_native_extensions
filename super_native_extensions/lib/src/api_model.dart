@@ -56,4 +56,8 @@ extension OffsetExt on Offset {
         'x': dx,
         'y': dy,
       };
+  static Offset deserialize(dynamic position) {
+    final map = position as Map;
+    return Offset(map['x'], map['y']);
+  }
 }

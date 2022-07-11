@@ -9,7 +9,7 @@ use std::{
 
 use cocoa::{
     base::{id, nil},
-    foundation::{NSArray, NSUInteger},
+    foundation::NSArray,
 };
 use core_foundation::{runloop::CFRunLoopRunInMode, string::CFStringRef};
 use nativeshell_core::util::Late;
@@ -24,13 +24,20 @@ use objc::{
 use once_cell::sync::Lazy;
 
 use crate::{
-    api_model::{Point, DragRequest},
-    drag_manager::{PendingSourceState, PlatformDragContextDelegate, DragSessionId},
+    api_model::{DragRequest, DropOperation, Point},
+    drag_manager::{DragSessionId, PendingSourceState, PlatformDragContextDelegate},
     error::{NativeExtensionsError, NativeExtensionsResult},
-    util::DropNotifier, platform_impl::platform::common::to_nsstring,
+    platform_impl::platform::{
+        common::to_nsstring,
+        os::drag_common::{UIDropOperationCancel, UIDropOperationForbidden},
+    },
+    util::DropNotifier,
 };
 
-use super::{DataSourceSessionDelegate, PlatformDataSource};
+use super::{
+    drag_common::{DropOperationExt, UIDropOperation},
+    DataSourceSessionDelegate, PlatformDataSource,
+};
 
 pub struct PlatformDragContext {
     id: i64,
@@ -44,18 +51,26 @@ pub struct PlatformDragContext {
 
 struct Session {
     context_delegate: Weak<dyn PlatformDragContextDelegate>,
+    context_id: i64,
+    session_id: DragSessionId,
     weak_self: Late<Weak<Self>>,
     in_progress: Cell<bool>,
     data_source_notifier: RefCell<Option<Arc<DropNotifier>>>,
 }
 
 impl Session {
-    fn new(context_delegate: Weak<dyn PlatformDragContextDelegate>) -> Self {
+    fn new(
+        context_delegate: Weak<dyn PlatformDragContextDelegate>,
+        context_id: i64,
+        session_id: DragSessionId,
+    ) -> Self {
         Self {
             context_delegate,
+            context_id,
             weak_self: Late::new(),
             in_progress: Cell::new(false),
             data_source_notifier: RefCell::new(None),
+            session_id,
         }
     }
 
@@ -92,6 +107,16 @@ impl Session {
 
     fn drag_will_begin(&self) {
         self.in_progress.replace(true);
+    }
+
+    fn did_end_with_operation(&self, operation: UIDropOperation) {
+        if let Some(delegate) = self.context_delegate.upgrade() {
+            delegate.drag_session_did_end_with_operation(
+                self.context_id,
+                self.session_id,
+                DropOperation::from_platform(operation),
+            );
+        }
     }
 }
 
@@ -152,8 +177,9 @@ impl PlatformDragContext {
         drag_session: id,
         source: Rc<PlatformDataSource>,
         source_drop_notifier: Arc<DropNotifier>,
+        session_id: DragSessionId,
     ) -> id {
-        let session = Rc::new(Session::new(self.delegate.clone()));
+        let session = Rc::new(Session::new(self.delegate.clone(), self.id, session_id));
         session.assign_weak_self(Rc::downgrade(&session));
         self.sessions
             .borrow_mut()
@@ -171,12 +197,14 @@ impl PlatformDragContext {
                         PendingSourceState::Ok {
                             source,
                             source_drop_notifier: drop_notifier,
+                            session_id,
                         } => {
                             return self._items_for_beginning(
                                 interaction,
                                 session,
                                 source.clone(),
                                 drop_notifier.clone(),
+                                *session_id,
                             );
                         }
                         PendingSourceState::Cancelled => return nil,
@@ -199,11 +227,13 @@ impl PlatformDragContext {
     }
 
     fn did_end_with_operation(&self, _interaction: id, session: id, operation: UIDropOperation) {
-        if operation == 0 {
+        if let Some(session) = self.sessions.borrow().get(&session).cloned() {
+            session.did_end_with_operation(operation);
+        }
+        // If drop failed remove session here, otherwise we'll do it in did_transfer_items
+        if operation == UIDropOperationCancel || operation == UIDropOperationForbidden {
             self.sessions.borrow_mut().remove(&session);
         }
-
-        println!("Did end with operation {:?}", operation);
     }
 
     fn did_transfer_items(&self, _interaction: id, session: id) {
@@ -276,8 +306,6 @@ extern "C" fn drag_will_begin(this: &mut Object, _sel: Sel, interaction: id, ses
         || (),
     )
 }
-
-type UIDropOperation = NSUInteger;
 
 extern "C" fn did_end_with_operation(
     this: &mut Object,

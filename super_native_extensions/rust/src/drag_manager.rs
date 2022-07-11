@@ -27,6 +27,7 @@ pub enum PendingSourceState {
     Ok {
         source: Rc<PlatformDataSource>,
         source_drop_notifier: Arc<DropNotifier>,
+        session_id: DragSessionId,
     },
     Cancelled,
 }
@@ -171,6 +172,7 @@ impl AsyncMethodHandler for DragManager {
 #[nativeshell(rename_all = "camelCase")]
 struct DataSourceRequest {
     location: Point,
+    session_id: DragSessionId,
 }
 
 #[derive(TryFromValue)]
@@ -196,6 +198,7 @@ impl PlatformDragContextDelegate for DragManager {
         let res = Rc::new(RefCell::new(PendingSourceState::Pending));
         let res_clone = res.clone();
         let weak_self = self.weak_self.clone();
+        let session_id = DragSessionId(self.next_session_id.next_id());
         Context::get().run_loop().spawn(async move {
             let this = weak_self.upgrade();
             if let Some(this) = this {
@@ -204,10 +207,12 @@ impl PlatformDragContextDelegate for DragManager {
                     .call_method_cv(
                         id,
                         "dataSourceForDragRequest",
-                        DataSourceRequest { location },
+                        DataSourceRequest {
+                            location,
+                            session_id,
+                        },
                     )
                     .await;
-
                 let data_source = data_source
                     .ok_log()
                     .and_then(|d| d.data_source_id)
@@ -228,6 +233,7 @@ impl PlatformDragContextDelegate for DragManager {
                         res_clone.replace(PendingSourceState::Ok {
                             source: data_source,
                             source_drop_notifier: notifier,
+                            session_id,
                         })
                     }
                     None => res_clone.replace(PendingSourceState::Cancelled),

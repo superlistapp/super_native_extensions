@@ -12,6 +12,51 @@ class DragException implements Exception {
   DragException(this.message);
 }
 
+class _Delegate implements RawDragContextDelegate {
+  @override
+  Future<DataSourceHandle?> getDataSourceForDragRequest(
+      {required Offset location, required DragSession session}) async {
+    session.dragCompleted.addListener(() {
+      print("Drag completed ${session.dragCompleted.value}");
+    });
+    session.sessionIsDoneWithDataSource.addListener(() {
+      print("Session is done with data source");
+    });
+    final data = DataSource([
+      DataSourceItem(suggestedName: "File1.txt", representations: [
+        DataSourceItemRepresentation.virtualFile(
+            format: 'public.utf8-plain-text',
+            storageSuggestion: VirtualFileStorage.temporaryFile,
+            virtualFileProvider: (sinkProvider, progress) async {
+              final sink =  sinkProvider(fileSize: 32);
+              final cancelled = [false];
+              print('Requested file');
+              progress.onCancel.addListener(() {
+                print('Cancelled');
+                cancelled[0] = true;
+              });
+              for (var i = 0; i < 10; ++i) {
+                Future.delayed(Duration(milliseconds: i * 1000), () {
+                  if (cancelled[0]) {
+                    return;
+                  }
+                  progress.updateProgress(i * 10);
+                  if (i == 9) {
+                    print('Done');
+                    sink.add(utf8.encode('Hello, cruel world!\n'));
+                    sink.add(utf8.encode('Hello, cruel world!'));
+                    // sink.addError('Something went wrong');
+                    sink.close();
+                  }
+                });
+              }
+            }),
+      ]),
+    ]);
+    return data.register();
+  }
+}
+
 void main() async {
   // final dropContext = await RawDropContext.instance();
   // await dropContext.registerDropTypes([
@@ -22,6 +67,7 @@ void main() async {
   // ]);
   await RawDragContext.instance();
   await RawDropContext.instance();
+  (await RawDragContext.instance()).delegate = _Delegate();
   runApp(const MyApp());
 }
 

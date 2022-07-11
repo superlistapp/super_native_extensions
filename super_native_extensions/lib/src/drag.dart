@@ -1,5 +1,3 @@
-import 'dart:convert';
-import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:flutter/services.dart';
@@ -7,12 +5,26 @@ import 'package:flutter/widgets.dart';
 import 'package:nativeshell_core/nativeshell_core.dart';
 import 'package:super_native_extensions/raw_clipboard.dart';
 import 'package:super_native_extensions/src/context.dart';
+import 'package:super_native_extensions/src/drag_common.dart';
+import 'package:super_native_extensions/src/util.dart';
 
 import 'mutex.dart';
 import 'api_model.dart';
 
+class DragSession {
+  ValueNotifier<DropOperation?> get dragCompleted => _dragCompleted;
+  Listenable get sessionIsDoneWithDataSource => _sessionIsDoneWithDataSource;
+
+  final _dragCompleted = ValueNotifier<DropOperation?>(null);
+  final _sessionIsDoneWithDataSource = SimpleNotifier();
+}
+
 abstract class RawDragContextDelegate {
-  Future<DataSourceHandle?> getDataSourceForDragRequest({ui.Offset location});
+  Future<DataSourceHandle?> getDataSourceForDragRequest({
+    required ui.Offset location,
+    required DragSession
+        session, // session will be unused if null handle is returned
+  });
 }
 
 final _channel =
@@ -23,6 +35,15 @@ class RawDragContext {
 
   static RawDragContext? _instance;
   static final _mutex = Mutex();
+
+  set delegate(RawDragContextDelegate? delegate) {
+    _delegate = delegate;
+  }
+
+  RawDragContextDelegate? _delegate;
+
+  final _sessions = <int, DragSession>{};
+  final _dataSources = <int, DataSourceHandle>{};
 
   Future<void> _initialize() async {
     WidgetsFlutterBinding.ensureInitialized();
@@ -43,76 +64,34 @@ class RawDragContext {
 
   Future<dynamic> _handleMethodCall(MethodCall call) async {
     if (call.method == 'dataSourceForDragRequest') {
-      print('ARG ${call.arguments}');
-      final data = DataSource([
-        DataSourceItem(representations: [
-          // DataSourceItemRepresentation.lazy(
-          //   formats: ['public.url'],
-          //   // data: utf8.encode('https://airflow.app'),
-          //   dataProvider: (_) => utf8.encode('https://airflow.app'),
-          // )
-          DataSourceItemRepresentation.virtualFile(
-              format: 'public.utf8-plain-text',
-              storageSuggestion: VirtualFileStorage.temporaryFile,
-              virtualFileProvider: (sinkProvider, progress) async {
-                final sink = await sinkProvider(fileSize: 32);
-                final cancelled = [false];
-                print('Requested file');
-                progress.onCancel.addListener(() {
-                  print('Cancelled');
-                  cancelled[0] = true;
-                });
-                for (var i = 0; i < 10; ++i) {
-                  Future.delayed(Duration(milliseconds: i * 1000), () {
-                    if (cancelled[0]) {
-                      return;
-                    }
-                    progress.updateProgress(i * 10);
-                    if (i == 9) {
-                      print('Done');
-                      sink.add(utf8.encode('Hello, cruel world!\n'));
-                      sink.add(utf8.encode('Hello, cruel world!'));
-                      // sink.addError('Something went wrong');
-                      sink.close();
-                    }
-                  });
-                }
-              }),
-        ], suggestedName: 'File1.txt'),
-        // DataSourceItem(representations: [
-        //   DataSourceItemRepresentation.virtualFile(
-        //       format: 'public.utf8-plain-text',
-        //       virtualFileProvider: (targetPath, progress, onComplete, onError) {
-        //         final cancelled = [false];
-        //         print('Requested file at path 2 $targetPath');
-        //         progress.onCancel.addListener(() {
-        //           print('Cancelled 2');
-        //           cancelled[0] = true;
-        //         });
-        //         for (var i = 0; i < 10; ++i) {
-        //           Future.delayed(Duration(milliseconds: i * 1000), () {
-        //             if (cancelled[0]) {
-        //               return;
-        //             }
-        //             progress.updateProgress(i * 10);
-        //             if (i == 9) {
-        //               print('Done 2');
-        //               final file = File(targetPath);
-        //               file.writeAsStringSync('Hello world 22');
-        //               onComplete();
-        //             }
-        //           });
-        //         }
-        //       }),
-        // ], suggestedName: 'File2.txt'),
-      ]);
-      // final writer = await RawClipboardWriter.withData(data);
-      final handle = await data.register();
-      return {'dataSourceId': handle.id};
+      final arguments = call.arguments as Map;
+      final location = OffsetExt.deserialize(arguments['location']);
+      final sessionId = arguments['sessionId'];
+      final session = DragSession();
+      final source = await _delegate?.getDataSourceForDragRequest(
+        location: location,
+        session: session,
+      );
+      if (source != null) {
+        source.onDispose.addListener(() {
+          session._sessionIsDoneWithDataSource.notify();
+        });
+        _sessions[sessionId] = session;
+        _dataSources[source.id] = source;
+        return {'dataSourceId': source.id};
+      } else {
+        return null;
+      }
     } else if (call.method == 'releaseDataSource') {
-      print('Release source ${call.arguments as int}');
+      final source = _dataSources.remove(call.arguments);
+      source?.dispose();
     } else if (call.method == 'dragSessionDidEnd') {
-      print('Drag session did end ${call.arguments}');
+      final arguments = call.arguments as Map;
+      final sessionId = arguments['sessionId'];
+      final dropOperation =
+          DropOperation.values.byName(arguments['dropOperation']);
+      final session = _sessions.remove(sessionId);
+      session?.dragCompleted.value = dropOperation;
     } else {
       return null;
     }
