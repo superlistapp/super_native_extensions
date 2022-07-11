@@ -22,9 +22,11 @@ use windows::{
 };
 
 use crate::{
-    drag_manager::{DragRequest, PlatformDragContextDelegate},
+    api_model::DragRequest,
+    drag_manager::{DragSessionId, PlatformDragContextDelegate},
     error::NativeExtensionsResult,
-    util::DropNotifier, platform_impl::platform::data_object::DataObject,
+    platform_impl::platform::data_object::DataObject,
+    util::DropNotifier,
 };
 
 use super::{
@@ -82,6 +84,7 @@ impl PlatformDragContext {
         request: DragRequest,
         data_source: Rc<PlatformDataSource>,
         drop_notifier: Arc<DropNotifier>,
+        session_id: DragSessionId,
     ) -> NativeExtensionsResult<()> {
         let data_object = DataObject::create(data_source, drop_notifier);
         let helper: IDragSourceHelper = create_instance(&CLSID_DragDropHelper)?;

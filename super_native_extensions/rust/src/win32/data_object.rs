@@ -38,7 +38,7 @@ use crate::{
     api_model::{DataSourceItemRepresentation, DataSourceValueId, VirtualFileStorage},
     data_source_manager::VirtualFileResult,
     error,
-    segmented_queue::new_segmented_queue,
+    segmented_queue::{new_segmented_queue, QueueConfiguration},
     util::DropNotifier,
     value_coerce::{CoerceToData, StringFormat},
     value_promise::{Promise, ValuePromiseResult},
@@ -271,7 +271,12 @@ impl DataObject {
         storage_suggestion: &Option<VirtualFileStorage>,
     ) -> Option<IStream> {
         if let Some(delegate) = self.data_source.delegate.upgrade() {
-            let (writer, reader) = new_segmented_queue(1024);
+            let configuration = QueueConfiguration {
+                memory_segment_max_size: 1024 * 1024 * 4,
+                file_segment_max_length: 1024 * 1024 * 30,
+                max_memory_usage: Some(1024 * 1024 * 12),
+            };
+            let (writer, reader) = new_segmented_queue(configuration);
             let stream_handle = add_stream_entry(writer);
             let size_promise = Arc::new(Promise::<Option<i64>>::new());
             let size_promise_clone = size_promise.clone();
@@ -436,7 +441,6 @@ impl IDataObject_Impl for DataObject {
         frelease: windows::Win32::Foundation::BOOL,
     ) -> windows::core::Result<()> {
         let format = unsafe { &*pformatetc };
-        println!("SET DATA {:?}", format.cfFormat);
         if format.tymed == TYMED_HGLOBAL.0 as u32 {
             unsafe {
                 let medium = &*pmedium;

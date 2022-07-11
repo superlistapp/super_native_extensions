@@ -2,8 +2,8 @@ use std::{
     cell::{Cell, RefCell},
     env,
     fs::{File, OpenOptions},
+    io,
     ops::Deref,
-    os::unix::prelude::FileExt,
     path::PathBuf,
     sync::{Arc, Condvar, Mutex},
 };
@@ -168,6 +168,17 @@ impl FileSegment {
             condition: Condvar::new(),
         }
     }
+
+    #[cfg(target_family = "windows")]
+    fn read_at(file: &File, buf: &mut [u8], offset: u64) -> io::Result<usize> {
+        use std::os::windows::prelude::FileExt;
+        file.seek_read(buf, offset)
+    }
+
+    #[cfg(target_family = "unix")]
+    fn read_at(file: &File, buf: &mut [u8], offset: u64) -> io::Result<usize> {
+        file.read_at(&mut buf, inner.read_position)
+    }
 }
 
 impl Segment for FileSegment {
@@ -178,7 +189,15 @@ impl Segment for FileSegment {
                 if inner.write_position >= self.max_file_length {
                     Err(())
                 } else {
-                    file.write_all_at(data, inner.write_position).ok();
+                    #[cfg(target_family = "windows")]
+                    {
+                        use std::os::windows::prelude::FileExt;
+                        file.seek_write(data, inner.write_position).ok_log();
+                    }
+                    #[cfg(target_family = "unix")]
+                    {
+                        file.write_all_at(data, inner.write_position).ok();
+                    }
                     inner.write_position += data.len() as u64;
                     inner.completed |= inner.write_position >= self.max_file_length;
                     self.condition.notify_all();
@@ -206,8 +225,7 @@ impl Segment for FileSegment {
                     Some(file) => {
                         let mut buf = Vec::<u8>::new();
                         buf.resize(max_len, 0);
-                        let res = file
-                            .read_at(&mut buf, inner.read_position)
+                        let res = FileSegment::read_at(file, &mut buf, inner.read_position)
                             .ok_log()
                             .unwrap_or(0);
                         inner.read_position += res as u64;
@@ -346,16 +364,16 @@ impl SegmentedQueueReader {
 
 pub struct QueueConfiguration {
     /// Maximum size for single memory segment
-    memory_segment_max_size: usize,
+    pub memory_segment_max_size: usize,
 
     /// Maximum length for file of single file segment
-    file_segment_max_length: u64,
+    pub file_segment_max_length: u64,
 
     /// Total maximum memory used. When queue memory usage gets over this
     /// threshold next created segment will be file segment. Otherwise (or when
     /// not set) the next created segment will be memory segment.
     /// If None all segments in queue will be memory segments.
-    max_memory_usage: Option<usize>,
+    pub max_memory_usage: Option<usize>,
 }
 
 pub struct SegmentedQueueWriter {
