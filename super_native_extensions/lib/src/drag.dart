@@ -98,10 +98,17 @@ class RawDragContext {
   }
 
   /// Returns drag session Id
-  Future<int> startDrag({
+  Future<DragSession> startDrag({
     required DragRequest request,
   }) async {
-    return _channel.invokeMethod("startDrag", await request.serialize());
+    final sessionId =
+        await _channel.invokeMethod("startDrag", await request.serialize());
+    final session = DragSession();
+    request.dataSource.onDispose.addListener(() {
+      session._sessionIsDoneWithDataSource.notify();
+    });
+    _sessions[sessionId] = session;
+    return session;
   }
 }
 

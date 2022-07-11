@@ -28,7 +28,7 @@ class _Delegate implements RawDragContextDelegate {
             format: 'public.utf8-plain-text',
             storageSuggestion: VirtualFileStorage.temporaryFile,
             virtualFileProvider: (sinkProvider, progress) async {
-              final sink =  sinkProvider(fileSize: 32);
+              final sink = sinkProvider(fileSize: 32);
               final cancelled = [false];
               print('Requested file');
               progress.onCancel.addListener(() {
@@ -275,7 +275,7 @@ class _MyHomePageState extends State<MyHomePage> {
     final handle = await data.register();
 
     final dragContext = await RawDragContext.instance();
-    await dragContext.startDrag(
+    final session = await dragContext.startDrag(
       request: DragRequest(
         image: snapshot,
         dataSource: handle,
@@ -284,6 +284,12 @@ class _MyHomePageState extends State<MyHomePage> {
         devicePixelRatio: pr,
       ),
     );
+    session.dragCompleted.addListener(() {
+      print('Drag completed ${session.dragCompleted.value}');
+    });
+    session.sessionIsDoneWithDataSource.addListener(() {
+      print('Done with source');
+    });
   }
 
   String _content = "";
@@ -310,7 +316,7 @@ class _MyHomePageState extends State<MyHomePage> {
                 return GestureDetector(
                   child: Container(
                     decoration:
-                        BoxDecoration(border: Border.all(color: Colors.red)),
+                        BoxDecoration(border: Border.all(color: Colors.red), color: const Color.fromARGB(255, 255, 0, 0)),
                     padding: const EdgeInsets.all(10),
                     child: const Text('Drag me'),
                   ),
