@@ -177,7 +177,8 @@ impl FileSegment {
 
     #[cfg(target_family = "unix")]
     fn read_at(file: &File, buf: &mut [u8], offset: u64) -> io::Result<usize> {
-        file.read_at(&mut buf, inner.read_position)
+        use std::os::unix::prelude::FileExt;
+        file.read_at(buf, offset)
     }
 }
 
@@ -196,6 +197,7 @@ impl Segment for FileSegment {
                     }
                     #[cfg(target_family = "unix")]
                     {
+                        use std::os::unix::prelude::FileExt;
                         file.write_all_at(data, inner.write_position).ok();
                     }
                     inner.write_position += data.len() as u64;
