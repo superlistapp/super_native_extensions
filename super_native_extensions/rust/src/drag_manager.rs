@@ -115,10 +115,10 @@ impl DragManager {
             .ok_or_else(|| NativeExtensionsError::PlatformContextNotFound)?;
         let data_source = Context::get()
             .data_source_manager()
-            .get_platform_data_source(request.data_source_id)?;
+            .get_platform_data_source(request.drag_data.data_source_id)?;
 
         let weak_self = self.weak_self.clone();
-        let source_id = request.data_source_id;
+        let source_id = request.drag_data.data_source_id;
         let notifier = DropNotifier::new(move || {
             if let Some(this) = weak_self.upgrade() {
                 this.on_dropped(isolate, source_id);

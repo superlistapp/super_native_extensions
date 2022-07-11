@@ -15,7 +15,7 @@ use crate::{
 };
 
 use super::{
-    drag_common::{DropOperationExt, NSDragOperation, NSDragOperationMove, NSDragOperationNone},
+    drag_common::{DropOperationExt, NSDragOperation, NSDragOperationNone},
     util::{class_decl_from_name, flip_rect, ns_image_from_image_data},
     PlatformDataSource,
 };
@@ -47,6 +47,7 @@ extern "C" {
 struct DragSession {
     session_id: DragSessionId,
     drop_notifier: Arc<DropNotifier>,
+    allowed_operations: Vec<DropOperation>,
 }
 
 pub struct PlatformDragContext {
@@ -150,6 +151,7 @@ impl PlatformDragContext {
                 DragSession {
                     session_id,
                     drop_notifier,
+                    allowed_operations: request.drag_data.allowed_operations,
                 },
             );
         });
@@ -166,14 +168,6 @@ impl PlatformDragContext {
         unsafe {
             self.last_mouse_up.replace(Some(StrongPtr::retain(event)));
         }
-    }
-
-    fn source_operation_mask_for_dragging_context(
-        &self,
-        _session: id,
-        _context: NSInteger,
-    ) -> NSDragOperation {
-        NSDragOperationMove
     }
 
     fn synthetize_mouse_move_if_needed(&self) {
@@ -220,7 +214,9 @@ impl PlatformDragContext {
             .remove(&session)
             .expect("Drag session unexpectedly missing");
 
-        let operation = DropOperation::from_platform(operation);
+        let operations = DropOperation::from_platform_mask(operation);
+        // there might be multiple operation, use the order from from_platform_mask
+        let operation = operations.into_iter().next().unwrap_or(DropOperation::None);
         if let Some(delegate) = self.delegate.upgrade() {
             delegate.drag_session_did_end_with_operation(self.id, session.session_id, operation);
         }
@@ -236,6 +232,25 @@ impl PlatformDragContext {
                 let _notifier = session.drop_notifier;
             })
             .detach();
+    }
+
+    fn source_operation_mask_for_dragging_context(
+        &self,
+        session: id,
+        _context: NSInteger,
+    ) -> NSDragOperation {
+        let sessions = self.sessions.borrow();
+        let session = sessions.get(&session);
+        match session {
+            Some(sessions) => {
+                let mut res = NSDragOperationNone;
+                for operation in &sessions.allowed_operations {
+                    res |= operation.to_platform();
+                }
+                res
+            }
+            None => NSDragOperationNone,
+        }
     }
 }
 

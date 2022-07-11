@@ -42,14 +42,14 @@ impl DropOperationExt for DropOperation {
 
     fn from_platform_mask(operation_mask: NSDragOperation) -> Vec<DropOperation> {
         let mut res = Vec::new();
+        if operation_mask & NSDragOperationMove == NSDragOperationMove {
+            res.push(DropOperation::Move);
+        }
         if operation_mask & NSDragOperationCopy == NSDragOperationCopy {
             res.push(DropOperation::Copy);
         }
         if operation_mask & NSDragOperationLink == NSDragOperationLink {
             res.push(DropOperation::Link);
-        }
-        if operation_mask & NSDragOperationMove == NSDragOperationMove {
-            res.push(DropOperation::Move);
         }
         res
     }

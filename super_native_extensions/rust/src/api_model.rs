@@ -102,8 +102,15 @@ pub struct DataSource {
 
 #[derive(TryFromValue)]
 #[nativeshell(rename_all = "camelCase")]
-pub struct DragRequest {
+pub struct DragData {
     pub data_source_id: DataSourceId,
+    pub allowed_operations: Vec<DropOperation>,
+}
+
+#[derive(TryFromValue)]
+#[nativeshell(rename_all = "camelCase")]
+pub struct DragRequest {
+    pub drag_data: DragData,
     pub point_in_rect: Point,
     pub drag_position: Point,
     pub image: ImageData,
@@ -114,7 +121,7 @@ pub struct DragRequest {
 pub enum DropOperation {
     None,
     Forbidden, // Used on iOS, maps to None on other platforms
-    Copy, // macOS, iOS, Windows, Linux, Android
-    Move, // macOS, iOS, Windows, Linux
-    Link, // macOS, Windows, Linux
+    Copy,      // macOS, iOS, Windows, Linux, Android
+    Move,      // macOS, iOS, Windows, Linux
+    Link,      // macOS, Windows, Linux
 }

@@ -104,7 +104,7 @@ class RawDragContext {
     final sessionId =
         await _channel.invokeMethod("startDrag", await request.serialize());
     final session = DragSession();
-    request.dataSource.onDispose.addListener(() {
+    request.dragData.dataSource.onDispose.addListener(() {
       session._sessionIsDoneWithDataSource.notify();
     });
     _sessions[sessionId] = session;
@@ -112,16 +112,31 @@ class RawDragContext {
   }
 }
 
+class DragData {
+  DragData({
+    required this.allowedOperations,
+    required this.dataSource,
+  });
+
+  final List<DropOperation> allowedOperations;
+  final DataSourceHandle dataSource;
+
+  dynamic serialize() => {
+        'allowedOperations': allowedOperations.map((e) => e.name),
+        'dataSourceId': dataSource.id,
+      };
+}
+
 class DragRequest {
   DragRequest({
-    required this.dataSource,
+    required this.dragData,
     required this.pointInRect,
     required this.dragPosition,
     required this.devicePixelRatio,
     required this.image,
   });
 
-  final DataSourceHandle dataSource;
+  final DragData dragData;
   final Offset pointInRect;
   final Offset dragPosition;
   final double devicePixelRatio;
@@ -131,7 +146,7 @@ class DragRequest {
     final imageData =
         await ImageData.fromImage(image, devicePixelRatio: devicePixelRatio);
     return {
-      'dataSourceId': dataSource.id,
+      'dragData': dragData.serialize(),
       'pointInRect': pointInRect.serialize(),
       'dragPosition': dragPosition.serialize(),
       'image': imageData.serialize(),
