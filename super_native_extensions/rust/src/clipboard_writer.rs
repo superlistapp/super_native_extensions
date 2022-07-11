@@ -8,7 +8,7 @@ use nativeshell_core::{
 
 use crate::{
     api_model::DataSourceId, data_source_manager::GetDataSourceManager,
-    error::NativeExtensionsResult, util::DropNotifier,
+    error::NativeExtensionsResult, log::OkLog, util::DropNotifier,
 };
 
 pub struct ClipboardWriter {
@@ -27,7 +27,9 @@ impl ClipboardWriter {
 
     fn on_dropped(&self, isolate_id: IsolateId, source_id: DataSourceId) {
         self.invoker
-            .call_method_sync(isolate_id, "releaseDataSource", source_id, |_| {})
+            .call_method_sync(isolate_id, "releaseDataSource", source_id, |r| {
+                r.ok_log();
+            })
     }
 
     async fn write_to_clipboard(

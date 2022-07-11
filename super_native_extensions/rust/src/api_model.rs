@@ -97,3 +97,23 @@ pub struct DataSourceItem {
 pub struct DataSource {
     pub items: Vec<DataSourceItem>,
 }
+
+//
+
+#[derive(TryFromValue)]
+#[nativeshell(rename_all = "camelCase")]
+pub struct DragRequest {
+    pub data_source_id: DataSourceId,
+    pub point_in_rect: Point,
+    pub drag_position: Point,
+    pub image: ImageData,
+}
+
+#[derive(Debug, TryFromValue, IntoValue, Copy, Clone, PartialEq)]
+#[nativeshell(rename_all = "camelCase")]
+pub enum DropOperation {
+    None,
+    Copy,
+    Link,
+    Move,
+}

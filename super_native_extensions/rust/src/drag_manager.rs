@@ -1,5 +1,5 @@
 use std::{
-    cell::RefCell,
+    cell::{Cell, RefCell},
     collections::HashMap,
     rc::{Rc, Weak},
     sync::Arc,
@@ -12,12 +12,12 @@ use nativeshell_core::{
 };
 
 use crate::{
-    api_model::{DataSourceId, ImageData, Point},
+    api_model::{DataSourceId, DragRequest, DropOperation, Point},
     data_source_manager::GetDataSourceManager,
     error::{NativeExtensionsError, NativeExtensionsResult},
     log::OkLog,
     platform_impl::platform::{PlatformDataSource, PlatformDragContext},
-    util::DropNotifier,
+    util::{DropNotifier, NextId},
 };
 
 pub type PlatformDragContextId = IsolateId;
@@ -40,12 +40,23 @@ pub trait PlatformDragContextDelegate {
         id: PlatformDragContextId,
         location: Point,
     ) -> WriterResult;
+
+    fn drag_session_did_end_with_operation(
+        &self,
+        id: PlatformDragContextId,
+        session_id: DragSessionId,
+        operation: DropOperation,
+    );
 }
+
+#[derive(Debug, TryFromValue, IntoValue, Clone, Copy, PartialEq, Hash, Eq)]
+pub struct DragSessionId(i64);
 
 pub struct DragManager {
     weak_self: Late<Weak<Self>>,
     invoker: Late<AsyncMethodInvoker>,
     contexts: RefCell<HashMap<PlatformDragContextId, Rc<PlatformDragContext>>>,
+    next_session_id: Cell<i64>,
 }
 
 pub trait GetDragManager {
@@ -64,21 +75,13 @@ struct DragContextInitRequest {
     view_handle: i64,
 }
 
-#[derive(TryFromValue)]
-#[nativeshell(rename_all = "camelCase")]
-pub struct DragRequest {
-    pub data_source_id: DataSourceId,
-    pub point_in_rect: Point,
-    pub drag_position: Point,
-    pub image: ImageData,
-}
-
 impl DragManager {
     pub fn new() -> RegisteredAsyncMethodHandler<Self> {
         Self {
             weak_self: Late::new(),
             invoker: Late::new(),
             contexts: RefCell::new(HashMap::new()),
+            next_session_id: Cell::new(0),
         }
         .register("DragManager")
     }
@@ -102,7 +105,7 @@ impl DragManager {
         &self,
         isolate: IsolateId,
         request: DragRequest,
-    ) -> NativeExtensionsResult<()> {
+    ) -> NativeExtensionsResult<DragSessionId> {
         let context = self
             .contexts
             .borrow()
@@ -120,12 +123,18 @@ impl DragManager {
                 this.on_dropped(isolate, source_id);
             }
         });
-        context.start_drag(request, data_source, notifier).await
+        let session_id = DragSessionId(self.next_session_id.next_id());
+        context
+            .start_drag(request, data_source, notifier, session_id)
+            .await?;
+        Ok(session_id)
     }
 
     fn on_dropped(&self, isolate_id: IsolateId, source_id: DataSourceId) {
         self.invoker
-            .call_method_sync(isolate_id, "releaseDataSource", source_id, |_| {})
+            .call_method_sync(isolate_id, "releaseDataSource", source_id, |r| {
+                r.ok_log();
+            })
     }
 }
 
@@ -168,6 +177,13 @@ struct DataSourceRequest {
 #[nativeshell(rename_all = "camelCase")]
 struct DataSourceResponse {
     data_source_id: Option<DataSourceId>,
+}
+
+#[derive(IntoValue)]
+#[nativeshell(rename_all = "camelCase")]
+struct DragEndResponse {
+    session_id: DragSessionId,
+    drop_operation: DropOperation,
 }
 
 #[async_trait(?Send)]
@@ -221,5 +237,24 @@ impl PlatformDragContextDelegate for DragManager {
             }
         });
         res
+    }
+
+    fn drag_session_did_end_with_operation(
+        &self,
+        id: PlatformDragContextId,
+        session_id: DragSessionId,
+        operation: DropOperation,
+    ) {
+        self.invoker.call_method_sync(
+            id,
+            "dragSessionDidEnd",
+            DragEndResponse {
+                session_id,
+                drop_operation: operation,
+            },
+            |r| {
+                r.ok_log();
+            },
+        );
     }
 }

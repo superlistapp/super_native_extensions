@@ -19,7 +19,7 @@ use crate::{
     error::{NativeExtensionsError, NativeExtensionsResult},
     log::OkLog,
     platform_impl::platform::{platform_stream_close, platform_stream_write, PlatformDataSource},
-    util::DropNotifier,
+    util::{DropNotifier, NextId},
     value_promise::{ValuePromise, ValuePromiseResult, ValuePromiseSetCancel},
 };
 
@@ -121,12 +121,6 @@ impl DataSourceManager {
             .ok_or_else(|| NativeExtensionsError::DataSourceNotFound)
     }
 
-    fn next_id(&self) -> i64 {
-        let id = self.next_id.get();
-        self.next_id.replace(id + 1);
-        id
-    }
-
     fn register_source(
         &self,
         source: DataSource,
@@ -137,7 +131,7 @@ impl DataSourceManager {
             isolate_id,
             source,
         ));
-        let id = self.next_id().into();
+        let id = self.next_id.next_id().into();
         platform_data_source.assign_weak_self(Rc::downgrade(&platform_data_source));
         self.sources.borrow_mut().insert(
             id,
@@ -414,7 +408,7 @@ impl PlatformDataSourceDelegate for DataSourceManager {
         on_done: Box<dyn FnOnce(VirtualFileResult)>,
     ) -> Arc<DropNotifier> {
         let weak_self = self.weak_self.clone();
-        let session_id: VirtualSessionId = self.next_id().into();
+        let session_id: VirtualSessionId = self.next_id.next_id().into();
         let sesion = VirtualFileSession {
             isolate_id,
             size_known: Cell::new(false),
@@ -440,12 +434,16 @@ impl PlatformDataSourceDelegate for DataSourceManager {
                 virtual_file_id,
                 stream_handle,
             },
-            |_| {},
+            |r| {
+                r.ok_log();
+            },
         );
         DropNotifier::new(move || {
             if let Some(this) = weak_self.upgrade() {
                 this.invoker
-                    .call_method_sync(isolate_id, "cancelVirtualFile", session_id, |_| {});
+                    .call_method_sync(isolate_id, "cancelVirtualFile", session_id, |r| {
+                        r.ok_log();
+                    });
             }
         })
     }

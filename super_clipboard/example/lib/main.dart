@@ -20,6 +20,7 @@ void main() async {
   //   'public.url',
   //   'Apple URL pasteboard type',
   // ]);
+  await RawDragContext.instance();
   await RawDropContext.instance();
   runApp(const MyApp());
 }
@@ -170,9 +171,12 @@ class _MyHomePageState extends State<MyHomePage> {
         //       }),
         // ], suggestedName: 'File1.txt'),
         DataSourceItem(representations: [
-          DataSourceItemRepresentation.simple(
-              formats: ['public.file-url'],
-              data: utf8.encode('file:///tmp/test.txt')),
+          // DataSourceItemRepresentation.simple(
+          //     formats: ['public.file-url'],
+          //     data: utf8.encode('file:///tmp/test.txt')),
+          // DataSourceItemRepresentation.simple(
+          //     formats: ['public.utf8-plain-text'], data: utf8.encode('baaad')),
+          // /*
           DataSourceItemRepresentation.virtualFile(
               format: 'public.utf8-plain-text',
               storageSuggestion: VirtualFileStorage.temporaryFile,
@@ -192,15 +196,16 @@ class _MyHomePageState extends State<MyHomePage> {
                   print('Cancelled');
                   cancelled[0] = true;
                 });
-                for (var i = 0; i < count / 2; ++i) {
+                for (var i = 0; i < count; ++i) {
                   if (cancelled[0]) {
                     return;
                   }
                   sink.add(line);
+                  progress.updateProgress(i);
                   await Future.delayed(const Duration(milliseconds: 100));
                 }
                 // sink.close();
-                sink.addError("Something bad");
+                // sink.addError("Something bad");
                 sink.close();
                 // for (var i = 0; i < 10; ++i) {
                 //   Future.delayed(Duration(milliseconds: i * 1000), () {
@@ -230,6 +235,7 @@ class _MyHomePageState extends State<MyHomePage> {
         dataSource: handle,
         pointInRect: point,
         dragPosition: globalPosition,
+        devicePixelRatio: pr,
       ),
     );
   }

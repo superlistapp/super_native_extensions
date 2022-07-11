@@ -1,18 +1,23 @@
-use std::{mem::ManuallyDrop, ffi::CString};
+use std::{ffi::CString, mem::ManuallyDrop};
 
 use cocoa::{
-    appkit::NSView,
-    base::id,
+    appkit::{NSImage, NSView},
+    base::{id, nil},
     foundation::{NSPoint, NSRect, NSSize},
 };
 use objc::{
+    class,
     declare::ClassDecl,
     msg_send,
+    rc::StrongPtr,
     runtime::{objc_getClass, Class, Object},
     sel, sel_impl,
 };
 
-use crate::api_model::Rect;
+use crate::{
+    api_model::{ImageData, Rect},
+    platform_impl::platform::common::cg_image_from_image_data,
+};
 
 impl From<NSRect> for Rect {
     fn from(rect: NSRect) -> Self {
@@ -58,3 +63,17 @@ pub unsafe fn superclass(this: &Object) -> &Class {
     let superclass: id = msg_send![this, superclass];
     &*(superclass as *const _)
 }
+
+pub fn ns_image_from_image_data(images: Vec<ImageData>) -> StrongPtr {
+    unsafe {
+        let res = StrongPtr::new(msg_send![NSImage::alloc(nil), init]);
+        for image in images {
+            let image = cg_image_from_image_data(image);
+            let rep: id = msg_send![class!(NSBitmapImageRep), alloc];
+            let rep = StrongPtr::new(msg_send![rep, initWithCGImage:&*image]);
+            NSImage::addRepresentation_(*res, *rep);
+        }
+        res
+    }
+}
+

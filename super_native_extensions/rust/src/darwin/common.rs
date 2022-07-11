@@ -1,10 +1,18 @@
-use std::{os::raw::c_char, slice};
+use std::{os::raw::c_char, slice, sync::Arc};
 
 use cocoa::{
     base::{id, nil},
     foundation::{NSDictionary, NSInteger, NSString},
 };
+use core_graphics::{
+    base::{kCGBitmapByteOrderDefault, kCGImageAlphaLast, kCGRenderingIntentDefault},
+    color_space::{kCGColorSpaceSRGB, CGColorSpace},
+    data_provider::CGDataProvider,
+    image::CGImage,
+};
 use objc::{class, msg_send, rc::StrongPtr, sel, sel_impl};
+
+use crate::api_model::ImageData;
 
 pub fn to_nsstring(string: &str) -> StrongPtr {
     unsafe {
@@ -35,4 +43,22 @@ pub fn to_nserror(domain: &str, code: NSInteger, message: &str) -> StrongPtr {
             msg_send![error, initWithDomain:to_nsstring(domain) code:code userInfo:user_info];
         StrongPtr::new(error)
     }
+}
+
+pub fn cg_image_from_image_data(image: ImageData) -> CGImage {
+    let data = CGDataProvider::from_buffer(Arc::new(image.data));
+    let rgb = CGColorSpace::create_with_name(unsafe { kCGColorSpaceSRGB })
+        .unwrap_or_else(|| CGColorSpace::create_device_rgb());
+    CGImage::new(
+        image.width as usize,
+        image.height as usize,
+        8,
+        32,
+        image.bytes_per_row as usize,
+        &rgb,
+        kCGBitmapByteOrderDefault | kCGImageAlphaLast,
+        &data,
+        true,
+        kCGRenderingIntentDefault,
+    )
 }

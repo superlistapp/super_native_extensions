@@ -24,7 +24,7 @@ use crate::{
     data_source_manager::PlatformDataSourceDelegate,
     error::{NativeExtensionsError, NativeExtensionsResult},
     log::OkLog,
-    util::DropNotifier,
+    util::{DropNotifier, NextId},
     value_coerce::{CoerceToData, StringFormat},
     value_promise::{ValuePromise, ValuePromiseResult},
 };
@@ -67,11 +67,11 @@ fn compare_mime_types(env: &JNIEnv, concrete_type: &str, desired_type: &str) -> 
     .z()
 }
 
-pub fn platform_stream_write(handle: i32, data: &[u8]) -> i32 {
+pub fn platform_stream_write(_handle: i32, _data: &[u8]) -> i32 {
     1
 }
 
-pub fn platform_stream_close(handle: i32, delete: bool) {}
+pub fn platform_stream_close(_handle: i32, _delete: bool) {}
 
 const MIME_TYPE_TEXT_PLAIN: &str = "text/plain";
 const MIME_TYPE_TEXT_HTML: &str = "text/html";
@@ -93,7 +93,7 @@ impl PlatformDataSource {
         isolate_id: IsolateId,
         data: DataSource,
     ) -> Self {
-        let id = NEXT_ID.with(|f| f.replace(f.get() + 1));
+        let id = NEXT_ID.with(|f| f.next_id());
         let mut data_sources = DATA_SOURCES.lock().unwrap();
         let sender = Context::get().run_loop().new_sender();
         data_sources.insert(

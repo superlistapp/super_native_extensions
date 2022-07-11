@@ -111,12 +111,15 @@ class RawDragContext {
       return {'dataSourceId': handle.id};
     } else if (call.method == 'releaseDataSource') {
       print('Release source ${call.arguments as int}');
+    } else if (call.method == 'dragSessionDidEnd') {
+      print('Drag session did end ${call.arguments}');
     } else {
       return null;
     }
   }
 
-  Future<void> startDrag({
+  /// Returns drag session Id
+  Future<int> startDrag({
     required DragRequest request,
   }) async {
     return _channel.invokeMethod("startDrag", await request.serialize());
@@ -128,16 +131,19 @@ class DragRequest {
     required this.dataSource,
     required this.pointInRect,
     required this.dragPosition,
+    required this.devicePixelRatio,
     required this.image,
   });
 
   final DataSourceHandle dataSource;
   final Offset pointInRect;
   final Offset dragPosition;
+  final double devicePixelRatio;
   final ui.Image image;
 
   Future<dynamic> serialize() async {
-    final imageData = await ImageData.fromImage(image);
+    final imageData =
+        await ImageData.fromImage(image, devicePixelRatio: devicePixelRatio);
     return {
       'dataSourceId': dataSource.id,
       'pointInRect': pointInRect.serialize(),

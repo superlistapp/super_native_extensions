@@ -1,4 +1,7 @@
-use std::sync::{Arc, Mutex};
+use std::{
+    cell::Cell,
+    sync::{Arc, Mutex},
+};
 
 use nativeshell_core::{util::Capsule, Context, RunLoopSender};
 
@@ -30,5 +33,17 @@ impl DropNotifier {
 impl Drop for DropNotifier {
     fn drop(&mut self) {
         self.dispose();
+    }
+}
+
+pub trait NextId {
+    fn next_id(&self) -> i64;
+}
+
+impl NextId for Cell<i64> {
+    fn next_id(&self) -> i64 {
+        let next_id = self.get();
+        self.replace(next_id + 1);
+        next_id
     }
 }

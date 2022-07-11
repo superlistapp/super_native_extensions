@@ -14,7 +14,7 @@ use nativeshell_core::{
 
 use crate::{
     error::{NativeExtensionsError, NativeExtensionsResult},
-    platform::PlatformClipboardReader,
+    platform::PlatformClipboardReader, util::NextId,
 };
 
 pub struct ClipboardReaderManager {
@@ -51,8 +51,7 @@ impl ClipboardReaderManager {
     }
 
     fn new_default_clipboard_reader(&self) -> NativeExtensionsResult<NewClipboardReaderResult> {
-        let id = self.next_id.get();
-        self.next_id.replace(id + 1);
+        let id = self.next_id.next_id();
         let platform_reader = Rc::new(PlatformClipboardReader::new_default()?);
 
         platform_reader.assign_weak_self(Rc::downgrade(&platform_reader));

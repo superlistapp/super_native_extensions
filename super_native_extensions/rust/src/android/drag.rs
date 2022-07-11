@@ -11,7 +11,7 @@ use log::info;
 use crate::{
     android::{DRAG_DROP_UTIL, JAVA_VM},
     api_model::ImageData,
-    drag_manager::{DragRequest, PlatformDragContextDelegate},
+    drag_manager::{DragRequest, PlatformDragContextDelegate, DragSessionId},
     error::{NativeExtensionsError, NativeExtensionsResult},
     log::OkLog,
     util::DropNotifier,
@@ -112,6 +112,7 @@ impl PlatformDragContext {
         request: DragRequest,
         writer: Rc<PlatformDataSource>,
         drop_notifier: Arc<DropNotifier>,
+        session_id: DragSessionId,
     ) -> NativeExtensionsResult<()> {
         let env = JAVA_VM
             .get()
