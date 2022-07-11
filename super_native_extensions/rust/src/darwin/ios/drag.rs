@@ -24,8 +24,8 @@ use objc::{
 use once_cell::sync::Lazy;
 
 use crate::{
-    api_model::Point,
-    drag_manager::{DragRequest, PendingSourceState, PlatformDragContextDelegate},
+    api_model::{Point, DragRequest},
+    drag_manager::{PendingSourceState, PlatformDragContextDelegate, DragSessionId},
     error::{NativeExtensionsError, NativeExtensionsResult},
     util::DropNotifier, platform_impl::platform::common::to_nsstring,
 };
@@ -141,6 +141,7 @@ impl PlatformDragContext {
         _request: DragRequest,
         _source: Rc<PlatformDataSource>,
         _notifier: Arc<DropNotifier>,
+        _session_id: DragSessionId,
     ) -> NativeExtensionsResult<()> {
         Err(NativeExtensionsError::UnsupportedOperation)
     }
