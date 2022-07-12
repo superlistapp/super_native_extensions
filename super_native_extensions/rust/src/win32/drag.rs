@@ -139,10 +139,14 @@ impl PlatformDragContext {
         let drop_source = DropSource::create();
         unsafe {
             let mut _effects_out: u32 = 0;
+            let mut allowed_effects: u32 = 0;
+            for operation in request.drag_data.allowed_operations {
+                allowed_effects |= operation.to_platform();
+            }
             let _ = DoDragDrop(
                 data_object.clone(),
                 drop_source,
-                DROPEFFECT_COPY | DROPEFFECT_MOVE,
+                allowed_effects,
                 &mut _effects_out as *mut u32,
             );
         }
