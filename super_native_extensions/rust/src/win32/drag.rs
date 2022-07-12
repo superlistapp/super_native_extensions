@@ -11,9 +11,7 @@ use windows::{
             BOOL, DRAGDROP_S_CANCEL, DRAGDROP_S_DROP, DRAGDROP_S_USEDEFAULTCURSORS, HWND, POINT,
             SIZE,
         },
-        System::Ole::{
-            DoDragDrop, IDropSource, IDropSource_Impl, DROPEFFECT_COPY, DROPEFFECT_MOVE,
-        },
+        System::Ole::{DoDragDrop, IDropSource, IDropSource_Impl},
         UI::{
             Shell::{CLSID_DragDropHelper, IDragSourceHelper, SHDRAGIMAGE},
             WindowsAndMessaging::MK_LBUTTON,
