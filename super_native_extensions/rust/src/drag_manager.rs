@@ -6,7 +6,7 @@ use std::{
 };
 
 use async_trait::async_trait;
-use log::info;
+
 use nativeshell_core::{
     util::Late, AsyncMethodHandler, AsyncMethodInvoker, Context, IntoPlatformResult, IntoValue,
     IsolateId, MethodCallError, PlatformResult, RegisteredAsyncMethodHandler, TryFromValue, Value,

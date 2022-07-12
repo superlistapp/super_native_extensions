@@ -28,8 +28,8 @@ use windows::{
         },
         UI::Shell::{
             IDataObjectAsyncCapability, IDataObjectAsyncCapability_Impl, SHCreateMemStream,
-            SHCreateStdEnumFmtEtc, CFSTR_FILECONTENTS, CFSTR_FILEDESCRIPTOR, DROPFILES,
-            FD_ATTRIBUTES, FD_PROGRESSUI, FILEDESCRIPTORW,
+            SHCreateStdEnumFmtEtc, CFSTR_FILECONTENTS, CFSTR_FILEDESCRIPTOR,
+            CFSTR_PERFORMEDDROPEFFECT, DROPFILES, FD_ATTRIBUTES, FD_PROGRESSUI, FILEDESCRIPTORW,
         },
     },
 };
@@ -37,7 +37,6 @@ use windows::{
 use crate::{
     api_model::{DataSourceItemRepresentation, DataSourceValueId, VirtualFileStorage},
     data_source_manager::VirtualFileResult,
-    error,
     segmented_queue::{new_segmented_queue, QueueConfiguration},
     util::DropNotifier,
     value_coerce::{CoerceToData, StringFormat},
@@ -555,12 +554,76 @@ impl IDataObjectAsyncCapability_Impl for DataObject {
 
     fn EndOperation(
         &self,
-        hresult: windows::core::HRESULT,
+        _hresult: windows::core::HRESULT,
         _pbcreserved: &core::option::Option<IBindCtx>,
-        dweffects: u32,
+        _dweffects: u32,
     ) -> windows::core::Result<()> {
-        println!("End operation {:?} ef {:?}", hresult, dweffects);
         self.in_operation.replace(false);
         Ok(())
+    }
+}
+
+pub trait GetData {
+    fn get_data(&self, format: u32) -> windows::core::Result<Vec<u8>>;
+    fn has_data(&self, format: u32) -> bool;
+}
+
+pub trait DataObjectExt {
+    fn performed_drop_effect(&self) -> Option<u32>;
+}
+
+impl GetData for IDataObject {
+    fn get_data(&self, format: u32) -> windows::core::Result<Vec<u8>> {
+        let mut format = make_format_with_tymed(format, TYMED_HGLOBAL);
+
+        unsafe {
+            let mut medium = self.GetData(&mut format as *mut _)?;
+
+            let size = GlobalSize(medium.Anonymous.hGlobal);
+            let data = GlobalLock(medium.Anonymous.hGlobal);
+
+            let v = slice::from_raw_parts(data as *const u8, size);
+            let res: Vec<u8> = v.into();
+
+            GlobalUnlock(medium.Anonymous.hGlobal);
+
+            ReleaseStgMedium(&mut medium as *mut STGMEDIUM);
+
+            Ok(res)
+        }
+    }
+
+    fn has_data(&self, format: u32) -> bool {
+        let mut format = make_format_with_tymed(format, TYMED_HGLOBAL);
+        unsafe { self.QueryGetData(&mut format as *mut _).is_ok() }
+    }
+}
+
+impl GetData for DataObject {
+    fn get_data(&self, format: u32) -> windows::core::Result<Vec<u8>> {
+        let res = self.extra_data.borrow().get(&(format as u16)).cloned();
+        res.ok_or_else(|| DV_E_FORMATETC.into())
+    }
+
+    fn has_data(&self, format: u32) -> bool {
+        self.extra_data.borrow().contains_key(&(format as u16))
+    }
+}
+
+impl<T> DataObjectExt for T
+where
+    T: GetData,
+{
+    fn performed_drop_effect(&self) -> Option<u32> {
+        let format = unsafe { RegisterClipboardFormatW(CFSTR_PERFORMEDDROPEFFECT) };
+        if self.has_data(format) {
+            let format = self.get_data(format);
+            if let Ok(format) = format {
+                if format.len() == 4 {
+                    return Some(u32::from_ne_bytes(format.try_into().unwrap()));
+                }
+            }
+        }
+        None
     }
 }

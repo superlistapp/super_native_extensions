@@ -100,13 +100,15 @@ class RawDragContext {
   Future<DragSession> startDrag({
     required DragRequest request,
   }) async {
+    final dataSource = request.dragData.dataSource;
     final sessionId =
         await _channel.invokeMethod("startDrag", await request.serialize());
     final session = DragSession();
-    request.dragData.dataSource.onDispose.addListener(() {
+    dataSource.onDispose.addListener(() {
       session._sessionIsDoneWithDataSource.notify();
     });
     _sessions[sessionId] = session;
+    _dataSources[dataSource.id] = dataSource;
     return session;
   }
 }

@@ -1,9 +1,9 @@
 use std::{
     rc::{Rc, Weak},
     sync::Arc,
-    thread,
 };
 
+use nativeshell_core::{util::Late, Context};
 use windows::{
     core::implement,
     Win32::{
@@ -22,21 +22,26 @@ use windows::{
 };
 
 use crate::{
-    api_model::DragRequest,
+    api_model::{DragRequest, DropOperation},
     drag_manager::{DragSessionId, PlatformDragContextDelegate},
     error::NativeExtensionsResult,
-    platform_impl::platform::data_object::DataObject,
+    log::OkLog,
+    platform_impl::platform::{common::get_dpi_for_window, data_object::DataObject},
     util::DropNotifier,
 };
 
 use super::{
     common::{create_instance, image_data_to_hbitmap},
+    data_object::DataObjectExt,
+    drag_common::DropOperationExt,
     PlatformDataSource,
 };
 
 pub struct PlatformDragContext {
     id: i64,
     view: HWND,
+    delegate: Weak<dyn PlatformDragContextDelegate>,
+    weak_self: Late<Weak<Self>>,
 }
 
 #[implement(IDropSource)]
@@ -64,7 +69,7 @@ impl IDropSource_Impl for DropSource {
         }
     }
 
-    fn GiveFeedback(&self, dweffect: u32) -> windows::core::Result<()> {
+    fn GiveFeedback(&self, _dweffect: u32) -> windows::core::Result<()> {
         Err(DRAGDROP_S_USEDEFAULTCURSORS.into())
     }
 }
@@ -72,12 +77,16 @@ impl IDropSource_Impl for DropSource {
 impl PlatformDragContext {
     pub fn new(id: i64, view_handle: i64, delegate: Weak<dyn PlatformDragContextDelegate>) -> Self {
         Self {
-            id: id,
+            id,
             view: HWND(view_handle as isize),
+            delegate,
+            weak_self: Late::new(),
         }
     }
 
-    pub fn assign_weak_self(&self, weak_self: Weak<Self>) {}
+    pub fn assign_weak_self(&self, weak_self: Weak<Self>) {
+        self.weak_self.set(weak_self);
+    }
 
     pub async fn start_drag(
         &self,
@@ -86,19 +95,40 @@ impl PlatformDragContext {
         drop_notifier: Arc<DropNotifier>,
         session_id: DragSessionId,
     ) -> NativeExtensionsResult<()> {
+        let weak_self = self.weak_self.clone();
+        Context::get()
+            .run_loop()
+            .schedule_next(move || {
+                if let Some(this) = weak_self.upgrade() {
+                    this._start_drag(request, data_source, drop_notifier, session_id)
+                        .ok_log();
+                }
+            })
+            .detach();
+        Ok(())
+    }
+
+    pub fn _start_drag(
+        &self,
+        request: DragRequest,
+        data_source: Rc<PlatformDataSource>,
+        drop_notifier: Arc<DropNotifier>,
+        session_id: DragSessionId,
+    ) -> NativeExtensionsResult<()> {
         let data_object = DataObject::create(data_source, drop_notifier);
         let helper: IDragSourceHelper = create_instance(&CLSID_DragDropHelper)?;
-        let hbitmap = image_data_to_hbitmap(&request.image)?;
+        let drag_image = request.drag_data.drag_image;
+        let hbitmap = image_data_to_hbitmap(&drag_image.image_data)?;
+        let scaling = get_dpi_for_window(self.view) as f64 / 96.0;
+
         let mut image = SHDRAGIMAGE {
             sizeDragImage: SIZE {
-                cx: request.image.width,
-                cy: request.image.height,
+                cx: drag_image.image_data.width,
+                cy: drag_image.image_data.height,
             },
             ptOffset: POINT {
-                // x: cursor_pos.x - image_start.x,
-                // y: cursor_pos.y - image_start.y,
-                x: 0,
-                y: 0,
+                x: (drag_image.point_in_rect.x * scaling) as i32,
+                y: (drag_image.point_in_rect.y * scaling) as i32,
             },
             hbmpDragImage: hbitmap,
             crColorKey: 0xFFFFFFFF,
@@ -106,17 +136,24 @@ impl PlatformDragContext {
         unsafe {
             helper.InitializeFromBitmap(&mut image as *mut _, data_object.clone())?;
         }
-        println!("DDD BEGIN {:?}", thread::current().id());
         let drop_source = DropSource::create();
         unsafe {
-            let mut effects_out: u32 = 0;
-            let res = DoDragDrop(
-                data_object,
+            let mut _effects_out: u32 = 0;
+            let _ = DoDragDrop(
+                data_object.clone(),
                 drop_source,
                 DROPEFFECT_COPY | DROPEFFECT_MOVE,
-                &mut effects_out as *mut u32,
+                &mut _effects_out as *mut u32,
             );
-            println!("DDD END {:?}", res);
+        }
+        // Data source might be still in use through IDataObjectAsyncCapability,
+        // but we want to let user know that drag session ended immediately.
+        // COM will make sure that the data object is kept alive and when
+        // deallocated we will get notification from drop notifier
+        let effect = data_object.performed_drop_effect().unwrap_or(0);
+        if let Some(delegate) = self.delegate.upgrade() {
+            let operation = DropOperation::from_platform(effect);
+            delegate.drag_session_did_end_with_operation(self.id, session_id, operation);
         }
 
         Ok(())

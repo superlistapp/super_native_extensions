@@ -1,4 +1,4 @@
-use std::{rc::Rc, slice, sync::Arc, thread};
+use std::{cell::Cell, rc::Rc, slice, sync::Arc, thread};
 
 use nativeshell_core::RunLoop;
 use windows::{
@@ -8,7 +8,8 @@ use windows::{
         System::Com::{
             CoInitialize, CoUninitialize, ISequentialStream_Impl, IStream, IStream_Impl,
             Marshal::CoMarshalInterThreadInterfaceInStream,
-            StructuredStorage::CoGetInterfaceAndReleaseStream, STREAM_SEEK,
+            StructuredStorage::CoGetInterfaceAndReleaseStream, STREAM_SEEK, STREAM_SEEK_CUR,
+            STREAM_SEEK_SET,
         },
     },
 };
@@ -22,6 +23,7 @@ pub struct VirtualFileStream {
     size_promise: Arc<Promise<Option<i64>>>,
     error_promise: Arc<Promise<String>>,
     _drop_notifier: Arc<DropNotifier>,
+    position: Cell<i64>,
 }
 
 impl VirtualFileStream {
@@ -45,6 +47,7 @@ impl VirtualFileStream {
                 size_promise,
                 error_promise,
                 _drop_notifier: drop_notifier,
+                position: Cell::new(0),
             }
             .into();
             let mashalled = CoMarshalInterThreadInterfaceInStream(&IStream::IID, stream).unwrap();
@@ -61,7 +64,6 @@ impl VirtualFileStream {
 
 impl Drop for VirtualFileStream {
     fn drop(&mut self) {
-        println!("Stream bye bye");
         self.run_loop.stop();
     }
 }
@@ -81,6 +83,8 @@ impl ISequentialStream_Impl for VirtualFileStream {
         let data_out = unsafe { slice::from_raw_parts_mut(pv as *mut u8, data.len()) };
         data_out.copy_from_slice(&data);
         *pcbread = data.len() as u32;
+
+        self.position.set(self.position.get() + data.len() as i64);
 
         if let Some(_err) = self.error_promise.try_clone() {
             // TODO(knopp): Can we somehow pass the message?
@@ -105,14 +109,19 @@ impl ISequentialStream_Impl for VirtualFileStream {
 
 impl IStream_Impl for VirtualFileStream {
     fn Seek(&self, dlibmove: i64, dworigin: STREAM_SEEK) -> windows::core::Result<u64> {
-        println!(
-            "SEEK {},{:?} {:?}",
-            dlibmove,
-            dworigin,
-            thread::current().id()
-        );
-        Err(E_NOTIMPL.into())
-        // Ok(0)
+        let position = if dworigin == STREAM_SEEK_SET {
+            dlibmove
+        } else if dworigin == STREAM_SEEK_CUR {
+            self.position.get() + dlibmove
+        } else {
+            -1
+        };
+        // Pretend that seek is supported as long as we don't really need to seek
+        if position == self.position.get() {
+            Ok(position as u64)
+        } else {
+            Err(E_NOTIMPL.into())
+        }
     }
 
     fn SetSize(&self, _libnewsize: u64) -> windows::core::Result<()> {
@@ -161,8 +170,6 @@ impl IStream_Impl for VirtualFileStream {
         let size = self.size_promise.wait_clone();
         let statstg = unsafe { &mut *pstatstg };
         statstg.cbSize = size.unwrap_or(0) as u64;
-        println!("STAT {:?}", size);
-        // Err(E_NOTIMPL.into())
         Ok(())
     }
 

@@ -145,7 +145,7 @@ class DataSourceManager {
     } else if (call.method == 'cancelVirtualFile') {
       final sessionId = call.arguments as int;
       final session = _virtualSessions.remove(sessionId);
-      (session?.progress.onCancel as SimpleNotifier).notify();
+      (session?.progress.onCancel as SimpleNotifier?)?.notify();
     }
   }
 

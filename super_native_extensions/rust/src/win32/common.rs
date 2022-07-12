@@ -1,12 +1,14 @@
 use std::{mem::size_of, os::raw::c_void, ptr::null_mut, slice};
 
+use once_cell::sync::Lazy;
 use windows::{
-    core::{Interface, GUID},
+    core::{Interface, GUID, HRESULT},
     Win32::{
-        Foundation::{HANDLE, HWND},
+        Foundation::{HANDLE, HWND, S_OK},
         Graphics::Gdi::{
-            CreateDIBSection, GetDC, ReleaseDC, BITMAPINFO, BITMAPINFOHEADER, BI_RGB,
-            DIB_RGB_COLORS, HBITMAP,
+            CreateDIBSection, GetDC, GetDeviceCaps, MonitorFromWindow, ReleaseDC, BITMAPINFO,
+            BITMAPINFOHEADER, BI_RGB, DIB_RGB_COLORS, HBITMAP, HMONITOR, LOGPIXELSX,
+            MONITOR_DEFAULTTOPRIMARY,
         },
         System::{
             Com::{
@@ -14,12 +16,16 @@ use windows::{
                 FORMATETC, STGMEDIUM, TYMED, TYMED_HGLOBAL,
             },
             DataExchange::{GetClipboardFormatNameW, RegisterClipboardFormatW},
+            LibraryLoader::{GetProcAddress, LoadLibraryA},
             Memory::{GlobalLock, GlobalSize, GlobalUnlock},
             Ole::ReleaseStgMedium,
         },
-        UI::WindowsAndMessaging::{
-            DispatchMessageW, FindWindowExW, MsgWaitForMultipleObjects, PeekMessageW, HWND_MESSAGE,
-            MSG, PM_NOYIELD, PM_REMOVE, QS_POSTMESSAGE, TranslateMessage,
+        UI::{
+            HiDpi::{MDT_EFFECTIVE_DPI, MONITOR_DPI_TYPE},
+            WindowsAndMessaging::{
+                DispatchMessageW, FindWindowExW, MsgWaitForMultipleObjects, PeekMessageW,
+                TranslateMessage, HWND_MESSAGE, MSG, PM_NOYIELD, PM_REMOVE, QS_POSTMESSAGE,
+            },
         },
     },
 };
@@ -224,5 +230,62 @@ pub fn pump_message_loop(hwnds: &[HWND]) {
                 break;
             }
         }
+    }
+}
+
+type GetDpiForMonitor = unsafe extern "system" fn(
+    hmonitor: HMONITOR,
+    dpitype: MONITOR_DPI_TYPE,
+    dpix: *mut u32,
+    dpiy: *mut u32,
+) -> HRESULT;
+
+type GetDpiForWindow = unsafe extern "system" fn(hwnd: HWND) -> u32;
+
+struct DpiFunctions {
+    get_dpi_for_window: Option<GetDpiForWindow>,
+    get_dpi_for_monitor: Option<GetDpiForMonitor>,
+}
+
+impl DpiFunctions {
+    fn new() -> Self {
+        unsafe {
+            let user_32 = LoadLibraryA("user32").unwrap();
+            let shlib = LoadLibraryA("Shcore.dll").unwrap();
+            Self {
+                get_dpi_for_window: std::mem::transmute(GetProcAddress(user_32, "GetDpiForWindow")),
+                get_dpi_for_monitor: std::mem::transmute(GetProcAddress(shlib, "GetDpiForMonitor")),
+            }
+        }
+    }
+}
+
+static DPI_FUNCTIONS: Lazy<DpiFunctions> = Lazy::new(DpiFunctions::new);
+
+pub fn get_dpi_for_window(hwnd: HWND) -> u32 {
+    if let Some(get_dpi_for_window) = DPI_FUNCTIONS.get_dpi_for_window {
+        return unsafe { get_dpi_for_window(hwnd) };
+    }
+    if let Some(get_dpi_for_monitor) = DPI_FUNCTIONS.get_dpi_for_monitor {
+        let monitor = unsafe { MonitorFromWindow(hwnd, MONITOR_DEFAULTTOPRIMARY) };
+        let mut dpi_x = 0u32;
+        let mut dpi_y = 0u32;
+        if unsafe {
+            get_dpi_for_monitor(
+                monitor,
+                MDT_EFFECTIVE_DPI,
+                &mut dpi_x as *mut _,
+                &mut dpi_y as *mut _,
+            )
+        } == S_OK
+        {
+            return dpi_x;
+        }
+    }
+    unsafe {
+        let hdc = GetDC(hwnd);
+        let dpi = GetDeviceCaps(hdc, LOGPIXELSX);
+        ReleaseDC(hwnd, hdc);
+        return dpi as u32;
     }
 }

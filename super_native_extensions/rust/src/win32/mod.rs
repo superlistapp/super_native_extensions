@@ -2,6 +2,7 @@ mod common;
 mod data_object;
 mod data_source;
 mod drag;
+mod drag_common;
 mod drop;
 mod reader;
 mod virtual_file_stream;
