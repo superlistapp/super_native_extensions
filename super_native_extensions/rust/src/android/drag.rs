@@ -76,7 +76,6 @@ impl PlatformDragContext {
 
         let colors = env.new_int_array(tmp.len() as jsize)?;
         env.set_int_array_region(colors, 0, &tmp)?;
-        info!("A");
         let config = env
             .call_static_method(
                 "android/graphics/Bitmap$Config",
