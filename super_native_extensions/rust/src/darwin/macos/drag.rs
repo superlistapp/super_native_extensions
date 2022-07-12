@@ -115,18 +115,21 @@ impl PlatformDragContext {
             self.synthetize_mouse_up_event();
             let items = data_source.create_items(drop_notifier.clone(), false);
 
+            let image = request.drag_data.drag_image;
+
             let mut rect: NSRect = Rect {
-                x: request.drag_position.x - request.point_in_rect.x,
-                y: request.drag_position.y - request.point_in_rect.y,
-                width: request.image.width as f64 / request.image.device_pixel_ratio.unwrap_or(1.0),
-                height: request.image.height as f64
-                    / request.image.device_pixel_ratio.unwrap_or(1.0),
+                x: request.drag_position.x - image.point_in_rect.x,
+                y: request.drag_position.y - image.point_in_rect.y,
+                width: image.image_data.width as f64
+                    / image.image_data.device_pixel_ratio.unwrap_or(1.0),
+                height: image.image_data.height as f64
+                    / image.image_data.device_pixel_ratio.unwrap_or(1.0),
             }
             .into();
             flip_rect(*self.view, &mut rect);
             let mut dragging_items = Vec::<id>::new();
             let mut first = true;
-            let snapshot = ns_image_from_image_data(vec![request.image]);
+            let snapshot = ns_image_from_image_data(vec![image.image_data]);
             for item in items {
                 let dragging_item: id = msg_send![class!(NSDraggingItem), alloc];
                 let dragging_item: id = msg_send![dragging_item, initWithPasteboardWriter: item];

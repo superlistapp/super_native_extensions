@@ -8,7 +8,7 @@ use std::{
 };
 
 use cocoa::{
-    base::{id, nil},
+    base::{id, nil, BOOL, NO, YES},
     foundation::NSArray,
 };
 use core_foundation::{runloop::CFRunLoopRunInMode, string::CFStringRef};
@@ -24,7 +24,7 @@ use objc::{
 use once_cell::sync::Lazy;
 
 use crate::{
-    api_model::{DragRequest, DropOperation, Point},
+    api_model::{DataSource, DragData, DragRequest, DropOperation, Point},
     drag_manager::{DragSessionId, PendingSourceState, PlatformDragContextDelegate},
     error::{NativeExtensionsError, NativeExtensionsResult},
     platform_impl::platform::{
@@ -56,6 +56,7 @@ struct Session {
     weak_self: Late<Weak<Self>>,
     in_progress: Cell<bool>,
     data_source_notifier: RefCell<Option<Arc<DropNotifier>>>,
+    drag_data: DragData,
 }
 
 impl Session {
@@ -63,6 +64,7 @@ impl Session {
         context_delegate: Weak<dyn PlatformDragContextDelegate>,
         context_id: i64,
         session_id: DragSessionId,
+        data_source: DragData,
     ) -> Self {
         Self {
             context_delegate,
@@ -71,6 +73,7 @@ impl Session {
             in_progress: Cell::new(false),
             data_source_notifier: RefCell::new(None),
             session_id,
+            drag_data: data_source,
         }
     }
 
@@ -178,8 +181,14 @@ impl PlatformDragContext {
         source: Rc<PlatformDataSource>,
         source_drop_notifier: Arc<DropNotifier>,
         session_id: DragSessionId,
+        drag_data: DragData,
     ) -> id {
-        let session = Rc::new(Session::new(self.delegate.clone(), self.id, session_id));
+        let session = Rc::new(Session::new(
+            self.delegate.clone(),
+            self.id,
+            session_id,
+            drag_data,
+        ));
         session.assign_weak_self(Rc::downgrade(&session));
         self.sessions
             .borrow_mut()
@@ -189,22 +198,25 @@ impl PlatformDragContext {
 
     fn items_for_beginning(&self, interaction: id, session: id) -> id {
         if let Some(delegate) = self.delegate.upgrade() {
-            let items = delegate.data_source_for_drag_request(self.id, Point { x: 10.0, y: 10.0 });
+            let data_source =
+                delegate.get_data_for_drag_request(self.id, Point { x: 10.0, y: 10.0 });
             loop {
                 {
-                    let items = items.borrow();
-                    match &*items {
+                    let items = data_source.replace(PendingSourceState::Pending);
+                    match items {
                         PendingSourceState::Ok {
                             source,
                             source_drop_notifier: drop_notifier,
                             session_id,
+                            drag_data,
                         } => {
                             return self._items_for_beginning(
                                 interaction,
                                 session,
                                 source.clone(),
                                 drop_notifier.clone(),
-                                *session_id,
+                                session_id,
+                                drag_data,
                             );
                         }
                         PendingSourceState::Cancelled => return nil,
@@ -233,6 +245,17 @@ impl PlatformDragContext {
         // If drop failed remove session here, otherwise we'll do it in did_transfer_items
         if operation == UIDropOperationCancel || operation == UIDropOperationForbidden {
             self.sessions.borrow_mut().remove(&session);
+        }
+    }
+
+    fn allows_move_operation(&self, _interaction: id, session: id) -> bool {
+        if let Some(session) = self.sessions.borrow().get(&session).cloned() {
+            session
+                .drag_data
+                .allowed_operations
+                .contains(&DropOperation::Move)
+        } else {
+            false
         }
     }
 
@@ -321,6 +344,25 @@ extern "C" fn did_end_with_operation(
     );
 }
 
+extern "C" fn allows_move_operation(
+    this: &mut Object,
+    _sel: Sel,
+    interaction: id,
+    session: id,
+) -> BOOL {
+    with_state(
+        this,
+        |state| {
+            if state.allows_move_operation(interaction, session) {
+                YES
+            } else {
+                NO
+            }
+        },
+        || NO,
+    )
+}
+
 extern "C" fn did_transfer_items(this: &mut Object, _sel: Sel, interaction: id, session: id) {
     with_state(
         this,
@@ -346,6 +388,10 @@ static DELEGATE_CLASS: Lazy<&'static Class> = Lazy::new(|| unsafe {
     decl.add_method(
         sel!(dragInteraction:session:didEndWithOperation:),
         did_end_with_operation as extern "C" fn(&mut Object, Sel, id, id, UIDropOperation),
+    );
+    decl.add_method(
+        sel!(dragInteraction:sessionAllowsMoveOperation:),
+        allows_move_operation as extern "C" fn(&mut Object, Sel, id, id) -> BOOL,
     );
     decl.add_method(
         sel!(dragInteraction:sessionDidTransferItems:),

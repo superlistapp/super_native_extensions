@@ -14,7 +14,7 @@ class DragException implements Exception {
 
 class _Delegate implements RawDragContextDelegate {
   @override
-  Future<DataSourceHandle?> getDataSourceForDragRequest(
+  Future<DragData?> getDataForDragRequest(
       {required Offset location, required DragSession session}) async {
     session.dragCompleted.addListener(() {
       print("Drag completed ${session.dragCompleted.value}");
@@ -53,9 +53,47 @@ class _Delegate implements RawDragContextDelegate {
             }),
       ]),
     ]);
-    return data.register();
+    return DragData(
+      dataSource: await data.register(),
+      allowedOperations: [DropOperation.copy, DropOperation.move],
+      dragImage:
+          await dragContainer.currentState!.getDragImageForOffset(location),
+    );
   }
 }
+
+class DragContainer extends StatefulWidget {
+  const DragContainer({
+    Key? key,
+    required this.child,
+  }) : super(key: key);
+  final Widget child;
+  @override
+  State<StatefulWidget> createState() => DragContainerState();
+}
+
+class DragContainerState extends State<DragContainer> {
+  @override
+  Widget build(BuildContext context) => widget.child;
+
+  Future<DragImage> getDragImageForOffset(Offset globalPosition) async {
+    final renderObject_ = context.findRenderObject();
+    final renderObject = renderObject_ is RenderRepaintBoundary
+        ? renderObject_
+        : context.findAncestorRenderObjectOfType<RenderRepaintBoundary>();
+    final pr = MediaQuery.of(context).devicePixelRatio;
+    if (renderObject == null) {
+      throw DragException("Couldn't find any repaint boundary ancestor");
+    }
+    final snapshot = await renderObject.toImage(pixelRatio: pr);
+    final transform = renderObject.getTransformTo(null);
+    transform.invert();
+    final point = MatrixUtils.transformPoint(transform, globalPosition);
+    return DragImage(image: snapshot, pointInRect: point, devicePixelRatio: pr);
+  }
+}
+
+final dragContainer = GlobalKey<DragContainerState>();
 
 void main() async {
   // final dropContext = await RawDropContext.instance();
@@ -161,20 +199,8 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   void startDrag(BuildContext context, Offset globalPosition) async {
-    final renderObject_ = context.findRenderObject();
-    final renderObject = renderObject_ is RenderRepaintBoundary
-        ? renderObject_
-        : context.findAncestorRenderObjectOfType<RenderRepaintBoundary>();
-    final pr = MediaQuery.of(context).devicePixelRatio;
-    if (renderObject == null) {
-      throw DragException("Couldn't find any repaint boundary ancestor");
-    }
-    final snapshot = await renderObject.toImage(pixelRatio: pr);
     // final rect = MatrixUtils.transformRect(renderObject.getTransformTo(null),
     //     Rect.fromLTWH(0, 0, renderObject.size.width, renderObject.size.height));
-    final transform = renderObject.getTransformTo(null);
-    transform.invert();
-    final point = MatrixUtils.transformPoint(transform, globalPosition);
 
     final data = DataSource(
       [
@@ -277,11 +303,17 @@ class _MyHomePageState extends State<MyHomePage> {
     final dragContext = await RawDragContext.instance();
     final session = await dragContext.startDrag(
       request: DragRequest(
-        image: snapshot,
-        dataSource: handle,
-        pointInRect: point,
+        dragData: DragData(
+          allowedOperations: [
+            DropOperation.copy,
+            DropOperation.move,
+            DropOperation.link
+          ],
+          dataSource: handle,
+          dragImage: await dragContainer.currentState!
+              .getDragImageForOffset(globalPosition),
+        ),
         dragPosition: globalPosition,
-        devicePixelRatio: pr,
       ),
     );
     session.dragCompleted.addListener(() {
@@ -312,11 +344,13 @@ class _MyHomePageState extends State<MyHomePage> {
             TextButton(onPressed: paste, child: const Text('Paste')),
             Text(_content),
             RepaintBoundary(
-              child: Builder(builder: (context) {
-                return GestureDetector(
+              child: DragContainer(
+                key: dragContainer,
+                child: GestureDetector(
                   child: Container(
-                    decoration:
-                        BoxDecoration(border: Border.all(color: Colors.red), color: const Color.fromARGB(255, 255, 0, 0)),
+                    decoration: BoxDecoration(
+                        border: Border.all(color: Colors.red),
+                        color: const Color.fromARGB(255, 255, 0, 0)),
                     padding: const EdgeInsets.all(10),
                     child: const Text('Drag me'),
                   ),
@@ -324,8 +358,8 @@ class _MyHomePageState extends State<MyHomePage> {
                     print('Start drag');
                     startDrag(context, details.globalPosition);
                   },
-                );
-              }),
+                ),
+              ),
             ),
           ],
         ),

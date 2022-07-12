@@ -20,10 +20,10 @@ class DragSession {
 }
 
 abstract class RawDragContextDelegate {
-  Future<DataSourceHandle?> getDataSourceForDragRequest({
+  Future<DragData?> getDataForDragRequest({
     required ui.Offset location,
-    required DragSession
-        session, // session will be unused if null handle is returned
+    // session will be unused if null handle is returned
+    required DragSession session,
   });
 }
 
@@ -63,22 +63,22 @@ class RawDragContext {
   }
 
   Future<dynamic> _handleMethodCall(MethodCall call) async {
-    if (call.method == 'dataSourceForDragRequest') {
+    if (call.method == 'getDataForDragRequest') {
       final arguments = call.arguments as Map;
       final location = OffsetExt.deserialize(arguments['location']);
       final sessionId = arguments['sessionId'];
       final session = DragSession();
-      final source = await _delegate?.getDataSourceForDragRequest(
+      final dragData = await _delegate?.getDataForDragRequest(
         location: location,
         session: session,
       );
-      if (source != null) {
-        source.onDispose.addListener(() {
+      if (dragData != null) {
+        dragData.dataSource.onDispose.addListener(() {
           session._sessionIsDoneWithDataSource.notify();
         });
         _sessions[sessionId] = session;
-        _dataSources[source.id] = source;
-        return {'dataSourceId': source.id};
+        _dataSources[dragData.dataSource.id] = dragData.dataSource;
+        return {'dragData': await dragData.serialize()};
       } else {
         return null;
       }
@@ -97,7 +97,6 @@ class RawDragContext {
     }
   }
 
-  /// Returns drag session Id
   Future<DragSession> startDrag({
     required DragRequest request,
   }) async {
@@ -112,44 +111,56 @@ class RawDragContext {
   }
 }
 
+class DragImage {
+  DragImage({
+    required this.image,
+    required this.pointInRect,
+    required this.devicePixelRatio,
+  });
+
+  Future<dynamic> serialize() async {
+    final imageData =
+        await ImageData.fromImage(image, devicePixelRatio: devicePixelRatio);
+    return {
+      'imageData': imageData.serialize(),
+      'pointInRect': pointInRect.serialize(),
+    };
+  }
+
+  final ui.Image image;
+  final Offset pointInRect;
+  final double devicePixelRatio;
+}
+
 class DragData {
   DragData({
     required this.allowedOperations,
     required this.dataSource,
+    required this.dragImage,
   });
 
   final List<DropOperation> allowedOperations;
   final DataSourceHandle dataSource;
+  final DragImage dragImage;
 
-  dynamic serialize() => {
+  Future<dynamic> serialize() async => {
         'allowedOperations': allowedOperations.map((e) => e.name),
         'dataSourceId': dataSource.id,
+        'dragImage': await dragImage.serialize(),
       };
 }
 
 class DragRequest {
   DragRequest({
     required this.dragData,
-    required this.pointInRect,
     required this.dragPosition,
-    required this.devicePixelRatio,
-    required this.image,
   });
 
   final DragData dragData;
-  final Offset pointInRect;
   final Offset dragPosition;
-  final double devicePixelRatio;
-  final ui.Image image;
 
-  Future<dynamic> serialize() async {
-    final imageData =
-        await ImageData.fromImage(image, devicePixelRatio: devicePixelRatio);
-    return {
-      'dragData': dragData.serialize(),
-      'pointInRect': pointInRect.serialize(),
-      'dragPosition': dragPosition.serialize(),
-      'image': imageData.serialize(),
-    };
-  }
+  Future<dynamic> serialize() async => {
+        'dragData': await dragData.serialize(),
+        'dragPosition': dragPosition.serialize(),
+      };
 }

@@ -31,7 +31,6 @@ thread_local! {
 
 impl PlatformDragContext {
     pub fn new(id: i64, view_handle: i64, delegate: Weak<dyn PlatformDragContextDelegate>) -> Self {
-        info!("VIEW {:?}", view_handle);
         Self {
             id,
             view_handle,

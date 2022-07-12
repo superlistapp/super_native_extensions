@@ -6,13 +6,14 @@ use std::{
 };
 
 use async_trait::async_trait;
+use log::info;
 use nativeshell_core::{
     util::Late, AsyncMethodHandler, AsyncMethodInvoker, Context, IntoPlatformResult, IntoValue,
     IsolateId, MethodCallError, PlatformResult, RegisteredAsyncMethodHandler, TryFromValue, Value,
 };
 
 use crate::{
-    api_model::{DataSourceId, DragRequest, DropOperation, Point},
+    api_model::{DataSourceId, DragData, DragRequest, DropOperation, Point},
     data_source_manager::GetDataSourceManager,
     error::{NativeExtensionsError, NativeExtensionsResult},
     log::OkLog,
@@ -28,19 +29,20 @@ pub enum PendingSourceState {
         source: Rc<PlatformDataSource>,
         source_drop_notifier: Arc<DropNotifier>,
         session_id: DragSessionId,
+        drag_data: DragData,
     },
     Cancelled,
 }
 
-pub type WriterResult = Rc<RefCell<PendingSourceState>>;
+pub type GetDataResult = Rc<RefCell<PendingSourceState>>;
 
 #[async_trait(?Send)]
 pub trait PlatformDragContextDelegate {
-    fn data_source_for_drag_request(
+    fn get_data_for_drag_request(
         &self,
         id: PlatformDragContextId,
         location: Point,
-    ) -> WriterResult;
+    ) -> GetDataResult;
 
     fn drag_session_did_end_with_operation(
         &self,
@@ -121,7 +123,7 @@ impl DragManager {
         let source_id = request.drag_data.data_source_id;
         let notifier = DropNotifier::new(move || {
             if let Some(this) = weak_self.upgrade() {
-                this.on_dropped(isolate, source_id);
+                this.release_data_source(isolate, source_id);
             }
         });
         let session_id = DragSessionId(self.next_session_id.next_id());
@@ -131,7 +133,7 @@ impl DragManager {
         Ok(session_id)
     }
 
-    fn on_dropped(&self, isolate_id: IsolateId, source_id: DataSourceId) {
+    fn release_data_source(&self, isolate_id: IsolateId, source_id: DataSourceId) {
         self.invoker
             .call_method_sync(isolate_id, "releaseDataSource", source_id, |r| {
                 r.ok_log();
@@ -175,10 +177,10 @@ struct DataSourceRequest {
     session_id: DragSessionId,
 }
 
-#[derive(TryFromValue)]
+#[derive(TryFromValue, Debug)]
 #[nativeshell(rename_all = "camelCase")]
-struct DataSourceResponse {
-    data_source_id: Option<DataSourceId>,
+struct DataResponse {
+    drag_data: Option<DragData>,
 }
 
 #[derive(IntoValue)]
@@ -190,11 +192,11 @@ struct DragEndResponse {
 
 #[async_trait(?Send)]
 impl PlatformDragContextDelegate for DragManager {
-    fn data_source_for_drag_request(
+    fn get_data_for_drag_request(
         &self,
         id: PlatformDragContextId,
         location: Point,
-    ) -> WriterResult {
+    ) -> GetDataResult {
         let res = Rc::new(RefCell::new(PendingSourceState::Pending));
         let res_clone = res.clone();
         let weak_self = self.weak_self.clone();
@@ -202,11 +204,11 @@ impl PlatformDragContextDelegate for DragManager {
         Context::get().run_loop().spawn(async move {
             let this = weak_self.upgrade();
             if let Some(this) = this {
-                let data_source: Result<DataSourceResponse, MethodCallError> = this
+                let data_source: Result<DataResponse, MethodCallError> = this
                     .invoker
                     .call_method_cv(
                         id,
-                        "dataSourceForDragRequest",
+                        "getDataForDragRequest",
                         DataSourceRequest {
                             location,
                             session_id,
@@ -215,25 +217,26 @@ impl PlatformDragContextDelegate for DragManager {
                     .await;
                 let data_source = data_source
                     .ok_log()
-                    .and_then(|d| d.data_source_id)
+                    .and_then(|d| d.drag_data)
                     .and_then(|d| {
                         Context::get()
                             .data_source_manager()
-                            .get_platform_data_source(d)
+                            .get_platform_data_source(d.data_source_id)
                             .ok()
                             .map(|s| (d, s))
                     });
                 match data_source {
-                    Some((data_source_id, data_source)) => {
+                    Some((drag_data, data_source)) => {
                         let notifier = DropNotifier::new(move || {
                             if let Some(this) = weak_self.upgrade() {
-                                this.on_dropped(id, data_source_id);
+                                this.release_data_source(id, drag_data.data_source_id);
                             }
                         });
                         res_clone.replace(PendingSourceState::Ok {
                             source: data_source,
                             source_drop_notifier: notifier,
                             session_id,
+                            drag_data,
                         })
                     }
                     None => res_clone.replace(PendingSourceState::Cancelled),

@@ -3,7 +3,7 @@
 
 use std::ffi::c_void;
 
-use ::log::debug;
+use ::log::{debug, warn};
 use clipboard_writer::GetClipboardWriter;
 use data_source_manager::GetDataSourceManager;
 use drag_manager::GetDragManager;
@@ -87,7 +87,7 @@ fn init(init_loger: bool) {
         }
         #[cfg(target_os = "ios")]
         {
-            oslog::OsLogger::new("dev.nativeshell.clipboard")
+            oslog::OsLogger::new("supernativeextensions")
                 .level_filter(::log::LevelFilter::Debug)
                 .init()
                 .ok();

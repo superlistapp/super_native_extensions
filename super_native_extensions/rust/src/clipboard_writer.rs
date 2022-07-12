@@ -25,7 +25,7 @@ impl ClipboardWriter {
         .register("ClipboardWriter")
     }
 
-    fn on_dropped(&self, isolate_id: IsolateId, source_id: DataSourceId) {
+    fn release_data_source(&self, isolate_id: IsolateId, source_id: DataSourceId) {
         self.invoker
             .call_method_sync(isolate_id, "releaseDataSource", source_id, |r| {
                 r.ok_log();
@@ -44,7 +44,7 @@ impl ClipboardWriter {
         source
             .write_to_clipboard(DropNotifier::new(move || {
                 if let Some(this) = weak_self.upgrade() {
-                    this.on_dropped(isolate_id, source_id);
+                    this.release_data_source(isolate_id, source_id);
                 }
             }))
             .await?;
