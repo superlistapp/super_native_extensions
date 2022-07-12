@@ -10,8 +10,8 @@ use log::info;
 
 use crate::{
     android::{DRAG_DROP_UTIL, JAVA_VM},
-    api_model::ImageData,
-    drag_manager::{DragRequest, PlatformDragContextDelegate, DragSessionId},
+    api_model::{ImageData, DragRequest},
+    drag_manager::{DragSessionId, PlatformDragContextDelegate},
     error::{NativeExtensionsError, NativeExtensionsResult},
     log::OkLog,
     util::DropNotifier,
@@ -126,7 +126,7 @@ impl PlatformDragContext {
 
         let data = writer.create_clip_data(&env)?;
 
-        let bitmap = Self::create_bitmap(&env, &request.image)?;
+        let bitmap = Self::create_bitmap(&env, &request.drag_data.drag_image.image_data)?;
 
         env.call_method(
             DRAG_DROP_UTIL.get().unwrap().as_obj(),
@@ -136,8 +136,8 @@ impl PlatformDragContext {
                 self.view_handle.into(),
                 data.into(),
                 bitmap.into(),
-                (request.point_in_rect.x.round() as i32).into(),
-                (request.point_in_rect.y.round() as i32).into(),
+                (request.drag_data.drag_image.point_in_rect.x.round() as i32).into(),
+                (request.drag_data.drag_image.point_in_rect.y.round() as i32).into(),
             ],
         )?;
 
