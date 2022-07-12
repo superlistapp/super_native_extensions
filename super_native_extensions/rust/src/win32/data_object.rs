@@ -270,10 +270,20 @@ impl DataObject {
         storage_suggestion: &Option<VirtualFileStorage>,
     ) -> Option<IStream> {
         if let Some(delegate) = self.data_source.delegate.upgrade() {
-            let configuration = QueueConfiguration {
-                memory_segment_max_size: 1024 * 1024 * 4,
-                file_segment_max_length: 1024 * 1024 * 30,
-                max_memory_usage: Some(1024 * 1024 * 12),
+            let storage_suggestion =
+                storage_suggestion.unwrap_or(VirtualFileStorage::TemporaryFile);
+            let configuration = if storage_suggestion == VirtualFileStorage::TemporaryFile {
+                QueueConfiguration {
+                    memory_segment_max_size: 1024 * 1024 * 4,
+                    file_segment_max_length: 1024 * 1024 * 30,
+                    max_memory_usage: Some(1024 * 1024 * 12),
+                }
+            } else {
+                QueueConfiguration {
+                    memory_segment_max_size: 1024 * 1024 * 4,
+                    file_segment_max_length: 0,
+                    max_memory_usage: None,
+                }
             };
             let (writer, reader) = new_segmented_queue(configuration);
             let stream_handle = add_stream_entry(writer);
