@@ -24,7 +24,7 @@ use objc::{
 use once_cell::sync::Lazy;
 
 use crate::{
-    api_model::{DataSource, DragData, DragRequest, DropOperation, Point},
+    api_model::{DataSource, DragConfiguration, DragRequest, DropOperation, Point},
     drag_manager::{DragSessionId, PendingSourceState, PlatformDragContextDelegate},
     error::{NativeExtensionsError, NativeExtensionsResult},
     platform_impl::platform::{
@@ -56,7 +56,7 @@ struct Session {
     weak_self: Late<Weak<Self>>,
     in_progress: Cell<bool>,
     data_source_notifier: RefCell<Option<Arc<DropNotifier>>>,
-    drag_data: DragData,
+    drag_data: DragConfiguration,
 }
 
 impl Session {
@@ -64,7 +64,7 @@ impl Session {
         context_delegate: Weak<dyn PlatformDragContextDelegate>,
         context_id: i64,
         session_id: DragSessionId,
-        data_source: DragData,
+        data_source: DragConfiguration,
     ) -> Self {
         Self {
             context_delegate,
@@ -181,7 +181,7 @@ impl PlatformDragContext {
         source: Rc<PlatformDataSource>,
         source_drop_notifier: Arc<DropNotifier>,
         session_id: DragSessionId,
-        drag_data: DragData,
+        drag_data: DragConfiguration,
     ) -> id {
         let session = Rc::new(Session::new(
             self.delegate.clone(),

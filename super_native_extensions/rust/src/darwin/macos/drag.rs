@@ -2,6 +2,7 @@ use core::panic;
 use std::{
     cell::RefCell,
     collections::HashMap,
+    os::raw::c_ushort,
     rc::{Rc, Weak},
     sync::Arc,
     time::Duration,
@@ -21,11 +22,11 @@ use super::{
 };
 use cocoa::{
     appkit::{
-        NSEvent,
-        NSEventType::{NSLeftMouseDown, NSMouseMoved, NSRightMouseDown},
+        NSApplication, NSEvent,
+        NSEventType::{self, NSLeftMouseDown, NSMouseMoved, NSRightMouseDown},
         NSWindow,
     },
-    base::{id, nil},
+    base::{id, nil, NO, YES},
     foundation::{NSArray, NSInteger, NSPoint, NSProcessInfo, NSRect},
 };
 use core_foundation::base::CFRelease;
@@ -115,11 +116,11 @@ impl PlatformDragContext {
             self.synthetize_mouse_up_event();
             let items = data_source.create_items(drop_notifier.clone(), false);
 
-            let image = request.drag_data.drag_image;
+            let image = request.configuration.drag_image;
 
             let mut rect: NSRect = Rect {
-                x: request.drag_position.x - image.point_in_rect.x,
-                y: request.drag_position.y - image.point_in_rect.y,
+                x: request.position.x - image.point_in_rect.x,
+                y: request.position.y - image.point_in_rect.y,
                 width: image.image_data.width as f64
                     / image.image_data.device_pixel_ratio.unwrap_or(1.0),
                 height: image.image_data.height as f64
@@ -149,12 +150,24 @@ impl PlatformDragContext {
                 event:*event
                 source:*self.view
             ];
+            let animates = if request
+                .configuration
+                .animates_to_starting_position_on_cancel_or_fail
+            {
+                YES
+            } else {
+                NO
+            };
+            let () = msg_send![
+                session,
+                setAnimatesToStartingPositionsOnCancelOrFail: animates
+            ];
             self.sessions.borrow_mut().insert(
                 session,
                 DragSession {
                     session_id,
                     drop_notifier,
-                    allowed_operations: request.drag_data.allowed_operations,
+                    allowed_operations: request.configuration.allowed_operations,
                 },
             );
         });
@@ -211,6 +224,19 @@ impl PlatformDragContext {
     }
 
     pub fn drag_ended(&self, session: id, _point: NSPoint, operation: NSDragOperation) {
+        let user_cancelled = unsafe {
+            let app = NSApplication::sharedApplication(nil);
+            let event: id = msg_send![app, currentEvent];
+            const K_VKESCAPE: c_ushort = 0x35;
+            if NSEvent::eventType(event) == NSEventType::NSKeyDown
+                && NSEvent::keyCode(event) == K_VKESCAPE
+            {
+                true
+            } else {
+                false
+            }
+        };
+
         let session = self
             .sessions
             .borrow_mut()
@@ -220,6 +246,11 @@ impl PlatformDragContext {
         let operations = DropOperation::from_platform_mask(operation);
         // there might be multiple operation, use the order from from_platform_mask
         let operation = operations.into_iter().next().unwrap_or(DropOperation::None);
+        let operation = if operation == DropOperation::None && user_cancelled {
+            DropOperation::UserCancelled
+        } else {
+            operation
+        };
         if let Some(delegate) = self.delegate.upgrade() {
             delegate.drag_session_did_end_with_operation(self.id, session.session_id, operation);
         }
@@ -235,6 +266,16 @@ impl PlatformDragContext {
                 let _notifier = session.drop_notifier;
             })
             .detach();
+    }
+
+    pub fn drag_moved(&self, session: id, point: NSPoint) {
+        let sessions = self.sessions.borrow();
+        let session = sessions
+            .get(&session)
+            .expect("Drag session unexpectedly missing");
+        if let Some(delegate) = self.delegate.upgrade() {
+            delegate.drag_session_did_move_to_location(self.id, session.session_id, point.into());
+        }
     }
 
     fn source_operation_mask_for_dragging_context(
@@ -283,6 +324,11 @@ fn prepare_flutter() {
             sel!(draggingSession:endedAtPoint:operation:),
             dragging_session_ended_at_point
                 as extern "C" fn(&mut Object, Sel, id, NSPoint, NSDragOperation),
+        );
+
+        class.add_method(
+            sel!(draggingSession:movedToPoint:),
+            dragging_session_moved_to_point as extern "C" fn(&mut Object, Sel, id, NSPoint),
         );
 
         // Flutter implements mouseDown: on FlutterViewController, so we can add
@@ -357,4 +403,13 @@ extern "C" fn dragging_session_ended_at_point(
         move |state| state.drag_ended(session, point, operation),
         || (),
     )
+}
+
+extern "C" fn dragging_session_moved_to_point(
+    this: &mut Object,
+    _: Sel,
+    session: id,
+    point: NSPoint,
+) {
+    with_state(this, move |state| state.drag_moved(session, point), || ())
 }

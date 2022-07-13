@@ -1,1 +1,1 @@
-enum DropOperation { none, forbidden, copy, move, link }
+enum DropOperation { none, userCancelled, forbidden, copy, move, link }

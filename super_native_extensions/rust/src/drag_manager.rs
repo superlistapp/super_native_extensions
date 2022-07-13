@@ -13,7 +13,7 @@ use nativeshell_core::{
 };
 
 use crate::{
-    api_model::{DataSourceId, DragData, DragRequest, DropOperation, Point},
+    api_model::{DataSourceId, DragConfiguration, DragRequest, DropOperation, Point},
     data_source_manager::GetDataSourceManager,
     error::{NativeExtensionsError, NativeExtensionsResult},
     log::OkLog,
@@ -29,7 +29,7 @@ pub enum PendingSourceState {
         source: Rc<PlatformDataSource>,
         source_drop_notifier: Arc<DropNotifier>,
         session_id: DragSessionId,
-        drag_data: DragData,
+        drag_data: DragConfiguration,
     },
     Cancelled,
 }
@@ -124,10 +124,10 @@ impl DragManager {
             .ok_or_else(|| NativeExtensionsError::PlatformContextNotFound)?;
         let data_source = Context::get()
             .data_source_manager()
-            .get_platform_data_source(request.drag_data.data_source_id)?;
+            .get_platform_data_source(request.configuration.data_source_id)?;
 
         let weak_self = self.weak_self.clone();
-        let source_id = request.drag_data.data_source_id;
+        let source_id = request.configuration.data_source_id;
         let notifier = DropNotifier::new(move || {
             if let Some(this) = weak_self.upgrade() {
                 this.release_data_source(isolate, source_id);
@@ -187,7 +187,7 @@ struct DataSourceRequest {
 #[derive(TryFromValue, Debug)]
 #[nativeshell(rename_all = "camelCase")]
 struct DataResponse {
-    drag_data: Option<DragData>,
+    drag_data: Option<DragConfiguration>,
 }
 
 #[derive(IntoValue)]

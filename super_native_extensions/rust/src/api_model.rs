@@ -109,25 +109,27 @@ pub struct DragImage {
 
 #[derive(TryFromValue, Debug)]
 #[nativeshell(rename_all = "camelCase")]
-pub struct DragData {
+pub struct DragConfiguration {
     pub data_source_id: DataSourceId,
     pub allowed_operations: Vec<DropOperation>,
     pub drag_image: DragImage,
+    pub animates_to_starting_position_on_cancel_or_fail: bool,
 }
 
 #[derive(TryFromValue)]
 #[nativeshell(rename_all = "camelCase")]
 pub struct DragRequest {
-    pub drag_data: DragData,
-    pub drag_position: Point,
+    pub configuration: DragConfiguration,
+    pub position: Point,
 }
 
 #[derive(Debug, TryFromValue, IntoValue, Copy, Clone, PartialEq)]
 #[nativeshell(rename_all = "camelCase")]
 pub enum DropOperation {
     None,
-    Forbidden, // Used on iOS, maps to None on other platforms
-    Copy,      // macOS, iOS, Windows, Linux, Android
-    Move,      // macOS, iOS (within same app), Windows, Linux
-    Link,      // macOS, Windows, Linux
+    UserCancelled, // macOS, windows - drag cancelled by user pressing escape
+    Forbidden,     // Used on iOS, maps to None on other platforms
+    Copy,          // macOS, iOS, Windows, Linux, Android
+    Move,          // macOS, iOS (within same app), Windows, Linux
+    Link,          // macOS, Windows, Linux
 }

@@ -15,7 +15,7 @@ use objc::{
 };
 
 use crate::{
-    api_model::{ImageData, Rect},
+    api_model::{ImageData, Point, Rect},
     platform_impl::platform::common::cg_image_from_image_data,
 };
 
@@ -26,6 +26,15 @@ impl From<NSRect> for Rect {
             y: rect.origin.y,
             width: rect.size.width,
             height: rect.size.height,
+        }
+    }
+}
+
+impl From<NSPoint> for Point {
+    fn from(point: NSPoint) -> Self {
+        Self {
+            x: point.x,
+            y: point.y,
         }
     }
 }
@@ -76,4 +85,3 @@ pub fn ns_image_from_image_data(images: Vec<ImageData>) -> StrongPtr {
         res
     }
 }
-

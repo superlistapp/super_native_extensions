@@ -14,7 +14,7 @@ class DragException implements Exception {
 
 class _Delegate implements RawDragContextDelegate {
   @override
-  Future<DragData?> getDataForDragRequest(
+  Future<DragConfiguration?> getConfigurationForDragRequest(
       {required Offset location, required DragSession session}) async {
     session.dragCompleted.addListener(() {
       print("Drag completed ${session.dragCompleted.value}");
@@ -53,7 +53,7 @@ class _Delegate implements RawDragContextDelegate {
             }),
       ]),
     ]);
-    return DragData(
+    return DragConfiguration(
       dataSource: await data.register(),
       allowedOperations: [DropOperation.copy, DropOperation.move],
       dragImage:
@@ -303,7 +303,7 @@ class _MyHomePageState extends State<MyHomePage> {
     final dragContext = await RawDragContext.instance();
     final session = await dragContext.startDrag(
       request: DragRequest(
-        dragData: DragData(
+        configuration: DragConfiguration(
           allowedOperations: [
             DropOperation.copy,
             DropOperation.move,
@@ -313,7 +313,7 @@ class _MyHomePageState extends State<MyHomePage> {
           dragImage: await dragContainer.currentState!
               .getDragImageForOffset(globalPosition),
         ),
-        dragPosition: globalPosition,
+        position: globalPosition,
       ),
     );
     session.dragCompleted.addListener(() {

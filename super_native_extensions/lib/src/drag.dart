@@ -22,7 +22,7 @@ class DragSession {
 }
 
 abstract class RawDragContextDelegate {
-  Future<DragData?> getDataForDragRequest({
+  Future<DragConfiguration?> getConfigurationForDragRequest({
     required ui.Offset location,
     // session will be unused if null handle is returned
     required DragSession session,
@@ -70,17 +70,17 @@ class RawDragContext {
       final location = OffsetExt.deserialize(arguments['location']);
       final sessionId = arguments['sessionId'];
       final session = DragSession();
-      final dragData = await _delegate?.getDataForDragRequest(
+      final configuration = await _delegate?.getConfigurationForDragRequest(
         location: location,
         session: session,
       );
-      if (dragData != null) {
-        dragData.dataSource.onDispose.addListener(() {
+      if (configuration != null) {
+        configuration.dataSource.onDispose.addListener(() {
           session._sessionIsDoneWithDataSource.notify();
         });
         _sessions[sessionId] = session;
-        _dataSources[dragData.dataSource.id] = dragData.dataSource;
-        return {'dragData': await dragData.serialize()};
+        _dataSources[configuration.dataSource.id] = configuration.dataSource;
+        return {'configuration': await configuration.serialize()};
       } else {
         return null;
       }
@@ -110,7 +110,7 @@ class RawDragContext {
   Future<DragSession> startDrag({
     required DragRequest request,
   }) async {
-    final dataSource = request.dragData.dataSource;
+    final dataSource = request.configuration.dataSource;
     final sessionId =
         await _channel.invokeMethod("startDrag", await request.serialize());
     final session = DragSession();
@@ -144,35 +144,41 @@ class DragImage {
   final double devicePixelRatio;
 }
 
-class DragData {
-  DragData({
+class DragConfiguration {
+  DragConfiguration({
     required this.allowedOperations,
     required this.dataSource,
     required this.dragImage,
+    this.animatesToStartingPositionOnCancelOrFail = true,
   });
 
   final List<DropOperation> allowedOperations;
   final DataSourceHandle dataSource;
   final DragImage dragImage;
 
+  /// macOS specific
+  final bool animatesToStartingPositionOnCancelOrFail;
+
   Future<dynamic> serialize() async => {
         'allowedOperations': allowedOperations.map((e) => e.name),
         'dataSourceId': dataSource.id,
         'dragImage': await dragImage.serialize(),
+        'animatesToStartingPositionOnCancelOrFail':
+            animatesToStartingPositionOnCancelOrFail,
       };
 }
 
 class DragRequest {
   DragRequest({
-    required this.dragData,
-    required this.dragPosition,
+    required this.configuration,
+    required this.position,
   });
 
-  final DragData dragData;
-  final Offset dragPosition;
+  final DragConfiguration configuration;
+  final Offset position;
 
   Future<dynamic> serialize() async => {
-        'dragData': await dragData.serialize(),
-        'dragPosition': dragPosition.serialize(),
+        'configuration': await configuration.serialize(),
+        'position': position.serialize(),
       };
 }
