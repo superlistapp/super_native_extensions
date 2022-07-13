@@ -12,8 +12,12 @@ pub struct DropNotifier {
 
 impl DropNotifier {
     pub fn new<F: FnOnce() + 'static>(callback: F) -> Arc<Self> {
+        Self::new_with_boxed(Box::new(callback))
+    }
+
+    pub fn new_with_boxed(callback: Box<dyn FnOnce()>) -> Arc<Self> {
         Arc::new(Self {
-            callback: Mutex::new(Some(Capsule::new(Box::new(callback)))),
+            callback: Mutex::new(Some(Capsule::new(callback))),
             sender: Context::get().run_loop().new_sender(),
         })
     }

@@ -322,6 +322,9 @@ class _MyHomePageState extends State<MyHomePage> {
     session.sessionIsDoneWithDataSource.addListener(() {
       print('Done with source');
     });
+    session.lastScreenLocation.addListener(() {
+      print('Last screen location ${session.lastScreenLocation.value}');
+    });
   }
 
   String _content = "";

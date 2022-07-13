@@ -44,6 +44,13 @@ pub trait PlatformDragContextDelegate {
         location: Point,
     ) -> GetDataResult;
 
+    fn drag_session_did_move_to_location(
+        &self,
+        id: PlatformDragContextId,
+        session_id: DragSessionId,
+        screen_location: Point,
+    );
+
     fn drag_session_did_end_with_operation(
         &self,
         id: PlatformDragContextId,
@@ -185,7 +192,14 @@ struct DataResponse {
 
 #[derive(IntoValue)]
 #[nativeshell(rename_all = "camelCase")]
-struct DragEndResponse {
+struct DragMoveRequest {
+    session_id: DragSessionId,
+    screen_location: Point,
+}
+
+#[derive(IntoValue)]
+#[nativeshell(rename_all = "camelCase")]
+struct DragEndRequest {
     session_id: DragSessionId,
     drop_operation: DropOperation,
 }
@@ -248,6 +262,25 @@ impl PlatformDragContextDelegate for DragManager {
         res
     }
 
+    fn drag_session_did_move_to_location(
+        &self,
+        id: PlatformDragContextId,
+        session_id: DragSessionId,
+        screen_location: Point,
+    ) {
+        self.invoker.call_method_sync(
+            id,
+            "dragSessionDidMove",
+            DragMoveRequest {
+                session_id,
+                screen_location,
+            },
+            |r| {
+                r.ok_log();
+            },
+        )
+    }
+
     fn drag_session_did_end_with_operation(
         &self,
         id: PlatformDragContextId,
@@ -257,7 +290,7 @@ impl PlatformDragContextDelegate for DragManager {
         self.invoker.call_method_sync(
             id,
             "dragSessionDidEnd",
-            DragEndResponse {
+            DragEndRequest {
                 session_id,
                 drop_operation: operation,
             },

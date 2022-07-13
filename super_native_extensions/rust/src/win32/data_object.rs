@@ -61,6 +61,7 @@ pub struct DataObject {
     _drop_notifier: Arc<DropNotifier>,
     extra_data: RefCell<HashMap<u16, Vec<u8>>>,
     in_operation: Cell<bool>, // async stream
+    virtual_stream_notifiers: RefCell<Vec<Arc<DropNotifier>>>,
 }
 
 impl DataObject {
@@ -73,6 +74,7 @@ impl DataObject {
             _drop_notifier: drop_notifier,
             extra_data: RefCell::new(HashMap::new()),
             in_operation: Cell::new(false),
+            virtual_stream_notifiers: RefCell::new(Vec::new()),
         };
         data_object.into()
     }
@@ -303,12 +305,17 @@ impl DataObject {
                     }
                 }),
             );
-            Some(VirtualFileStream::create_on_another_thread(
+            let (stream, notifier) = VirtualFileStream::create_on_another_thread(
                 reader,
                 size_promise,
                 error_promise,
                 drop_notifier,
-            ))
+            );
+            // The drop notifier will be invoked when DataObject gets released
+            // That will ensure that the stream is destroyed when data object
+            // is dropped in case the cleant leaks the stream.
+            self.virtual_stream_notifiers.borrow_mut().push(notifier);
+            Some(stream)
         } else {
             None
         }

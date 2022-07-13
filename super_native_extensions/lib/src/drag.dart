@@ -13,9 +13,11 @@ import 'api_model.dart';
 
 class DragSession {
   ValueNotifier<DropOperation?> get dragCompleted => _dragCompleted;
+  ValueNotifier<ui.Offset?> get lastScreenLocation => _lastScreenLocation;
   Listenable get sessionIsDoneWithDataSource => _sessionIsDoneWithDataSource;
 
   final _dragCompleted = ValueNotifier<DropOperation?>(null);
+  final _lastScreenLocation = ValueNotifier<ui.Offset?>(null);
   final _sessionIsDoneWithDataSource = SimpleNotifier();
 }
 
@@ -85,6 +87,14 @@ class RawDragContext {
     } else if (call.method == 'releaseDataSource') {
       final source = _dataSources.remove(call.arguments);
       source?.dispose();
+    } else if (call.method == 'dragSessionDidMove') {
+      final arguments = call.arguments as Map;
+      final sessionId = arguments['sessionId'];
+      final screenLocation = OffsetExt.deserialize(arguments['screenLocation']);
+      final session = _sessions[sessionId];
+      if (session != null) {
+        session._lastScreenLocation.value = screenLocation;
+      }
     } else if (call.method == 'dragSessionDidEnd') {
       final arguments = call.arguments as Map;
       final sessionId = arguments['sessionId'];

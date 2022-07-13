@@ -1,4 +1,5 @@
 use std::{
+    cell::RefCell,
     rc::{Rc, Weak},
     sync::Arc,
 };
@@ -14,13 +15,13 @@ use windows::{
         System::Ole::{DoDragDrop, IDropSource, IDropSource_Impl},
         UI::{
             Shell::{CLSID_DragDropHelper, IDragSourceHelper, SHDRAGIMAGE},
-            WindowsAndMessaging::MK_LBUTTON,
+            WindowsAndMessaging::{GetCursorPos, MK_LBUTTON},
         },
     },
 };
 
 use crate::{
-    api_model::{DragRequest, DropOperation},
+    api_model::{DragRequest, DropOperation, Point},
     drag_manager::{DragSessionId, PlatformDragContextDelegate},
     error::NativeExtensionsResult,
     log::OkLog,
@@ -43,12 +44,24 @@ pub struct PlatformDragContext {
 }
 
 #[implement(IDropSource)]
-pub struct DropSource {}
+pub struct DropSource {
+    platform_context: Weak<PlatformDragContext>,
+    last_reported_location: RefCell<Point>,
+    session_id: DragSessionId,
+}
 
 #[allow(non_snake_case)]
 impl DropSource {
-    pub fn create() -> IDropSource {
-        Self {}.into()
+    pub fn create(
+        platform_context: Weak<PlatformDragContext>,
+        session_id: DragSessionId,
+    ) -> IDropSource {
+        Self {
+            platform_context,
+            session_id,
+            last_reported_location: RefCell::new(Point::default()),
+        }
+        .into()
     }
 }
 
@@ -63,6 +76,24 @@ impl IDropSource_Impl for DropSource {
         } else if grfkeystate & MK_LBUTTON as u32 == 0 {
             Err(DRAGDROP_S_DROP.into())
         } else {
+            let mut cursor_pos = POINT::default();
+            unsafe { GetCursorPos(&mut cursor_pos as *mut _) };
+            if let Some(context) = self.platform_context.upgrade() {
+                if let Some(delegate) = context.delegate.upgrade() {
+                    let location = Point {
+                        x: cursor_pos.x as f64,
+                        y: cursor_pos.y as f64,
+                    };
+                    if *self.last_reported_location.borrow() != location {
+                        delegate.drag_session_did_move_to_location(
+                            context.id,
+                            self.session_id,
+                            location.clone(),
+                        );
+                        self.last_reported_location.replace(location);
+                    }
+                }
+            }
             Ok(())
         }
     }
@@ -134,7 +165,7 @@ impl PlatformDragContext {
         unsafe {
             helper.InitializeFromBitmap(&mut image as *mut _, data_object.clone())?;
         }
-        let drop_source = DropSource::create();
+        let drop_source = DropSource::create(self.weak_self.clone(), session_id);
         unsafe {
             let mut _effects_out: u32 = 0;
             let mut allowed_effects: u32 = 0;
