@@ -29,7 +29,8 @@ use windows::{
         UI::Shell::{
             IDataObjectAsyncCapability, IDataObjectAsyncCapability_Impl, SHCreateMemStream,
             SHCreateStdEnumFmtEtc, CFSTR_FILECONTENTS, CFSTR_FILEDESCRIPTOR,
-            CFSTR_PERFORMEDDROPEFFECT, DROPFILES, FD_ATTRIBUTES, FD_PROGRESSUI, FILEDESCRIPTORW,
+            CFSTR_LOGICALPERFORMEDDROPEFFECT, CFSTR_PERFORMEDDROPEFFECT, DROPFILES, FD_ATTRIBUTES,
+            FD_PROGRESSUI, FILEDESCRIPTORW,
         },
     },
 };
@@ -457,6 +458,7 @@ impl IDataObject_Impl for DataObject {
         frelease: windows::Win32::Foundation::BOOL,
     ) -> windows::core::Result<()> {
         let format = unsafe { &*pformatetc };
+
         if format.tymed == TYMED_HGLOBAL.0 as u32 {
             unsafe {
                 let medium = &*pmedium;
@@ -633,14 +635,18 @@ where
 {
     fn performed_drop_effect(&self) -> Option<u32> {
         let format = unsafe { RegisterClipboardFormatW(CFSTR_PERFORMEDDROPEFFECT) };
-        if self.has_data(format) {
-            let format = self.get_data(format);
-            if let Ok(format) = format {
-                if format.len() == 4 {
-                    return Some(u32::from_ne_bytes(format.try_into().unwrap()));
-                }
+        let logical_format = unsafe { RegisterClipboardFormatW(CFSTR_LOGICALPERFORMEDDROPEFFECT) };
+        let data = self
+            .get_data(logical_format)
+            .ok()
+            .or_else(|| self.get_data(format).ok());
+
+        if let Some(data) = data {
+            if data.len() == 4 {
+                return Some(u32::from_ne_bytes(data.try_into().unwrap()));
             }
         }
+
         None
     }
 }

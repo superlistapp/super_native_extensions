@@ -166,8 +166,8 @@ impl PlatformDragContext {
             helper.InitializeFromBitmap(&mut image as *mut _, data_object.clone())?;
         }
         let drop_source = DropSource::create(self.weak_self.clone(), session_id);
+        let mut effects_out: u32 = 0;
         unsafe {
-            let mut _effects_out: u32 = 0;
             let mut allowed_effects: u32 = 0;
             for operation in request.drag_data.allowed_operations {
                 allowed_effects |= operation.to_platform();
@@ -176,14 +176,14 @@ impl PlatformDragContext {
                 data_object.clone(),
                 drop_source,
                 allowed_effects,
-                &mut _effects_out as *mut u32,
+                &mut effects_out as *mut u32,
             );
         }
         // Data source might be still in use through IDataObjectAsyncCapability,
         // but we want to let user know that drag session ended immediately.
         // COM will make sure that the data object is kept alive and when
         // deallocated we will get notification from drop notifier
-        let effect = data_object.performed_drop_effect().unwrap_or(0);
+        let effect = data_object.performed_drop_effect().unwrap_or(effects_out);
         if let Some(delegate) = self.delegate.upgrade() {
             let operation = DropOperation::from_platform(effect);
             delegate.drag_session_did_end_with_operation(self.id, session_id, operation);
