@@ -12,6 +12,7 @@ use cocoa::{
     foundation::NSArray,
 };
 use core_foundation::{runloop::CFRunLoopRunInMode, string::CFStringRef};
+use core_graphics::geometry::CGPoint;
 use nativeshell_core::util::Late;
 use objc::{
     class,
@@ -24,7 +25,7 @@ use objc::{
 use once_cell::sync::Lazy;
 
 use crate::{
-    api_model::{DataSource, DragConfiguration, DragRequest, DropOperation, Point},
+    api_model::{DragConfiguration, DragRequest, DropOperation, Point},
     drag_manager::{DragSessionId, PendingSourceState, PlatformDragContextDelegate},
     error::{NativeExtensionsError, NativeExtensionsResult},
     platform_impl::platform::{
@@ -110,6 +111,12 @@ impl Session {
 
     fn drag_will_begin(&self) {
         self.in_progress.replace(true);
+    }
+
+    fn did_move(&self, location: Point) {
+        if let Some(delegate) = self.context_delegate.upgrade() {
+            delegate.drag_session_did_move_to_location(self.context_id, self.session_id, location);
+        }
     }
 
     fn did_end_with_operation(&self, operation: UIDropOperation) {
@@ -238,6 +245,17 @@ impl PlatformDragContext {
         }
     }
 
+    fn did_move(&self, _interaction: id, session: id) {
+        let location: CGPoint = unsafe { msg_send![session, locationInView:*self.view] };
+        let session = self.sessions.borrow().get(&session).cloned();
+        if let Some(session) = session {
+            session.did_move(Point {
+                x: location.x,
+                y: location.x,
+            });
+        }
+    }
+
     fn did_end_with_operation(&self, _interaction: id, session: id, operation: UIDropOperation) {
         if let Some(session) = self.sessions.borrow().get(&session).cloned() {
             session.did_end_with_operation(operation);
@@ -330,6 +348,10 @@ extern "C" fn drag_will_begin(this: &mut Object, _sel: Sel, interaction: id, ses
     )
 }
 
+extern "C" fn did_move(this: &mut Object, _sel: Sel, interaction: id, session: id) {
+    with_state(this, |state| state.did_move(interaction, session), || ())
+}
+
 extern "C" fn did_end_with_operation(
     this: &mut Object,
     _sel: Sel,
@@ -384,6 +406,10 @@ static DELEGATE_CLASS: Lazy<&'static Class> = Lazy::new(|| unsafe {
     decl.add_method(
         sel!(dragInteraction:sessionWillBegin:),
         drag_will_begin as extern "C" fn(&mut Object, Sel, id, id),
+    );
+    decl.add_method(
+        sel!(dragInteraction:sessionDidMove:),
+        did_move as extern "C" fn(&mut Object, Sel, id, id),
     );
     decl.add_method(
         sel!(dragInteraction:session:didEndWithOperation:),

@@ -22,6 +22,9 @@ class _Delegate implements RawDragContextDelegate {
     session.sessionIsDoneWithDataSource.addListener(() {
       print("Session is done with data source");
     });
+    session.lastScreenLocation.addListener(() {
+      print('Last screen location ${session.lastScreenLocation.value}');
+    });
     final data = DataSource([
       DataSourceItem(suggestedName: "File1.txt", representations: [
         DataSourceItemRepresentation.virtualFile(

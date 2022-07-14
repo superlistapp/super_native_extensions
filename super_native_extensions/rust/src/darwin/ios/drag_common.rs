@@ -22,6 +22,7 @@ impl DropOperationExt for DropOperation {
     fn to_platform(&self) -> UIDropOperation {
         match self {
             DropOperation::None => UIDropOperationCancel,
+            DropOperation::UserCancelled => UIDropOperationCancel,
             DropOperation::Forbidden => UIDropOperationForbidden,
             DropOperation::Copy => UIDropOperationCopy,
             DropOperation::Move => UIDropOperationMove,

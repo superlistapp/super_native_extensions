@@ -186,8 +186,8 @@ struct DataSourceRequest {
 
 #[derive(TryFromValue, Debug)]
 #[nativeshell(rename_all = "camelCase")]
-struct DataResponse {
-    drag_data: Option<DragConfiguration>,
+struct DragConfigurationResponse {
+    configuration: Option<DragConfiguration>,
 }
 
 #[derive(IntoValue)]
@@ -218,27 +218,28 @@ impl PlatformDragContextDelegate for DragManager {
         Context::get().run_loop().spawn(async move {
             let this = weak_self.upgrade();
             if let Some(this) = this {
-                let data_source: Result<DataResponse, MethodCallError> = this
+                let data_source: Result<DragConfigurationResponse, MethodCallError> = this
                     .invoker
                     .call_method_cv(
                         id,
-                        "getDataForDragRequest",
+                        "getConfigurationForDragRequest",
                         DataSourceRequest {
                             location,
                             session_id,
                         },
                     )
                     .await;
-                let data_source = data_source
-                    .ok_log()
-                    .and_then(|d| d.drag_data)
-                    .and_then(|d| {
-                        Context::get()
-                            .data_source_manager()
-                            .get_platform_data_source(d.data_source_id)
-                            .ok()
-                            .map(|s| (d, s))
-                    });
+                let data_source =
+                    data_source
+                        .ok_log()
+                        .and_then(|d| d.configuration)
+                        .and_then(|d| {
+                            Context::get()
+                                .data_source_manager()
+                                .get_platform_data_source(d.data_source_id)
+                                .ok()
+                                .map(|s| (d, s))
+                        });
                 match data_source {
                     Some((drag_data, data_source)) => {
                         let notifier = DropNotifier::new(move || {

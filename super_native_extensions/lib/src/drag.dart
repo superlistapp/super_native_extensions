@@ -65,7 +65,7 @@ class RawDragContext {
   }
 
   Future<dynamic> _handleMethodCall(MethodCall call) async {
-    if (call.method == 'getDataForDragRequest') {
+    if (call.method == 'getConfigurationForDragRequest') {
       final arguments = call.arguments as Map;
       final location = OffsetExt.deserialize(arguments['location']);
       final sessionId = arguments['sessionId'];
