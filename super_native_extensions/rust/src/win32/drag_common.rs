@@ -11,6 +11,7 @@ impl DropOperationExt for DropOperation {
     fn to_platform(&self) -> u32 {
         match self {
             DropOperation::None => 0,
+            DropOperation::UserCancelled => 0,
             DropOperation::Forbidden => 0,
             DropOperation::Copy => DROPEFFECT_COPY,
             DropOperation::Move => DROPEFFECT_MOVE,

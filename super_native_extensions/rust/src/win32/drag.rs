@@ -1,5 +1,5 @@
 use std::{
-    cell::RefCell,
+    cell::{Cell, RefCell},
     rc::{Rc, Weak},
     sync::Arc,
 };
@@ -48,6 +48,7 @@ pub struct DropSource {
     platform_context: Weak<PlatformDragContext>,
     last_reported_location: RefCell<Point>,
     session_id: DragSessionId,
+    cancelled: Rc<Cell<bool>>,
 }
 
 #[allow(non_snake_case)]
@@ -55,11 +56,13 @@ impl DropSource {
     pub fn create(
         platform_context: Weak<PlatformDragContext>,
         session_id: DragSessionId,
+        cancelled: Rc<Cell<bool>>,
     ) -> IDropSource {
         Self {
             platform_context,
             session_id,
             last_reported_location: RefCell::new(Point::default()),
+            cancelled,
         }
         .into()
     }
@@ -72,6 +75,7 @@ impl IDropSource_Impl for DropSource {
         grfkeystate: u32,
     ) -> windows::core::Result<()> {
         if fescapepressed.as_bool() {
+            self.cancelled.replace(true);
             Err(DRAGDROP_S_CANCEL.into())
         } else if grfkeystate & MK_LBUTTON as u32 == 0 {
             Err(DRAGDROP_S_DROP.into())
@@ -146,7 +150,7 @@ impl PlatformDragContext {
     ) -> NativeExtensionsResult<()> {
         let data_object = DataObject::create(data_source, drop_notifier);
         let helper: IDragSourceHelper = create_instance(&CLSID_DragDropHelper)?;
-        let drag_image = request.drag_data.drag_image;
+        let drag_image = request.configuration.drag_image;
         let hbitmap = image_data_to_hbitmap(&drag_image.image_data)?;
         let scaling = get_dpi_for_window(self.view) as f64 / 96.0;
 
@@ -165,11 +169,12 @@ impl PlatformDragContext {
         unsafe {
             helper.InitializeFromBitmap(&mut image as *mut _, data_object.clone())?;
         }
-        let drop_source = DropSource::create(self.weak_self.clone(), session_id);
+        let cancelled = Rc::new(Cell::new(false));
+        let drop_source = DropSource::create(self.weak_self.clone(), session_id, cancelled.clone());
         let mut effects_out: u32 = 0;
         unsafe {
             let mut allowed_effects: u32 = 0;
-            for operation in request.drag_data.allowed_operations {
+            for operation in request.configuration.allowed_operations {
                 allowed_effects |= operation.to_platform();
             }
             let _ = DoDragDrop(
@@ -186,6 +191,11 @@ impl PlatformDragContext {
         let effect = data_object.performed_drop_effect().unwrap_or(effects_out);
         if let Some(delegate) = self.delegate.upgrade() {
             let operation = DropOperation::from_platform(effect);
+            let operation = if operation == DropOperation::None && cancelled.get() {
+                DropOperation::UserCancelled
+            } else {
+                operation
+            };
             delegate.drag_session_did_end_with_operation(self.id, session_id, operation);
         }
 
