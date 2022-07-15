@@ -61,7 +61,7 @@ impl PlatformDropContext {
         self._assign_weak_self(weak_self).ok_log();
     }
 
-    pub fn register_drop_types(&self, types: &[String]) -> NativeExtensionsResult<()> {
+    pub fn register_drop_types(&self, _types: &[String]) -> NativeExtensionsResult<()> {
         Ok(())
     }
 
@@ -70,6 +70,17 @@ impl PlatformDropContext {
         env: &JNIEnv<'a>,
         event: JObject<'a>,
     ) -> NativeExtensionsResult<bool> {
+        if let Some(delegate) = self.delegate.upgrade() {
+            // We're conflating drag and drop context ids here. However it works
+            // because at this point there are both IsolateId. In future with
+            // flutter multiview they should probably be based in view handle
+            let context = delegate
+                .get_platform_drag_context(self.id)
+                .expect("Missing drag context");
+            // forward the event to drag context. Necessary to know when current
+            // drag session ends for example.
+            context.on_drop_event(env, event)?;
+        }
         Ok(true)
     }
 }
@@ -77,50 +88,6 @@ impl PlatformDropContext {
 impl Drop for PlatformDropContext {
     fn drop(&mut self) {
         CONTEXTS.with(|c| c.borrow_mut().remove(&self.id));
-    }
-}
-
-fn get_flutter_view<'a>(
-    env: &JNIEnv<'a>,
-    binding: JObject<'a>,
-) -> NativeExtensionsResult<JObject<'a>> {
-    let engine = env
-        .call_method(
-            binding,
-            "getFlutterEngine",
-            "()Lio/flutter/embedding/engine/FlutterEngine;",
-            &[],
-        )?
-        .l()?;
-    let platform_views_controller = env
-        .call_method(
-            engine,
-            "getPlatformViewsController",
-            "()Lio/flutter/plugin/platform/PlatformViewsController;",
-            &[],
-        )?
-        .l()?;
-    let view = env
-        .get_field(
-            platform_views_controller,
-            "flutterView",
-            "Lio/flutter/embedding/android/FlutterView;",
-        )?
-        .l()?;
-    Ok(view)
-}
-
-#[no_mangle]
-#[allow(non_snake_case)]
-pub extern "C" fn Java_com_superlist_super_1native_1extensions_DragDropUtil_getFlutterView(
-    env: JNIEnv,
-    _class: JClass,
-    binding: JObject,
-) -> jobject {
-    let res = get_flutter_view(&env, binding);
-    match res {
-        Ok(value) => value.into_inner(),
-        Err(_) => JObject::null().into_inner(),
     }
 }
 

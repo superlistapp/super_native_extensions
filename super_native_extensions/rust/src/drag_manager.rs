@@ -111,6 +111,17 @@ impl DragManager {
         Ok(())
     }
 
+    pub fn get_platform_drag_context(
+        &self,
+        id: PlatformDragContextId,
+    ) -> NativeExtensionsResult<Rc<PlatformDragContext>> {
+        self.contexts
+            .borrow()
+            .get(&id)
+            .cloned()
+            .ok_or_else(|| NativeExtensionsError::PlatformContextNotFound)
+    }
+
     async fn start_drag(
         &self,
         isolate: IsolateId,

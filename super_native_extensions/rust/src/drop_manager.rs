@@ -11,8 +11,9 @@ use nativeshell_core::{
 };
 
 use crate::{
+    drag_manager::{GetDragManager, PlatformDragContextId},
     error::{NativeExtensionsError, NativeExtensionsResult},
-    platform_impl::platform::PlatformDropContext,
+    platform_impl::platform::{PlatformDragContext, PlatformDropContext},
 };
 
 pub type PlatformDropContextId = IsolateId;
@@ -46,7 +47,12 @@ struct RegisterDropTypesRequest {
 }
 
 #[async_trait(?Send)]
-pub trait PlatformDropContextDelegate {}
+pub trait PlatformDropContextDelegate {
+    fn get_platform_drag_context(
+        &self,
+        id: PlatformDragContextId,
+    ) -> NativeExtensionsResult<Rc<PlatformDragContext>>;
+}
 
 impl DropManager {
     pub fn new() -> RegisteredAsyncMethodHandler<Self> {
@@ -116,4 +122,11 @@ impl AsyncMethodHandler for DropManager {
     }
 }
 
-impl PlatformDropContextDelegate for DropManager {}
+impl PlatformDropContextDelegate for DropManager {
+    fn get_platform_drag_context(
+        &self,
+        id: PlatformDragContextId,
+    ) -> NativeExtensionsResult<Rc<PlatformDragContext>> {
+        Context::get().drag_manager().get_platform_drag_context(id)
+    }
+}

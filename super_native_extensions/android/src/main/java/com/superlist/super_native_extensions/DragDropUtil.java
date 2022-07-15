@@ -18,8 +18,6 @@ import io.flutter.embedding.engine.plugins.FlutterPlugin;
 // used from JNI
 @SuppressWarnings("UnusedDeclaration")
 public class DragDropUtil {
-    public static native FlutterView getFlutterView(FlutterPlugin.FlutterPluginBinding binding);
-
     public static native boolean onDrag(DragEvent event, long dropHandlerId);
 
     private long _nextId = 1;

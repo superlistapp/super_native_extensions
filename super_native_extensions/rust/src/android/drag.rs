@@ -10,7 +10,7 @@ use log::info;
 
 use crate::{
     android::{DRAG_DROP_UTIL, JAVA_VM},
-    api_model::{ImageData, DragRequest},
+    api_model::{DragRequest, ImageData},
     drag_manager::{DragSessionId, PlatformDragContextDelegate},
     error::{NativeExtensionsError, NativeExtensionsResult},
     log::OkLog,
@@ -85,8 +85,6 @@ impl PlatformDragContext {
             )?
             .l()?;
 
-        info!("B");
-
         let res = env
             .call_static_method(
                 "android/graphics/Bitmap",
@@ -124,8 +122,10 @@ impl PlatformDragContext {
         CURRENT_CLIP.with(|r| r.replace(drop_notifier));
 
         let data = writer.create_clip_data(&env)?;
+        info!("DATA {:?}", data);
 
-        let bitmap = Self::create_bitmap(&env, &request.drag_data.drag_image.image_data)?;
+        let bitmap = Self::create_bitmap(&env, &request.configuration.drag_image.image_data)?;
+        let point_in_rect = request.configuration.drag_image.point_in_rect;
 
         env.call_method(
             DRAG_DROP_UTIL.get().unwrap().as_obj(),
@@ -135,20 +135,21 @@ impl PlatformDragContext {
                 self.view_handle.into(),
                 data.into(),
                 bitmap.into(),
-                (request.drag_data.drag_image.point_in_rect.x.round() as i32).into(),
-                (request.drag_data.drag_image.point_in_rect.y.round() as i32).into(),
+                (point_in_rect.x.round() as i32).into(),
+                (point_in_rect.y.round() as i32).into(),
             ],
         )?;
 
         Ok(())
     }
 
-    fn on_drag_event<'a>(
+    pub fn on_drop_event<'a>(
         &self,
         env: &JNIEnv<'a>,
         event: JObject<'a>,
-    ) -> NativeExtensionsResult<bool> {
-        Ok(true)
+    ) -> NativeExtensionsResult<()> {
+        println!("ODE");
+        Ok(())
     }
 }
 
