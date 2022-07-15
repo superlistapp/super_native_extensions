@@ -1,9 +1,9 @@
 package com.superlist.super_native_extensions;
 
 import android.content.ClipData;
+import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
-import android.graphics.Paint;
 import android.graphics.Point;
 import android.util.Log;
 import android.view.DragEvent;
@@ -13,7 +13,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 import io.flutter.embedding.android.FlutterView;
-import io.flutter.embedding.engine.plugins.FlutterPlugin;
 
 // used from JNI
 @SuppressWarnings("UnusedDeclaration")
@@ -21,7 +20,7 @@ public class DragDropUtil {
     public static native boolean onDrag(DragEvent event, long dropHandlerId);
 
     private long _nextId = 1;
-    private Map<Long, FlutterView> flutterViewMap = new HashMap<Long, FlutterView>();
+    private final Map<Long, FlutterView> flutterViewMap = new HashMap<>();
 
     long registerFlutterView(FlutterView view) {
         long id = _nextId++;
@@ -39,8 +38,8 @@ public class DragDropUtil {
             this.touchPoint = touchPoint;
         }
 
-        private Bitmap bitmap;
-        private Point touchPoint;
+        private final Bitmap bitmap;
+        private final Point touchPoint;
 
         @Override
         public void onProvideShadowMetrics(Point outShadowSize, Point outShadowTouchPoint) {
@@ -56,10 +55,12 @@ public class DragDropUtil {
 
     void startDrag(long viewId, ClipData clipData, Bitmap bitmap, int touchPointX, int touchPointY) {
         FlutterView view = flutterViewMap.get(viewId);
+        final int DRAG_FLAG_GLOBAL = 1 << 8;
+        final int DRAG_FLAG_GLOBAL_URI_READ = Intent.FLAG_GRANT_READ_URI_PERMISSION;
         if (view != null) {
             view.startDrag(clipData,
                     new DragShadowBuilder(bitmap, new Point(touchPointX, touchPointY)), null,
-                    View.DRAG_FLAG_GLOBAL | View.DRAG_FLAG_GLOBAL_URI_READ
+                    DRAG_FLAG_GLOBAL | DRAG_FLAG_GLOBAL_URI_READ
             );
         }
     }
@@ -67,15 +68,10 @@ public class DragDropUtil {
     void registerDropHandler(long viewId, long handlerId) {
         FlutterView view = flutterViewMap.get(viewId);
         if (view != null) {
-            view.setOnDragListener(new View.OnDragListener() {
-                @Override
-                public boolean onDrag(View v, DragEvent event) {
-                    Log.i("flutter", "DragEvent " + event);
-                    return DragDropUtil.onDrag(event, handlerId);
-                }
+            view.setOnDragListener((v, event) -> {
+                Log.i("flutter", "DragEvent " + event);
+                return onDrag(event, handlerId);
             });
         }
     }
-
-
 }

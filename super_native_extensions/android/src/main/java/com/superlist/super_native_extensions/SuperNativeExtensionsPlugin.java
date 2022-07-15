@@ -25,7 +25,6 @@ public class SuperNativeExtensionsPlugin implements FlutterPlugin, MethodCallHan
     static final DragDropUtil dragDropUtil = new DragDropUtil();
 
     private MethodChannel channel;
-    private FlutterPluginBinding binding;
 
     private static boolean nativeInitialized = false;
 
@@ -38,7 +37,6 @@ public class SuperNativeExtensionsPlugin implements FlutterPlugin, MethodCallHan
             }
             channel = new MethodChannel(flutterPluginBinding.getBinaryMessenger(), "super_native_extensions");
             channel.setMethodCallHandler(this);
-            binding = flutterPluginBinding;
         } catch (Throwable e) {
             Log.e("flutter", e.toString());
         }
@@ -46,6 +44,7 @@ public class SuperNativeExtensionsPlugin implements FlutterPlugin, MethodCallHan
 
     @Override
     public void onDetachedFromEngine(@NonNull FlutterPluginBinding binding) {
+        channel.setMethodCallHandler(null);
     }
 
     Long flutterViewId = null;
