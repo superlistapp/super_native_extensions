@@ -10,19 +10,29 @@ use log::info;
 
 use crate::{
     android::{DRAG_DROP_UTIL, JAVA_VM},
-    api_model::{DragRequest, ImageData},
-    drag_manager::{DragSessionId, PlatformDragContextDelegate},
+    api_model::{DragRequest, DropOperation, ImageData, Point},
+    drag_manager::{DragSessionId, PlatformDragContextDelegate, PlatformDragContextId},
     error::{NativeExtensionsError, NativeExtensionsResult},
     log::OkLog,
     util::DropNotifier,
 };
 
-use super::PlatformDataSource;
+use super::{
+    drag_common::{DragAction, DragEvent},
+    PlatformDataSource,
+};
 
 pub struct PlatformDragContext {
-    id: i64,
+    id: PlatformDragContextId,
     view_handle: i64,
     delegate: Weak<dyn PlatformDragContextDelegate>,
+    sessions: RefCell<HashMap<DragSessionId, DragSession>>,
+}
+
+struct DragSession {
+    _data_source_notifier: Arc<DropNotifier>,
+    platform_context_id: PlatformDragContextId,
+    platform_context_delegate: Weak<dyn PlatformDragContextDelegate>,
 }
 
 thread_local! {
@@ -35,17 +45,12 @@ impl PlatformDragContext {
             id,
             view_handle,
             delegate,
+            sessions: RefCell::new(HashMap::new()),
         }
     }
 
     pub fn _assign_weak_self(&self, weak_self: Weak<Self>) -> NativeExtensionsResult<()> {
         CONTEXTS.with(|c| c.borrow_mut().insert(self.id, weak_self));
-
-        let env = JAVA_VM
-            .get()
-            .ok_or_else(|| NativeExtensionsError::OtherError("JAVA_VM not set".into()))?
-            .attach_current_thread()?;
-
         Ok(())
     }
 
@@ -115,24 +120,30 @@ impl PlatformDragContext {
             .ok_or_else(|| NativeExtensionsError::OtherError("JAVA_VM not set".into()))?
             .attach_current_thread()?;
 
-        // TODO (Actually bind to drag session)
-        thread_local! {
-            static CURRENT_CLIP: RefCell<Arc<DropNotifier>> = RefCell::new(DropNotifier::new(||{}));
-        }
-        CURRENT_CLIP.with(|r| r.replace(drop_notifier));
-
         let data = writer.create_clip_data(&env)?;
         info!("DATA {:?}", data);
 
         let bitmap = Self::create_bitmap(&env, &request.configuration.drag_image.image_data)?;
         let point_in_rect = request.configuration.drag_image.point_in_rect;
 
+        let mut sessions = self.sessions.borrow_mut();
+        sessions.insert(
+            session_id,
+            DragSession {
+                _data_source_notifier: drop_notifier,
+                platform_context_id: self.id,
+                platform_context_delegate: self.delegate.clone(),
+            },
+        );
+
+        let session_id: i64 = session_id.into();
         env.call_method(
             DRAG_DROP_UTIL.get().unwrap().as_obj(),
             "startDrag",
-            "(JLandroid/content/ClipData;Landroid/graphics/Bitmap;II)V",
+            "(JJLandroid/content/ClipData;Landroid/graphics/Bitmap;II)V",
             &[
                 self.view_handle.into(),
+                session_id.into(),
                 data.into(),
                 bitmap.into(),
                 (point_in_rect.x.round() as i32).into(),
@@ -148,8 +159,64 @@ impl PlatformDragContext {
         env: &JNIEnv<'a>,
         event: JObject<'a>,
     ) -> NativeExtensionsResult<()> {
-        println!("ODE");
+        let event = DragEvent(event);
+        let session_id = event.get_session_id(env)?;
+        if let Some(session_id) = session_id {
+            let mut sessions = self.sessions.borrow_mut();
+            if let Some(session) = sessions.get(&session_id) {
+                if session.handle_event(session_id, env, event)? == HandleEventResult::RemoveSession
+                {
+                    sessions.remove(&session_id);
+                }
+            }
+        }
         Ok(())
+    }
+}
+
+#[derive(PartialEq)]
+enum HandleEventResult {
+    KeepSession,
+    RemoveSession,
+}
+
+impl DragSession {
+    fn handle_event<'a>(
+        &self,
+        session_id: DragSessionId,
+        env: &JNIEnv<'a>,
+        event: DragEvent,
+    ) -> NativeExtensionsResult<HandleEventResult> {
+        let action = event.get_action(env)?;
+        if action == DragAction::DragLocation {
+            if let Some(delegate) = self.platform_context_delegate.upgrade() {
+                delegate.drag_session_did_move_to_location(
+                    self.platform_context_id,
+                    session_id,
+                    Point {
+                        x: event.get_x(env)? as f64,
+                        y: event.get_y(env)? as f64,
+                    },
+                );
+            }
+        }
+        if action == DragAction::DragEnded {
+            if let Some(delegate) = self.platform_context_delegate.upgrade() {
+                let result = event.get_result(env)?;
+                let operation = match result {
+                    true => DropOperation::Copy, // TODO(knopp): Move?
+                    false => DropOperation::None,
+                };
+                delegate.drag_session_did_end_with_operation(
+                    self.platform_context_id,
+                    session_id,
+                    operation,
+                );
+            }
+            Ok(HandleEventResult::RemoveSession)
+        } else {
+            Ok(HandleEventResult::KeepSession)
+        }
     }
 }
 

@@ -14,6 +14,16 @@ import java.util.Map;
 
 import io.flutter.embedding.android.FlutterView;
 
+// Wrap drag sessionId in typed object so that we can safely ignore drag possible local data
+// from session not created by super_native_extensions.
+class SessionId {
+    SessionId(long sessionId) {
+        this.sessionId = sessionId;
+    }
+
+    final long sessionId;
+}
+
 // used from JNI
 @SuppressWarnings("UnusedDeclaration")
 public class DragDropUtil {
@@ -53,15 +63,24 @@ public class DragDropUtil {
         }
     }
 
-    void startDrag(long viewId, ClipData clipData, Bitmap bitmap, int touchPointX, int touchPointY) {
+    void startDrag(long viewId, long dragSessionId, ClipData clipData, Bitmap bitmap, int touchPointX, int touchPointY) {
         FlutterView view = flutterViewMap.get(viewId);
         final int DRAG_FLAG_GLOBAL = 1 << 8;
         final int DRAG_FLAG_GLOBAL_URI_READ = Intent.FLAG_GRANT_READ_URI_PERMISSION;
         if (view != null) {
             view.startDrag(clipData,
-                    new DragShadowBuilder(bitmap, new Point(touchPointX, touchPointY)), null,
+                    new DragShadowBuilder(bitmap, new Point(touchPointX, touchPointY)), new SessionId(dragSessionId),
                     DRAG_FLAG_GLOBAL | DRAG_FLAG_GLOBAL_URI_READ
             );
+        }
+    }
+
+    Long getSessionId(DragEvent event) {
+        Object localState = event.getLocalState();
+        if (localState instanceof SessionId) {
+            return ((SessionId) localState).sessionId;
+        } else {
+            return null;
         }
     }
 

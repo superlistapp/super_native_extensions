@@ -104,7 +104,7 @@ pub extern "C" fn Java_com_superlist_super_1native_1extensions_DragDropUtil_onDr
         .and_then(|v| v.upgrade());
     match context {
         Some(context) => {
-            let res = context.on_drag_event(&env, event).unwrap_or(false);
+            let res = context.on_drag_event(&env, event).ok_log().unwrap_or(false);
             JValue::from(res).into()
         }
         None => JValue::from(false).into(),

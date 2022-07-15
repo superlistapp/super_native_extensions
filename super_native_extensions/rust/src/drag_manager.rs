@@ -62,6 +62,18 @@ pub trait PlatformDragContextDelegate {
 #[derive(Debug, TryFromValue, IntoValue, Clone, Copy, PartialEq, Hash, Eq)]
 pub struct DragSessionId(i64);
 
+impl From<i64> for DragSessionId {
+    fn from(v: i64) -> Self {
+        Self(v)
+    }
+}
+
+impl From<DragSessionId> for i64 {
+    fn from(s: DragSessionId) -> Self {
+        s.0
+    }
+}
+
 pub struct DragManager {
     weak_self: Late<Weak<Self>>,
     invoker: Late<AsyncMethodInvoker>,
