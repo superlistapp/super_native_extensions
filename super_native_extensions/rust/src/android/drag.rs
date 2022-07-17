@@ -6,7 +6,7 @@ use std::{
 };
 
 use jni::{objects::JObject, sys::jsize, JNIEnv};
-use log::info;
+use nativeshell_core::Value;
 
 use crate::{
     android::{DRAG_DROP_UTIL, JAVA_VM},
@@ -30,7 +30,8 @@ pub struct PlatformDragContext {
 }
 
 struct DragSession {
-    _data_source_notifier: Arc<DropNotifier>,
+    data_source_notifier: Arc<DropNotifier>,
+    local_data: Value,
     platform_context_id: PlatformDragContextId,
     platform_context_delegate: Weak<dyn PlatformDragContextDelegate>,
 }
@@ -49,13 +50,8 @@ impl PlatformDragContext {
         }
     }
 
-    pub fn _assign_weak_self(&self, weak_self: Weak<Self>) -> NativeExtensionsResult<()> {
-        CONTEXTS.with(|c| c.borrow_mut().insert(self.id, weak_self));
-        Ok(())
-    }
-
     pub fn assign_weak_self(&self, weak_self: Weak<Self>) {
-        self._assign_weak_self(weak_self).ok_log();
+        CONTEXTS.with(|c| c.borrow_mut().insert(self.id, weak_self));
     }
 
     fn create_bitmap<'a>(
@@ -111,7 +107,7 @@ impl PlatformDragContext {
     pub async fn start_drag(
         &self,
         request: DragRequest,
-        writer: Rc<PlatformDataSource>,
+        data_source: Rc<PlatformDataSource>,
         drop_notifier: Arc<DropNotifier>,
         session_id: DragSessionId,
     ) -> NativeExtensionsResult<()> {
@@ -120,8 +116,7 @@ impl PlatformDragContext {
             .ok_or_else(|| NativeExtensionsError::OtherError("JAVA_VM not set".into()))?
             .attach_current_thread()?;
 
-        let data = writer.create_clip_data(&env)?;
-        info!("DATA {:?}", data);
+        let data = data_source.create_clip_data(&env)?;
 
         let bitmap = Self::create_bitmap(&env, &request.configuration.drag_image.image_data)?;
         let point_in_rect = request.configuration.drag_image.point_in_rect;
@@ -130,7 +125,8 @@ impl PlatformDragContext {
         sessions.insert(
             session_id,
             DragSession {
-                _data_source_notifier: drop_notifier,
+                data_source_notifier: drop_notifier,
+                local_data: request.configuration.local_data,
                 platform_context_id: self.id,
                 platform_context_delegate: self.delegate.clone(),
             },
@@ -157,9 +153,8 @@ impl PlatformDragContext {
     pub fn on_drop_event<'a>(
         &self,
         env: &JNIEnv<'a>,
-        event: JObject<'a>,
+        event: DragEvent<'a>,
     ) -> NativeExtensionsResult<()> {
-        let event = DragEvent(event);
         let session_id = event.get_session_id(env)?;
         if let Some(session_id) = session_id {
             let mut sessions = self.sessions.borrow_mut();
@@ -171,6 +166,44 @@ impl PlatformDragContext {
             }
         }
         Ok(())
+    }
+
+    pub fn get_local_data<'a>(
+        &self,
+        env: &JNIEnv<'a>,
+        event: DragEvent<'a>,
+    ) -> NativeExtensionsResult<Value> {
+        let session_id = event.get_session_id(env)?;
+        match session_id {
+            Some(session_id) => {
+                let sessions = self.sessions.borrow();
+                let session = sessions.get(&session_id);
+                match session {
+                    Some(session) => Ok(session.local_data.clone()),
+                    None => Ok(Value::Null),
+                }
+            }
+            None => Ok(Value::Null),
+        }
+    }
+
+    pub fn get_data_source_drop_notifier<'a>(
+        &self,
+        env: &JNIEnv<'a>,
+        event: DragEvent<'a>,
+    ) -> NativeExtensionsResult<Option<Arc<DropNotifier>>> {
+        let session_id = event.get_session_id(env)?;
+        match session_id {
+            Some(session_id) => {
+                let sessions = self.sessions.borrow();
+                let session = sessions.get(&session_id);
+                match session {
+                    Some(session) => Ok(Some(session.data_source_notifier.clone())),
+                    None => Ok(None),
+                }
+            }
+            None => Ok(None),
+        }
     }
 }
 

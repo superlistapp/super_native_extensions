@@ -12,7 +12,34 @@ class DragException implements Exception {
   DragException(this.message);
 }
 
-class _Delegate implements RawDragContextDelegate {
+class _DropDelegate implements RawDropContextDelegate {
+  @override
+  Future<void> onDropEnded(BaseDropEvent event) async {
+    print('Drop ended $event');
+  }
+
+  @override
+  Future<void> onDropLeave(BaseDropEvent event) async {
+    print('Drop ended $event');
+  }
+
+  @override
+  Future<DropOperation> onDropOver(DropEvent event) async {
+    print('Drop over $event');
+    return DropOperation.copy;
+  }
+
+  @override
+  Future<void> onPerformDrop(DropEvent event) async {
+    final reader = event.reader!;
+    final items = await reader.getItems();
+    print('Item count ${items.length}');
+    print('Perform drop $event');
+    reader.dispose();
+  }
+}
+
+class _DragDelegate implements RawDragContextDelegate {
   @override
   Future<DragConfiguration?> getConfigurationForDragRequest(
       {required Offset location, required DragSession session}) async {
@@ -108,7 +135,8 @@ void main() async {
   // ]);
   await RawDragContext.instance();
   await RawDropContext.instance();
-  (await RawDragContext.instance()).delegate = _Delegate();
+  (await RawDragContext.instance()).delegate = _DragDelegate();
+  (await RawDropContext.instance()).delegate = _DropDelegate();
   runApp(const MyApp());
 }
 
@@ -249,11 +277,12 @@ class _MyHomePageState extends State<MyHomePage> {
           // DataSourceItemRepresentation.simple(
           //     formats: ['public.file-url'],
           //     data: utf8.encode('file:///tmp/test.txt')),
-          // DataSourceItemRepresentation.simple(
-          //     formats: ['public.utf8-plain-text'], data: utf8.encode('baaad')),
-          // /*
+          DataSourceItemRepresentation.simple(
+              // formats: ['public.utf8-plain-text'], data: utf8.encode('baaad')),
+              formats: ['text/plain'], data: utf8.encode('baaad')),
           DataSourceItemRepresentation.virtualFile(
               format: 'public.utf8-plain-text',
+              // format: 'text/plain',
               storageSuggestion: VirtualFileStorage.temporaryFile,
               virtualFileProvider: (sinkProvider, progress) async {
                 final line = utf8.encode("This is a single line\n");
@@ -312,6 +341,10 @@ class _MyHomePageState extends State<MyHomePage> {
             DropOperation.move,
             DropOperation.link
           ],
+          localData: {
+            'x': 1,
+            'y': 2,
+          },
           dataSource: handle,
           dragImage: await dragContainer.currentState!
               .getDragImageForOffset(globalPosition),

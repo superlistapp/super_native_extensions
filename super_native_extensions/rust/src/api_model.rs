@@ -112,6 +112,7 @@ pub struct DragImage {
 pub struct DragConfiguration {
     pub data_source_id: DataSourceId,
     pub allowed_operations: Vec<DropOperation>,
+    pub local_data: Value,
     pub drag_image: DragImage,
     pub animates_to_starting_position_on_cancel_or_fail: bool,
 }

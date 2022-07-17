@@ -146,14 +146,16 @@ class DragImage {
 
 class DragConfiguration {
   DragConfiguration({
-    required this.allowedOperations,
     required this.dataSource,
+    required this.allowedOperations,
+    this.localData,
     required this.dragImage,
     this.animatesToStartingPositionOnCancelOrFail = true,
   });
 
-  final List<DropOperation> allowedOperations;
   final DataSourceHandle dataSource;
+  final List<DropOperation> allowedOperations;
+  final Object? localData;
   final DragImage dragImage;
 
   /// macOS specific
@@ -162,6 +164,7 @@ class DragConfiguration {
   Future<dynamic> serialize() async => {
         'allowedOperations': allowedOperations.map((e) => e.name),
         'dataSourceId': dataSource.id,
+        'localData': localData,
         'dragImage': await dragImage.serialize(),
         'animatesToStartingPositionOnCancelOrFail':
             animatesToStartingPositionOnCancelOrFail,

@@ -1,13 +1,14 @@
 use std::{
     cell::{Cell, RefCell},
     collections::HashMap,
-    rc::{Rc, Weak},
+    rc::Rc,
+    sync::Arc,
 };
 
 use jni::{
     objects::{GlobalRef, JObject},
     sys::{jbyte, jint},
-    AttachGuard,
+    AttachGuard, JNIEnv,
 };
 
 use nativeshell_core::{util::FutureCompleter, Value};
@@ -15,10 +16,13 @@ use nativeshell_core::{util::FutureCompleter, Value};
 use crate::{
     android::{CLIP_DATA_UTIL, CONTEXT, JAVA_VM},
     error::{NativeExtensionsError, NativeExtensionsResult},
+    util::DropNotifier,
 };
 
 pub struct PlatformDataReader {
     clip_data: Option<GlobalRef>,
+    // If needed enhance life of local data source
+    _source_drop_notifier: Option<Arc<DropNotifier>>,
 }
 
 impl PlatformDataReader {
@@ -145,6 +149,22 @@ impl PlatformDataReader {
         }
     }
 
+    pub fn from_clip_data<'a>(
+        env: &JNIEnv<'a>,
+        clip_data: JObject<'a>,
+        source_drop_notifier: Option<Arc<DropNotifier>>,
+    ) -> NativeExtensionsResult<Rc<Self>> {
+        let clip_data = if clip_data.is_null() {
+            None
+        } else {
+            Some(env.new_global_ref(clip_data)?)
+        };
+        Ok(Rc::new(Self {
+            clip_data,
+            _source_drop_notifier: source_drop_notifier,
+        }))
+    }
+
     pub fn new_clipboard_reader() -> NativeExtensionsResult<Rc<Self>> {
         let (env, context) = Self::get_env_and_context()?;
         let clipboard_service = env
@@ -170,15 +190,6 @@ impl PlatformDataReader {
                 &[],
             )?
             .l()?;
-        let clip_data = if clip_data.is_null() {
-            None
-        } else {
-            Some(env.new_global_ref(clip_data)?)
-        };
-        let res = Rc::new(Self { clip_data });
-        res.assign_weak_self(Rc::downgrade(&res));
-        Ok(res)
+        Self::from_clip_data(&env, clip_data, None)
     }
-
-    pub fn assign_weak_self(&self, _weak: Weak<PlatformDataReader>) {}
 }

@@ -6,14 +6,17 @@ use std::{
 
 use async_trait::async_trait;
 use nativeshell_core::{
-    util::Late, AsyncMethodHandler, AsyncMethodInvoker, Context, IntoPlatformResult, IsolateId,
-    PlatformResult, RegisteredAsyncMethodHandler, TryFromValue, Value,
+    util::Late, AsyncMethodHandler, AsyncMethodInvoker, Context, IntoPlatformResult, IntoValue,
+    IsolateId, MethodCallError, PlatformResult, RegisteredAsyncMethodHandler, TryFromValue, Value,
 };
 
 use crate::{
+    api_model::{DropOperation, Point},
     drag_manager::{GetDragManager, PlatformDragContextId},
     error::{NativeExtensionsError, NativeExtensionsResult},
-    platform_impl::platform::{PlatformDragContext, PlatformDropContext},
+    log::OkLog,
+    platform_impl::platform::{PlatformDataReader, PlatformDragContext, PlatformDropContext},
+    reader_manager::{GetDataReaderManager, RegisteredDataReader},
 };
 
 pub type PlatformDropContextId = IsolateId;
@@ -46,12 +49,52 @@ struct RegisterDropTypesRequest {
     types: Vec<String>,
 }
 
-#[async_trait(?Send)]
+#[derive(IntoValue, Debug)]
+#[nativeshell(rename_all = "camelCase")]
+pub struct DropEvent {
+    pub session_id: i64,
+    pub location_in_view: Point,
+    pub local_data: Value,
+    pub allowed_operations: Vec<DropOperation>,
+    pub formats: Vec<String>,
+    pub accepted_operation: Option<DropOperation>,
+    pub reader: Option<RegisteredDataReader>,
+}
+
+#[derive(IntoValue, Debug)]
+#[nativeshell(rename_all = "camelCase")]
+pub struct BaseDropEvent {
+    pub session_id: i64,
+}
+
 pub trait PlatformDropContextDelegate {
     fn get_platform_drag_context(
         &self,
         id: PlatformDragContextId,
     ) -> NativeExtensionsResult<Rc<PlatformDragContext>>;
+
+    fn send_drop_over(
+        &self,
+        id: PlatformDragContextId,
+        event: DropEvent,
+        res: Box<dyn FnOnce(Result<DropOperation, MethodCallError>)>,
+    );
+
+    fn send_perform_drop(
+        &self,
+        id: PlatformDragContextId,
+        event: DropEvent,
+        res: Box<dyn FnOnce(Result<(), MethodCallError>)>,
+    );
+
+    fn send_drop_leave(&self, id: PlatformDragContextId, event: BaseDropEvent);
+
+    fn send_drop_ended(&self, id: PlatformDragContextId, event: BaseDropEvent);
+
+    fn register_platform_reader(
+        &self,
+        platform_reader: Rc<PlatformDataReader>,
+    ) -> NativeExtensionsResult<RegisteredDataReader>;
 }
 
 impl DropManager {
@@ -128,5 +171,48 @@ impl PlatformDropContextDelegate for DropManager {
         id: PlatformDragContextId,
     ) -> NativeExtensionsResult<Rc<PlatformDragContext>> {
         Context::get().drag_manager().get_platform_drag_context(id)
+    }
+
+    fn send_drop_over(
+        &self,
+        id: PlatformDragContextId,
+        event: DropEvent,
+        res: Box<dyn FnOnce(Result<DropOperation, MethodCallError>)>,
+    ) {
+        self.invoker
+            .call_method_sync_cv(id, "onDropOver", event, |r| res(r));
+    }
+
+    fn send_perform_drop(
+        &self,
+        id: PlatformDragContextId,
+        event: DropEvent,
+        res: Box<dyn FnOnce(Result<(), MethodCallError>)>,
+    ) {
+        self.invoker
+            .call_method_sync_cv(id, "onPerformDrop", event, |r| res(r));
+    }
+
+    fn send_drop_leave(&self, id: PlatformDragContextId, event: BaseDropEvent) {
+        self.invoker
+            .call_method_sync(id, "onDropLeave", event, |r| {
+                r.ok_log();
+            });
+    }
+
+    fn send_drop_ended(&self, id: PlatformDragContextId, event: BaseDropEvent) {
+        self.invoker
+            .call_method_sync(id, "onDropEnded", event, |r| {
+                r.ok_log();
+            });
+    }
+
+    fn register_platform_reader(
+        &self,
+        platform_reader: Rc<PlatformDataReader>,
+    ) -> NativeExtensionsResult<RegisteredDataReader> {
+        Context::get()
+            .data_reader_manager()
+            .register_platform_reader(platform_reader)
     }
 }

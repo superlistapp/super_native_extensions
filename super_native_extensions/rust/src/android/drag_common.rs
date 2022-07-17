@@ -16,6 +16,7 @@ pub enum DragAction {
     DragExited,
 }
 
+#[derive(Clone, Copy, Debug)]
 pub struct DragEvent<'a>(pub JObject<'a>);
 
 impl<'a> DragEvent<'a> {
@@ -45,6 +46,23 @@ impl<'a> DragEvent<'a> {
 
     pub fn get_y(&self, env: &JNIEnv<'a>) -> NativeExtensionsResult<f32> {
         Ok(env.call_method(self.0, "getY", "()F", &[])?.f()?)
+    }
+
+    pub fn get_clip_description(&self, env: &JNIEnv<'a>) -> NativeExtensionsResult<JObject<'a>> {
+        Ok(env
+            .call_method(
+                self.0,
+                "getClipDescription",
+                "()Landroid/content/ClipDescription;",
+                &[],
+            )?
+            .l()?)
+    }
+
+    pub fn get_clip_data(&self, env: &JNIEnv<'a>) -> NativeExtensionsResult<JObject<'a>> {
+        Ok(env
+            .call_method(self.0, "getClipData", "()Landroid/content/ClipData;", &[])?
+            .l()?)
     }
 
     pub fn get_session_id(

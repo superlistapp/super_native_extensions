@@ -54,11 +54,8 @@ impl DataReaderManager {
     pub fn register_platform_reader(
         &self,
         platform_reader: Rc<PlatformDataReader>,
-    ) -> NativeExtensionsResult<NewDataReaderResult> {
+    ) -> NativeExtensionsResult<RegisteredDataReader> {
         let id = self.next_id.next_id();
-
-        platform_reader.assign_weak_self(Rc::downgrade(&platform_reader));
-
         let weak_self = self.weak_self.clone();
         let finalizable_handle = Arc::new(FinalizableHandle::new(32, move || {
             if let Some(manager) = weak_self.upgrade() {
@@ -74,7 +71,7 @@ impl DataReaderManager {
             },
         );
 
-        Ok(NewDataReaderResult {
+        Ok(RegisteredDataReader {
             handle: id,
             finalizable_handle: finalizable_handle.into(),
         })
@@ -131,7 +128,7 @@ impl DataReaderManager {
 
 #[derive(IntoValue, TryFromValue, Debug)]
 #[nativeshell(rename_all = "camelCase")]
-pub struct NewDataReaderResult {
+pub struct RegisteredDataReader {
     handle: i64,
     finalizable_handle: Value,
 }
