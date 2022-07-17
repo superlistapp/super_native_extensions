@@ -10,7 +10,7 @@ use jni::{
     JNIEnv,
 };
 
-use nativeshell_core::Value;
+use nativeshell_core::{Context, Value};
 
 use crate::{
     android::{DRAG_DROP_UTIL, JAVA_VM},
@@ -190,6 +190,8 @@ impl PlatformDropContext {
                     {
                         let local_data = drag_context.get_local_data(env, event)?;
                         let clip_data = event.get_clip_data(env)?;
+                        // If this is local data make sure to extend the lifetime
+                        // with the reader.
                         let source_data_notifier =
                             drag_context.get_data_source_drop_notifier(env, event)?;
                         let reader = PlatformDataReader::from_clip_data(
@@ -206,13 +208,19 @@ impl PlatformDropContext {
                             Some(accepted_operation),
                             Some(reader),
                         )?;
+                        let done = Rc::new(Cell::new(false));
+                        let done_clone = done.clone();
                         delegate.send_perform_drop(
                             self.id,
                             event,
-                            Box::new(|r| {
+                            Box::new(move |r| {
                                 r.ok_log();
+                                done_clone.set(true);
                             }),
                         );
+                        while !done.get() {
+                            Context::get().run_loop().platform_run_loop.poll_once();
+                        }
                         return Ok(true);
                     } else {
                         Ok(false)

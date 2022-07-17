@@ -165,11 +165,8 @@ impl ItemState {
                                                 }
                                             }
                                         }
-                                        // TODO(knopp): Synchronize with run loop to postpone potential
-                                        // nested loops (i.e. context menu)
-                                        unsafe {
-                                            CFRunLoopRunInMode(kCFRunLoopDefaultMode, 1.0, 1)
-                                        };
+
+                                        Context::get().run_loop().platform_run_loop.poll_once();
                                     }
                                 }
                             }

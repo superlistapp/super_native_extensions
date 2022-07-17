@@ -33,14 +33,9 @@ public final class ClipDataUtil {
     private final Handler handler = new Handler(Looper.getMainLooper());
 
     public void getData(ClipData data, int index, String type, Context context, int handle) {
-        // It is likely that getData is invoked through JNI, which means current code is executed
-        // through native looper polling. Getting the stream might require manually loop polling
-        // inside source.rs, which doesn't work correctly from within native looper polling code.
-        // To get around this we reschedule and get the data on next RunLoop turn.
-        handler.post(() -> {
+
             Object res = _getData(data, index, type, context);
             onData(handle, res);
-        });
     }
 
     native void onData(int handle, Object data);

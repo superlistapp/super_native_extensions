@@ -20,8 +20,7 @@ use cocoa::{
     base::{id, nil, YES},
     foundation::{NSArray, NSUInteger},
 };
-use core_foundation::{runloop::CFRunLoopRunInMode, string::CFStringRef};
-use nativeshell_core::{platform::value::ValueObjcConversion, util::Late, IsolateId};
+use nativeshell_core::{platform::value::ValueObjcConversion, util::Late, Context, IsolateId};
 use objc::{
     class,
     declare::ClassDecl,
@@ -253,8 +252,7 @@ impl ItemState {
                                                 }
                                             }
                                         }
-                                        let mode = to_nsstring("NativeShellRunLoopMode");
-                                        unsafe { CFRunLoopRunInMode(*mode as CFStringRef, 1.0, 1) };
+                                        Context::get().run_loop().platform_run_loop.poll_once();
                                     }
                                 }
                             }

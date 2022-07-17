@@ -23,7 +23,6 @@ use crate::{
     api_model::{DataSource, DataSourceItem, DataSourceItemRepresentation},
     data_source_manager::PlatformDataSourceDelegate,
     error::{NativeExtensionsError, NativeExtensionsResult},
-    log::OkLog,
     util::{DropNotifier, NextId},
     value_coerce::{CoerceToData, StringFormat},
     value_promise::{ValuePromise, ValuePromiseResult},
@@ -442,44 +441,13 @@ fn get_mime_types_for_uri<'a>(
     Ok(res)
 }
 
-fn get_value(
-    env: &JNIEnv,
-    promise: Arc<ValuePromise>,
-) -> NativeExtensionsResult<ValuePromiseResult> {
+fn get_value(promise: Arc<ValuePromise>) -> NativeExtensionsResult<ValuePromiseResult> {
     if Context::current().is_some() {
-        // this is main thread - we need to poll the event loop while waiting
-        let context = CONTEXT.get().unwrap().as_obj();
-        let looper = env
-            .call_method(context, "getMainLooper", "()Landroid/os/Looper;", &[])?
-            .l()?;
-        let queue = env
-            .call_method(looper, "getQueue", "()Landroid/os/MessageQueue;", &[])?
-            .l()?;
         loop {
             if let Some(result) = promise.try_take() {
                 return Ok(result);
             }
-            let message = env
-                .call_method(queue, "next", "()Landroid/os/Message;", &[])?
-                .l()?;
-
-            if message.is_null() {
-                return Ok(ValuePromiseResult::Cancelled);
-            } else {
-                let target = env
-                    .call_method(message, "getTarget", "()Landroid/os/Handler;", &[])?
-                    .l()?;
-                if target.is_null() {
-                    return Ok(ValuePromiseResult::Cancelled);
-                } else {
-                    env.call_method(
-                        target,
-                        "dispatchMessage",
-                        "(Landroid/os/Message;)V",
-                        &[message.into()],
-                    )?;
-                }
-            }
+            Context::get().run_loop().platform_run_loop.poll_once();
         }
     } else {
         Ok(promise.wait())
@@ -488,7 +456,7 @@ fn get_value(
 
 fn get_data_for_uri<'a>(
     env: &JNIEnv<'a>,
-    this: JClass,
+    _this: JClass,
     uri_string: JString,
     mime_type: JString,
 ) -> NativeExtensionsResult<JObject<'a>> {
@@ -505,8 +473,6 @@ fn get_data_for_uri<'a>(
 
     let info = UriInfo::parse(env, uri_string)
         .ok_or_else(|| NativeExtensionsError::OtherError("Malformed URI".into()))?;
-
-    info!("Getting data from URI {:?}", info);
 
     let mime_type = env.get_string(mime_type)?;
     let mime_type: String = mime_type.to_string_lossy().into();
@@ -528,31 +494,15 @@ fn get_data_for_uri<'a>(
                             let delegate = data_source.delegate.clone();
                             let isolate_id = data_source.isolate_id;
                             let id = *id;
-                            let class = env.new_global_ref(this)?;
                             let value = data_source.sender.send_and_wait(move || {
                                 delegate.get_ref().unwrap().upgrade().map(|delegate| {
-                                    delegate.get_lazy_data(
-                                        isolate_id,
-                                        id,
-                                        mime_type,
-                                        // Wake up the android part of the looper so that polling
-                                        // above will continue (normally RunLoopSender only wakes up the
-                                        // native part of Looper).
-                                        Some(Box::new(move || {
-                                            let env = JAVA_VM
-                                                .get()
-                                                .unwrap()
-                                                .attach_current_thread()
-                                                .unwrap();
-                                            env.call_method(class.as_obj(), "wakeUp", "()V", &[])
-                                                .ok_log();
-                                        })),
-                                    )
+                                    delegate.get_lazy_data(isolate_id, id, mime_type, None)
                                 })
                             });
+                            drop(data_sources);
                             match value {
                                 Some(value) => {
-                                    let res = get_value(env, value)?;
+                                    let res = get_value(value)?;
                                     match res {
                                         ValuePromiseResult::Ok { value } => {
                                             return byte_array_from_value(env, &value);

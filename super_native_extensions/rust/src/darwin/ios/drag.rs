@@ -11,9 +11,8 @@ use cocoa::{
     base::{id, nil, BOOL, NO, YES},
     foundation::NSArray,
 };
-use core_foundation::{runloop::CFRunLoopRunInMode, string::CFStringRef};
 use core_graphics::geometry::CGPoint;
-use nativeshell_core::util::Late;
+use nativeshell_core::{util::Late, Context};
 use objc::{
     class,
     declare::ClassDecl,
@@ -28,10 +27,7 @@ use crate::{
     api_model::{DragConfiguration, DragRequest, DropOperation, Point},
     drag_manager::{DragSessionId, PendingSourceState, PlatformDragContextDelegate},
     error::{NativeExtensionsError, NativeExtensionsResult},
-    platform_impl::platform::{
-        common::to_nsstring,
-        os::drag_common::{UIDropOperationCancel, UIDropOperationForbidden},
-    },
+    platform_impl::platform::os::drag_common::{UIDropOperationCancel, UIDropOperationForbidden},
     util::DropNotifier,
 };
 
@@ -230,8 +226,7 @@ impl PlatformDragContext {
                         _ => {}
                     }
                 }
-                let mode = to_nsstring("NativeShellRunLoopMode");
-                unsafe { CFRunLoopRunInMode(*mode as CFStringRef, 1.0, 1) };
+                Context::get().run_loop().platform_run_loop.poll_once();
             }
         } else {
             nil

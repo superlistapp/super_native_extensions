@@ -64,13 +64,6 @@ public class DataProvider extends ContentProvider {
 
     private final Handler handler = new Handler(Looper.getMainLooper());
 
-    // used from JNI
-    @SuppressWarnings("UnusedDeclaration")
-    void wakeUp() {
-        handler.post(() -> {
-        });
-    }
-
     @Override
     public Cursor query(Uri uri, String[] projection, String selection, String[] selectionArgs, String sortOrder) {
         throw new UnsupportedOperationException();
