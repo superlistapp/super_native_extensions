@@ -14,10 +14,11 @@ use nativeshell_core::{
 
 use crate::{
     error::{NativeExtensionsError, NativeExtensionsResult},
-    platform::PlatformClipboardReader, util::NextId,
+    platform::PlatformDataReader,
+    util::NextId,
 };
 
-pub struct ClipboardReaderManager {
+pub struct DataReaderManager {
     weak_self: Late<Weak<Self>>,
     invoker: Late<AsyncMethodInvoker>,
     next_id: Cell<i64>,
@@ -25,21 +26,21 @@ pub struct ClipboardReaderManager {
 }
 
 struct ReaderEntry {
-    platform_reader: Rc<PlatformClipboardReader>,
+    platform_reader: Rc<PlatformDataReader>,
     _finalizable_handle: Arc<FinalizableHandle>,
 }
 
-pub trait GetClipboardReaderManager {
-    fn clipboard_reader_manager(&self) -> Rc<ClipboardReaderManager>;
+pub trait GetDataReaderManager {
+    fn data_reader_manager(&self) -> Rc<DataReaderManager>;
 }
 
-impl GetClipboardReaderManager for Context {
-    fn clipboard_reader_manager(&self) -> Rc<ClipboardReaderManager> {
-        self.get_attachment(ClipboardReaderManager::new).handler()
+impl GetDataReaderManager for Context {
+    fn data_reader_manager(&self) -> Rc<DataReaderManager> {
+        self.get_attachment(DataReaderManager::new).handler()
     }
 }
 
-impl ClipboardReaderManager {
+impl DataReaderManager {
     pub fn new() -> RegisteredAsyncMethodHandler<Self> {
         Self {
             weak_self: Late::new(),
@@ -47,12 +48,14 @@ impl ClipboardReaderManager {
             next_id: Cell::new(1),
             readers: RefCell::new(HashMap::new()),
         }
-        .register("ClipboardReaderManager")
+        .register("DataReaderManager")
     }
 
-    fn new_default_clipboard_reader(&self) -> NativeExtensionsResult<NewClipboardReaderResult> {
+    pub fn register_platform_reader(
+        &self,
+        platform_reader: Rc<PlatformDataReader>,
+    ) -> NativeExtensionsResult<NewDataReaderResult> {
         let id = self.next_id.next_id();
-        let platform_reader = Rc::new(PlatformClipboardReader::new_default()?);
 
         platform_reader.assign_weak_self(Rc::downgrade(&platform_reader));
 
@@ -71,7 +74,7 @@ impl ClipboardReaderManager {
             },
         );
 
-        Ok(NewClipboardReaderResult {
+        Ok(NewDataReaderResult {
             handle: id,
             finalizable_handle: finalizable_handle.into(),
         })
@@ -128,7 +131,7 @@ impl ClipboardReaderManager {
 
 #[derive(IntoValue, TryFromValue, Debug)]
 #[nativeshell(rename_all = "camelCase")]
-struct NewClipboardReaderResult {
+pub struct NewDataReaderResult {
     handle: i64,
     finalizable_handle: Value,
 }
@@ -149,7 +152,7 @@ struct ItemDataRequest {
 }
 
 #[async_trait(?Send)]
-impl AsyncMethodHandler for ClipboardReaderManager {
+impl AsyncMethodHandler for DataReaderManager {
     fn assign_weak_self(&self, weak_self: Weak<Self>) {
         self.weak_self.set(weak_self);
     }
@@ -160,7 +163,6 @@ impl AsyncMethodHandler for ClipboardReaderManager {
 
     async fn on_method_call(&self, call: MethodCall) -> PlatformResult {
         match call.method.as_str() {
-            "newDefaultReader" => self.new_default_clipboard_reader().into_platform_result(),
             "disposeReader" => self
                 .dispose_reader(call.args.try_into()?)
                 .into_platform_result(),

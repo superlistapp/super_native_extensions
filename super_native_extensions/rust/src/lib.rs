@@ -3,16 +3,18 @@
 
 use std::ffi::c_void;
 
-use ::log::{debug, warn};
+use clipboard_reader::GetClipboardReader;
+use ::log::debug;
 use clipboard_writer::GetClipboardWriter;
 use data_source_manager::GetDataSourceManager;
 use drag_manager::GetDragManager;
 use drop_manager::GetDropManager;
 
 use nativeshell_core::{nativeshell_init_message_channel_context, Context, FunctionResult};
-use reader_manager::GetClipboardReaderManager;
+use reader_manager::GetDataReaderManager;
 
 mod api_model;
+mod clipboard_reader;
 mod clipboard_writer;
 mod data_source_manager;
 mod drag_manager;
@@ -67,8 +69,9 @@ impl DataTransferPlugin {
         let context = Context::new();
         // eagerly initialize
         context.data_source_manager();
+        context.data_reader_manager();
         context.clipboard_writer();
-        context.clipboard_reader_manager();
+        context.clipboard_reader();
         context.drag_manager();
         context.drop_manager();
         DataTransferPlugin { _context: context }

@@ -1,5 +1,4 @@
 use jni::{objects::JObject, JNIEnv};
-use log::info;
 
 use crate::{
     android::DRAG_DROP_UTIL,

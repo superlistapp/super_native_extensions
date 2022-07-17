@@ -29,14 +29,14 @@ class ClipboardReaderItem {
     return null;
   }
 
-  final RawClipboardReaderItem rawItem;
+  final DataReaderItem rawItem;
 }
 
 class ClipboardReader {
   ClipboardReader._(this.rawReader);
 
   static Future<ClipboardReader> newDefaultReader() async =>
-      ClipboardReader._(await RawClipboardReader.newDefaultReader());
+      ClipboardReader._(await RawClipboardReader.instance.newClipboardReader());
 
   Future<List<ClipboardReaderItem>> getItems() async =>
       (await rawReader.getItems())
@@ -62,5 +62,5 @@ class ClipboardReader {
     return null;
   }
 
-  final RawClipboardReader rawReader;
+  final DataReader rawReader;
 }

@@ -1,9 +1,43 @@
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:nativeshell_core/nativeshell_core.dart';
+import 'package:super_native_extensions/raw_clipboard.dart';
+import 'package:super_native_extensions/raw_drag_drop.dart';
 
 import 'context.dart';
 import 'mutex.dart';
+
+class DropEvent {
+  DropEvent({
+    required this.sessionId,
+    required this.locationInView,
+    required this.localData,
+    required this.allowedOperations,
+    required this.formats,
+    required this.reader,
+  });
+
+  final int sessionId;
+  final Offset locationInView;
+  final Uint8List localData;
+  final List<DropOperation> allowedOperations;
+  final List<String> formats;
+  final DataReader? reader;
+}
+
+class DropLeaveEvent {
+  DropLeaveEvent({
+    required this.sessionId,
+  });
+
+  final int sessionId;
+}
+
+abstract class RawDropContextDelegate {
+  Future<DropOperation> onDropOver(DropEvent event);
+  Future<void> onPerformDrop(DropEvent event);
+  Future<void> onDropLeave(DropLeaveEvent event);
+}
 
 final _channel =
     NativeMethodChannel('DropManager', context: superNativeExtensionsContext);

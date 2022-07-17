@@ -1,7 +1,7 @@
 use std::{
     cell::{Cell, RefCell},
     collections::HashMap,
-    rc::Weak,
+    rc::{Rc, Weak},
 };
 
 use jni::{
@@ -17,11 +17,11 @@ use crate::{
     error::{NativeExtensionsError, NativeExtensionsResult},
 };
 
-pub struct PlatformClipboardReader {
+pub struct PlatformDataReader {
     clip_data: Option<GlobalRef>,
 }
 
-impl PlatformClipboardReader {
+impl PlatformDataReader {
     fn get_env_and_context() -> NativeExtensionsResult<(AttachGuard<'static>, JObject<'static>)> {
         let env = JAVA_VM
             .get()
@@ -109,7 +109,11 @@ impl PlatformClipboardReader {
         }
     }
 
-    pub async fn get_data_for_item(&self, item: i64, data_type: String) -> NativeExtensionsResult<Value> {
+    pub async fn get_data_for_item(
+        &self,
+        item: i64,
+        data_type: String,
+    ) -> NativeExtensionsResult<Value> {
         match &self.clip_data {
             Some(clip_data) => {
                 let (future, completer) = FutureCompleter::new();
@@ -141,7 +145,7 @@ impl PlatformClipboardReader {
         }
     }
 
-    pub fn new_default() -> NativeExtensionsResult<Self> {
+    pub fn new_clipboard_reader() -> NativeExtensionsResult<Rc<Self>> {
         let (env, context) = Self::get_env_and_context()?;
         let clipboard_service = env
             .get_static_field(
@@ -171,8 +175,10 @@ impl PlatformClipboardReader {
         } else {
             Some(env.new_global_ref(clip_data)?)
         };
-        Ok(Self { clip_data })
+        let res = Rc::new(Self { clip_data });
+        res.assign_weak_self(Rc::downgrade(&res));
+        Ok(res)
     }
 
-    pub fn assign_weak_self(&self, _weak: Weak<PlatformClipboardReader>) {}
+    pub fn assign_weak_self(&self, _weak: Weak<PlatformDataReader>) {}
 }

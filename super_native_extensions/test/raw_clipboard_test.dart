@@ -1,4 +1,5 @@
 import 'package:nativeshell_core/nativeshell_core.dart';
+import 'package:super_native_extensions/src/clipboard_reader.dart';
 import 'package:super_native_extensions/src/context.dart';
 import 'package:super_native_extensions/raw_clipboard.dart';
 import 'package:test/test.dart';
@@ -56,7 +57,7 @@ void main() {
       }
       assert(false, 'Unexpected call $call');
     });
-    final reader = await RawClipboardReader.newDefaultReader();
+    final reader = await RawClipboardReader.instance.newClipboardReader();
     expect(newDefaultReaderCalled, isTrue);
     final items = await reader.getItems();
     expect(getItemsCalled, isTrue);
