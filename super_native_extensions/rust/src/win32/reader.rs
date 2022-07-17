@@ -1,4 +1,7 @@
-use std::{ffi::CStr, rc::Weak};
+use std::{
+    ffi::CStr,
+    rc::{Rc, Weak},
+};
 
 use byte_slice_cast::AsSliceOf;
 use nativeshell_core::Value;
@@ -15,11 +18,11 @@ use crate::error::NativeExtensionsResult;
 
 use super::common::{extract_formats, format_from_string, format_to_string, get_data, has_data};
 
-pub struct PlatformClipboardReader {
+pub struct PlatformDataReader {
     data_object: IDataObject,
 }
 
-impl PlatformClipboardReader {
+impl PlatformDataReader {
     pub async fn get_items(&self) -> NativeExtensionsResult<Vec<i64>> {
         Ok((0..self.item_count()? as i64).collect())
     }
@@ -85,12 +88,18 @@ impl PlatformClipboardReader {
         }
     }
 
-    pub fn new_default() -> NativeExtensionsResult<Self> {
-        let data_object = unsafe { OleGetClipboard() }?;
-        Ok(PlatformClipboardReader { data_object })
+    fn new_with_data_object(data_object: IDataObject) -> NativeExtensionsResult<Rc<Self>> {
+        let res = Rc::new(PlatformDataReader { data_object });
+        res.assign_weak_self(Rc::downgrade(&res));
+        Ok(res)
     }
 
-    pub fn assign_weak_self(&self, _weak: Weak<PlatformClipboardReader>) {}
+    pub fn new_clipboard_reader() -> NativeExtensionsResult<Rc<Self>> {
+        let data_object = unsafe { OleGetClipboard() }?;
+        Self::new_with_data_object(data_object)
+    }
+
+    pub fn assign_weak_self(&self, _weak: Weak<PlatformDataReader>) {}
 
     fn get_hdrop(&self) -> NativeExtensionsResult<Option<Vec<String>>> {
         if has_data(&self.data_object, CF_HDROP.0 as u32) {
