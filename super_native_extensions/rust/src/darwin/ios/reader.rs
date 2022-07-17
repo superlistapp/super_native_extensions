@@ -1,5 +1,5 @@
 use std::{
-    rc::Weak,
+    rc::{Rc, Weak},
     sync::{Arc, Mutex},
 };
 
@@ -20,14 +20,16 @@ use objc::{
 };
 
 use crate::{
-    error::NativeExtensionsResult, log::OkLog, platform_impl::platform::common::{from_nsstring, to_nsstring},
+    error::NativeExtensionsResult,
+    log::OkLog,
+    platform_impl::platform::common::{from_nsstring, to_nsstring},
 };
 
-pub struct PlatformClipboardReader {
+pub struct PlatformDataReader {
     pasteboard: StrongPtr,
 }
 
-impl PlatformClipboardReader {
+impl PlatformDataReader {
     pub async fn get_items(&self) -> NativeExtensionsResult<Vec<i64>> {
         let count = autoreleasepool(|| unsafe {
             let count: NSInteger = msg_send![*self.pasteboard, numberOfItems];
@@ -93,13 +95,15 @@ impl PlatformClipboardReader {
         future.await
     }
 
-    pub fn new_default() -> NativeExtensionsResult<Self> {
-        Ok(Self {
+    pub fn new_clipboard_reader() -> NativeExtensionsResult<Rc<Self>> {
+        let res = Rc::new(Self {
             pasteboard: unsafe {
                 StrongPtr::retain(msg_send![class!(UIPasteboard), generalPasteboard])
             },
-        })
+        });
+        res.assign_weak_self(Rc::downgrade(&res));
+        Ok(res)
     }
 
-    pub fn assign_weak_self(&self, _weak: Weak<PlatformClipboardReader>) {}
+    pub fn assign_weak_self(&self, _weak: Weak<PlatformDataReader>) {}
 }
