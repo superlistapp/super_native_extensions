@@ -48,11 +48,11 @@ impl PlatformDataReader {
         }
     }
 
-    pub async fn get_types_for_item(&self, item: i64) -> NativeExtensionsResult<Vec<String>> {
+    pub async fn get_formats_for_item(&self, item: i64) -> NativeExtensionsResult<Vec<String>> {
         match &self.clip_data {
             Some(clip_data) => {
                 let (env, context) = Self::get_env_and_context()?;
-                let types = env
+                let formats = env
                     .call_method(
                         CLIP_DATA_UTIL.get().unwrap().as_obj(),
                         "getTypes",
@@ -60,12 +60,12 @@ impl PlatformDataReader {
                         &[clip_data.as_obj().into(), item.into(), context.into()],
                     )?
                     .l()?;
-                if types.is_null() {
+                if formats.is_null() {
                     Ok(Vec::new())
                 } else {
                     let mut res = Vec::new();
-                    for i in 0..env.get_array_length(*types)? {
-                        let obj = env.get_object_array_element(*types, i)?;
+                    for i in 0..env.get_array_length(*formats)? {
+                        let obj = env.get_object_array_element(*formats, i)?;
                         res.push(env.get_string(obj.into())?.into())
                     }
                     Ok(res)
@@ -116,7 +116,7 @@ impl PlatformDataReader {
     pub async fn get_data_for_item(
         &self,
         item: i64,
-        data_type: String,
+        format: String,
     ) -> NativeExtensionsResult<Value> {
         match &self.clip_data {
             Some(clip_data) => {
@@ -137,7 +137,7 @@ impl PlatformDataReader {
                     &[
                         clip_data.as_obj().into(),
                         item.into(),
-                        env.new_string(data_type)?.into(),
+                        env.new_string(format)?.into(),
                         context.into(),
                         handle.into(),
                     ],

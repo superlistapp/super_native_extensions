@@ -10,7 +10,7 @@ use jni::{
     sys::{jobject, jsize},
     JNIEnv,
 };
-use log::info;
+
 use nativeshell_core::{
     util::{Capsule, Late},
     Context, IsolateId, RunLoopSender, Value,

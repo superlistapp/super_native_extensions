@@ -13,7 +13,6 @@ use crate::{
     api_model::{DragRequest, DropOperation, ImageData, Point},
     drag_manager::{DragSessionId, PlatformDragContextDelegate, PlatformDragContextId},
     error::{NativeExtensionsError, NativeExtensionsResult},
-    log::OkLog,
     util::DropNotifier,
 };
 
