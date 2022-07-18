@@ -12,7 +12,8 @@ use cocoa::{
     foundation::NSArray,
 };
 use core_graphics::geometry::CGPoint;
-use nativeshell_core::{util::Late, Context};
+
+use nativeshell_core::{util::Late, Context, Value};
 use objc::{
     class,
     declare::ClassDecl,
@@ -53,7 +54,7 @@ struct Session {
     weak_self: Late<Weak<Self>>,
     in_progress: Cell<bool>,
     data_source_notifier: RefCell<Option<Arc<DropNotifier>>>,
-    drag_data: DragConfiguration,
+    configuration: DragConfiguration,
 }
 
 impl Session {
@@ -61,7 +62,7 @@ impl Session {
         context_delegate: Weak<dyn PlatformDragContextDelegate>,
         context_id: i64,
         session_id: DragSessionId,
-        data_source: DragConfiguration,
+        configuration: DragConfiguration,
     ) -> Self {
         Self {
             context_delegate,
@@ -70,7 +71,7 @@ impl Session {
             in_progress: Cell::new(false),
             data_source_notifier: RefCell::new(None),
             session_id,
-            drag_data: data_source,
+            configuration,
         }
     }
 
@@ -244,10 +245,7 @@ impl PlatformDragContext {
         let location: CGPoint = unsafe { msg_send![session, locationInView:*self.view] };
         let session = self.sessions.borrow().get(&session).cloned();
         if let Some(session) = session {
-            session.did_move(Point {
-                x: location.x,
-                y: location.x,
-            });
+            session.did_move(location.into());
         }
     }
 
@@ -264,7 +262,7 @@ impl PlatformDragContext {
     fn allows_move_operation(&self, _interaction: id, session: id) -> bool {
         if let Some(session) = self.sessions.borrow().get(&session).cloned() {
             session
-                .drag_data
+                .configuration
                 .allowed_operations
                 .contains(&DropOperation::Move)
         } else {
@@ -274,6 +272,15 @@ impl PlatformDragContext {
 
     fn did_transfer_items(&self, _interaction: id, session: id) {
         self.sessions.borrow_mut().remove(&session);
+    }
+
+    pub fn get_local_data(&self, session: id) -> Value {
+        let sessions = self.sessions.borrow();
+        if let Some(session) = sessions.get(&session) {
+            session.configuration.local_data.clone()
+        } else {
+            Value::Null
+        }
     }
 }
 

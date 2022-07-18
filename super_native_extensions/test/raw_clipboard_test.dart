@@ -14,7 +14,7 @@ void main() {
     var newDefaultReaderCalled = false;
     var disposeReaderCalled = false;
     var getItemsCalled = false;
-    var getItemTypesCalled = false;
+    var getItemFormatsCalled = false;
     var getDataCalled = false;
     context.registerMockMethodCallHandler(channel, (call) {
       if (call.method == 'newDefaultReader') {
@@ -34,14 +34,14 @@ void main() {
         getItemsCalled = true;
         return [1, 2, 3];
       }
-      if (call.method == 'getItemTypes') {
+      if (call.method == 'getItemFormats') {
         expect(
             call.arguments,
             equals({
               'itemHandle': 2,
               'readerHandle': 10,
             }));
-        getItemTypesCalled = true;
+        getItemFormatsCalled = true;
         return ['type1', 'type2'];
       }
       if (call.method == 'getItemData') {
@@ -50,7 +50,7 @@ void main() {
             equals({
               'itemHandle': 2,
               'readerHandle': 10,
-              'dataType': 'type1',
+              'format': 'type1',
             }));
         getDataCalled = true;
         return 'data';
@@ -62,10 +62,10 @@ void main() {
     final items = await reader.getItems();
     expect(getItemsCalled, isTrue);
     expect(items.length, equals(3));
-    final types = await items[1].getAvailableTypes();
-    expect(getItemTypesCalled, isTrue);
+    final types = await items[1].getAvailableFormats();
+    expect(getItemFormatsCalled, isTrue);
     expect(types, equals(['type1', 'type2']));
-    final data = await items[1].getDataForType('type1');
+    final data = await items[1].getDataForFormat('type1');
     expect(getDataCalled, isTrue);
     expect(data, equals('data'));
     await reader.dispose();

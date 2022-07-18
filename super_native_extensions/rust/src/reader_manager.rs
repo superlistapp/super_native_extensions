@@ -94,9 +94,9 @@ impl DataReaderManager {
         }
     }
 
-    async fn get_item_types(
+    async fn get_item_formats(
         &self,
-        request: ItemTypesRequest,
+        request: ItemFormatsRequest,
     ) -> NativeExtensionsResult<Vec<String>> {
         let reader = self
             .readers
@@ -104,7 +104,7 @@ impl DataReaderManager {
             .get(&request.reader_handle)
             .map(|r| r.platform_reader.clone());
         match reader {
-            Some(reader) => reader.get_types_for_item(request.item_handle).await,
+            Some(reader) => reader.get_formats_for_item(request.item_handle).await,
             None => Err(NativeExtensionsError::ReaderNotFound),
         }
     }
@@ -118,7 +118,7 @@ impl DataReaderManager {
         match reader {
             Some(reader) => {
                 reader
-                    .get_data_for_item(request.item_handle, request.data_type)
+                    .get_data_for_item(request.item_handle, request.format)
                     .await
             }
             None => Err(NativeExtensionsError::ReaderNotFound),
@@ -135,7 +135,7 @@ pub struct RegisteredDataReader {
 
 #[derive(TryFromValue)]
 #[nativeshell(rename_all = "camelCase")]
-struct ItemTypesRequest {
+struct ItemFormatsRequest {
     item_handle: i64,
     reader_handle: i64,
 }
@@ -145,7 +145,7 @@ struct ItemTypesRequest {
 struct ItemDataRequest {
     item_handle: i64,
     reader_handle: i64,
-    data_type: String,
+    format: String,
 }
 
 #[async_trait(?Send)]
@@ -167,8 +167,8 @@ impl AsyncMethodHandler for DataReaderManager {
                 .get_items(call.args.try_into()?)
                 .await
                 .into_platform_result(),
-            "getItemTypes" => self
-                .get_item_types(call.args.try_into()?)
+            "getItemFormats" => self
+                .get_item_formats(call.args.try_into()?)
                 .await
                 .into_platform_result(),
             "getItemData" => self

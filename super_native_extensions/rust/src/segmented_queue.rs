@@ -298,7 +298,7 @@ impl QueueState {
         self.condition.notify_all();
     }
 
-    /// Marks wirting as completed. If there is reader waiting for
+    /// Marks writing as completed. If there is reader waiting for
     /// get_segment_at_index unblocks it.
     fn complete(&self) {
         let mut inner = self.inner.lock().unwrap();
@@ -349,7 +349,7 @@ impl SegmentedQueueReader {
     }
 
     /// Reads len amount of bytes from queue. Blocks until data is available.
-    /// If returned amount of bytes is less than len, the queue is completed.x
+    /// If returned amount of bytes is less than len, the queue is completed.
     pub fn read(&self, len: usize) -> Vec<u8> {
         let mut res = Vec::new();
         while res.len() < len {

@@ -51,22 +51,22 @@ class RawReaderManager {
         .toList(growable: false);
   }
 
-  Future<List<String>> getItemTypes(DataReaderItemHandle handle) async {
-    final types = await _channel.invokeMethod("getItemTypes", {
+  Future<List<String>> getItemFormats(DataReaderItemHandle handle) async {
+    final formats = await _channel.invokeMethod("getItemFormats", {
       "itemHandle": handle._itemHandle,
       "readerHandle": handle._readerHandle,
     }) as List;
-    return types.cast<String>();
+    return formats.cast<String>();
   }
 
   Future<Object?> getItemData(
     DataReaderItemHandle handle, {
-    required String type,
+    required String format,
   }) async {
     return await _channel.invokeMethod("getItemData", {
       "itemHandle": handle._itemHandle,
       "readerHandle": handle._readerHandle,
-      "dataType": type
+      "format": format
     });
   }
 

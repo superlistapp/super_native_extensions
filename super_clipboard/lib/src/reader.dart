@@ -6,7 +6,7 @@ class ClipboardReaderItem {
 
   Future<bool> hasValue(ClipboardType key) async {
     final platformKey = key.platformType();
-    final allTypes = await rawItem.getAvailableTypes();
+    final allTypes = await rawItem.getAvailableFormats();
     return platformKey
         .readableSystemTypes()
         .any((element) => allTypes.contains(element));
@@ -18,7 +18,7 @@ class ClipboardReaderItem {
     }
     final platformKey = key.platformType();
     for (final type in platformKey.readableSystemTypes()) {
-      final value = await rawItem.getDataForType(type);
+      final value = await rawItem.getDataForFormat(type);
       if (value != null) {
         final converted = await platformKey.convertFromSystem(value, type);
         if (converted != null) {

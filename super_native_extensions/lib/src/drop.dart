@@ -35,7 +35,7 @@ class DropEvent extends BaseDropEvent {
   DropEvent({
     required super.sessionId,
     required this.locationInView,
-    required this.localData,
+    this.localData,
     required this.allowedOperations,
     required this.formats,
     required this.acceptedOperation,
@@ -86,7 +86,7 @@ class DropEvent extends BaseDropEvent {
   String toString() => serialize().toString();
 
   final Offset locationInView;
-  final Object localData;
+  final Object? localData;
   final List<DropOperation> allowedOperations;
   final List<String> formats;
   final DropOperation? acceptedOperation;
@@ -94,7 +94,7 @@ class DropEvent extends BaseDropEvent {
 }
 
 abstract class RawDropContextDelegate {
-  Future<DropOperation> onDropOver(DropEvent event);
+  Future<DropOperation> onDropUpdate(DropEvent event);
   Future<void> onPerformDrop(DropEvent event);
   Future<void> onDropLeave(BaseDropEvent event);
   Future<void> onDropEnded(BaseDropEvent event);
@@ -147,10 +147,10 @@ class RawDropContext {
   }
 
   Future<dynamic> _handleMethodCall(MethodCall call) async {
-    if (call.method == 'onDropOver') {
+    if (call.method == 'onDropUpdate') {
       final event = DropEvent.deserialize(call.arguments, _getReaderForSession);
       _sessionForId(event.sessionId).reader = event.reader;
-      final operation = await _delegate?.onDropOver(event);
+      final operation = await _delegate?.onDropUpdate(event);
       return (operation ?? DropOperation.none).name;
     } else if (call.method == 'onPerformDrop') {
       final event = DropEvent.deserialize(call.arguments, _getReaderForSession);

@@ -202,7 +202,7 @@ impl PlatformDropContext {
                         None, // reader
                     )?;
                     let session_clone = current_session.clone();
-                    delegate.send_drop_over(
+                    delegate.send_drop_update(
                         self.id,
                         event,
                         Box::new(move |res| {

@@ -22,20 +22,20 @@ class DataReader {
 }
 
 class DataReaderItem {
-  Future<List<String>> getAvailableTypes() {
+  Future<List<String>> getAvailableFormats() {
     return _mutex.protect(() async {
-      _availableTypes ??= await RawReaderManager.instance.getItemTypes(_handle);
-      return _availableTypes!;
+      _availableFormats ??= await RawReaderManager.instance.getItemFormats(_handle);
+      return _availableFormats!;
     });
   }
 
-  Future<Object?> getDataForType(String type) {
+  Future<Object?> getDataForFormat(String format) {
     return _mutex.protect(() async {
-      if (!_dataForType.containsKey(type)) {
-        _dataForType[type] =
-            await RawReaderManager.instance.getItemData(_handle, type: type);
+      if (!_dataForFormat.containsKey(format)) {
+        _dataForFormat[format] =
+            await RawReaderManager.instance.getItemData(_handle, format: format);
       }
-      return _dataForType[type];
+      return _dataForFormat[format];
     });
   }
 
@@ -47,6 +47,6 @@ class DataReaderItem {
 
   final DataReaderItemHandle _handle;
 
-  List<String>? _availableTypes;
-  final _dataForType = <String, Object?>{};
+  List<String>? _availableFormats;
+  final _dataForFormat = <String, Object?>{};
 }

@@ -73,7 +73,7 @@ pub trait PlatformDropContextDelegate {
         id: PlatformDragContextId,
     ) -> NativeExtensionsResult<Rc<PlatformDragContext>>;
 
-    fn send_drop_over(
+    fn send_drop_update(
         &self,
         id: PlatformDragContextId,
         event: DropEvent,
@@ -173,14 +173,14 @@ impl PlatformDropContextDelegate for DropManager {
         Context::get().drag_manager().get_platform_drag_context(id)
     }
 
-    fn send_drop_over(
+    fn send_drop_update(
         &self,
         id: PlatformDragContextId,
         event: DropEvent,
         res: Box<dyn FnOnce(Result<DropOperation, MethodCallError>)>,
     ) {
         self.invoker
-            .call_method_sync_cv(id, "onDropOver", event, |r| res(r));
+            .call_method_sync_cv(id, "onDropUpdate", event, |r| res(r));
     }
 
     fn send_perform_drop(
