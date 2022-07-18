@@ -56,7 +56,7 @@ public class SuperNativeExtensionsPlugin implements FlutterPlugin, MethodCallHan
             if (flutterViewId == null) {
                 Activity activity = activityPluginBinding.getActivity();
                 FlutterView view = activity.findViewById(FlutterActivity.FLUTTER_VIEW_ID);
-                flutterViewId = dragDropUtil.registerFlutterView(view);
+                flutterViewId = dragDropUtil.registerFlutterView(view, activity);
             }
             result.success(flutterViewId);
         } else {

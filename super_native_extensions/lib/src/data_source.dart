@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:meta/meta.dart';
+import 'package:super_native_extensions/raw_drag_drop.dart';
+import 'package:super_native_extensions/src/clipboard_writer.dart';
 
 import 'data_source_manager.dart';
 import 'util.dart';
@@ -168,6 +170,9 @@ class DataSourceHandle {
 
   bool _disposed = false;
 
+  /// Disposes the data source. This should not be called directly.
+  /// DataSource is disposed automatically when no longer needed for clipboard
+  /// or drag&drop by [RawClipboardWriter] and [RawDragContext].
   Future<void> dispose() async {
     assert(!_disposed);
     _disposed = true;

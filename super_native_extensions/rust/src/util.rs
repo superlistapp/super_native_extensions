@@ -22,6 +22,13 @@ impl DropNotifier {
         })
     }
 
+    pub fn new_combined(notifiers: &[Arc<DropNotifier>]) -> Arc<Self> {
+        let notifiers: Vec<Arc<DropNotifier>> = notifiers.into();
+        DropNotifier::new(move || {
+            let _notifiers = notifiers;
+        })
+    }
+
     pub fn dispose(&self) {
         let callback = self.callback.lock().unwrap().take();
 

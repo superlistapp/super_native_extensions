@@ -1,6 +1,9 @@
 package com.superlist.super_native_extensions;
 
+import android.app.Activity;
 import android.content.ClipData;
+import android.content.Context;
+import android.content.ContextWrapper;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
@@ -14,8 +17,8 @@ import java.util.Map;
 
 import io.flutter.embedding.android.FlutterView;
 
-// Wrap drag sessionId in typed object so that we can safely ignore drag possible local data
-// from session not created by super_native_extensions.
+// Wrap drag sessionId in typed object so that we can safely ignore possible local data
+// from sessions not created by super_native_extensions.
 class SessionId {
     SessionId(long sessionId) {
         this.sessionId = sessionId;
@@ -31,15 +34,18 @@ public class DragDropUtil {
 
     private long _nextId = 1;
     private final Map<Long, FlutterView> flutterViewMap = new HashMap<>();
+    private final Map<Long, Activity> activityMap = new HashMap<>();
 
-    long registerFlutterView(FlutterView view) {
+    long registerFlutterView(FlutterView view, Activity activity) {
         long id = _nextId++;
         flutterViewMap.put(id, view);
+        activityMap.put(id, activity);
         return id;
     }
 
     void unregisterFlutterView(long id) {
         flutterViewMap.remove(id);
+        activityMap.remove(id);
     }
 
     static class DragShadowBuilder extends View.DragShadowBuilder {
@@ -75,6 +81,10 @@ public class DragDropUtil {
         }
     }
 
+    Activity getActivity(long viewId) {
+        return activityMap.get(viewId);
+    }
+
     Long getSessionId(DragEvent event) {
         Object localState = event.getLocalState();
         if (localState instanceof SessionId) {
@@ -86,6 +96,7 @@ public class DragDropUtil {
 
     void registerDropHandler(long viewId, long handlerId) {
         FlutterView view = flutterViewMap.get(viewId);
+
         if (view != null) {
             view.setOnDragListener((v, event) -> {
                 Log.i("flutter", "DragEvent " + event);

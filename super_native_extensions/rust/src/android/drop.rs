@@ -2,10 +2,11 @@ use std::{
     cell::{Cell, RefCell},
     collections::HashMap,
     rc::{Rc, Weak},
+    sync::Arc,
 };
 
 use jni::{
-    objects::{JClass, JObject, JValue},
+    objects::{GlobalRef, JClass, JObject, JValue},
     sys::{jlong, jvalue},
     JNIEnv,
 };
@@ -19,7 +20,7 @@ use crate::{
     error::{NativeExtensionsError, NativeExtensionsResult},
     log::OkLog,
     reader_manager::RegisteredDataReader,
-    util::NextId,
+    util::{DropNotifier, NextId},
 };
 
 use super::{
@@ -119,6 +120,45 @@ impl PlatformDropContext {
         })
     }
 
+    fn release_permissions(permissions: GlobalRef) -> NativeExtensionsResult<()> {
+        let env = JAVA_VM
+            .get()
+            .ok_or_else(|| NativeExtensionsError::OtherError("JAVA_VM not set".into()))?
+            .attach_current_thread()?;
+        let permissions = permissions.as_obj();
+        env.call_method(permissions, "release", "()V", &[])?;
+        Ok(())
+    }
+
+    /// Request drag and drop permissions for the event. The permissions will
+    /// be released when the drop notifier is droppped
+    fn request_drag_drop_permissions<'a>(
+        &self,
+        env: &JNIEnv<'a>,
+        event: JObject<'a>,
+    ) -> NativeExtensionsResult<Arc<DropNotifier>> {
+        let activity = env
+            .call_method(
+                DRAG_DROP_UTIL.get().unwrap().as_obj(),
+                "getActivity",
+                "(J)Landroid/app/Activity;",
+                &[self.view_handle.into()],
+            )?
+            .l()?;
+        let permission = env
+            .call_method(
+                activity,
+                "requestDragAndDropPermissions",
+                "(Landroid/view/DragEvent;)Landroid/view/DragAndDropPermissions;",
+                &[event.into()],
+            )?
+            .l()?;
+        let permissions = env.new_global_ref(permission)?;
+        Ok(DropNotifier::new(move || {
+            Self::release_permissions(permissions).ok_log();
+        }))
+    }
+
     fn on_drag_event<'a>(
         &self,
         env: &JNIEnv<'a>,
@@ -192,12 +232,20 @@ impl PlatformDropContext {
                         let clip_data = event.get_clip_data(env)?;
                         // If this is local data make sure to extend the lifetime
                         // with the reader.
-                        let source_data_notifier =
-                            drag_context.get_data_source_drop_notifier(env, event)?;
+                        let source_data_notifier = drag_context
+                            .get_data_source_drop_notifier(env, event)?
+                            .unwrap_or_else(|| DropNotifier::new(|| {}));
+
+                        let permission_notifier =
+                            self.request_drag_drop_permissions(env, event.0)?;
+
                         let reader = PlatformDataReader::from_clip_data(
                             env,
                             clip_data,
-                            source_data_notifier,
+                            Some(DropNotifier::new_combined(&[
+                                source_data_notifier,
+                                permission_notifier,
+                            ])),
                         )?;
                         let reader = delegate.register_platform_reader(reader)?;
                         let event = Self::translate_drop_event(
