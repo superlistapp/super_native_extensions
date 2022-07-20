@@ -152,7 +152,7 @@ impl DragManager {
                 .data_provider_manager()
                 .get_platform_data_provider(provider_id)?;
             let weak_self = self.weak_self.clone();
-            let handle: DataProviderHandle = DropNotifier::new_(move || {
+            let handle: DataProviderHandle = DropNotifier::new(move || {
                 if let Some(this) = weak_self.upgrade() {
                     this.release_data_provider(isolate, provider_id);
                 }

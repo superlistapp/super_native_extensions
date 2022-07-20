@@ -170,7 +170,7 @@ impl VirtualFileStream {
 
         let res = promise.wait();
         let stream: IStream = unsafe { CoGetInterfaceAndReleaseStream(res.0 .0) }.unwrap();
-        let drop_notifier = DropNotifier::new_with_boxed(res.1);
+        let drop_notifier = Arc::new(DropNotifier::new_with_boxed(res.1));
         (stream, drop_notifier)
     }
 }

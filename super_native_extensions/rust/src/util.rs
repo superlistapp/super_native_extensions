@@ -1,7 +1,4 @@
-use std::{
-    cell::Cell,
-    sync::{Arc, Mutex},
-};
+use std::{cell::Cell, sync::Mutex};
 
 use nativeshell_core::{util::Capsule, Context, RunLoopSender};
 
@@ -11,18 +8,7 @@ pub struct DropNotifier {
 }
 
 impl DropNotifier {
-    pub fn new<F: FnOnce() + 'static>(callback: F) -> Arc<Self> {
-        Self::new_with_boxed(Box::new(callback))
-    }
-
-    pub fn new_with_boxed(callback: Box<dyn FnOnce()>) -> Arc<Self> {
-        Arc::new(Self {
-            callback: Mutex::new(Some(Capsule::new(callback))),
-            sender: Context::get().run_loop().new_sender(),
-        })
-    }
-
-    pub fn new_<F: FnOnce() + 'static>(callback: F) -> Self {
+    pub fn new<F: FnOnce() + 'static>(callback: F) -> Self {
         Self::new_with_boxed_(Box::new(callback))
     }
 
@@ -31,13 +17,6 @@ impl DropNotifier {
             callback: Mutex::new(Some(Capsule::new(callback))),
             sender: Context::get().run_loop().new_sender(),
         }
-    }
-
-    pub fn new_combined(notifiers: &[Arc<DropNotifier>]) -> Arc<Self> {
-        let notifiers: Vec<Arc<DropNotifier>> = notifiers.into();
-        DropNotifier::new(move || {
-            let _notifiers = notifiers;
-        })
     }
 
     pub fn dispose(&self) {

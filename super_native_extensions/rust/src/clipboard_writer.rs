@@ -46,7 +46,7 @@ impl ClipboardWriter {
         for provider_id in provider_ids {
             let provider = data_provider_manager.get_platform_data_provider(provider_id)?;
             let weak_self = self.weak_self.clone();
-            let notifier = DropNotifier::new_(move || {
+            let notifier = DropNotifier::new(move || {
                 if let Some(this) = weak_self.upgrade() {
                     this.release_data_provider(isolate_id, provider_id);
                 }

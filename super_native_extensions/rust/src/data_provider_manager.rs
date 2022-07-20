@@ -318,7 +318,7 @@ impl PlatformDataProviderDelegate for DataProviderManager {
                 r.ok_log();
             },
         );
-        Arc::new(VirtualSessionHandle(DropNotifier::new_(move || {
+        Arc::new(VirtualSessionHandle(DropNotifier::new(move || {
             if let Some(this) = weak_self.upgrade() {
                 this.invoker
                     .call_method_sync(isolate_id, "cancelVirtualFile", session_id, |r| {

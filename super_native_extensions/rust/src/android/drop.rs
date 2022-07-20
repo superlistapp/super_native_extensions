@@ -154,9 +154,9 @@ impl PlatformDropContext {
             )?
             .l()?;
         let permissions = env.new_global_ref(permission)?;
-        Ok(DropNotifier::new(move || {
+        Ok(Arc::new(DropNotifier::new(move || {
             Self::release_permissions(permissions).ok_log();
-        }))
+        })))
     }
 
     fn on_drag_event<'a>(
@@ -241,10 +241,10 @@ impl PlatformDropContext {
                         let reader = PlatformDataReader::from_clip_data(
                             env,
                             clip_data,
-                            Some(DropNotifier::new(move || {
+                            Some(Arc::new(DropNotifier::new(move || {
                                 let _data_provider_handles = data_provider_handles;
                                 let _permission_notifier = permission_notifier;
-                            })),
+                            }))),
                         )?;
                         let reader = delegate.register_platform_reader(reader)?;
                         let event = Self::translate_drop_event(
