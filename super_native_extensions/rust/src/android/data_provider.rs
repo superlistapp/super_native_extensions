@@ -1,7 +1,7 @@
 use std::{
     cell::{Cell, RefCell},
     collections::HashMap,
-    rc::Weak,
+    rc::{Rc, Weak},
     sync::{Arc, Mutex},
 };
 
@@ -20,33 +20,35 @@ use url::Url;
 
 use crate::{
     android::{CONTEXT, JAVA_VM},
-    api_model::{DataSource, DataSourceItem, DataSourceItemRepresentation},
-    data_source_manager::PlatformDataSourceDelegate,
+    api_model::{DataProvider, DataRepresentation},
+    data_provider_manager::{DataProviderHandle, PlatformDataProviderDelegate},
     error::{NativeExtensionsError, NativeExtensionsResult},
-    util::{DropNotifier, NextId},
+    util::NextId,
     value_coerce::{CoerceToData, StringFormat},
     value_promise::{ValuePromise, ValuePromiseResult},
 };
 
+use super::util::{jstring_from_utf8, uri_from_string, uri_from_utf8};
+
 type JniResult<T> = jni::errors::Result<T>;
 
-struct DataSourceRecord {
-    data: DataSource,
-    delegate: Capsule<Weak<dyn PlatformDataSourceDelegate>>,
+struct DataProviderRecord {
+    data: DataProvider,
+    delegate: Capsule<Weak<dyn PlatformDataProviderDelegate>>,
     isolate_id: IsolateId,
     sender: RunLoopSender,
 }
 
-static DATA_SOURCES: Lazy<Mutex<HashMap<i64, DataSourceRecord>>> =
+static DATA_PROVIDERS: Lazy<Mutex<HashMap<i64, DataProviderRecord>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
 
 thread_local! {
     static NEXT_ID: Cell<i64> = Cell::new(1);
 }
 
-pub struct PlatformDataSource {
+pub struct PlatformDataProvider {
     weak_self: Late<Weak<Self>>,
-    data_source_id: i64,
+    data_provider_id: i64,
 }
 
 // Compare mime type against another type or pattern; Use existing implementation for compatibility
@@ -76,28 +78,22 @@ const MIME_TYPE_TEXT_PLAIN: &str = "text/plain";
 const MIME_TYPE_TEXT_HTML: &str = "text/html";
 const MIME_TYPE_URI_LIST: &str = "text/uri-list";
 
-impl From<jni::errors::Error> for NativeExtensionsError {
-    fn from(error: jni::errors::Error) -> Self {
-        NativeExtensionsError::OtherError(format!("JNI: {}", error))
-    }
-}
-
 fn contains(l: &[String], s: &str) -> bool {
     l.iter().any(|v| v == s)
 }
 
-impl PlatformDataSource {
+impl PlatformDataProvider {
     pub fn new(
-        delegate: Weak<dyn PlatformDataSourceDelegate>,
+        delegate: Weak<dyn PlatformDataProviderDelegate>,
         isolate_id: IsolateId,
-        data: DataSource,
+        data: DataProvider,
     ) -> Self {
         let id = NEXT_ID.with(|f| f.next_id());
-        let mut data_sources = DATA_SOURCES.lock().unwrap();
+        let mut data_providers = DATA_PROVIDERS.lock().unwrap();
         let sender = Context::get().run_loop().new_sender();
-        data_sources.insert(
+        data_providers.insert(
             id,
-            DataSourceRecord {
+            DataProviderRecord {
                 data,
                 delegate: Capsule::new_with_sender(delegate, sender.clone()),
                 isolate_id,
@@ -105,7 +101,7 @@ impl PlatformDataSource {
             },
         );
         Self {
-            data_source_id: id,
+            data_provider_id: id,
             weak_self: Late::new(),
         }
     }
@@ -114,30 +110,9 @@ impl PlatformDataSource {
         self.weak_self.set(weak_self);
     }
 
-    fn jstring_from_utf8<'a>(env: &JNIEnv<'a>, data: &[u8]) -> JniResult<JString<'a>> {
-        let string = String::from_utf8_lossy(data);
-        env.new_string(string)
-    }
-
-    fn uri_from_utf8<'a>(env: &JNIEnv<'a>, data: &[u8]) -> JniResult<JObject<'a>> {
-        Self::uri_from_string(env, &String::from_utf8_lossy(data))
-    }
-
-    fn uri_from_string<'a>(env: &JNIEnv<'a>, string: &str) -> JniResult<JObject<'a>> {
-        let string = env.new_string(string)?;
-        env.call_static_method(
-            "android/net/Uri",
-            "parse",
-            "(Ljava/lang/String;)Landroid/net/Uri;",
-            &[string.into()],
-        )?
-        .l()
-    }
-
     fn content_provider_uri<'a>(
         env: &JNIEnv<'a>,
         data_source_id: i64,
-        index: usize,
     ) -> NativeExtensionsResult<JObject<'a>> {
         let context = CONTEXT
             .get()
@@ -148,67 +123,62 @@ impl PlatformDataSource {
             .l()?;
         let package_name: String = env.get_string(package_name.into())?.into();
         let uri = format!(
-            "content://{}.ClipboardDataProvider/{}/{}",
-            package_name, data_source_id, index
+            "content://{}.ClipboardDataProvider/{}",
+            package_name, data_source_id,
         );
-        Ok(Self::uri_from_string(env, &uri)?)
+        Ok(uri_from_string(env, &uri)?)
     }
 
-    fn create_clip_item_for_data_source_item<'a>(
+    fn create_clip_item_for_data_provider<'a>(
         env: &JNIEnv<'a>,
-        data_source_id: i64,
-        item: &DataSourceItem,
-        index: usize,
+        data_provider_id: i64,
+        data_provider: &DataProvider,
         clipboard_mime_types: &mut Vec<String>,
     ) -> NativeExtensionsResult<Option<JObject<'a>>> {
         let mut text = None::<JObject>;
         let mut text_html = None::<JObject>;
         let mut uri = None::<JObject>;
 
-        for repr in &item.representations {
+        for repr in &data_provider.representations {
             match repr {
-                DataSourceItemRepresentation::Simple { formats, data } => {
+                DataRepresentation::Simple { format, data } => {
                     let data = data.coerce_to_data(StringFormat::Utf8).unwrap_or_default();
-                    for format in formats {
-                        match format.as_str() {
-                            MIME_TYPE_TEXT_PLAIN => {
-                                text = Some(Self::jstring_from_utf8(env, &data)?.into());
-                                if !contains(clipboard_mime_types, MIME_TYPE_TEXT_PLAIN) {
-                                    clipboard_mime_types.push(MIME_TYPE_TEXT_PLAIN.into());
-                                }
+                    match format.as_str() {
+                        MIME_TYPE_TEXT_PLAIN => {
+                            text = Some(jstring_from_utf8(env, &data)?.into());
+                            if !contains(clipboard_mime_types, MIME_TYPE_TEXT_PLAIN) {
+                                clipboard_mime_types.push(MIME_TYPE_TEXT_PLAIN.into());
                             }
-                            MIME_TYPE_TEXT_HTML => {
-                                text_html = Some(Self::jstring_from_utf8(env, &data)?.into());
-                                if !contains(clipboard_mime_types, MIME_TYPE_TEXT_HTML) {
-                                    clipboard_mime_types.push(MIME_TYPE_TEXT_HTML.into());
-                                }
+                        }
+                        MIME_TYPE_TEXT_HTML => {
+                            text_html = Some(jstring_from_utf8(env, &data)?.into());
+                            if !contains(clipboard_mime_types, MIME_TYPE_TEXT_HTML) {
+                                clipboard_mime_types.push(MIME_TYPE_TEXT_HTML.into());
                             }
-                            MIME_TYPE_URI_LIST => {
-                                if uri.is_none() {
-                                    // do not replace URI, might be a content URI
-                                    uri = Some(Self::uri_from_utf8(env, &data)?);
-                                }
-                                if !contains(clipboard_mime_types, MIME_TYPE_URI_LIST) {
-                                    clipboard_mime_types.push(MIME_TYPE_URI_LIST.into());
-                                }
+                        }
+                        MIME_TYPE_URI_LIST => {
+                            if uri.is_none() {
+                                // do not replace URI, might be a content URI
+                                uri = Some(uri_from_utf8(env, &data)?);
                             }
-                            other_type => {
-                                uri = Some(Self::content_provider_uri(env, data_source_id, index)?);
-                                if !contains(clipboard_mime_types, other_type) {
-                                    clipboard_mime_types.push(other_type.into())
-                                }
+                            if !contains(clipboard_mime_types, MIME_TYPE_URI_LIST) {
+                                clipboard_mime_types.push(MIME_TYPE_URI_LIST.into());
+                            }
+                        }
+                        other_type => {
+                            uri = Some(Self::content_provider_uri(env, data_provider_id)?);
+                            if !contains(clipboard_mime_types, other_type) {
+                                clipboard_mime_types.push(other_type.into())
                             }
                         }
                     }
                 }
-                DataSourceItemRepresentation::Lazy { formats, id: _ } => {
-                    for ty in formats {
-                        if !contains(clipboard_mime_types, ty) {
-                            clipboard_mime_types.push(ty.into())
-                        }
-                        // always use URI for lazy data
-                        uri = Some(Self::content_provider_uri(env, data_source_id, index)?);
+                DataRepresentation::Lazy { format, id: _ } => {
+                    if !contains(clipboard_mime_types, &format) {
+                        clipboard_mime_types.push(format.into())
                     }
+                    // always use URI for lazy data
+                    uri = Some(Self::content_provider_uri(env, data_provider_id)?);
                 }
                 _ => {}
             }
@@ -236,19 +206,34 @@ impl PlatformDataSource {
         }
     }
 
-    fn create_clip_data_for_data_source<'a>(
+    pub fn create_clip_data_for_data_providers<'a>(
         env: &JNIEnv<'a>,
-        data_source_id: i64,
-        data_source: &DataSource,
+        providers: Vec<Rc<PlatformDataProvider>>,
+    ) -> NativeExtensionsResult<JObject<'a>> {
+        let data_providers = DATA_PROVIDERS.lock().unwrap();
+        let providers: Vec<_> = providers
+            .iter()
+            .map(|provider| {
+                (
+                    provider.data_provider_id,
+                    &data_providers[&provider.data_provider_id].data,
+                )
+            })
+            .collect();
+        Self::_create_clip_data_for_data_providers(env, providers)
+    }
+
+    fn _create_clip_data_for_data_providers<'a>(
+        env: &JNIEnv<'a>,
+        providers: Vec<(i64, &DataProvider)>,
     ) -> NativeExtensionsResult<JObject<'a>> {
         let mut clipboard_mime_types = Vec::<String>::new();
         let mut items = Vec::<JObject>::new();
-        for (index, item) in data_source.items.iter().enumerate() {
-            let item = Self::create_clip_item_for_data_source_item(
+        for (provider_id, provider) in providers.iter() {
+            let item = Self::create_clip_item_for_data_provider(
                 env,
-                data_source_id,
-                item,
-                index,
+                *provider_id,
+                provider,
                 &mut clipboard_mime_types,
             )?;
             if let Some(item) = item {
@@ -293,37 +278,25 @@ impl PlatformDataSource {
         Ok(clip_data)
     }
 
-    pub fn create_clip_data<'a>(&self, env: &JNIEnv<'a>) -> NativeExtensionsResult<JObject<'a>> {
-        let data_sources = DATA_SOURCES.lock().unwrap();
-        let data_source = data_sources.get(&self.data_source_id);
-        if let Some(data_source) = data_source.map(|s| &s.data) {
-            Ok(Self::create_clip_data_for_data_source(
-                &env,
-                self.data_source_id,
-                data_source,
-            )?)
-        } else {
-            Err(NativeExtensionsError::DataSourceNotFound)
-        }
-    }
-
     pub async fn write_to_clipboard(
-        &self,
-        drop_notifier: Arc<DropNotifier>,
+        providers: Vec<(Rc<PlatformDataProvider>, Arc<DataProviderHandle>)>,
     ) -> NativeExtensionsResult<()> {
+        let handles: Vec<_> = providers.iter().map(|p| p.1.clone()).collect();
+        let providers: Vec<_> = providers.into_iter().map(|p| p.0).collect();
+
         thread_local! {
-            static CURRENT_CLIP: RefCell<Arc<DropNotifier>> = RefCell::new(DropNotifier::new(||{}));
+            static CURRENT_CLIP: RefCell<Vec<Arc<DataProviderHandle>>> = RefCell::new(Vec::new());
         }
         // ClipManager doesn't provide any lifetime management for clip so just
         // keep the data awake until the clip is replaced.
-        CURRENT_CLIP.with(|r| r.replace(drop_notifier));
+        CURRENT_CLIP.with(|r| r.replace(handles));
 
         let env = JAVA_VM
             .get()
             .ok_or_else(|| NativeExtensionsError::OtherError("JAVA_VM not set".into()))?
             .attach_current_thread()?;
 
-        let clip_data = self.create_clip_data(&env)?;
+        let clip_data = Self::create_clip_data_for_data_providers(&env, providers)?;
 
         let context = CONTEXT.get().unwrap().as_obj();
         let clipboard_service = env
@@ -352,17 +325,16 @@ impl PlatformDataSource {
     }
 }
 
-impl Drop for PlatformDataSource {
+impl Drop for PlatformDataProvider {
     fn drop(&mut self) {
-        let mut data_sources = DATA_SOURCES.lock().unwrap();
-        data_sources.remove(&self.data_source_id);
+        let mut data_providers = DATA_PROVIDERS.lock().unwrap();
+        data_providers.remove(&self.data_provider_id);
     }
 }
 
 #[derive(Debug)]
 struct UriInfo {
-    data_source_id: i64,
-    index: usize,
+    data_provider_id: i64,
 }
 
 impl UriInfo {
@@ -371,15 +343,11 @@ impl UriInfo {
         let uri = Url::parse(&uri.to_string_lossy()).ok()?;
         let mut path_segments = uri.path_segments()?;
 
-        let data_source_id = path_segments.next()?;
-        let data_source_id = data_source_id.parse::<i64>().ok()?;
-
-        let index = path_segments.next()?;
-        let index = index.parse::<usize>().ok()?;
+        let data_provider_id = path_segments.next()?;
+        let data_source_id = data_provider_id.parse::<i64>().ok()?;
 
         Some(UriInfo {
-            data_source_id,
-            index,
+            data_provider_id: data_source_id,
         })
     }
 }
@@ -397,29 +365,22 @@ fn get_mime_types_for_uri<'a>(
 
     let mut mime_types = Vec::<String>::new();
 
-    let data_sources = DATA_SOURCES.lock().unwrap();
-    let data_source = data_sources.get(&info.data_source_id);
-    if let Some(data_source) = data_source {
-        let item = data_source.data.items.get(info.index);
-        if let Some(item) = item {
-            for repr in &item.representations {
-                match repr {
-                    DataSourceItemRepresentation::Simple { formats, data: _ } => {
-                        for format in formats {
-                            if compare_mime_types(env, format, &filter)? {
-                                mime_types.push(format.to_owned())
-                            }
-                        }
+    let data_providers = DATA_PROVIDERS.lock().unwrap();
+    let data_provider = data_providers.get(&info.data_provider_id);
+    if let Some(data_provider) = data_provider {
+        for repr in &data_provider.data.representations {
+            match repr {
+                DataRepresentation::Simple { format, data: _ } => {
+                    if compare_mime_types(env, format, &filter)? {
+                        mime_types.push(format.to_owned())
                     }
-                    DataSourceItemRepresentation::Lazy { formats, id: _ } => {
-                        for format in formats {
-                            if compare_mime_types(env, format, &filter)? {
-                                mime_types.push(format.to_owned())
-                            }
-                        }
-                    }
-                    _ => {}
                 }
+                DataRepresentation::Lazy { format, id: _ } => {
+                    if compare_mime_types(env, format, &filter)? {
+                        mime_types.push(format.to_owned())
+                    }
+                }
+                _ => {}
             }
         }
     }
@@ -477,45 +438,44 @@ fn get_data_for_uri<'a>(
     let mime_type = env.get_string(mime_type)?;
     let mime_type: String = mime_type.to_string_lossy().into();
 
-    let data_sources = DATA_SOURCES.lock().unwrap();
-    let data_source = data_sources.get(&info.data_source_id);
-    if let Some(data_source) = data_source {
-        let item = &data_source.data.items.get(info.index);
-        if let Some(item) = item {
-            for data in &item.representations {
-                match data {
-                    DataSourceItemRepresentation::Simple { formats, data } => {
-                        if contains(formats, &mime_type) {
-                            return byte_array_from_value(env, data);
-                        }
+    let data_providers = DATA_PROVIDERS.lock().unwrap();
+    let data_provider = data_providers.get(&info.data_provider_id);
+    if let Some(data_provider) = data_provider {
+        for data in &data_provider.data.representations {
+            match data {
+                DataRepresentation::Simple { format, data } => {
+                    if format == &mime_type {
+                        return byte_array_from_value(env, data);
                     }
-                    DataSourceItemRepresentation::Lazy { formats, id } => {
-                        if contains(&formats, &mime_type) {
-                            let delegate = data_source.delegate.clone();
-                            let isolate_id = data_source.isolate_id;
-                            let id = *id;
-                            let value = data_source.sender.send_and_wait(move || {
-                                delegate.get_ref().unwrap().upgrade().map(|delegate| {
-                                    delegate.get_lazy_data(isolate_id, id, mime_type, None)
-                                })
-                            });
-                            drop(data_sources);
-                            match value {
-                                Some(value) => {
-                                    let res = get_value(value)?;
-                                    match res {
-                                        ValuePromiseResult::Ok { value } => {
-                                            return byte_array_from_value(env, &value);
-                                        }
-                                        ValuePromiseResult::Cancelled => return Ok(JObject::null()),
-                                    }
-                                }
-                                None => return Ok(JObject::null()),
-                            }
-                        }
-                    }
-                    _ => {}
                 }
+                DataRepresentation::Lazy { format, id } => {
+                    if format == &mime_type {
+                        let delegate = data_provider.delegate.clone();
+                        let isolate_id = data_provider.isolate_id;
+                        let id = *id;
+                        let value = data_provider.sender.send_and_wait(move || {
+                            delegate
+                                .get_ref()
+                                .unwrap()
+                                .upgrade()
+                                .map(|delegate| delegate.get_lazy_data(isolate_id, id, None))
+                        });
+                        drop(data_providers);
+                        match value {
+                            Some(value) => {
+                                let res = get_value(value)?;
+                                match res {
+                                    ValuePromiseResult::Ok { value } => {
+                                        return byte_array_from_value(env, &value);
+                                    }
+                                    ValuePromiseResult::Cancelled => return Ok(JObject::null()),
+                                }
+                            }
+                            None => return Ok(JObject::null()),
+                        }
+                    }
+                }
+                _ => {}
             }
         }
     }

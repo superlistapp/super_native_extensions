@@ -232,9 +232,8 @@ impl PlatformDropContext {
                         let clip_data = event.get_clip_data(env)?;
                         // If this is local data make sure to extend the lifetime
                         // with the reader.
-                        let source_data_notifier = drag_context
-                            .get_data_source_drop_notifier(env, event)?
-                            .unwrap_or_else(|| DropNotifier::new(|| {}));
+                        let data_provider_handles =
+                            drag_context.get_data_provider_handles(env, event)?;
 
                         let permission_notifier =
                             self.request_drag_drop_permissions(env, event.0)?;
@@ -242,10 +241,10 @@ impl PlatformDropContext {
                         let reader = PlatformDataReader::from_clip_data(
                             env,
                             clip_data,
-                            Some(DropNotifier::new_combined(&[
-                                source_data_notifier,
-                                permission_notifier,
-                            ])),
+                            Some(DropNotifier::new(move || {
+                                let _data_provider_handles = data_provider_handles;
+                                let _permission_notifier = permission_notifier;
+                            })),
                         )?;
                         let reader = delegate.register_platform_reader(reader)?;
                         let event = Self::translate_drop_event(

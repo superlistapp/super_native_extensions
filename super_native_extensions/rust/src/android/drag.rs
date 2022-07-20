@@ -1,24 +1,21 @@
-use std::{
-    cell::RefCell,
-    collections::HashMap,
-    rc::{Rc, Weak},
-    sync::Arc,
-};
+use std::{cell::RefCell, collections::HashMap, rc::Weak, sync::Arc};
 
 use jni::{objects::JObject, sys::jsize, JNIEnv};
 use nativeshell_core::Value;
 
 use crate::{
     android::{DRAG_DROP_UTIL, JAVA_VM},
-    api_model::{DragRequest, DropOperation, ImageData, Point},
-    drag_manager::{DragSessionId, PlatformDragContextDelegate, PlatformDragContextId},
+    api_model::{DataProviderId, DragRequest, DropOperation, ImageData, Point},
+    data_provider_manager::DataProviderHandle,
+    drag_manager::{
+        DataProviderEntry, DragSessionId, PlatformDragContextDelegate, PlatformDragContextId,
+    },
     error::{NativeExtensionsError, NativeExtensionsResult},
-    util::DropNotifier,
 };
 
 use super::{
     drag_common::{DragAction, DragEvent},
-    PlatformDataSource,
+    PlatformDataProvider,
 };
 
 pub struct PlatformDragContext {
@@ -29,10 +26,9 @@ pub struct PlatformDragContext {
 }
 
 struct DragSession {
-    data_source_notifier: Arc<DropNotifier>,
-    local_data: Value,
     platform_context_id: PlatformDragContextId,
     platform_context_delegate: Weak<dyn PlatformDragContextDelegate>,
+    data_providers: Vec<Arc<DataProviderHandle>>,
 }
 
 thread_local! {
@@ -106,8 +102,7 @@ impl PlatformDragContext {
     pub async fn start_drag(
         &self,
         request: DragRequest,
-        data_source: Rc<PlatformDataSource>,
-        drop_notifier: Arc<DropNotifier>,
+        providers: HashMap<DataProviderId, DataProviderEntry>,
         session_id: DragSessionId,
     ) -> NativeExtensionsResult<()> {
         let env = JAVA_VM
@@ -115,19 +110,30 @@ impl PlatformDragContext {
             .ok_or_else(|| NativeExtensionsError::OtherError("JAVA_VM not set".into()))?
             .attach_current_thread()?;
 
-        let data = data_source.create_clip_data(&env)?;
+        let provider_handles: Vec<_> = providers.iter().map(|p| p.1.handle.clone()).collect();
 
-        let bitmap = Self::create_bitmap(&env, &request.configuration.drag_image.image_data)?;
-        let point_in_rect = request.configuration.drag_image.point_in_rect;
+        let providers: Vec<_> = request
+            .configuration
+            .items
+            .iter()
+            .map(|item| providers[&item.data_provider_id].provider.clone())
+            .collect();
+
+        let data = PlatformDataProvider::create_clip_data_for_data_providers(&env, providers)?;
+
+        // TODO: Merge images
+        let image = &request.configuration.items[0].image;
+        let bitmap = Self::create_bitmap(&env, &image.image_data)?;
+        let point_in_rect = &image.point_in_rect;
 
         let mut sessions = self.sessions.borrow_mut();
         sessions.insert(
             session_id,
             DragSession {
-                data_source_notifier: drop_notifier,
-                local_data: request.configuration.local_data,
+                // local_data: request.configuration.local_data,
                 platform_context_id: self.id,
                 platform_context_delegate: self.delegate.clone(),
+                data_providers: provider_handles,
             },
         );
 
@@ -173,35 +179,36 @@ impl PlatformDragContext {
         event: DragEvent<'a>,
     ) -> NativeExtensionsResult<Value> {
         let session_id = event.get_session_id(env)?;
-        match session_id {
-            Some(session_id) => {
-                let sessions = self.sessions.borrow();
-                let session = sessions.get(&session_id);
-                match session {
-                    Some(session) => Ok(session.local_data.clone()),
-                    None => Ok(Value::Null),
-                }
-            }
-            None => Ok(Value::Null),
-        }
+        // match session_id {
+        //     Some(session_id) => {
+        //         let sessions = self.sessions.borrow();
+        //         let session = sessions.get(&session_id);
+        //         match session {
+        //             Some(session) => Ok(session.local_data.clone()),
+        //             None => Ok(Value::Null),
+        //         }
+        //     }
+        //     None => Ok(Value::Null),
+        // }
+        Ok(Value::Null)
     }
 
-    pub fn get_data_source_drop_notifier<'a>(
+    pub fn get_data_provider_handles<'a>(
         &self,
         env: &JNIEnv<'a>,
         event: DragEvent<'a>,
-    ) -> NativeExtensionsResult<Option<Arc<DropNotifier>>> {
+    ) -> NativeExtensionsResult<Vec<Arc<DataProviderHandle>>> {
         let session_id = event.get_session_id(env)?;
         match session_id {
             Some(session_id) => {
                 let sessions = self.sessions.borrow();
                 let session = sessions.get(&session_id);
                 match session {
-                    Some(session) => Ok(Some(session.data_source_notifier.clone())),
-                    None => Ok(None),
+                    Some(session) => Ok(session.data_providers.clone()),
+                    None => Ok(Vec::new()),
                 }
             }
-            None => Ok(None),
+            None => Ok(Vec::new()),
         }
     }
 }

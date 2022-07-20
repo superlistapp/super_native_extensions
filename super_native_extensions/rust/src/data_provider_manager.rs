@@ -32,6 +32,7 @@ pub enum VirtualFileResult {
 /// Keeps the virtual session alive
 pub struct VirtualSessionHandle(DropNotifier);
 
+#[allow(dead_code)]
 impl VirtualSessionHandle {
     pub fn dispose(&self) {
         self.0.dispose();
