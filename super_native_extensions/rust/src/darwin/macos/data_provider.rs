@@ -20,6 +20,7 @@ use cocoa::{
     base::{id, nil, YES},
     foundation::{NSArray, NSUInteger},
 };
+
 use nativeshell_core::{platform::value::ValueObjcConversion, util::Late, Context, IsolateId};
 use objc::{
     class,
@@ -32,12 +33,13 @@ use objc::{
 use once_cell::sync::Lazy;
 
 use crate::{
-    api_model::{DataSource, DataSourceItemRepresentation, DataSourceValueId},
-    data_source_manager::{PlatformDataSourceDelegate, VirtualFileResult},
+    api_model::{DataProvider, DataProviderValueId, DataRepresentation},
+    data_provider_manager::{
+        DataProviderHandle, PlatformDataProviderDelegate, VirtualFileResult, VirtualSessionHandle,
+    },
     error::NativeExtensionsResult,
     log::OkLog,
     platform_impl::platform::common::{from_nsstring, to_nserror, to_nsstring},
-    util::DropNotifier,
     value_promise::ValuePromiseResult,
 };
 
@@ -63,18 +65,18 @@ pub fn platform_stream_close(handle: i32, delete: bool) {
     }
 }
 
-pub struct PlatformDataSource {
+pub struct PlatformDataProvider {
     weak_self: Late<Weak<Self>>,
-    delegate: Weak<dyn PlatformDataSourceDelegate>,
+    delegate: Weak<dyn PlatformDataProviderDelegate>,
     isolate_id: IsolateId,
-    data: DataSource,
+    data: DataProvider,
 }
 
-impl PlatformDataSource {
+impl PlatformDataProvider {
     pub fn new(
-        delegate: Weak<dyn PlatformDataSourceDelegate>,
+        delegate: Weak<dyn PlatformDataProviderDelegate>,
         isolate_id: IsolateId,
-        data: DataSource,
+        data: DataProvider,
     ) -> Self {
         Self {
             delegate,
@@ -83,40 +85,35 @@ impl PlatformDataSource {
             weak_self: Late::new(),
         }
     }
+
     pub fn assign_weak_self(&self, weak_self: Weak<Self>) {
         self.weak_self.set(weak_self);
     }
 
-    pub fn create_items(
-        &self,
-        drop_notifier: Arc<DropNotifier>,
-        retain_drop_notifier: bool,
-    ) -> Vec<id> {
-        let mut items = Vec::<id>::new();
-        for item in self.data.items.iter().enumerate() {
-            let state = Rc::new(ItemState {
-                data_source: self.weak_self.clone(),
-                index: item.0,
-                drop_notifier: Arc::downgrade(&drop_notifier),
-                _retained_drop_notifier: if retain_drop_notifier {
-                    Some(drop_notifier.clone())
-                } else {
-                    None
-                },
-                virtual_files: RefCell::new(Vec::new()),
-            });
-            let item = state.create_item();
-            items.push(item.autorelease());
-        }
-        items
+    /// If retain_handle is false, writer will not retain the DataProviderHandle. This is useful
+    /// for drag&drop where the item will live in dragging pasteboard after drag sessions is done.
+    pub fn create_writer(&self, handle: Arc<DataProviderHandle>, retain_handle: bool) -> StrongPtr {
+        let state = Rc::new(ItemState {
+            data_provider: self.weak_self.clone(),
+            data_provider_handle: Arc::downgrade(&handle),
+            _retained_data_provider_handle: if retain_handle {
+                Some(handle.clone())
+            } else {
+                None
+            },
+            virtual_files: RefCell::new(Vec::new()),
+        });
+        state.create_item()
     }
 
     pub async fn write_to_clipboard(
-        &self,
-        drop_notifier: Arc<DropNotifier>,
+        providers: Vec<(Rc<PlatformDataProvider>, Arc<DataProviderHandle>)>,
     ) -> NativeExtensionsResult<()> {
         autoreleasepool(|| unsafe {
-            let items = self.create_items(drop_notifier, true);
+            let items: Vec<_> = providers
+                .into_iter()
+                .map(|p| p.0.create_writer(p.1, true).autorelease())
+                .collect();
             let array = NSArray::arrayWithObjects(nil, &items);
             let pasteboard = NSPasteboard::generalPasteboard(nil);
             NSPasteboard::clearContents(pasteboard);
@@ -127,15 +124,14 @@ impl PlatformDataSource {
 }
 
 struct ItemState {
-    data_source: Weak<PlatformDataSource>,
-    index: usize,
-    drop_notifier: std::sync::Weak<DropNotifier>,
-    _retained_drop_notifier: Option<Arc<DropNotifier>>,
-    virtual_files: RefCell<Vec<Arc<DropNotifier>>>,
+    data_provider: Weak<PlatformDataProvider>,
+    data_provider_handle: std::sync::Weak<DataProviderHandle>,
+    _retained_data_provider_handle: Option<Arc<DataProviderHandle>>,
+    virtual_files: RefCell<Vec<Arc<VirtualSessionHandle>>>,
 }
 
 struct VirtualFileInfo {
-    id: DataSourceValueId,
+    id: DataProviderValueId,
     format: String,
 }
 
@@ -166,10 +162,10 @@ impl ItemState {
         if Class::get("NSFilePromiseProvider").is_none() {
             return None;
         }
-        self.data_source.upgrade().and_then(|data_source| {
-            let item = &data_source.data.items[self.index];
-            item.representations.iter().find_map(|item| match item {
-                DataSourceItemRepresentation::VirtualFile {
+        self.data_provider.upgrade().and_then(|data_provider| {
+            let data = &data_provider.data;
+            data.representations.iter().find_map(|item| match item {
+                DataRepresentation::VirtualFile {
                     id,
                     format,
                     storage_suggestion: _,
@@ -183,28 +179,21 @@ impl ItemState {
     }
 
     fn writable_types(&self) -> id {
-        match self.data_source.upgrade() {
-            Some(data_source) => {
-                let item = &data_source.data.items[self.index];
-                let types: Vec<_> = item
+        match self.data_provider.upgrade() {
+            Some(data_provider) => {
+                let data = &data_provider.data;
+                let types: Vec<_> = data
                     .representations
                     .iter()
                     .filter_map(|d| match d {
-                        DataSourceItemRepresentation::Simple { formats, data: _ } => Some(
-                            formats
-                                .iter()
-                                .map(|t| to_nsstring(t).autorelease())
-                                .collect::<Vec<_>>(),
-                        ),
-                        DataSourceItemRepresentation::Lazy { formats, id: _ } => Some(
-                            formats
-                                .iter()
-                                .map(|t| to_nsstring(t).autorelease())
-                                .collect::<Vec<_>>() as Vec<_>,
-                        ),
+                        DataRepresentation::Simple { format, data: _ } => {
+                            Some(to_nsstring(&format).autorelease())
+                        }
+                        DataRepresentation::Lazy { format, id: _ } => {
+                            Some(to_nsstring(&format).autorelease())
+                        }
                         _ => None,
                     })
-                    .flatten()
                     .collect();
                 unsafe { NSArray::arrayWithObjects(nil, &types) }
             }
@@ -213,14 +202,14 @@ impl ItemState {
     }
 
     fn object_for_type(&self, pasteboard_type: id) -> id {
-        match self.data_source.upgrade() {
-            Some(data_source) => {
+        match self.data_provider.upgrade() {
+            Some(data_provider) => {
                 let ty = unsafe { from_nsstring(pasteboard_type) };
-                let item = &data_source.data.items[self.index];
-                for data in &item.representations {
-                    match data {
-                        DataSourceItemRepresentation::Simple { formats, data } => {
-                            if formats.contains(&ty) {
+                let data = &data_provider.data;
+                for repr in &data.representations {
+                    match repr {
+                        DataRepresentation::Simple { format, data } => {
+                            if &ty == format {
                                 return data
                                     .to_objc()
                                     .ok_log()
@@ -228,15 +217,11 @@ impl ItemState {
                                     .unwrap_or(nil);
                             }
                         }
-                        DataSourceItemRepresentation::Lazy { formats, id } => {
-                            if formats.contains(&ty) {
-                                if let Some(delegate) = data_source.delegate.upgrade() {
-                                    let promise = delegate.get_lazy_data(
-                                        data_source.isolate_id,
-                                        *id,
-                                        ty,
-                                        None,
-                                    );
+                        DataRepresentation::Lazy { format, id } => {
+                            if &ty == format {
+                                if let Some(delegate) = data_provider.delegate.upgrade() {
+                                    let promise =
+                                        delegate.get_lazy_data(data_provider.isolate_id, *id, None);
                                     loop {
                                         if let Some(result) = promise.try_take() {
                                             match result {
@@ -267,10 +252,10 @@ impl ItemState {
     }
 
     fn file_promise_file_name_for_type(self: &Rc<Self>, _file_type: id) -> id {
-        match self.data_source.upgrade() {
-            Some(data_source) => {
-                let item = &data_source.data.items[self.index];
-                item.suggested_name
+        match self.data_provider.upgrade() {
+            Some(data_provider) => {
+                let data = &data_provider.data;
+                data.suggested_name
                     .as_ref()
                     .map(|name| to_nsstring(&name).autorelease())
                     .unwrap_or(nil)
@@ -304,9 +289,9 @@ impl ItemState {
         url: id,
         completion_fn: Box<dyn FnOnce(id)>,
         info: VirtualFileInfo,
-        data_source: Rc<PlatformDataSource>,
-        delegate: Rc<dyn PlatformDataSourceDelegate>,
-        drop_notifier: Arc<DropNotifier>,
+        data_provider: Rc<PlatformDataProvider>,
+        delegate: Rc<dyn PlatformDataProviderDelegate>,
+        data_provider_handle: Arc<DataProviderHandle>,
     ) {
         let progress = Self::progress_for_url(url);
 
@@ -326,7 +311,7 @@ impl ItemState {
         let progress_clone = progress.clone();
         let progress_clone2 = progress.clone();
         let notifier = delegate.get_virtual_file(
-            data_source.isolate_id,
+            data_provider.isolate_id,
             info.id,
             descriptor,
             Box::new(|_| {}),
@@ -334,7 +319,7 @@ impl ItemState {
                 let () = unsafe { msg_send![*progress_clone, setCompletedUnitCount: cnt as u64] };
             }),
             Box::new(move |result| {
-                let _drop_notifier = drop_notifier;
+                let _handle = data_provider_handle;
                 unsafe {
                     let () = msg_send![*progress_clone2, unpublish];
                 }
@@ -363,11 +348,11 @@ impl ItemState {
 
     fn file_promise_write_to_url(self: &Rc<Self>, url: id, completion_fn: Box<dyn FnOnce(id)>) {
         let info = self.virtual_file_info();
-        let data_source = self.data_source.upgrade();
-        let delegate = data_source.as_ref().and_then(|c| c.delegate.upgrade());
-        let drop_notifier = self.drop_notifier.upgrade();
+        let data_provider = self.data_provider.upgrade();
+        let delegate = data_provider.as_ref().and_then(|c| c.delegate.upgrade());
+        let data_provider_handle = self.data_provider_handle.upgrade();
 
-        match (info, data_source, delegate, drop_notifier) {
+        match (info, data_provider, delegate, data_provider_handle) {
             (Some(info), Some(clipboard), Some(delegate), Some(drop_notifier)) => {
                 self.file_promise_do_write(
                     url,

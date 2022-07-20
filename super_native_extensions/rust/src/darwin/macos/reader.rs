@@ -33,7 +33,7 @@ impl PlatformDataReader {
         Ok((0..count).collect())
     }
 
-    pub async fn get_types_for_item(&self, item: i64) -> NativeExtensionsResult<Vec<String>> {
+    pub async fn get_formats_for_item(&self, item: i64) -> NativeExtensionsResult<Vec<String>> {
         let types = autoreleasepool(|| unsafe {
             let items: id = msg_send![*self.pasteboard, pasteboardItems];
             if item < NSArray::count(items) as i64 {

@@ -9,16 +9,15 @@ use std::{
 };
 
 use crate::{
-    api_model::{DragRequest, DropOperation, Rect},
-    drag_manager::{DragSessionId, PlatformDragContextDelegate},
+    api_model::{DataProviderId, DragRequest, DropOperation, Rect},
+    data_provider_manager::DataProviderHandle,
+    drag_manager::{DataProviderEntry, DragSessionId, PlatformDragContextDelegate},
     error::NativeExtensionsResult,
-    util::DropNotifier,
 };
 
 use super::{
     drag_common::{DropOperationExt, NSDragOperation, NSDragOperationNone},
     util::{class_decl_from_name, flip_rect, ns_image_from_image_data},
-    PlatformDataSource,
 };
 use cocoa::{
     appkit::{
@@ -47,8 +46,8 @@ extern "C" {
 
 struct DragSession {
     session_id: DragSessionId,
-    drop_notifier: Arc<DropNotifier>,
     allowed_operations: Vec<DropOperation>,
+    _data_provider_handles: Vec<Arc<DataProviderHandle>>,
 }
 
 pub struct PlatformDragContext {
@@ -108,15 +107,13 @@ impl PlatformDragContext {
     pub async fn start_drag(
         &self,
         request: DragRequest,
-        data_source: Rc<PlatformDataSource>,
-        drop_notifier: Arc<DropNotifier>,
+        mut providers: HashMap<DataProviderId, DataProviderEntry>,
         session_id: DragSessionId,
     ) -> NativeExtensionsResult<()> {
         autoreleasepool(|| unsafe {
             self.synthetize_mouse_up_event();
-            let items = data_source.create_items(drop_notifier.clone(), false);
 
-            let image = request.configuration.drag_image;
+            let image = &request.configuration.items.first().unwrap().image;
 
             let mut rect: NSRect = Rect {
                 x: request.position.x - image.point_in_rect.x,
@@ -130,10 +127,21 @@ impl PlatformDragContext {
             flip_rect(*self.view, &mut rect);
             let mut dragging_items = Vec::<id>::new();
             let mut first = true;
-            let snapshot = ns_image_from_image_data(vec![image.image_data]);
-            for item in items {
+            let snapshot = ns_image_from_image_data(vec![image.image_data.clone()]);
+            let mut data_provider_handles = Vec::<_>::new();
+
+            for item in request.configuration.items {
+                let provider = providers
+                    .remove(&item.data_provider_id)
+                    .expect("Provider missing");
+                let writer_item = provider
+                    .provider
+                    .create_writer(provider.handle.clone(), false);
+                data_provider_handles.push(provider.handle);
+
                 let dragging_item: id = msg_send![class!(NSDraggingItem), alloc];
-                let dragging_item: id = msg_send![dragging_item, initWithPasteboardWriter: item];
+                let dragging_item: id =
+                    msg_send![dragging_item, initWithPasteboardWriter: *writer_item];
                 let dragging_item: id = msg_send![dragging_item, autorelease];
                 let () = msg_send![dragging_item,
                    setDraggingFrame:rect
@@ -166,8 +174,8 @@ impl PlatformDragContext {
                 session,
                 DragSession {
                     session_id,
-                    drop_notifier,
                     allowed_operations: request.configuration.allowed_operations,
+                    _data_provider_handles: data_provider_handles,
                 },
             );
         });
@@ -263,7 +271,7 @@ impl PlatformDragContext {
         Context::get()
             .run_loop()
             .schedule(Duration::from_secs(3), move || {
-                let _notifier = session.drop_notifier;
+                let _data_provider_handles = session._data_provider_handles;
             })
             .detach();
     }
