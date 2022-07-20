@@ -20,14 +20,17 @@ use windows::{
     },
 };
 
-use crate::{segmented_queue::SegmentedQueueReader, util::DropNotifier, value_promise::Promise};
+use crate::{
+    data_provider_manager::VirtualSessionHandle, segmented_queue::SegmentedQueueReader,
+    util::DropNotifier, value_promise::Promise,
+};
 
 struct StreamInner {
     run_loop: Rc<RunLoop>,
     reader: SegmentedQueueReader,
     size_promise: Arc<Promise<Option<i64>>>,
     error_promise: Arc<Promise<String>>,
-    _drop_notifier: Arc<DropNotifier>,
+    _handle: Arc<VirtualSessionHandle>,
     position: Cell<i64>,
 }
 
@@ -128,7 +131,7 @@ impl VirtualFileStream {
         reader: SegmentedQueueReader,
         size_promise: Arc<Promise<Option<i64>>>,
         error_promise: Arc<Promise<String>>,
-        drop_notifier: Arc<DropNotifier>, // fired when stream is dropped
+        handle: Arc<VirtualSessionHandle>, // fired when stream is dropped
     ) -> (IStream, Arc<DropNotifier>) {
         struct Movable<T>(T);
         unsafe impl<T> Send for Movable<T> {}
@@ -143,7 +146,7 @@ impl VirtualFileStream {
                     reader,
                     size_promise,
                     error_promise,
-                    _drop_notifier: drop_notifier,
+                    _handle: handle,
                     position: Cell::new(0),
                 })),
             });

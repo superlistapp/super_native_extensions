@@ -1,7 +1,7 @@
 use std::{
     cell::Cell,
     collections::HashMap,
-    rc::Weak,
+    rc::{Rc, Weak},
     sync::{Arc, Mutex},
 };
 
@@ -10,8 +10,11 @@ use once_cell::sync::Lazy;
 use windows::Win32::System::Ole::OleSetClipboard;
 
 use crate::{
-    api_model::DataSource, data_source_manager::PlatformDataSourceDelegate,
-    error::NativeExtensionsResult, segmented_queue::SegmentedQueueWriter, util::DropNotifier,
+    api_model::DataProvider,
+    data_provider_manager::{DataProviderHandle, PlatformDataProviderDelegate},
+    error::NativeExtensionsResult,
+    segmented_queue::SegmentedQueueWriter,
+    util::DropNotifier,
 };
 
 use super::data_object::DataObject;
@@ -56,18 +59,18 @@ pub fn platform_stream_close(handle: i32, _delete: bool) {
     }
 }
 
-pub struct PlatformDataSource {
+pub struct PlatformDataProvider {
     weak_self: Late<Weak<Self>>,
     pub(super) isolate_id: IsolateId,
-    pub(super) delegate: Weak<dyn PlatformDataSourceDelegate>,
-    pub(super) data: DataSource,
+    pub(super) delegate: Weak<dyn PlatformDataProviderDelegate>,
+    pub(super) data: DataProvider,
 }
 
-impl PlatformDataSource {
+impl PlatformDataProvider {
     pub fn new(
-        delegate: Weak<dyn PlatformDataSourceDelegate>,
+        delegate: Weak<dyn PlatformDataProviderDelegate>,
         isolate_id: IsolateId,
-        data: DataSource,
+        data: DataProvider,
     ) -> Self {
         Self {
             weak_self: Late::new(),
@@ -82,10 +85,9 @@ impl PlatformDataSource {
     }
 
     pub async fn write_to_clipboard(
-        &self,
-        drop_notifier: Arc<DropNotifier>,
+        providers: Vec<(Rc<PlatformDataProvider>, Arc<DataProviderHandle>)>,
     ) -> NativeExtensionsResult<()> {
-        let data_object = DataObject::create(self.weak_self.upgrade().unwrap(), drop_notifier);
+        let data_object = DataObject::create(providers);
         unsafe {
             OleSetClipboard(data_object)?;
         }

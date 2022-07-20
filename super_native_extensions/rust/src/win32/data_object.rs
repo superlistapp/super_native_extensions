@@ -36,8 +36,8 @@ use windows::{
 };
 
 use crate::{
-    api_model::{DataSourceItemRepresentation, DataSourceValueId, VirtualFileStorage},
-    data_source_manager::VirtualFileResult,
+    api_model::{DataProviderValueId, DataRepresentation, VirtualFileStorage},
+    data_provider_manager::{DataProviderHandle, VirtualFileResult},
     segmented_queue::{new_segmented_queue, QueueConfiguration},
     util::DropNotifier,
     value_coerce::{CoerceToData, StringFormat},
@@ -51,15 +51,19 @@ use super::{
         make_format_with_tymed_index, message_loop_hwnds, pump_message_loop,
     },
     virtual_file_stream::VirtualFileStream,
-    PlatformDataSource,
+    PlatformDataProvider,
 };
 
 const DATA_E_FORMATETC: HRESULT = HRESULT(-2147221404 + 1);
 
+struct ProviderEntry {
+    provider: Rc<PlatformDataProvider>,
+    handle: Arc<DataProviderHandle>,
+}
+
 #[implement(IDataObject, IDataObjectAsyncCapability)]
 pub struct DataObject {
-    data_source: Rc<PlatformDataSource>,
-    _drop_notifier: Arc<DropNotifier>,
+    providers: Vec<ProviderEntry>,
     extra_data: RefCell<HashMap<u16, Vec<u8>>>,
     in_operation: Cell<bool>, // async stream
     virtual_stream_notifiers: RefCell<Vec<Arc<DropNotifier>>>,
@@ -67,12 +71,16 @@ pub struct DataObject {
 
 impl DataObject {
     pub fn create(
-        data_source: Rc<PlatformDataSource>,
-        drop_notifier: Arc<DropNotifier>,
+        providers: Vec<(Rc<PlatformDataProvider>, Arc<DataProviderHandle>)>,
     ) -> IDataObject {
         let data_object = Self {
-            data_source,
-            _drop_notifier: drop_notifier,
+            providers: providers
+                .into_iter()
+                .map(|p| ProviderEntry {
+                    provider: p.0,
+                    handle: p.1,
+                })
+                .collect(),
             extra_data: RefCell::new(HashMap::new()),
             in_operation: Cell::new(false),
             virtual_stream_notifiers: RefCell::new(Vec::new()),
@@ -95,11 +103,23 @@ impl DataObject {
         }
     }
 
-    fn lazy_data_for_id(&self, format: String, id: DataSourceValueId) -> Option<Vec<u8>> {
-        let delegate = self.data_source.delegate.upgrade();
+    // fn first_data_provider(&self) -> Rc<PlatformDataProvider> {
+    //     self.providers
+    //         .first()
+    //         .expect("No data providers")
+    //         .provider
+    //         .clone()
+    // }
+
+    fn lazy_data_for_id(
+        &self,
+        provider: &PlatformDataProvider,
+        id: DataProviderValueId,
+    ) -> Option<Vec<u8>> {
+        let delegate = provider.delegate.upgrade();
         if let Some(delegate) = delegate {
             let hwnds = message_loop_hwnds();
-            let data = delegate.get_lazy_data(self.data_source.isolate_id, id, format, None);
+            let data = delegate.get_lazy_data(provider.isolate_id, id, None);
             loop {
                 match data.try_take() {
                     Some(ValuePromiseResult::Ok { value }) => {
@@ -115,23 +135,20 @@ impl DataObject {
     }
 
     fn data_for_format(&self, format: u32, index: usize) -> Option<Vec<u8>> {
-        let item = self.data_source.data.items.get(index);
-        if let Some(item) = item {
-            let format = format_to_string(format);
-            for representation in &item.representations {
+        let provider = self.providers.get(index).as_ref().cloned();
+        if let Some(provider) = provider {
+            let provider = &provider.provider;
+            let format_string = format_to_string(format);
+            for representation in &provider.data.representations {
                 match representation {
-                    DataSourceItemRepresentation::Simple { formats, data } => {
-                        for ty in formats {
-                            if ty == &format {
-                                return data.coerce_to_data(StringFormat::Utf16NullTerminated);
-                            }
+                    DataRepresentation::Simple { format, data } => {
+                        if &format_string == format {
+                            return data.coerce_to_data(StringFormat::Utf16NullTerminated);
                         }
                     }
-                    DataSourceItemRepresentation::Lazy { formats, id } => {
-                        for ty in formats {
-                            if ty == &format {
-                                return self.lazy_data_for_id(ty.clone(), *id);
-                            }
+                    DataRepresentation::Lazy { format, id } => {
+                        if &format_string == format {
+                            return self.lazy_data_for_id(&provider, *id);
                         }
                     }
                     _ => {}
@@ -166,7 +183,7 @@ impl DataObject {
     }
 
     fn data_for_hdrop(&self) -> Option<Vec<u8>> {
-        let n_items = self.data_source.data.items.len();
+        let n_items = self.providers.len();
         let files: Vec<_> = (0..n_items)
             .filter_map(|i| self.data_for_format(CF_HDROP.0 as u32, i))
             .collect();
@@ -181,8 +198,8 @@ impl DataObject {
         let mut res = Vec::<_>::new();
         let mut index = 0;
         // Put virtual files first
-        for item in &self.data_source.data.items {
-            for repr in &item.representations {
+        for provider in &self.providers {
+            for repr in &provider.provider.data.representations {
                 if repr.is_virtual_file() {
                     if index == 0 {
                         res.push(make_format_with_tymed(
@@ -200,21 +217,17 @@ impl DataObject {
             }
         }
         // Regular and lazy items second
-        let first_item = self.data_source.data.items.first();
-        if let Some(item) = first_item {
-            for representation in &item.representations {
+        let first_provider = self.providers.first();
+        if let Some(provider) = first_provider {
+            for representation in &provider.provider.data.representations {
                 match representation {
-                    DataSourceItemRepresentation::Simple { formats, data: _ } => {
-                        for ty in formats {
-                            let format = format_from_string(ty);
-                            res.push(make_format_with_tymed(format, TYMED_HGLOBAL));
-                        }
+                    DataRepresentation::Simple { format, data: _ } => {
+                        let format = format_from_string(format);
+                        res.push(make_format_with_tymed(format, TYMED_HGLOBAL));
                     }
-                    DataSourceItemRepresentation::Lazy { formats, id: _ } => {
-                        for ty in formats {
-                            let format = format_from_string(ty);
-                            res.push(make_format_with_tymed(format, TYMED_HGLOBAL));
-                        }
+                    DataRepresentation::Lazy { format, id: _ } => {
+                        let format = format_from_string(format);
+                        res.push(make_format_with_tymed(format, TYMED_HGLOBAL));
                     }
                     _ => {}
                 }
@@ -244,10 +257,11 @@ impl DataObject {
     fn data_for_file_group_descritor(&self) -> Option<Vec<u8>> {
         let mut cnt = 0;
         let mut descriptors = Vec::<FILEDESCRIPTORW>::new();
-        for item in &self.data_source.data.items {
-            if item.representations.iter().any(|a| a.is_virtual_file()) {
+        for provider in &self.providers {
+            let data = &provider.provider.data;
+            if data.representations.iter().any(|a| a.is_virtual_file()) {
                 cnt += 1;
-                let name = item
+                let name = data
                     .suggested_name
                     .as_ref()
                     .cloned()
@@ -269,10 +283,11 @@ impl DataObject {
 
     fn stream_for_virtual_file(
         &self,
-        virtual_file_id: DataSourceValueId,
+        provider: &PlatformDataProvider,
+        virtual_file_id: DataProviderValueId,
         storage_suggestion: &Option<VirtualFileStorage>,
     ) -> Option<IStream> {
-        if let Some(delegate) = self.data_source.delegate.upgrade() {
+        if let Some(delegate) = provider.delegate.upgrade() {
             let storage_suggestion =
                 storage_suggestion.unwrap_or(VirtualFileStorage::TemporaryFile);
             let configuration = if storage_suggestion == VirtualFileStorage::TemporaryFile {
@@ -295,7 +310,7 @@ impl DataObject {
             let error_promise = Arc::new(Promise::<String>::new());
             let error_promise_clone = error_promise.clone();
             let drop_notifier = delegate.get_virtual_file(
-                self.data_source.isolate_id,
+                provider.isolate_id,
                 virtual_file_id,
                 stream_handle,
                 Box::new(move |size| size_promise_clone.set(size)),
@@ -323,19 +338,27 @@ impl DataObject {
     }
 
     fn stream_for_virtual_file_index(&self, mut index: usize) -> Option<IStream> {
-        for item in &self.data_source.data.items {
-            if index > 0 && item.representations.iter().any(|r| r.is_virtual_file()) {
+        for provider in &self.providers {
+            let provider = &provider.provider;
+            // Skip all virtual files before the requested one.
+            if index > 0
+                && provider
+                    .data
+                    .representations
+                    .iter()
+                    .any(|r| r.is_virtual_file())
+            {
                 index -= 1;
                 continue;
             }
-            for repr in &item.representations {
-                if let DataSourceItemRepresentation::VirtualFile {
+            for repr in &provider.data.representations {
+                if let DataRepresentation::VirtualFile {
                     id,
                     format: _,
                     storage_suggestion,
                 } = repr
                 {
-                    return self.stream_for_virtual_file(*id, storage_suggestion);
+                    return self.stream_for_virtual_file(&provider, *id, storage_suggestion);
                 }
             }
         }

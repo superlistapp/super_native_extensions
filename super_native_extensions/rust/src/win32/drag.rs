@@ -1,7 +1,7 @@
 use std::{
     cell::{Cell, RefCell},
+    collections::HashMap,
     rc::{Rc, Weak},
-    sync::Arc,
 };
 
 use nativeshell_core::{util::Late, Context};
@@ -21,19 +21,17 @@ use windows::{
 };
 
 use crate::{
-    api_model::{DragRequest, DropOperation, Point},
-    drag_manager::{DragSessionId, PlatformDragContextDelegate},
+    api_model::{DataProviderId, DragRequest, DropOperation, Point},
+    drag_manager::{DataProviderEntry, DragSessionId, PlatformDragContextDelegate},
     error::NativeExtensionsResult,
     log::OkLog,
     platform_impl::platform::{common::get_dpi_for_window, data_object::DataObject},
-    util::DropNotifier,
 };
 
 use super::{
     common::{create_instance, image_data_to_hbitmap},
     data_object::DataObjectExt,
     drag_common::DropOperationExt,
-    PlatformDataSource,
 };
 
 pub struct PlatformDragContext {
@@ -124,8 +122,7 @@ impl PlatformDragContext {
     pub async fn start_drag(
         &self,
         request: DragRequest,
-        data_source: Rc<PlatformDataSource>,
-        drop_notifier: Arc<DropNotifier>,
+        providers: HashMap<DataProviderId, DataProviderEntry>,
         session_id: DragSessionId,
     ) -> NativeExtensionsResult<()> {
         let weak_self = self.weak_self.clone();
@@ -133,8 +130,7 @@ impl PlatformDragContext {
             .run_loop()
             .schedule_next(move || {
                 if let Some(this) = weak_self.upgrade() {
-                    this._start_drag(request, data_source, drop_notifier, session_id)
-                        .ok_log();
+                    this._start_drag(request, providers, session_id).ok_log();
                 }
             })
             .detach();
@@ -144,13 +140,23 @@ impl PlatformDragContext {
     pub fn _start_drag(
         &self,
         request: DragRequest,
-        data_source: Rc<PlatformDataSource>,
-        drop_notifier: Arc<DropNotifier>,
+        mut providers: HashMap<DataProviderId, DataProviderEntry>,
         session_id: DragSessionId,
     ) -> NativeExtensionsResult<()> {
-        let data_object = DataObject::create(data_source, drop_notifier);
+        let providers: Vec<_> = request
+            .configuration
+            .items
+            .iter()
+            .map(|item| {
+                let entry = providers
+                    .remove(&item.data_provider_id)
+                    .expect("Missing data provider entry");
+                (entry.provider, entry.handle)
+            })
+            .collect();
+        let data_object = DataObject::create(providers);
         let helper: IDragSourceHelper = create_instance(&CLSID_DragDropHelper)?;
-        let drag_image = request.configuration.drag_image;
+        let drag_image = &request.configuration.items.first().unwrap().image;
         let hbitmap = image_data_to_hbitmap(&drag_image.image_data)?;
         let scaling = get_dpi_for_window(self.view) as f64 / 96.0;
 

@@ -52,7 +52,7 @@ impl PlatformDataReader {
         Ok(formats)
     }
 
-    pub async fn get_types_for_item(&self, item: i64) -> NativeExtensionsResult<Vec<String>> {
+    pub async fn get_formats_for_item(&self, item: i64) -> NativeExtensionsResult<Vec<String>> {
         if item == 0 {
             return Ok(self
                 .supported_formats()?
