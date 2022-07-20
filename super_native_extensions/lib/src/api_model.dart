@@ -1,6 +1,9 @@
 import 'dart:typed_data';
 import 'dart:ui';
 
+import 'data_provider.dart';
+import 'util.dart';
+
 class ImageData {
   ImageData({
     required this.width,
@@ -38,26 +41,77 @@ class ImageData {
       };
 }
 
-extension RectExt on Rect {
-  Map serialize() => {
-        'x': left,
-        'y': top,
-        'width': width,
-        'height': height,
+//
+// Drag
+//
+
+enum DropOperation { none, userCancelled, forbidden, copy, move, link }
+
+class DragConfiguration {
+  DragConfiguration({
+    required this.items,
+    required this.allowedOperations,
+    this.animatesToStartingPositionOnCancelOrFail = true,
+  });
+
+  final List<DragItem> items;
+  final List<DropOperation> allowedOperations;
+
+  /// macOS specific
+  final bool animatesToStartingPositionOnCancelOrFail;
+
+  dynamic serialize() => {
+        'items': items.map((e) => e.serialize()),
+        'allowedOperations': allowedOperations.map((e) => e.name),
+        'animatesToStartingPositionOnCancelOrFail':
+            animatesToStartingPositionOnCancelOrFail,
       };
-  static Rect deserialize(dynamic rect) {
-    final map = rect as Map;
-    return Rect.fromLTWH(map['x'], map['y'], map['width'], map['height']);
-  }
 }
 
-extension OffsetExt on Offset {
-  Map serialize() => {
-        'x': dx,
-        'y': dy,
+class DragItem {
+  DragItem({
+    required this.dataProvider,
+    required this.image,
+    this.localData,
+  });
+
+  dynamic serialize() => {
+        'dataProviderId': dataProvider.id,
+        'localData': localData,
+        'image': image.serialize(),
       };
-  static Offset deserialize(dynamic position) {
-    final map = position as Map;
-    return Offset(map['x'], map['y']);
-  }
+
+  final DataProviderHandle dataProvider;
+  final DragImage image;
+  final Object? localData;
+}
+
+class DragImage {
+  DragImage({
+    required this.imageData,
+    required this.sourceRect,
+  });
+
+  dynamic serialize() => {
+        'imageData': imageData.serialize(),
+        'sourceRect': sourceRect.serialize(),
+      };
+
+  final ImageData imageData;
+  final Rect sourceRect;
+}
+
+class DragRequest {
+  DragRequest({
+    required this.configuration,
+    required this.position,
+  });
+
+  final DragConfiguration configuration;
+  final Offset position;
+
+  dynamic serialize() => {
+        'configuration': configuration.serialize(),
+        'position': position.serialize(),
+      };
 }

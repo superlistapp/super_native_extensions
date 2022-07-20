@@ -3,13 +3,12 @@ import 'dart:ui' as ui;
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:nativeshell_core/nativeshell_core.dart';
-import 'package:super_native_extensions/raw_clipboard.dart';
-import 'package:super_native_extensions/src/context.dart';
-import 'package:super_native_extensions/src/drag_common.dart';
-import 'package:super_native_extensions/src/util.dart';
 
+import 'context.dart';
+import 'data_provider.dart';
 import 'mutex.dart';
 import 'api_model.dart';
+import 'util.dart';
 
 class DragSession {
   ValueNotifier<DropOperation?> get dragCompleted => _dragCompleted;
@@ -114,7 +113,7 @@ class RawDragContext {
     required DragRequest request,
   }) async {
     final sessionId =
-        await _channel.invokeMethod("startDrag", await request.serialize());
+        await _channel.invokeMethod("startDrag", request.serialize());
     final session = DragSession();
     // TODO
     // dataSource.onDispose.addListener(() {
@@ -128,86 +127,4 @@ class RawDragContext {
   }
 }
 
-class DragImage {
-  DragImage({
-    required this.image,
-    required this.pointInRect,
-    required this.devicePixelRatio,
-  });
 
-  Future<dynamic> serialize() async {
-    final imageData =
-        await ImageData.fromImage(image, devicePixelRatio: devicePixelRatio);
-    return {
-      'imageData': imageData.serialize(),
-      'pointInRect': pointInRect.serialize(),
-    };
-  }
-
-  final ui.Image image;
-  final Offset pointInRect;
-  final double devicePixelRatio;
-}
-
-class DragItem {
-  DragItem({
-    required this.dataProvider,
-    required this.dragImage,
-    this.localData,
-  });
-
-  Future<dynamic> serialize() async => {
-        'dataProviderId': dataProvider.id,
-        'localData': localData,
-        'image': await dragImage.serialize(),
-      };
-
-  final DataProviderHandle dataProvider;
-  final DragImage dragImage;
-  final Object? localData;
-}
-
-class DragConfiguration {
-  DragConfiguration({
-    required this.items,
-    required this.allowedOperations,
-    this.animatesToStartingPositionOnCancelOrFail = true,
-  });
-
-  final List<DragItem> items;
-
-  final List<DropOperation> allowedOperations;
-
-  /// macOS specific
-  final bool animatesToStartingPositionOnCancelOrFail;
-
-  Future<dynamic> _serializeItems() async {
-    final res = <dynamic>[];
-    for (final item in items) {
-      res.add(await item.serialize());
-    }
-    return res;
-  }
-
-  Future<dynamic> serialize() async => {
-        'items': await _serializeItems(),
-        'allowedOperations': allowedOperations.map((e) => e.name),
-        'animatesToStartingPositionOnCancelOrFail':
-            animatesToStartingPositionOnCancelOrFail,
-      };
-}
-
-class DragRequest {
-  DragRequest({
-    required this.configuration,
-    required this.position,
-  });
-
-  final DragConfiguration configuration;
-  final Offset position;
-
-  Future<dynamic> serialize() async => {
-        'configuration': await configuration.serialize(),
-        'position': position.serialize(),
-      };
-}

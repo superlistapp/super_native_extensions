@@ -107,7 +107,7 @@ pub enum VirtualFileStorage {
 #[nativeshell(rename_all = "camelCase")]
 pub struct DragImage {
     pub image_data: ImageData,
-    pub point_in_rect: Point,
+    pub source_rect: Rect,
 }
 
 #[derive(TryFromValue, Debug)]

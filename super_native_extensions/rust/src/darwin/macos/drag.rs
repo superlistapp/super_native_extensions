@@ -9,7 +9,7 @@ use std::{
 };
 
 use crate::{
-    api_model::{DataProviderId, DragRequest, DropOperation, Rect},
+    api_model::{DataProviderId, DragRequest, DropOperation},
     data_provider_manager::DataProviderHandle,
     drag_manager::{DataProviderEntry, DragSessionId, PlatformDragContextDelegate},
     error::NativeExtensionsResult,
@@ -115,15 +115,7 @@ impl PlatformDragContext {
 
             let image = &request.configuration.items.first().unwrap().image;
 
-            let mut rect: NSRect = Rect {
-                x: request.position.x - image.point_in_rect.x,
-                y: request.position.y - image.point_in_rect.y,
-                width: image.image_data.width as f64
-                    / image.image_data.device_pixel_ratio.unwrap_or(1.0),
-                height: image.image_data.height as f64
-                    / image.image_data.device_pixel_ratio.unwrap_or(1.0),
-            }
-            .into();
+            let mut rect: NSRect = image.source_rect.clone().into();
             flip_rect(*self.view, &mut rect);
             let mut dragging_items = Vec::<id>::new();
             let mut first = true;

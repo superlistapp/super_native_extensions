@@ -1,13 +1,13 @@
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:nativeshell_core/nativeshell_core.dart';
-import 'package:super_native_extensions/raw_clipboard.dart';
-import 'package:super_native_extensions/raw_drag_drop.dart';
-import 'package:super_native_extensions/src/api_model.dart';
-import 'package:super_native_extensions/src/reader_manager.dart';
 
+import 'api_model.dart';
+import 'reader.dart';
+import 'reader_manager.dart';
 import 'context.dart';
 import 'mutex.dart';
+import 'util.dart';
 
 class BaseDropEvent {
   BaseDropEvent({

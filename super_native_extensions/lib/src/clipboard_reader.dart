@@ -1,8 +1,8 @@
 import 'package:nativeshell_core/nativeshell_core.dart';
-import 'package:super_native_extensions/raw_clipboard.dart';
-import 'package:super_native_extensions/src/reader_manager.dart';
 
 import 'context.dart';
+import 'reader.dart';
+import 'reader_manager.dart';
 
 class RawClipboardReader {
   /// Returns clipboard reader for current clipboard. Note that on some platforms

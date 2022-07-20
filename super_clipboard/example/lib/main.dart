@@ -98,7 +98,7 @@ class _DragDelegate implements RawDragContextDelegate {
             'x': 10,
             'abc': 'xyz',
           },
-          dragImage:
+          image:
               await dragContainer.currentState!.getDragImageForOffset(location),
         )
       ],
@@ -131,9 +131,10 @@ class DragContainerState extends State<DragContainer> {
     }
     final snapshot = await renderObject.toImage(pixelRatio: pr);
     final transform = renderObject.getTransformTo(null);
-    transform.invert();
-    final point = MatrixUtils.transformPoint(transform, globalPosition);
-    return DragImage(image: snapshot, pointInRect: point, devicePixelRatio: pr);
+    final rect = MatrixUtils.transformRect(transform,
+        Rect.fromLTWH(0, 0, renderObject.size.width, renderObject.size.height));
+    final imageData = await ImageData.fromImage(snapshot, devicePixelRatio: pr);
+    return DragImage(imageData: imageData, sourceRect: rect);
   }
 }
 
@@ -296,10 +297,10 @@ class _MyHomePageState extends State<MyHomePage> {
           // DataSourceItemRepresentation.simple(
           //     formats: ['public.file-url'],
           //     data: utf8.encode('file:///tmp/test.txt')),
-          DataRepresentation.lazy(
-              // formats: ['public.utf8-plain-text'], data: utf8.encode('baaad')),
-              format: 'text/plain',
-              dataProvider: () => utf8.encode('baaad')),
+          // DataRepresentation.lazy(
+          //     // formats: ['public.utf8-plain-text'], data: utf8.encode('baaad')),
+          //     format: 'text/plain',
+          //     dataProvider: () => utf8.encode('baaad')),
           DataRepresentation.virtualFile(
               format: 'public.utf8-plain-text',
               // format: 'text/plain',
@@ -364,7 +365,7 @@ class _MyHomePageState extends State<MyHomePage> {
               'y': 2,
             },
             dataProvider: handle,
-            dragImage: await dragContainer.currentState!
+            image: await dragContainer.currentState!
                 .getDragImageForOffset(globalPosition),
           )
         ]),
