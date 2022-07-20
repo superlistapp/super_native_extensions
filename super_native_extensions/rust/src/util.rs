@@ -22,6 +22,17 @@ impl DropNotifier {
         })
     }
 
+    pub fn new_<F: FnOnce() + 'static>(callback: F) -> Self {
+        Self::new_with_boxed_(Box::new(callback))
+    }
+
+    pub fn new_with_boxed_(callback: Box<dyn FnOnce()>) -> Self {
+        Self {
+            callback: Mutex::new(Some(Capsule::new(callback))),
+            sender: Context::get().run_loop().new_sender(),
+        }
+    }
+
     pub fn new_combined(notifiers: &[Arc<DropNotifier>]) -> Arc<Self> {
         let notifiers: Vec<Arc<DropNotifier>> = notifiers.into();
         DropNotifier::new(move || {

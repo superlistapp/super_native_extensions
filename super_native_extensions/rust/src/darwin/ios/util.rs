@@ -1,6 +1,19 @@
+use block::{Block, ConcreteBlock, RcBlock};
+use cocoa::{
+    base::{id, nil, BOOL},
+    foundation::{NSInteger, NSUInteger},
+};
+use core_foundation::array::CFIndex;
 use core_graphics::geometry::CGPoint;
+use nativeshell_core::{platform::value::ValueObjcConversion, Value};
+use objc::{class, msg_send, rc::StrongPtr, sel, sel_impl};
 
-use crate::api_model::Point;
+use crate::{
+    api_model::Point,
+    platform_impl::platform::common::to_nsstring,
+    value_coerce::{CoerceToData, StringFormat},
+    value_promise::ValuePromiseResult,
+};
 
 impl From<CGPoint> for Point {
     fn from(p: CGPoint) -> Self {
@@ -8,3 +21,118 @@ impl From<CGPoint> for Point {
     }
 }
 
+pub fn value_to_nsdata(value: &Value) -> StrongPtr {
+    fn is_map_or_list(value: &Value) -> bool {
+        match value {
+            Value::Map(_) => true,
+            Value::List(_) => true,
+            _ => false,
+        }
+    }
+    if is_map_or_list(value) {
+        let objc = value.to_objc();
+        if let Ok(objc) = objc {
+            unsafe {
+                #[allow(non_upper_case_globals)]
+                const kCFPropertyListBinaryFormat_v1_0: CFIndex = 200;
+                let data: id = msg_send![class!(NSPropertyListSerialization),
+                            dataWithPropertyList:*objc
+                            format:kCFPropertyListBinaryFormat_v1_0
+                            options:0 as NSUInteger
+                            error:nil];
+                if !data.is_null() {
+                    return StrongPtr::retain(data);
+                }
+            }
+        }
+    }
+
+    let buf = value.coerce_to_data(StringFormat::Utf8);
+    match buf {
+        Some(data) => to_nsdata(&data),
+        None => unsafe { StrongPtr::new(std::ptr::null_mut()) },
+    }
+}
+
+pub fn value_promise_res_to_nsdata(value: &ValuePromiseResult) -> StrongPtr {
+    match value {
+        ValuePromiseResult::Ok { value } => value_to_nsdata(value),
+        ValuePromiseResult::Cancelled => unsafe { StrongPtr::new(std::ptr::null_mut()) },
+    }
+}
+
+pub fn to_nsdata(data: &[u8]) -> StrongPtr {
+    unsafe {
+        let d: id = msg_send![class!(NSData), alloc];
+        let d: id = msg_send![d, initWithBytes:data.as_ptr() length:data.len()];
+        StrongPtr::new(d)
+    }
+}
+
+// NSItemProvider utility methods
+
+#[derive(Clone)]
+struct Movable<T>(T);
+
+unsafe impl<T> Send for Movable<T> {}
+
+pub fn register_data_representation<F>(item_provider: id, type_identifier: &str, handler: F)
+where
+    F: Fn(Box<dyn Fn(id /* NSData */, id /* NSError */) + 'static + Send>) -> id + 'static + Send,
+{
+    let handler = Box::new(handler);
+    let block = ConcreteBlock::new(move |completion_block: id| -> id {
+        let completion_block = unsafe { &mut *(completion_block as *mut Block<(id, id), ()>) };
+        let completion_block = unsafe { RcBlock::copy(completion_block) };
+        let completion_block = Movable(completion_block);
+        let completion_fn = move |data: id, err: id| {
+            let completion_block = completion_block.clone();
+            unsafe { completion_block.0.call((data, err)) };
+        };
+        handler(Box::new(completion_fn))
+    });
+    let block = block.copy();
+    let type_identifier = to_nsstring(type_identifier);
+    unsafe {
+        let () = msg_send![item_provider,
+            registerDataRepresentationForTypeIdentifier:*type_identifier
+            visibility: 0 as NSUInteger // all
+            loadHandler: &*block];
+    }
+}
+
+pub fn register_file_representation<F>(
+    item_provider: id,
+    type_identifier: &str,
+    open_in_place: bool,
+    handler: F,
+) where
+    F: Fn(
+            Box<dyn Fn(id /* NSURL */, bool /* coordinated */, id /* NSError */) + 'static + Send>,
+        ) -> id /* NSProgress */
+        + 'static
+        + Send,
+{
+    let handler = Box::new(handler);
+    let block = ConcreteBlock::new(move |completion_block: id| -> id {
+        let completion_block =
+            unsafe { &mut *(completion_block as *mut Block<(id, BOOL, id), ()>) };
+        let completion_block = unsafe { RcBlock::copy(completion_block) };
+        let completion_block = Movable(completion_block);
+        let completion_fn = move |data: id, coordinated: bool, err: id| {
+            let completion_block = completion_block.clone();
+            unsafe { completion_block.0.call((data, coordinated as BOOL, err)) };
+        };
+        handler(Box::new(completion_fn))
+    });
+    let block = block.copy();
+    let type_identifier = to_nsstring(type_identifier);
+    unsafe {
+        let () = msg_send![item_provider,
+            registerFileRepresentationForTypeIdentifier:*type_identifier
+            fileOptions: if open_in_place { 1 } else { 0 } as NSInteger
+            visibility: 0 as NSUInteger // all
+            loadHandler: &*block
+        ];
+    }
+}

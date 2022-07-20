@@ -1,10 +1,11 @@
 use std::fmt::Display;
 
-use nativeshell_core::{PlatformError, Value};
+use nativeshell_core::{MethodCallError, PlatformError, Value};
 
 #[derive(Debug)]
 pub enum NativeExtensionsError {
     UnknownError,
+    MethodCallError(MethodCallError),
     OtherError(String),
     DataSourceNotFound,
     ReaderNotFound,
@@ -19,6 +20,7 @@ impl Display for NativeExtensionsError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             NativeExtensionsError::UnknownError => write!(f, "unknown error"),
+            NativeExtensionsError::MethodCallError(e) => e.fmt(f),
             NativeExtensionsError::OtherError(m) => write!(f, "{:?}", m),
             NativeExtensionsError::DataSourceNotFound => {
                 write!(f, "Platform data source not found")
@@ -44,5 +46,11 @@ impl From<NativeExtensionsError> for PlatformError {
             message: Some(err.to_string()),
             detail: Value::Null,
         }
+    }
+}
+
+impl From<MethodCallError> for NativeExtensionsError {
+    fn from(error: MethodCallError) -> Self {
+        NativeExtensionsError::MethodCallError(error)
     }
 }

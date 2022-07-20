@@ -2,33 +2,12 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:meta/meta.dart';
-import 'package:super_native_extensions/raw_drag_drop.dart';
-import 'package:super_native_extensions/src/clipboard_writer.dart';
 
-import 'data_source_manager.dart';
+import 'data_provider_manager.dart';
 import 'util.dart';
 
-/// Low level representation of data that can be written to clipboard or used
-/// for drag&drop.
-class DataSource {
-  DataSource(this.items);
-
-  dynamic serialize() => {
-        'items': items.map((e) => e.serialize()),
-      };
-
-  final List<DataSourceItem> items;
-
-  /// Registers this source with native code. The source data will be kept alive
-  /// until handle is disposed.
-  Future<DataSourceHandle> register() {
-    return DataSourceManager.instance.registerDataSource(this);
-  }
-}
-
-/// Single item of data source. Item can have multiple representation;
-class DataSourceItem {
-  DataSourceItem({
+class DataProvider {
+  DataProvider({
     required this.representations,
     this.suggestedName,
   });
@@ -38,36 +17,42 @@ class DataSourceItem {
         'suggestedName': suggestedName,
       };
 
-  final List<DataSourceItemRepresentation> representations;
+  /// Registers this source with native code. The source data will be kept alive
+  /// until handle is disposed.
+  Future<DataProviderHandle> register() {
+    return DataProviderManager.instance.registerDataProvider(this);
+  }
+
+  final List<DataRepresentation> representations;
   final String? suggestedName;
 }
 
 @sealed
-abstract class DataSourceItemRepresentation {
-  static DataSourceItemRepresentationSimple simple({
-    required List<String> formats,
+abstract class DataRepresentation {
+  static DataRepresentationSimple simple({
+    required String format,
     required Object data,
   }) =>
-      DataSourceItemRepresentationSimple._(
-        formats: formats,
+      DataRepresentationSimple._(
+        format: format,
         data: data,
       );
 
-  static DataSourceItemRepresentationLazy lazy({
-    required List<String> formats,
-    required FutureOr<Object> Function(String format) dataProvider,
+  static DataRepresentationLazy lazy({
+    required String format,
+    required FutureOr<Object> Function() dataProvider,
   }) =>
-      DataSourceItemRepresentationLazy._(
-        formats: formats,
+      DataRepresentationLazy._(
+        format: format,
         dataProvider: dataProvider,
       );
 
-  static DataSourceItemRepresentationVirtualFile virtualFile({
+  static DataRepresentationVirtualFile virtualFile({
     required String format,
     required VirtualFileProvider virtualFileProvider,
     VirtualFileStorage? storageSuggestion,
   }) =>
-      DataSourceItemRepresentationVirtualFile._(
+      DataRepresentationVirtualFile._(
         format: format,
         virtualFileProvider: virtualFileProvider,
         storageSuggestion: storageSuggestion,
@@ -77,29 +62,29 @@ abstract class DataSourceItemRepresentation {
 }
 
 /// Single representation of data source item. Useful when data is known upfront.
-class DataSourceItemRepresentationSimple extends DataSourceItemRepresentation {
-  DataSourceItemRepresentationSimple._({
-    required this.formats,
+class DataRepresentationSimple extends DataRepresentation {
+  DataRepresentationSimple._({
+    required this.format,
     required this.data,
   });
 
   @override
   dynamic serialize() => {
         'type': 'simple',
-        'formats': formats,
+        'format': format,
         'data': data,
       };
 
   /// List of platform-specific data formats.
-  final List<String> formats;
+  final String format;
   final Object data;
 }
 
 /// Single reprsentation of data source item. Useful when data is generated
 /// on demand.
-class DataSourceItemRepresentationLazy extends DataSourceItemRepresentation {
-  DataSourceItemRepresentationLazy._({
-    required this.formats,
+class DataRepresentationLazy extends DataRepresentation {
+  DataRepresentationLazy._({
+    required this.format,
     required this.dataProvider,
   }) : id = _nextId++;
 
@@ -107,12 +92,12 @@ class DataSourceItemRepresentationLazy extends DataSourceItemRepresentation {
   dynamic serialize() => {
         'type': 'lazy',
         'id': id,
-        'formats': formats,
+        'format': format,
       };
 
   final int id;
-  final List<String> formats;
-  final FutureOr<Object> Function(String format) dataProvider;
+  final String format;
+  final FutureOr<Object> Function() dataProvider;
 }
 
 class Progress {
@@ -136,9 +121,8 @@ typedef VirtualFileProvider = void Function(
 
 enum VirtualFileStorage { temporaryFile, memory }
 
-class DataSourceItemRepresentationVirtualFile
-    extends DataSourceItemRepresentation {
-  DataSourceItemRepresentationVirtualFile._({
+class DataRepresentationVirtualFile extends DataRepresentation {
+  DataRepresentationVirtualFile._({
     required this.format,
     required this.virtualFileProvider,
     this.storageSuggestion,
@@ -159,11 +143,13 @@ class DataSourceItemRepresentationVirtualFile
   final VirtualFileStorage? storageSuggestion;
 }
 
-class DataSourceHandle {
-  DataSourceHandle(this.id, this.source);
+int _nextId = 1;
+
+class DataProviderHandle {
+  DataProviderHandle(this.id, this.provider);
 
   final int id;
-  final DataSource source;
+  final DataProvider provider;
   Listenable get onDispose => _onDispose;
 
   final _onDispose = SimpleNotifier();
@@ -177,8 +163,6 @@ class DataSourceHandle {
     assert(!_disposed);
     _disposed = true;
     _onDispose.notify();
-    await DataSourceManager.instance.unregisterDataSource(id);
+    await DataProviderManager.instance.unregisterDataProvider(id);
   }
 }
-
-int _nextId = 1;

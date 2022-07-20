@@ -20,13 +20,13 @@ class _DropDelegate implements RawDropContextDelegate {
 
   @override
   Future<void> onDropLeave(BaseDropEvent event) async {
-    print('Drop ended $event');
+    print('Drop leave $event');
   }
 
   @override
-  Future<DropOperation> onDropOver(DropEvent event) async {
-    print('Drop over $event');
-    return DropOperation.copy;
+  Future<DropOperation> onDropUpdate(DropEvent event) async {
+    print('Drop update $event');
+    return DropOperation.move;
   }
 
   @override
@@ -34,8 +34,16 @@ class _DropDelegate implements RawDropContextDelegate {
     final reader = event.reader!;
     final items = await reader.getItems();
     print('Item count ${items.length}');
+    final item = items[0];
+    // final data = await
+    item.getDataForFormat('public.url').then((data) {
+      print('URL: ${data}');
+    });
+    // print('DATA $data');
     print('Perform drop $event');
+    // Future.delayed(Duration(seconds: 2), () {
     reader.dispose();
+    // });
   }
 }
 
@@ -52,42 +60,48 @@ class _DragDelegate implements RawDragContextDelegate {
     session.lastScreenLocation.addListener(() {
       print('Last screen location ${session.lastScreenLocation.value}');
     });
-    final data = DataSource([
-      DataSourceItem(suggestedName: "File1.txt", representations: [
-        DataSourceItemRepresentation.virtualFile(
-            format: 'public.utf8-plain-text',
-            storageSuggestion: VirtualFileStorage.temporaryFile,
-            virtualFileProvider: (sinkProvider, progress) async {
-              final sink = sinkProvider(fileSize: 32);
-              final cancelled = [false];
-              print('Requested file');
-              progress.onCancel.addListener(() {
-                print('Cancelled');
-                cancelled[0] = true;
+    final data = DataProvider(suggestedName: "File1.txt", representations: [
+      DataRepresentation.virtualFile(
+          format: 'public.utf8-plain-text',
+          storageSuggestion: VirtualFileStorage.temporaryFile,
+          virtualFileProvider: (sinkProvider, progress) async {
+            final sink = sinkProvider(fileSize: 32);
+            final cancelled = [false];
+            print('Requested file');
+            progress.onCancel.addListener(() {
+              print('Cancelled');
+              cancelled[0] = true;
+            });
+            for (var i = 0; i < 10; ++i) {
+              Future.delayed(Duration(milliseconds: i * 1000), () {
+                if (cancelled[0]) {
+                  return;
+                }
+                progress.updateProgress(i * 10);
+                if (i == 9) {
+                  print('Done');
+                  sink.add(utf8.encode('Hello, cruel world!\n'));
+                  sink.add(utf8.encode('Hello, cruel world!'));
+                  // sink.addError('Something went wrong');
+                  sink.close();
+                }
               });
-              for (var i = 0; i < 10; ++i) {
-                Future.delayed(Duration(milliseconds: i * 1000), () {
-                  if (cancelled[0]) {
-                    return;
-                  }
-                  progress.updateProgress(i * 10);
-                  if (i == 9) {
-                    print('Done');
-                    sink.add(utf8.encode('Hello, cruel world!\n'));
-                    sink.add(utf8.encode('Hello, cruel world!'));
-                    // sink.addError('Something went wrong');
-                    sink.close();
-                  }
-                });
-              }
-            }),
-      ]),
+            }
+          }),
     ]);
     return DragConfiguration(
-      dataSource: await data.register(),
       allowedOperations: [DropOperation.copy, DropOperation.move],
-      dragImage:
-          await dragContainer.currentState!.getDragImageForOffset(location),
+      items: [
+        DragItem(
+          dataProvider: await data.register(),
+          localData: {
+            'x': 10,
+            'abc': 'xyz',
+          },
+          dragImage:
+              await dragContainer.currentState!.getDragImageForOffset(location),
+        )
+      ],
     );
   }
 }
@@ -192,15 +206,18 @@ class _MyHomePageState extends State<MyHomePage> {
     writer.write(typeHtml, '<b><i>Html</i></b> Value');
     writer.write(typePlaintext, 'Plaintext Value');
     writer.write(customKey, Uint8List.fromList([1, 2, 3, 4]));
-    final disposeListener = await writer.commitToClipboard();
-    disposeListener.addListener(() {
-      print('Clipboard disposed');
-    });
+    final disposeListenables = await writer.commitToClipboard();
+    for (final l in disposeListenables) {
+      l.addListener(() {
+        print('Clipboard disposed');
+      });
+    }
   }
 
   void copyLazy() async {
     final writer = ClipboardWriter();
-    writer.writeLazy(typeHtml, () {
+    writer.writeLazy(typeHtml, () async {
+      // await Future.delayed(Duration(seconds: 2));
       // print('Producing lazy plain text value');
       return '<b>Lazy <i>Html</i></b> Value';
     });
@@ -212,10 +229,12 @@ class _MyHomePageState extends State<MyHomePage> {
       // print('Producing lazy custom value');
       return Uint8List.fromList([1, 2, 3, 4, 5]);
     });
-    final disposeListener = await writer.commitToClipboard();
-    disposeListener.addListener(() {
-      print('Clipboard lazy disposed');
-    });
+    final disposeListenables = await writer.commitToClipboard();
+    for (final l in disposeListenables) {
+      l.addListener(() {
+        print('Clipboard lazy disposed');
+      });
+    }
   }
 
   void paste() async {
@@ -233,8 +252,8 @@ class _MyHomePageState extends State<MyHomePage> {
     // final rect = MatrixUtils.transformRect(renderObject.getTransformTo(null),
     //     Rect.fromLTWH(0, 0, renderObject.size.width, renderObject.size.height));
 
-    final data = DataSource(
-      [
+    final data = DataProvider(
+
         // DataSourceItem(representations: [
         //   DataSourceItemRepresentation.simple(
         //       formats: ['public.file-url'],
@@ -273,14 +292,15 @@ class _MyHomePageState extends State<MyHomePage> {
         //         }
         //       }),
         // ], suggestedName: 'File1.txt'),
-        DataSourceItem(representations: [
+        representations: [
           // DataSourceItemRepresentation.simple(
           //     formats: ['public.file-url'],
           //     data: utf8.encode('file:///tmp/test.txt')),
-          DataSourceItemRepresentation.simple(
+          DataRepresentation.lazy(
               // formats: ['public.utf8-plain-text'], data: utf8.encode('baaad')),
-              formats: ['text/plain'], data: utf8.encode('baaad')),
-          DataSourceItemRepresentation.virtualFile(
+              format: 'text/plain',
+              dataProvider: () => utf8.encode('baaad')),
+          DataRepresentation.virtualFile(
               format: 'public.utf8-plain-text',
               // format: 'text/plain',
               storageSuggestion: VirtualFileStorage.temporaryFile,
@@ -327,28 +347,27 @@ class _MyHomePageState extends State<MyHomePage> {
                 //   });
                 // }
               }),
-        ], suggestedName: 'File2.txt'),
-      ],
-    );
+        ], suggestedName: 'File2.txt');
     final handle = await data.register();
 
     final dragContext = await RawDragContext.instance();
     final session = await dragContext.startDrag(
       request: DragRequest(
-        configuration: DragConfiguration(
-          allowedOperations: [
-            DropOperation.copy,
-            DropOperation.move,
-            DropOperation.link
-          ],
-          localData: {
-            'x': 1,
-            'y': 2,
-          },
-          dataSource: handle,
-          dragImage: await dragContainer.currentState!
-              .getDragImageForOffset(globalPosition),
-        ),
+        configuration: DragConfiguration(allowedOperations: [
+          DropOperation.copy,
+          DropOperation.move,
+          DropOperation.link
+        ], items: [
+          DragItem(
+            localData: {
+              'x': 1,
+              'y': 2,
+            },
+            dataProvider: handle,
+            dragImage: await dragContainer.currentState!
+                .getDragImageForOffset(globalPosition),
+          )
+        ]),
         position: globalPosition,
       ),
     );

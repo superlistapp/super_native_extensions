@@ -1,7 +1,7 @@
 use std::{
     cell::{Cell, RefCell},
     collections::HashMap,
-    ffi::c_void,
+    os::raw::c_void,
     rc::{Rc, Weak},
     slice,
     sync::Arc,
@@ -15,55 +15,85 @@ use nativeshell_core::{
 };
 
 use crate::{
-    api_model::{DataSource, DataSourceId, DataSourceValueId},
+    api_model::{DataProvider, DataProviderId, DataProviderValueId},
     error::{NativeExtensionsError, NativeExtensionsResult},
     log::OkLog,
-    platform_impl::platform::{platform_stream_close, platform_stream_write, PlatformDataSource},
+    platform_impl::platform::{platform_stream_close, platform_stream_write, PlatformDataProvider},
     util::{DropNotifier, NextId},
     value_promise::{ValuePromise, ValuePromiseResult, ValuePromiseSetCancel},
 };
 
-#[derive(Debug)]
 pub enum VirtualFileResult {
     Done,
     Error { message: String },
     Cancelled,
 }
 
+/// Keeps the virtual session alive
+pub struct VirtualSessionHandle(DropNotifier);
+
+impl VirtualSessionHandle {
+    pub fn dispose(&self) {
+        self.0.dispose();
+    }
+}
+
+/// Keeps the data provider alive
+pub struct DataProviderHandle(DropNotifier);
+
+impl From<DropNotifier> for DataProviderHandle {
+    fn from(notifier: DropNotifier) -> Self {
+        DataProviderHandle(notifier)
+    }
+}
+
 #[async_trait(?Send)]
-pub trait PlatformDataSourceDelegate {
+pub trait PlatformDataProviderDelegate {
     fn get_lazy_data(
         &self,
         isolate_id: IsolateId,
-        data_id: DataSourceValueId,
-        format: String,
+        data_id: DataProviderValueId,
         on_done: Option<Box<dyn FnOnce()>>,
     ) -> Arc<ValuePromise>;
 
     async fn get_lazy_data_async(
         &self,
         isolate_id: IsolateId,
-        data_id: DataSourceValueId,
-        format: String,
+        data_id: DataProviderValueId,
     ) -> ValuePromiseResult;
 
     fn get_virtual_file(
         &self,
         isolate_id: IsolateId,
-        virtual_file_id: DataSourceValueId,
+        virtual_file_id: DataProviderValueId,
         stream_handle: i32,
         on_size_known: Box<dyn Fn(Option<i64>)>,
         on_progress: Box<dyn Fn(i32 /* 0 - 100 */)>,
         on_done: Box<dyn FnOnce(VirtualFileResult)>,
-    ) -> Arc<DropNotifier>; // keeps the virtual session alive
+    ) -> Arc<VirtualSessionHandle>;
 }
 
-struct VirtualFileSession {
+pub struct DataProviderManager {
+    weak_self: Late<Weak<Self>>,
+    invoker: Late<AsyncMethodInvoker>,
+    next_id: Cell<i64>,
+    providers: RefCell<HashMap<DataProviderId, DataProviderEntry>>,
+    virtual_sessions: RefCell<HashMap<VirtualSessionId, VirtualFileSession>>,
+}
+
+pub trait GetDataProviderManager {
+    fn data_provider_manager(&self) -> Rc<DataProviderManager>;
+}
+
+impl GetDataProviderManager for Context {
+    fn data_provider_manager(&self) -> Rc<DataProviderManager> {
+        self.get_attachment(DataProviderManager::new).handler()
+    }
+}
+
+struct DataProviderEntry {
     isolate_id: IsolateId,
-    size_known: Cell<bool>,
-    on_size_known: Box<dyn Fn(Option<i64>)>,
-    on_progress: Box<dyn Fn(i32 /* 0 - 100 */)>,
-    on_done: Box<dyn FnOnce(VirtualFileResult)>,
+    platform_data_provider: Rc<PlatformDataProvider>,
 }
 
 #[derive(Debug, TryFromValue, IntoValue, Clone, Copy, PartialEq, Hash, Eq)]
@@ -75,76 +105,61 @@ impl From<i64> for VirtualSessionId {
     }
 }
 
-pub struct DataSourceManager {
-    weak_self: Late<Weak<Self>>,
-    invoker: Late<AsyncMethodInvoker>,
-    next_id: Cell<i64>,
-    sources: RefCell<HashMap<DataSourceId, DataSourceEntry>>,
-    virtual_sessions: RefCell<HashMap<VirtualSessionId, VirtualFileSession>>,
-}
-
-struct DataSourceEntry {
+struct VirtualFileSession {
     isolate_id: IsolateId,
-    platform_data_source: Rc<PlatformDataSource>,
+    size_known: Cell<bool>,
+    on_size_known: Box<dyn Fn(Option<i64>)>,
+    on_progress: Box<dyn Fn(i32 /* 0 - 100 */)>,
+    on_done: Box<dyn FnOnce(VirtualFileResult)>,
 }
 
-pub trait GetDataSourceManager {
-    fn data_source_manager(&self) -> Rc<DataSourceManager>;
-}
-
-impl GetDataSourceManager for Context {
-    fn data_source_manager(&self) -> Rc<DataSourceManager> {
-        self.get_attachment(DataSourceManager::new).handler()
-    }
-}
-
-impl DataSourceManager {
+impl DataProviderManager {
     pub fn new() -> RegisteredAsyncMethodHandler<Self> {
         Self {
             weak_self: Late::new(),
             invoker: Late::new(),
             next_id: Cell::new(1),
-            sources: RefCell::new(HashMap::new()),
+            providers: RefCell::new(HashMap::new()),
             virtual_sessions: RefCell::new(HashMap::new()),
         }
-        .register("DataSourceManager")
+        .register("DataProviderManager")
     }
 
-    pub fn get_platform_data_source(
+    pub fn get_platform_data_provider(
         &self,
-        source_id: DataSourceId,
-    ) -> NativeExtensionsResult<Rc<PlatformDataSource>> {
-        self.sources
+        provider_id: DataProviderId,
+    ) -> NativeExtensionsResult<Rc<PlatformDataProvider>> {
+        self.providers
             .borrow()
-            .get(&source_id)
-            .map(|e| e.platform_data_source.clone())
+            .get(&provider_id)
+            .map(|e| e.platform_data_provider.clone())
             .ok_or_else(|| NativeExtensionsError::DataSourceNotFound)
     }
 
-    fn register_source(
+    fn register_provider(
         &self,
-        source: DataSource,
+        source: DataProvider,
         isolate_id: IsolateId,
-    ) -> NativeExtensionsResult<DataSourceId> {
-        let platform_data_source = Rc::new(PlatformDataSource::new(
+    ) -> NativeExtensionsResult<DataProviderId> {
+        let platform_data_source = Rc::new(PlatformDataProvider::new(
             self.weak_self.clone(),
             isolate_id,
             source,
         ));
         let id = self.next_id.next_id().into();
         platform_data_source.assign_weak_self(Rc::downgrade(&platform_data_source));
-        self.sources.borrow_mut().insert(
+        self.providers.borrow_mut().insert(
             id,
-            DataSourceEntry {
+            DataProviderEntry {
                 isolate_id,
-                platform_data_source,
+                platform_data_provider: platform_data_source,
             },
         );
         Ok(id)
     }
 
-    fn unregister_source(&self, source: DataSourceId) -> NativeExtensionsResult<()> {
-        self.sources.borrow_mut().remove(&source);
+    fn unregister_provider(&self, source: DataProviderId) -> NativeExtensionsResult<()> {
+        self.providers.borrow_mut().remove(&source);
         Ok(())
     }
 
@@ -215,19 +230,102 @@ impl DataSourceManager {
     }
 }
 
-#[no_mangle]
-pub extern "C" fn super_native_extensions_stream_write(
-    handle: i32,
-    data: *mut c_void,
-    len: i64,
-) -> i32 {
-    let buf = unsafe { slice::from_raw_parts(data as *const u8, len as usize) };
-    platform_stream_write(handle, &buf)
-}
+#[async_trait(?Send)]
+impl PlatformDataProviderDelegate for DataProviderManager {
+    fn get_lazy_data(
+        &self,
+        isolate_id: IsolateId,
+        data_id: DataProviderValueId,
+        on_done: Option<Box<dyn FnOnce()>>,
+    ) -> Arc<ValuePromise> {
+        let res = Arc::new(ValuePromise::new());
+        let res_clone = res.clone();
+        let weak_self = self.weak_self.clone();
+        Context::get().run_loop().spawn(async move {
+            let this = weak_self.upgrade();
+            if let Some(this) = this {
+                let res = this.get_lazy_data_async(isolate_id, data_id).await;
+                res_clone.set(res);
+                if let Some(on_done) = on_done {
+                    on_done();
+                }
+            } else {
+                res_clone.cancel();
+            }
+        });
+        res
+    }
 
-#[no_mangle]
-pub extern "C" fn super_native_extensions_stream_close(handle: i32, delete: bool) {
-    platform_stream_close(handle, delete);
+    async fn get_lazy_data_async(
+        &self,
+        isolate_id: IsolateId,
+        value_id: DataProviderValueId,
+    ) -> ValuePromiseResult {
+        #[derive(IntoValue)]
+        #[nativeshell(rename_all = "camelCase")]
+        struct LazyDataRequest {
+            value_id: DataProviderValueId,
+        }
+
+        let res = self
+            .invoker
+            .call_method_cv(isolate_id, "getLazyData", LazyDataRequest { value_id })
+            .await;
+        match res {
+            Ok(res) => res,
+            Err(_) => ValuePromiseResult::Cancelled,
+        }
+    }
+
+    fn get_virtual_file(
+        &self,
+        isolate_id: IsolateId,
+        virtual_file_id: DataProviderValueId,
+        stream_handle: i32,
+        on_size_known: Box<dyn Fn(Option<i64>)>,
+        on_progress: Box<dyn Fn(i32 /* 0 - 100 */)>,
+        on_done: Box<dyn FnOnce(VirtualFileResult)>,
+    ) -> Arc<VirtualSessionHandle> {
+        let weak_self = self.weak_self.clone();
+        let session_id: VirtualSessionId = self.next_id.next_id().into();
+        let sesion = VirtualFileSession {
+            isolate_id,
+            size_known: Cell::new(false),
+            on_size_known,
+            on_progress,
+            on_done,
+        };
+        self.virtual_sessions
+            .borrow_mut()
+            .insert(session_id, sesion);
+        #[derive(IntoValue)]
+        #[nativeshell(rename_all = "camelCase")]
+        struct VirtualFileRequest {
+            session_id: VirtualSessionId,
+            virtual_file_id: DataProviderValueId,
+            stream_handle: i32,
+        }
+        self.invoker.call_method_sync(
+            isolate_id,
+            "getVirtualFile",
+            VirtualFileRequest {
+                session_id,
+                virtual_file_id,
+                stream_handle,
+            },
+            |r| {
+                r.ok_log();
+            },
+        );
+        Arc::new(VirtualSessionHandle(DropNotifier::new_(move || {
+            if let Some(this) = weak_self.upgrade() {
+                this.invoker
+                    .call_method_sync(isolate_id, "cancelVirtualFile", session_id, |r| {
+                        r.ok_log();
+                    });
+            }
+        })))
+    }
 }
 
 #[derive(Debug, TryFromValue)]
@@ -264,14 +362,14 @@ struct VirtualFileError {
 }
 
 #[async_trait(?Send)]
-impl AsyncMethodHandler for DataSourceManager {
+impl AsyncMethodHandler for DataProviderManager {
     async fn on_method_call(&self, call: MethodCall) -> PlatformResult {
         match call.method.as_str() {
-            "registerDataSource" => self
-                .register_source(call.args.try_into()?, call.isolate)
+            "registerDataProvider" => self
+                .register_provider(call.args.try_into()?, call.isolate)
                 .into_platform_result(),
-            "unregisterDataSource" => self
-                .unregister_source(call.args.try_into()?)
+            "unregisterDataProvider" => self
+                .unregister_provider(call.args.try_into()?)
                 .into_platform_result(),
             "virtualFileUpdateProgress" => self
                 .virtual_file_update_progress(call.args.try_into()?)
@@ -306,8 +404,8 @@ impl AsyncMethodHandler for DataSourceManager {
 
     // Called when engine is about to be destroyed.
     fn on_isolate_destroyed(&self, isolate_id: IsolateId) {
-        let mut sources = self.sources.borrow_mut();
-        let sources_to_remove: Vec<_> = sources
+        let mut providers = self.providers.borrow_mut();
+        let providers_to_remove: Vec<_> = providers
             .iter()
             .filter_map(|(id, source)| {
                 if source.isolate_id == isolate_id {
@@ -317,8 +415,8 @@ impl AsyncMethodHandler for DataSourceManager {
                 }
             })
             .collect();
-        for source_id in sources_to_remove {
-            sources.remove(&source_id);
+        for source_id in providers_to_remove {
+            providers.remove(&source_id);
         }
 
         let sessions_to_remove: Vec<_> = {
@@ -341,110 +439,19 @@ impl AsyncMethodHandler for DataSourceManager {
     }
 }
 
-#[async_trait(?Send)]
-impl PlatformDataSourceDelegate for DataSourceManager {
-    fn get_lazy_data(
-        &self,
-        isolate_id: IsolateId,
-        data_id: DataSourceValueId,
-        format: String,
-        on_done: Option<Box<dyn FnOnce()>>,
-    ) -> Arc<ValuePromise> {
-        let res = Arc::new(ValuePromise::new());
-        let res_clone = res.clone();
-        let weak_self = self.weak_self.clone();
-        Context::get().run_loop().spawn(async move {
-            let this = weak_self.upgrade();
-            if let Some(this) = this {
-                let res = this.get_lazy_data_async(isolate_id, data_id, format).await;
-                res_clone.set(res);
-                if let Some(on_done) = on_done {
-                    on_done();
-                }
-            } else {
-                res_clone.cancel();
-            }
-        });
-        res
-    }
+// FFI
 
-    async fn get_lazy_data_async(
-        &self,
-        isolate_id: IsolateId,
-        data_id: DataSourceValueId,
-        format: String,
-    ) -> ValuePromiseResult {
-        #[derive(IntoValue)]
-        #[nativeshell(rename_all = "camelCase")]
-        struct LazyDataRequest {
-            value_id: DataSourceValueId,
-            format: String,
-        }
+#[no_mangle]
+pub extern "C" fn super_native_extensions_stream_write(
+    handle: i32,
+    data: *mut c_void,
+    len: i64,
+) -> i32 {
+    let buf = unsafe { slice::from_raw_parts(data as *const u8, len as usize) };
+    platform_stream_write(handle, &buf)
+}
 
-        let res = self
-            .invoker
-            .call_method_cv(
-                isolate_id,
-                "getLazyData",
-                LazyDataRequest {
-                    value_id: data_id,
-                    format,
-                },
-            )
-            .await;
-        match res {
-            Ok(res) => res,
-            Err(_) => ValuePromiseResult::Cancelled,
-        }
-    }
-
-    fn get_virtual_file(
-        &self,
-        isolate_id: IsolateId,
-        virtual_file_id: DataSourceValueId,
-        stream_handle: i32,
-        on_size_known: Box<dyn Fn(Option<i64>)>,
-        on_progress: Box<dyn Fn(i32 /* 0 - 100 */)>,
-        on_done: Box<dyn FnOnce(VirtualFileResult)>,
-    ) -> Arc<DropNotifier> {
-        let weak_self = self.weak_self.clone();
-        let session_id: VirtualSessionId = self.next_id.next_id().into();
-        let sesion = VirtualFileSession {
-            isolate_id,
-            size_known: Cell::new(false),
-            on_size_known,
-            on_progress,
-            on_done,
-        };
-        self.virtual_sessions
-            .borrow_mut()
-            .insert(session_id, sesion);
-        #[derive(IntoValue)]
-        #[nativeshell(rename_all = "camelCase")]
-        struct VirtualFileRequest {
-            session_id: VirtualSessionId,
-            virtual_file_id: DataSourceValueId,
-            stream_handle: i32,
-        }
-        self.invoker.call_method_sync(
-            isolate_id,
-            "getVirtualFile",
-            VirtualFileRequest {
-                session_id,
-                virtual_file_id,
-                stream_handle,
-            },
-            |r| {
-                r.ok_log();
-            },
-        );
-        DropNotifier::new(move || {
-            if let Some(this) = weak_self.upgrade() {
-                this.invoker
-                    .call_method_sync(isolate_id, "cancelVirtualFile", session_id, |r| {
-                        r.ok_log();
-                    });
-            }
-        })
-    }
+#[no_mangle]
+pub extern "C" fn super_native_extensions_stream_close(handle: i32, delete: bool) {
+    platform_stream_close(handle, delete);
 }

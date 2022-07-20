@@ -28,6 +28,62 @@ pub struct ImageData {
 }
 
 //
+// Data Provider
+//
+
+#[derive(Debug, TryFromValue, IntoValue, Clone, Copy, PartialEq, Hash, Eq)]
+pub struct DataProviderValueId(i64);
+
+#[derive(Debug, TryFromValue, IntoValue, Clone, Copy, PartialEq, Hash, Eq)]
+pub struct DataProviderId(i64);
+
+impl From<i64> for DataProviderId {
+    fn from(value: i64) -> Self {
+        Self(value)
+    }
+}
+
+#[derive(Debug, TryFromValue, IntoValue, Clone, PartialEq)]
+#[nativeshell(tag = "type", rename_all = "camelCase")]
+pub enum DataRepresentation {
+    #[nativeshell(rename_all = "camelCase")]
+    Simple { format: String, data: Value },
+    #[nativeshell(rename_all = "camelCase")]
+    Lazy {
+        id: DataProviderValueId,
+        format: String,
+    },
+    #[nativeshell(rename_all = "camelCase")]
+    VirtualFile {
+        id: DataProviderValueId,
+        format: String,
+        storage_suggestion: Option<VirtualFileStorage>,
+    },
+}
+
+impl DataRepresentation {
+    pub fn is_virtual_file(&self) -> bool {
+        if let Self::VirtualFile {
+            id: _,
+            format: _,
+            storage_suggestion: _,
+        } = self
+        {
+            true
+        } else {
+            false
+        }
+    }
+}
+
+#[derive(Debug, TryFromValue, IntoValue, Clone, PartialEq)]
+#[nativeshell(rename_all = "camelCase")]
+pub struct DataProvider {
+    pub representations: Vec<DataRepresentation>,
+    pub suggested_name: Option<String>,
+}
+
+//
 // Data Source
 //
 
@@ -109,11 +165,17 @@ pub struct DragImage {
 
 #[derive(TryFromValue, Debug)]
 #[nativeshell(rename_all = "camelCase")]
-pub struct DragConfiguration {
-    pub data_source_id: DataSourceId,
-    pub allowed_operations: Vec<DropOperation>,
+pub struct DragItem {
+    pub data_provider_id: DataProviderId,
+    pub image: DragImage,
     pub local_data: Value,
-    pub drag_image: DragImage,
+}
+
+#[derive(TryFromValue, Debug)]
+#[nativeshell(rename_all = "camelCase")]
+pub struct DragConfiguration {
+    pub items: Vec<DragItem>,
+    pub allowed_operations: Vec<DropOperation>,
     pub animates_to_starting_position_on_cancel_or_fail: bool,
 }
 

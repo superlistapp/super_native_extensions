@@ -45,7 +45,7 @@ class RawDragContext {
   RawDragContextDelegate? _delegate;
 
   final _sessions = <int, DragSession>{};
-  final _dataSources = <int, DataSourceHandle>{};
+  final _dataProviders = <int, DataProviderHandle>{};
 
   Future<void> _initialize() async {
     WidgetsFlutterBinding.ensureInitialized();
@@ -75,18 +75,21 @@ class RawDragContext {
         session: session,
       );
       if (configuration != null) {
-        configuration.dataSource.onDispose.addListener(() {
-          session._sessionIsDoneWithDataSource.notify();
-        });
+        // TODO!
+        // configuration.dataSource.onDispose.addListener(() {
+        //   session._sessionIsDoneWithDataSource.notify();
+        // });
         _sessions[sessionId] = session;
-        _dataSources[configuration.dataSource.id] = configuration.dataSource;
+        for (final item in configuration.items) {
+          _dataProviders[item.dataProvider.id] = item.dataProvider;
+        }
         return {'configuration': await configuration.serialize()};
       } else {
         return null;
       }
-    } else if (call.method == 'releaseDataSource') {
-      final source = _dataSources.remove(call.arguments);
-      source?.dispose();
+    } else if (call.method == 'releaseDataProvider') {
+      final provider = _dataProviders.remove(call.arguments);
+      provider?.dispose();
     } else if (call.method == 'dragSessionDidMove') {
       final arguments = call.arguments as Map;
       final sessionId = arguments['sessionId'];
@@ -110,15 +113,17 @@ class RawDragContext {
   Future<DragSession> startDrag({
     required DragRequest request,
   }) async {
-    final dataSource = request.configuration.dataSource;
     final sessionId =
         await _channel.invokeMethod("startDrag", await request.serialize());
     final session = DragSession();
-    dataSource.onDispose.addListener(() {
-      session._sessionIsDoneWithDataSource.notify();
-    });
+    // TODO
+    // dataSource.onDispose.addListener(() {
+    //   session._sessionIsDoneWithDataSource.notify();
+    // });
     _sessions[sessionId] = session;
-    _dataSources[dataSource.id] = dataSource;
+    for (final item in request.configuration.items) {
+      _dataProviders[item.dataProvider.id] = item.dataProvider;
+    }
     return session;
   }
 }
@@ -144,28 +149,49 @@ class DragImage {
   final double devicePixelRatio;
 }
 
+class DragItem {
+  DragItem({
+    required this.dataProvider,
+    required this.dragImage,
+    this.localData,
+  });
+
+  Future<dynamic> serialize() async => {
+        'dataProviderId': dataProvider.id,
+        'localData': localData,
+        'image': await dragImage.serialize(),
+      };
+
+  final DataProviderHandle dataProvider;
+  final DragImage dragImage;
+  final Object? localData;
+}
+
 class DragConfiguration {
   DragConfiguration({
-    required this.dataSource,
+    required this.items,
     required this.allowedOperations,
-    this.localData,
-    required this.dragImage,
     this.animatesToStartingPositionOnCancelOrFail = true,
   });
 
-  final DataSourceHandle dataSource;
+  final List<DragItem> items;
+
   final List<DropOperation> allowedOperations;
-  final Object? localData;
-  final DragImage dragImage;
 
   /// macOS specific
   final bool animatesToStartingPositionOnCancelOrFail;
 
+  Future<dynamic> _serializeItems() async {
+    final res = <dynamic>[];
+    for (final item in items) {
+      res.add(await item.serialize());
+    }
+    return res;
+  }
+
   Future<dynamic> serialize() async => {
+        'items': await _serializeItems(),
         'allowedOperations': allowedOperations.map((e) => e.name),
-        'dataSourceId': dataSource.id,
-        'localData': localData,
-        'dragImage': await dragImage.serialize(),
         'animatesToStartingPositionOnCancelOrFail':
             animatesToStartingPositionOnCancelOrFail,
       };

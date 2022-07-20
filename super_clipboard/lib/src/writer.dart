@@ -11,8 +11,8 @@ class ClipboardWriter {
       final platformKey = key.platformType();
       for (final format in platformKey.writableSystemTypes()) {
         final data = await platformKey.convertToSystem(value, format);
-        _currentItemData.add(
-            DataSourceItemRepresentation.simple(formats: [format], data: data));
+        _currentItemData
+            .add(DataRepresentation.simple(format: format, data: data));
       }
     });
   }
@@ -21,9 +21,9 @@ class ClipboardWriter {
     _actions.add(() {
       final platformKey = key.platformType();
       for (final format in platformKey.writableSystemTypes()) {
-        _currentItemData.add(DataSourceItemRepresentation.lazy(
-            formats: [format],
-            dataProvider: (format) async {
+        _currentItemData.add(DataRepresentation.lazy(
+            format: format,
+            dataProvider: () async {
               final value = await itemProvider();
               return await platformKey.convertToSystem(value, format);
             }));
@@ -33,31 +33,34 @@ class ClipboardWriter {
 
   void nextItem() {
     _actions.add(() {
-      _items.add(DataSourceItem(representations: _currentItemData));
+      _items.add(DataProvider(representations: _currentItemData));
       _currentItemData = [];
     });
   }
 
-  Future<Listenable> commitToClipboard() async {
-    final data = await _buildWriterData();
-    final handle = await data.register();
-    await RawClipboardWriter.instance.write(handle);
-    return handle.onDispose;
+  Future<List<Listenable>> commitToClipboard() async {
+    final items = await _buildWriterData();
+    final handles = <DataProviderHandle>[];
+    for (final item in items) {
+      handles.add(await item.register());
+    }
+    await RawClipboardWriter.instance.write(handles);
+    return handles.map((e) => e.onDispose).toList(growable: false);
   }
 
-  Future<DataSource> _buildWriterData() async {
+  Future<List<DataProvider>> _buildWriterData() async {
     _items = [];
     _currentItemData = [];
     for (final action in _actions) {
       await action();
     }
     if (_currentItemData.isNotEmpty) {
-      _items.add(DataSourceItem(representations: _currentItemData));
+      _items.add(DataProvider(representations: _currentItemData));
     }
-    return DataSource(_items);
+    return _items;
   }
 
   final _actions = <FutureOr<void> Function()>[];
-  List<DataSourceItem> _items = [];
-  List<DataSourceItemRepresentation> _currentItemData = [];
+  List<DataProvider> _items = [];
+  List<DataRepresentation> _currentItemData = [];
 }

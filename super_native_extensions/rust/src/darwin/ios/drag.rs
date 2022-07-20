@@ -4,7 +4,6 @@ use std::{
     mem::ManuallyDrop,
     os::raw::c_void,
     rc::{Rc, Weak},
-    sync::Arc,
 };
 
 use cocoa::{
@@ -25,16 +24,18 @@ use objc::{
 use once_cell::sync::Lazy;
 
 use crate::{
-    api_model::{DragConfiguration, DragRequest, DropOperation, Point},
-    drag_manager::{DragSessionId, PendingSourceState, PlatformDragContextDelegate},
+    api_model::{DataProviderId, DragConfiguration, DragRequest, DropOperation, Point},
+    drag_manager::{
+        DataProviderEntry, DragSessionId, PendingSourceData, PendingSourceState,
+        PlatformDragContextDelegate,
+    },
     error::{NativeExtensionsError, NativeExtensionsResult},
     platform_impl::platform::os::drag_common::{UIDropOperationCancel, UIDropOperationForbidden},
-    util::DropNotifier,
 };
 
 use super::{
     drag_common::{DropOperationExt, UIDropOperation},
-    DataSourceSessionDelegate, PlatformDataSource,
+    DataProviderSessionDelegate,
 };
 
 pub struct PlatformDragContext {
@@ -53,8 +54,8 @@ struct Session {
     session_id: DragSessionId,
     weak_self: Late<Weak<Self>>,
     in_progress: Cell<bool>,
-    data_source_notifier: RefCell<Option<Arc<DropNotifier>>>,
     configuration: DragConfiguration,
+    data_providers: RefCell<HashMap<DataProviderId, DataProviderEntry>>,
 }
 
 impl Session {
@@ -69,9 +70,9 @@ impl Session {
             context_id,
             weak_self: Late::new(),
             in_progress: Cell::new(false),
-            data_source_notifier: RefCell::new(None),
             session_id,
             configuration,
+            data_providers: RefCell::new(HashMap::new()),
         }
     }
 
@@ -81,22 +82,26 @@ impl Session {
 
     fn create_items(
         &self,
-        source: Rc<PlatformDataSource>,
-        data_source_notifier: Arc<DropNotifier>,
+        provider_ids: Vec<DataProviderId>,
+        mut providers: HashMap<DataProviderId, DataProviderEntry>,
     ) -> id {
-        // We manage the data source notifier ourselves. Unfortunately the
-        // NSItemProvider leaks and never gets released on iOS.
-        // So after dragging is finished we manually drop the notifier releasing
-        // everything data-source related. The DataSourceSession will be kept
-        // alive but it only has weak references to PlatformDataSource and
-        // PlatformDataSourceState.
-        self.data_source_notifier
-            .replace(Some(data_source_notifier));
-        let items = source.create_items(None, self.weak_self.clone());
         let mut dragging_items = Vec::<id>::new();
         unsafe {
-            for item in items {
-                let item_provider = item;
+            for provider_id in provider_ids {
+                let provider_entry = providers.remove(&provider_id).expect("Missing provider");
+                // We manage the data source notifier ourselves. Unfortunately the
+                // NSItemProvider leaks and never gets released on iOS.
+                // So after dragging is finished we manually drop the notifier releasing
+                // everything data-source related. The DataSourceSession will be kept
+                // alive but it only has weak references to PlatformDataProvider and
+                // PlatformDataProviderState.
+                let item_provider = provider_entry
+                    .provider
+                    .create_ns_item_provider(None, Some(self.weak_self.clone()));
+                // Keep providers alive
+                self.data_providers
+                    .borrow_mut()
+                    .insert(provider_id, provider_entry);
                 let drag_item: id = msg_send![class!(UIDragItem), alloc];
                 let drag_item: id = msg_send![drag_item, initWithItemProvider: item_provider];
                 let drag_item: id = msg_send![drag_item, autorelease];
@@ -127,17 +132,9 @@ impl Session {
     }
 }
 
-impl DataSourceSessionDelegate for Session {
+impl DataProviderSessionDelegate for Session {
     fn should_fetch_items(&self) -> bool {
         self.in_progress.get()
-    }
-}
-
-impl Drop for Session {
-    fn drop(&mut self) {
-        if let Some(notifier) = self.data_source_notifier.take() {
-            notifier.dispose();
-        }
     }
 }
 
@@ -171,8 +168,7 @@ impl PlatformDragContext {
     pub async fn start_drag(
         &self,
         _request: DragRequest,
-        _source: Rc<PlatformDataSource>,
-        _notifier: Arc<DropNotifier>,
+        _providers: HashMap<DataProviderId, DataProviderEntry>,
         _session_id: DragSessionId,
     ) -> NativeExtensionsResult<()> {
         Err(NativeExtensionsError::UnsupportedOperation)
@@ -182,22 +178,25 @@ impl PlatformDragContext {
         &self,
         _interaction: id,
         drag_session: id,
-        source: Rc<PlatformDataSource>,
-        source_drop_notifier: Arc<DropNotifier>,
-        session_id: DragSessionId,
-        drag_data: DragConfiguration,
+        data: PendingSourceData,
     ) -> id {
+        let provider_ids: Vec<_> = data
+            .configuration
+            .items
+            .iter()
+            .map(|i| i.data_provider_id)
+            .collect();
         let session = Rc::new(Session::new(
             self.delegate.clone(),
             self.id,
-            session_id,
-            drag_data,
+            data.session_id,
+            data.configuration,
         ));
         session.assign_weak_self(Rc::downgrade(&session));
         self.sessions
             .borrow_mut()
             .insert(drag_session, session.clone());
-        session.create_items(source, source_drop_notifier)
+        session.create_items(provider_ids, data.providers)
     }
 
     fn items_for_beginning(&self, interaction: id, session: id) -> id {
@@ -208,20 +207,8 @@ impl PlatformDragContext {
                 {
                     let items = data_source.replace(PendingSourceState::Pending);
                     match items {
-                        PendingSourceState::Ok {
-                            source,
-                            source_drop_notifier: drop_notifier,
-                            session_id,
-                            drag_data,
-                        } => {
-                            return self._items_for_beginning(
-                                interaction,
-                                session,
-                                source.clone(),
-                                drop_notifier.clone(),
-                                session_id,
-                                drag_data,
-                            );
+                        PendingSourceState::Ok(data) => {
+                            return self._items_for_beginning(interaction, session, data);
                         }
                         PendingSourceState::Cancelled => return nil,
                         _ => {}
@@ -275,12 +262,12 @@ impl PlatformDragContext {
     }
 
     pub fn get_local_data(&self, session: id) -> Value {
-        let sessions = self.sessions.borrow();
-        if let Some(session) = sessions.get(&session) {
-            session.configuration.local_data.clone()
-        } else {
-            Value::Null
-        }
+        // let sessions = self.sessions.borrow();
+        // if let Some(session) = sessions.get(&session) {
+        //     session.configuration.local_data.clone()
+        // } else {
+        Value::Null
+        // }
     }
 }
 

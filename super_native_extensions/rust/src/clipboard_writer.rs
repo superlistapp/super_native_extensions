@@ -1,4 +1,7 @@
-use std::rc::{Rc, Weak};
+use std::{
+    rc::{Rc, Weak},
+    sync::Arc,
+};
 
 use async_trait::async_trait;
 use nativeshell_core::{
@@ -7,8 +10,9 @@ use nativeshell_core::{
 };
 
 use crate::{
-    api_model::DataSourceId, data_source_manager::GetDataSourceManager,
-    error::NativeExtensionsResult, log::OkLog, util::DropNotifier,
+    api_model::DataProviderId, data_provider_manager::GetDataProviderManager,
+    error::NativeExtensionsResult, log::OkLog, platform_impl::platform::PlatformDataProvider,
+    util::DropNotifier,
 };
 
 pub struct ClipboardWriter {
@@ -25,9 +29,9 @@ impl ClipboardWriter {
         .register("ClipboardWriter")
     }
 
-    fn release_data_source(&self, isolate_id: IsolateId, source_id: DataSourceId) {
+    fn release_data_provider(&self, isolate_id: IsolateId, provider_id: DataProviderId) {
         self.invoker
-            .call_method_sync(isolate_id, "releaseDataSource", source_id, |r| {
+            .call_method_sync(isolate_id, "releaseDataProvider", provider_id, |r| {
                 r.ok_log();
             })
     }
@@ -35,19 +39,21 @@ impl ClipboardWriter {
     async fn write_to_clipboard(
         &self,
         isolate_id: IsolateId,
-        source_id: DataSourceId,
+        provider_ids: Vec<DataProviderId>,
     ) -> NativeExtensionsResult<()> {
-        let source = Context::get()
-            .data_source_manager()
-            .get_platform_data_source(source_id)?;
-        let weak_self = self.weak_self.clone();
-        source
-            .write_to_clipboard(DropNotifier::new(move || {
+        let mut providers = Vec::<_>::new();
+        let data_provider_manager = Context::get().data_provider_manager();
+        for provider_id in provider_ids {
+            let provider = data_provider_manager.get_platform_data_provider(provider_id)?;
+            let weak_self = self.weak_self.clone();
+            let notifier = DropNotifier::new_(move || {
                 if let Some(this) = weak_self.upgrade() {
-                    this.release_data_source(isolate_id, source_id);
+                    this.release_data_provider(isolate_id, provider_id);
                 }
-            }))
-            .await?;
+            });
+            providers.push((provider, Arc::new(notifier.into())));
+        }
+        PlatformDataProvider::write_to_clipboard(providers).await?;
         Ok(())
     }
 }

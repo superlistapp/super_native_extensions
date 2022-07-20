@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:ffi';
 import 'dart:math';
-import 'dart:typed_data';
 
 import 'package:ffi/ffi.dart';
 import 'package:flutter/foundation.dart';
@@ -9,53 +8,70 @@ import 'package:flutter/services.dart';
 import 'package:nativeshell_core/nativeshell_core.dart';
 
 import 'context.dart';
-import 'data_source.dart';
+import 'data_provider.dart';
 import 'util.dart';
 
-class _VirtualSession {
-  _VirtualSession({
-    required this.progress,
-  });
-
-  int? _fileSize;
-  final Progress progress;
-}
-
-class DataSourceManager {
-  DataSourceManager._() {
+class DataProviderManager {
+  DataProviderManager._() {
     _channel.setMethodCallHandler(_onMethodCall);
   }
 
-  Future<DataSourceHandle> registerDataSource(DataSource source) async {
-    final id =
-        await _channel.invokeMethod("registerDataSource", source.serialize());
-    final handle = DataSourceHandle(id, source);
+  static final instance = DataProviderManager._();
+
+  Future<DataProviderHandle> registerDataProvider(DataProvider provider) async {
+    final id = await _channel.invokeMethod(
+        "registerDataProvider", provider.serialize());
+    final handle = DataProviderHandle(id, provider);
     _handles[id] = handle;
-    for (final item in handle.source.items) {
-      for (final data in item.representations) {
-        if (data is DataSourceItemRepresentationLazy) {
-          _lazyData[data.id] = data;
-        } else if (data is DataSourceItemRepresentationVirtualFile) {
-          _virtualFile[data.id] = data;
-        }
+    for (final representation in provider.representations) {
+      if (representation is DataRepresentationLazy) {
+        _lazyData[representation.id] = representation;
+      } else if (representation is DataRepresentationVirtualFile) {
+        _virtualFile[representation.id] = representation;
       }
     }
+
     return handle;
   }
 
-  Future<void> unregisterDataSource(int sourceId) async {
-    await _channel.invokeMethod("unregisterDataSource", sourceId);
-    final handle = _handles.remove(sourceId);
+  Future<void> unregisterDataProvider(int providerId) async {
+    await _channel.invokeMethod("unregisterDataProvider", providerId);
+    final handle = _handles.remove(providerId);
     if (handle != null) {
-      for (final item in handle.source.items) {
-        for (final data in item.representations) {
-          if (data is DataSourceItemRepresentationLazy) {
-            _lazyData.remove(data.id);
-          } else if (data is DataSourceItemRepresentationVirtualFile) {
-            _virtualFile.remove(data.id);
-          }
+      for (final representation in handle.provider.representations) {
+        if (representation is DataRepresentationLazy) {
+          _lazyData.remove(representation.id);
+        } else if (representation is DataRepresentationVirtualFile) {
+          _virtualFile.remove(representation.id);
         }
       }
+    }
+  }
+
+  Future<dynamic> _onMethodCall(MethodCall call) async {
+    if (call.method == 'getLazyData') {
+      final args = call.arguments as Map;
+      final valueId = args["valueId"] as int;
+      final lazyData = _lazyData[valueId];
+      if (lazyData != null) {
+        return _ValuePromiseResult.ok(await lazyData.dataProvider())
+            .serialize();
+      } else {
+        return _ValuePromiseResult.cancelled().serialize();
+      }
+    } else if (call.method == 'getVirtualFile') {
+      final args = call.arguments;
+      final sessionId = args['sessionId'] as int;
+      final virtualFileId = args['virtualFileId'] as int;
+      final fileHandle = args['streamHandle'] as int;
+      return _getVirtualFile(
+          sessionId: sessionId,
+          virtualFileId: virtualFileId,
+          streamHandle: fileHandle);
+    } else if (call.method == 'cancelVirtualFile') {
+      final sessionId = call.arguments as int;
+      final session = _virtualSessions.remove(sessionId);
+      (session?.progress.onCancel as SimpleNotifier?)?.notify();
     }
   }
 
@@ -122,43 +138,22 @@ class DataSourceManager {
     return null;
   }
 
-  Future<dynamic> _onMethodCall(MethodCall call) async {
-    if (call.method == 'getLazyData') {
-      final args = call.arguments as Map;
-      final valueId = args["valueId"] as int;
-      final format = args["format"] as String;
-      final lazyData = _lazyData[valueId];
-      if (lazyData != null) {
-        return _ValuePromiseResult.ok(await lazyData.dataProvider(format))
-            .serialize();
-      } else {
-        return _ValuePromiseResult.cancelled().serialize();
-      }
-    } else if (call.method == 'getVirtualFile') {
-      final args = call.arguments;
-      final sessionId = args['sessionId'] as int;
-      final virtualFileId = args['virtualFileId'] as int;
-      final fileHandle = args['streamHandle'] as int;
-      return _getVirtualFile(
-          sessionId: sessionId,
-          virtualFileId: virtualFileId,
-          streamHandle: fileHandle);
-    } else if (call.method == 'cancelVirtualFile') {
-      final sessionId = call.arguments as int;
-      final session = _virtualSessions.remove(sessionId);
-      (session?.progress.onCancel as SimpleNotifier?)?.notify();
-    }
-  }
-
-  static final instance = DataSourceManager._();
-
-  final _channel = NativeMethodChannel('DataSourceManager',
+  final _channel = NativeMethodChannel('DataProviderManager',
       context: superNativeExtensionsContext);
 
-  final _handles = <int, DataSourceHandle>{};
-  final _lazyData = <int, DataSourceItemRepresentationLazy>{};
-  final _virtualFile = <int, DataSourceItemRepresentationVirtualFile>{};
+  final _handles = <int, DataProviderHandle>{};
+  final _lazyData = <int, DataRepresentationLazy>{};
+  final _virtualFile = <int, DataRepresentationVirtualFile>{};
   final _virtualSessions = <int, _VirtualSession>{};
+}
+
+class _VirtualSession {
+  _VirtualSession({
+    required this.progress,
+  });
+
+  int? _fileSize;
+  final Progress progress;
 }
 
 class _NativeFunctions {

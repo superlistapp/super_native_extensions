@@ -7,30 +7,37 @@ use std::{
 
 use async_trait::async_trait;
 
+use log::info;
 use nativeshell_core::{
     util::Late, AsyncMethodHandler, AsyncMethodInvoker, Context, IntoPlatformResult, IntoValue,
-    IsolateId, MethodCallError, PlatformResult, RegisteredAsyncMethodHandler, TryFromValue, Value,
+    IsolateId, PlatformResult, RegisteredAsyncMethodHandler, TryFromValue, Value,
 };
 
 use crate::{
-    api_model::{DataSourceId, DragConfiguration, DragRequest, DropOperation, Point},
-    data_source_manager::GetDataSourceManager,
+    api_model::{DataProviderId, DragConfiguration, DragRequest, DropOperation, Point},
+    data_provider_manager::{DataProviderHandle, GetDataProviderManager},
     error::{NativeExtensionsError, NativeExtensionsResult},
     log::OkLog,
-    platform_impl::platform::{PlatformDataSource, PlatformDragContext},
+    platform_impl::platform::{PlatformDataProvider, PlatformDragContext},
     util::{DropNotifier, NextId},
 };
 
 pub type PlatformDragContextId = IsolateId;
 
+pub struct DataProviderEntry {
+    pub provider: Rc<PlatformDataProvider>,
+    pub handle: Arc<DataProviderHandle>,
+}
+
+pub struct PendingSourceData {
+    pub session_id: DragSessionId,
+    pub configuration: DragConfiguration,
+    pub providers: HashMap<DataProviderId, DataProviderEntry>,
+}
+
 pub enum PendingSourceState {
     Pending,
-    Ok {
-        source: Rc<PlatformDataSource>,
-        source_drop_notifier: Arc<DropNotifier>,
-        session_id: DragSessionId,
-        drag_data: DragConfiguration,
-    },
+    Ok(PendingSourceData),
     Cancelled,
 }
 
@@ -134,6 +141,66 @@ impl DragManager {
             .ok_or_else(|| NativeExtensionsError::PlatformContextNotFound)
     }
 
+    fn build_data_provider_map(
+        &self,
+        isolate: IsolateId,
+        configuration: &DragConfiguration,
+    ) -> NativeExtensionsResult<HashMap<DataProviderId, DataProviderEntry>> {
+        let mut map = HashMap::new();
+        for item in &configuration.items {
+            let provider_id = item.data_provider_id;
+            let provider = Context::get()
+                .data_provider_manager()
+                .get_platform_data_provider(provider_id)?;
+            let weak_self = self.weak_self.clone();
+            let handle: DataProviderHandle = DropNotifier::new_(move || {
+                if let Some(this) = weak_self.upgrade() {
+                    this.release_data_provider(isolate, provider_id);
+                }
+            })
+            .into();
+            map.insert(
+                provider_id,
+                DataProviderEntry {
+                    provider,
+                    handle: Arc::new(handle),
+                },
+            );
+        }
+        Ok(map)
+    }
+
+    async fn get_data_for_drag_request(
+        &self,
+        id: PlatformDragContextId,
+        session_id: DragSessionId,
+        location: Point,
+    ) -> NativeExtensionsResult<Option<PendingSourceData>> {
+        let configuration: DragConfigurationResponse = self
+            .invoker
+            .call_method_cv(
+                id,
+                "getConfigurationForDragRequest",
+                DataSourceRequest {
+                    location,
+                    session_id,
+                },
+            )
+            .await?;
+        let configuration = configuration.configuration;
+        match configuration {
+            Some(configuration) => {
+                let providers = self.build_data_provider_map(id, &configuration)?;
+                Ok(Some(PendingSourceData {
+                    session_id,
+                    configuration,
+                    providers,
+                }))
+            }
+            None => Ok(None),
+        }
+    }
+
     async fn start_drag(
         &self,
         isolate: IsolateId,
@@ -145,27 +212,17 @@ impl DragManager {
             .get(&isolate)
             .cloned()
             .ok_or_else(|| NativeExtensionsError::PlatformContextNotFound)?;
-        let data_source = Context::get()
-            .data_source_manager()
-            .get_platform_data_source(request.configuration.data_source_id)?;
-
-        let weak_self = self.weak_self.clone();
-        let source_id = request.configuration.data_source_id;
-        let notifier = DropNotifier::new(move || {
-            if let Some(this) = weak_self.upgrade() {
-                this.release_data_source(isolate, source_id);
-            }
-        });
         let session_id = DragSessionId(self.next_session_id.next_id());
+        let provider_map = self.build_data_provider_map(isolate, &&request.configuration)?;
         context
-            .start_drag(request, data_source, notifier, session_id)
+            .start_drag(request, provider_map, session_id)
             .await?;
         Ok(session_id)
     }
 
-    fn release_data_source(&self, isolate_id: IsolateId, source_id: DataSourceId) {
+    fn release_data_provider(&self, isolate_id: IsolateId, provider_id: DataProviderId) {
         self.invoker
-            .call_method_sync(isolate_id, "releaseDataSource", source_id, |r| {
+            .call_method_sync(isolate_id, "releaseDataProvider", provider_id, |r| {
                 r.ok_log();
             })
     }
@@ -241,44 +298,19 @@ impl PlatformDragContextDelegate for DragManager {
         Context::get().run_loop().spawn(async move {
             let this = weak_self.upgrade();
             if let Some(this) = this {
-                let data_source: Result<DragConfigurationResponse, MethodCallError> = this
-                    .invoker
-                    .call_method_cv(
-                        id,
-                        "getConfigurationForDragRequest",
-                        DataSourceRequest {
-                            location,
-                            session_id,
-                        },
-                    )
-                    .await;
-                let data_source =
-                    data_source
-                        .ok_log()
-                        .and_then(|d| d.configuration)
-                        .and_then(|d| {
-                            Context::get()
-                                .data_source_manager()
-                                .get_platform_data_source(d.data_source_id)
-                                .ok()
-                                .map(|s| (d, s))
-                        });
-                match data_source {
-                    Some((drag_data, data_source)) => {
-                        let notifier = DropNotifier::new(move || {
-                            if let Some(this) = weak_self.upgrade() {
-                                this.release_data_source(id, drag_data.data_source_id);
-                            }
-                        });
-                        res_clone.replace(PendingSourceState::Ok {
-                            source: data_source,
-                            source_drop_notifier: notifier,
-                            session_id,
-                            drag_data,
-                        })
+                match this
+                    .get_data_for_drag_request(id, session_id, location)
+                    .await
+                    .ok_log()
+                    .flatten()
+                {
+                    Some(data) => {
+                        res_clone.replace(PendingSourceState::Ok(data));
                     }
-                    None => res_clone.replace(PendingSourceState::Cancelled),
-                };
+                    None => {
+                        res_clone.replace(PendingSourceState::Cancelled);
+                    }
+                }
             } else {
                 res_clone.replace(PendingSourceState::Cancelled);
             }

@@ -3,10 +3,10 @@
 
 use std::ffi::c_void;
 
-use clipboard_reader::GetClipboardReader;
 use ::log::debug;
+use clipboard_reader::GetClipboardReader;
 use clipboard_writer::GetClipboardWriter;
-use data_source_manager::GetDataSourceManager;
+use data_provider_manager::GetDataProviderManager;
 use drag_manager::GetDragManager;
 use drop_manager::GetDropManager;
 
@@ -16,7 +16,7 @@ use reader_manager::GetDataReaderManager;
 mod api_model;
 mod clipboard_reader;
 mod clipboard_writer;
-mod data_source_manager;
+mod data_provider_manager;
 mod drag_manager;
 mod drop_manager;
 mod error;
@@ -68,7 +68,7 @@ impl DataTransferPlugin {
     fn new() -> Self {
         let context = Context::new();
         // eagerly initialize
-        context.data_source_manager();
+        context.data_provider_manager();
         context.data_reader_manager();
         context.clipboard_writer();
         context.clipboard_reader();
