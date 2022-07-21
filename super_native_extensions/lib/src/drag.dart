@@ -11,13 +11,18 @@ import 'api_model.dart';
 import 'util.dart';
 
 class DragSession {
+  Listenable get dragStarted => _dragStarted;
   ValueNotifier<DropOperation?> get dragCompleted => _dragCompleted;
   ValueNotifier<ui.Offset?> get lastScreenLocation => _lastScreenLocation;
+
   Listenable get sessionIsDoneWithDataSource => _sessionIsDoneWithDataSource;
 
+  final _dragStarted = SimpleNotifier();
   final _dragCompleted = ValueNotifier<DropOperation?>(null);
   final _lastScreenLocation = ValueNotifier<ui.Offset?>(null);
   final _sessionIsDoneWithDataSource = SimpleNotifier();
+
+  bool _started = false;
 }
 
 abstract class RawDragContextDelegate {
@@ -26,6 +31,8 @@ abstract class RawDragContextDelegate {
     // session will be unused if null handle is returned
     required DragSession session,
   });
+
+  bool isLocationDraggable(ui.Offset location);
 }
 
 final _channel =
@@ -86,6 +93,10 @@ class RawDragContext {
       } else {
         return null;
       }
+    } else if (call.method == 'isLocationDraggable') {
+      final arguments = call.arguments as Map;
+      final location = OffsetExt.deserialize(arguments['location']);
+      return _delegate?.isLocationDraggable(location) ?? false;
     } else if (call.method == 'releaseDataProvider') {
       final provider = _dataProviders.remove(call.arguments);
       provider?.dispose();
@@ -95,6 +106,10 @@ class RawDragContext {
       final screenLocation = OffsetExt.deserialize(arguments['screenLocation']);
       final session = _sessions[sessionId];
       if (session != null) {
+        if (!session._started) {
+          session._started = true;
+          session._dragStarted.notify();
+        }
         session._lastScreenLocation.value = screenLocation;
       }
     } else if (call.method == 'dragSessionDidEnd') {
@@ -126,5 +141,3 @@ class RawDragContext {
     return session;
   }
 }
-
-

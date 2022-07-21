@@ -16,9 +16,10 @@ use crate::{
     api_model::{DataProviderId, DragConfiguration, DragRequest, DropOperation, Point},
     data_provider_manager::{DataProviderHandle, GetDataProviderManager},
     error::{NativeExtensionsError, NativeExtensionsResult},
-    log::OkLog,
+    log::{OkLog, OkLogUnexpected},
     platform_impl::platform::{PlatformDataProvider, PlatformDragContext},
     util::{DropNotifier, NextId},
+    value_promise::{Promise, PromiseResult},
 };
 
 pub type PlatformDragContextId = IsolateId;
@@ -42,13 +43,18 @@ pub enum PendingSourceState {
 
 pub type GetDataResult = Rc<RefCell<PendingSourceState>>;
 
-#[async_trait(?Send)]
 pub trait PlatformDragContextDelegate {
     fn get_data_for_drag_request(
         &self,
         id: PlatformDragContextId,
         location: Point,
     ) -> GetDataResult;
+
+    fn is_location_draggable(
+        &self,
+        id: PlatformDragContextId,
+        location: Point,
+    ) -> Arc<Promise<PromiseResult<bool>>>;
 
     fn drag_session_did_move_to_location(
         &self,
@@ -200,6 +206,22 @@ impl DragManager {
         }
     }
 
+    async fn is_location_draggable(
+        &self,
+        id: PlatformDragContextId,
+        location: Point,
+    ) -> NativeExtensionsResult<bool> {
+        let result: bool = self
+            .invoker
+            .call_method_cv(
+                id,
+                "isLocationDraggable",
+                LocationDraggableRequest { location },
+            )
+            .await?;
+        Ok(result)
+    }
+
     async fn start_drag(
         &self,
         isolate: IsolateId,
@@ -263,6 +285,12 @@ struct DataSourceRequest {
     session_id: DragSessionId,
 }
 
+#[derive(IntoValue)]
+#[nativeshell(rename_all = "camelCase")]
+struct LocationDraggableRequest {
+    location: Point,
+}
+
 #[derive(TryFromValue, Debug)]
 #[nativeshell(rename_all = "camelCase")]
 struct DragConfigurationResponse {
@@ -283,7 +311,6 @@ struct DragEndRequest {
     drop_operation: DropOperation,
 }
 
-#[async_trait(?Send)]
 impl PlatformDragContextDelegate for DragManager {
     fn get_data_for_drag_request(
         &self,
@@ -300,7 +327,7 @@ impl PlatformDragContextDelegate for DragManager {
                 match this
                     .get_data_for_drag_request(id, session_id, location)
                     .await
-                    .ok_log()
+                    .ok_log_unexpected()
                     .flatten()
                 {
                     Some(data) => {
@@ -312,6 +339,32 @@ impl PlatformDragContextDelegate for DragManager {
                 }
             } else {
                 res_clone.replace(PendingSourceState::Cancelled);
+            }
+        });
+        res
+    }
+
+    fn is_location_draggable(
+        &self,
+        id: PlatformDragContextId,
+        location: Point,
+    ) -> Arc<Promise<PromiseResult<bool>>> {
+        let res = Arc::new(Promise::new());
+        let res_clone = res.clone();
+        let weak_self = self.weak_self.clone();
+        Context::get().run_loop().spawn(async move {
+            let this = weak_self.upgrade();
+            if let Some(this) = this {
+                let draggable = this
+                    .is_location_draggable(id, location)
+                    .await
+                    .ok_log_unexpected();
+                match draggable {
+                    Some(draggable) => res_clone.set(PromiseResult::Ok { value: draggable }),
+                    None => res_clone.set(PromiseResult::Cancelled),
+                }
+            } else {
+                res_clone.set(PromiseResult::Cancelled);
             }
         });
         res

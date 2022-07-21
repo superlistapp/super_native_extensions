@@ -27,7 +27,6 @@ use crate::{
 };
 
 pub struct PlatformDataReader {
-    // pasteboard: StrongPtr,
     source: ReaderSource,
 }
 

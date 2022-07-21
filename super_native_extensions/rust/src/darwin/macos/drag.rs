@@ -13,6 +13,7 @@ use crate::{
     data_provider_manager::DataProviderHandle,
     drag_manager::{DataProviderEntry, DragSessionId, PlatformDragContextDelegate},
     error::NativeExtensionsResult,
+    value_promise::PromiseResult,
 };
 
 use super::{
@@ -23,9 +24,9 @@ use cocoa::{
     appkit::{
         NSApplication, NSEvent,
         NSEventType::{self, NSLeftMouseDown, NSMouseMoved, NSRightMouseDown},
-        NSWindow,
+        NSView, NSWindow,
     },
-    base::{id, nil, NO, YES},
+    base::{id, nil, BOOL, NO, YES},
     foundation::{NSArray, NSInteger, NSPoint, NSProcessInfo, NSRect},
 };
 use core_foundation::base::CFRelease;
@@ -144,6 +145,9 @@ impl PlatformDragContext {
             }
             let event = self.last_mouse_down.borrow().as_ref().cloned().unwrap();
             let dragging_items = NSArray::arrayWithObjects(nil, &dragging_items);
+
+            let app = NSApplication::sharedApplication(nil);
+            let () = msg_send![app, preventWindowOrdering];
 
             let session: id = msg_send![*self.view,
                 beginDraggingSessionWithItems:dragging_items
@@ -278,6 +282,30 @@ impl PlatformDragContext {
         }
     }
 
+    pub fn should_delay_window_ordering(&self, event: id) -> bool {
+        if unsafe { NSEvent::eventType(event) == NSEventType::NSLeftMouseDown } {
+            let location: NSPoint = unsafe { msg_send![event, locationInWindow] };
+            let location: NSPoint =
+                unsafe { NSView::convertPoint_fromView_(*self.view, location, nil) };
+            if let Some(delegate) = self.delegate.upgrade() {
+                let is_draggable_promise = delegate.is_location_draggable(self.id, location.into());
+                loop {
+                    if let Some(result) = is_draggable_promise.try_take() {
+                        match result {
+                            PromiseResult::Ok { value } => return value,
+                            PromiseResult::Cancelled => return false,
+                        }
+                    }
+                    Context::get().run_loop().platform_run_loop.poll_once();
+                }
+            } else {
+                false
+            }
+        } else {
+            false
+        }
+    }
+
     fn source_operation_mask_for_dragging_context(
         &self,
         session: id,
@@ -344,6 +372,10 @@ fn prepare_flutter() {
             sel!(mouseUp:),
             mouse_up as extern "C" fn(&mut Object, Sel, id) -> (),
         );
+        class.add_method(
+            sel!(shouldDelayWindowOrderingForEvent:),
+            should_delay_window_ordering as extern "C" fn(&mut Object, Sel, id) -> BOOL,
+        )
     }
 }
 
@@ -412,4 +444,18 @@ extern "C" fn dragging_session_moved_to_point(
     point: NSPoint,
 ) {
     with_state(this, move |state| state.drag_moved(session, point), || ())
+}
+
+extern "C" fn should_delay_window_ordering(this: &mut Object, _: Sel, event: id) -> BOOL {
+    with_state(
+        this,
+        move |state| {
+            if state.should_delay_window_ordering(event) {
+                YES
+            } else {
+                NO
+            }
+        },
+        || YES,
+    )
 }

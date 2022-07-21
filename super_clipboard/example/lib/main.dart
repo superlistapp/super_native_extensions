@@ -49,8 +49,19 @@ class _DropDelegate implements RawDropContextDelegate {
 
 class _DragDelegate implements RawDragContextDelegate {
   @override
+  bool isLocationDraggable(Offset location) {
+    final rect = dragContainer.currentState!.getGlobalRect();
+    print('Offset $location');
+    return rect.contains(location);
+    // return location.dx < 100 && location.dy < 100;
+  }
+
+  @override
   Future<DragConfiguration?> getConfigurationForDragRequest(
       {required Offset location, required DragSession session}) async {
+    session.dragStarted.addListener(() {
+      print('Drag started');
+    });
     session.dragCompleted.addListener(() {
       print("Drag completed ${session.dragCompleted.value}");
     });
@@ -135,6 +146,20 @@ class DragContainerState extends State<DragContainer> {
         Rect.fromLTWH(0, 0, renderObject.size.width, renderObject.size.height));
     final imageData = await ImageData.fromImage(snapshot, devicePixelRatio: pr);
     return DragImage(imageData: imageData, sourceRect: rect);
+  }
+
+  Rect getGlobalRect() {
+    final renderObject_ = context.findRenderObject();
+    final renderObject = renderObject_ is RenderRepaintBoundary
+        ? renderObject_
+        : context.findAncestorRenderObjectOfType<RenderRepaintBoundary>();
+    if (renderObject == null) {
+      throw DragException("Couldn't find any repaint boundary ancestor");
+    }
+    final transform = renderObject.getTransformTo(null);
+    final rect = MatrixUtils.transformRect(transform,
+        Rect.fromLTWH(0, 0, renderObject.size.width, renderObject.size.height));
+    return rect;
   }
 }
 

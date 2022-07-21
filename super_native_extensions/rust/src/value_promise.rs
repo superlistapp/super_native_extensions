@@ -56,6 +56,11 @@ impl<T: Clone> Promise<T> {
     }
 }
 
+pub enum PromiseResult<T> {
+    Ok { value: T },
+    Cancelled,
+}
+
 #[derive(Debug, TryFromValue, PartialEq)]
 #[nativeshell(tag = "type", rename_all = "camelCase")]
 pub enum ValuePromiseResult {
