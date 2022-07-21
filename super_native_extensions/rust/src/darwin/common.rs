@@ -5,11 +5,13 @@ use cocoa::{
     foundation::{NSDictionary, NSInteger, NSString},
 };
 use core_graphics::{
-    base::{kCGBitmapByteOrderDefault, kCGImageAlphaLast, kCGRenderingIntentDefault},
+    base::{kCGBitmapByteOrderDefault, kCGImageAlphaLast, kCGRenderingIntentDefault, CGFloat},
     color_space::{kCGColorSpaceSRGB, CGColorSpace},
     data_provider::CGDataProvider,
+    geometry::CGAffineTransform,
     image::CGImage,
 };
+
 use objc::{class, msg_send, rc::StrongPtr, sel, sel_impl};
 
 use crate::api_model::ImageData;
@@ -61,4 +63,9 @@ pub fn cg_image_from_image_data(image: ImageData) -> CGImage {
         true,
         kCGRenderingIntentDefault,
     )
+}
+
+#[link(name = "CoreGraphics", kind = "framework")]
+extern "C" {
+    pub fn CGAffineTransformMakeScale(sx: CGFloat, sy: CGFloat) -> CGAffineTransform;
 }

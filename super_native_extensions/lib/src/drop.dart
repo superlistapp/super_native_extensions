@@ -35,7 +35,7 @@ class DropEvent extends BaseDropEvent {
   DropEvent({
     required super.sessionId,
     required this.locationInView,
-    this.localData,
+    required this.localData,
     required this.allowedOperations,
     required this.formats,
     required this.acceptedOperation,
@@ -86,7 +86,7 @@ class DropEvent extends BaseDropEvent {
   String toString() => serialize().toString();
 
   final Offset locationInView;
-  final Object? localData;
+  final List<Object?> localData;
   final List<DropOperation> allowedOperations;
   final List<String> formats;
   final DropOperation? acceptedOperation;

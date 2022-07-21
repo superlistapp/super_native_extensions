@@ -67,8 +67,7 @@ impl PlatformDropContext {
     pub fn assign_weak_self(&self, weak_self: Weak<Self>) {
         self.weak_self.set(weak_self.clone());
         autoreleasepool(|| unsafe {
-            let delegate: id = msg_send![*DELEGATE_CLASS, alloc];
-            let delegate: id = msg_send![delegate, init];
+            let delegate: id = msg_send![*DELEGATE_CLASS, new];
             (*delegate).set_ivar("context", Weak::into_raw(weak_self) as *mut c_void);
             self.interaction_delegate.set(StrongPtr::new(delegate));
             let interaction: id = msg_send![class!(UIDropInteraction), alloc];

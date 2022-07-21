@@ -1,15 +1,18 @@
+use std::collections::HashMap;
+
 use block::{Block, ConcreteBlock, RcBlock};
 use cocoa::{
     base::{id, nil, BOOL},
-    foundation::{NSInteger, NSUInteger},
+    foundation::{NSArray, NSDictionary, NSInteger, NSUInteger},
 };
 use core_foundation::array::CFIndex;
-use core_graphics::geometry::CGPoint;
+use core_graphics::geometry::{CGPoint, CGRect, CGSize};
 use nativeshell_core::{platform::value::ValueObjcConversion, Value};
 use objc::{class, msg_send, rc::StrongPtr, sel, sel_impl};
 
 use crate::{
-    api_model::Point,
+    api_model::{Point, Rect},
+    drag_manager::DragSessionId,
     platform_impl::platform::common::to_nsstring,
     value_coerce::{CoerceToData, StringFormat},
     value_promise::ValuePromiseResult,
@@ -18,6 +21,35 @@ use crate::{
 impl From<CGPoint> for Point {
     fn from(p: CGPoint) -> Self {
         Point { x: p.x, y: p.y }
+    }
+}
+
+impl From<Point> for CGPoint {
+    fn from(p: Point) -> Self {
+        CGPoint { x: p.x, y: p.y }
+    }
+}
+
+impl From<CGRect> for Rect {
+    fn from(r: CGRect) -> Self {
+        Self {
+            x: r.origin.x,
+            y: r.origin.y,
+            width: r.size.width,
+            height: r.size.height,
+        }
+    }
+}
+
+impl From<Rect> for CGRect {
+    fn from(r: Rect) -> Self {
+        CGRect {
+            origin: CGPoint { x: r.x, y: r.y },
+            size: CGSize {
+                width: r.width,
+                height: r.height,
+            },
+        }
     }
 }
 
@@ -134,5 +166,50 @@ pub fn register_file_representation<F>(
             visibility: 0 as NSUInteger // all
             loadHandler: &*block
         ];
+    }
+}
+
+pub trait IntoObjc {
+    fn into_objc(self) -> StrongPtr;
+}
+
+impl IntoObjc for HashMap<StrongPtr, StrongPtr> {
+    fn into_objc(self) -> StrongPtr {
+        let keys: Vec<_> = self.keys().map(|k| k.clone().autorelease()).collect();
+        let objects: Vec<_> = self.values().map(|o| o.clone().autorelease()).collect();
+        unsafe {
+            StrongPtr::retain(NSDictionary::dictionaryWithObjects_forKeys_(
+                nil,
+                NSArray::arrayWithObjects(nil, &objects),
+                NSArray::arrayWithObjects(nil, &keys),
+            ))
+        }
+    }
+}
+
+impl IntoObjc for HashMap<&str, StrongPtr> {
+    fn into_objc(self) -> StrongPtr {
+        let keys: Vec<_> = self.keys().map(|k| to_nsstring(k).autorelease()).collect();
+        let objects: Vec<_> = self.values().map(|o| o.clone().autorelease()).collect();
+        unsafe {
+            StrongPtr::retain(NSDictionary::dictionaryWithObjects_forKeys_(
+                nil,
+                NSArray::arrayWithObjects(nil, &objects),
+                NSArray::arrayWithObjects(nil, &keys),
+            ))
+        }
+    }
+}
+
+impl IntoObjc for i64 {
+    fn into_objc(self) -> StrongPtr {
+        unsafe { StrongPtr::retain(msg_send![class!(NSNumber), numberWithLongLong: self]) }
+    }
+}
+
+impl IntoObjc for DragSessionId {
+    fn into_objc(self) -> StrongPtr {
+        let id: i64 = self.into();
+        id.into_objc()
     }
 }

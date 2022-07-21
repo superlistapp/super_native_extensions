@@ -89,8 +89,7 @@ struct ItemState {
 impl ItemState {
     fn create_item(self: Rc<Self>) -> StrongPtr {
         unsafe {
-            let item: id = msg_send![*PASTEBOARD_WRITER_CLASS, alloc];
-            let () = msg_send![item, init];
+            let item: id = msg_send![*PASTEBOARD_WRITER_CLASS, new];
             (*item).set_ivar("sneState", Rc::into_raw(self) as *mut c_void);
             StrongPtr::new(item)
         }

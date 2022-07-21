@@ -9,6 +9,24 @@ pub struct Rect {
     pub height: f64,
 }
 
+impl Rect {
+    pub fn center(&self) -> Point {
+        Point {
+            x: self.x + self.width / 2.0,
+            y: self.y + self.height / 2.0,
+        }
+    }
+
+    pub fn translated(&self, x: f64, y: f64) -> Rect {
+        Rect {
+            x: self.x + x,
+            y: self.y + y,
+            width: self.width,
+            height: self.height,
+        }
+    }
+}
+
 #[derive(Clone, Debug, Default, PartialEq, TryFromValue, IntoValue)]
 #[nativeshell(rename_all = "camelCase")]
 pub struct Point {
@@ -114,6 +132,8 @@ pub struct DragImage {
 #[nativeshell(rename_all = "camelCase")]
 pub struct DragItem {
     pub data_provider_id: DataProviderId,
+    /// optionally used on iPad during lifting (before dragging start)
+    pub lift_image: Option<DragImage>,
     pub image: DragImage,
     pub local_data: Value,
 }
@@ -124,6 +144,7 @@ pub struct DragConfiguration {
     pub items: Vec<DragItem>,
     pub allowed_operations: Vec<DropOperation>,
     pub animates_to_starting_position_on_cancel_or_fail: bool,
+    pub prefers_full_size_previews: bool,
 }
 
 #[derive(TryFromValue)]

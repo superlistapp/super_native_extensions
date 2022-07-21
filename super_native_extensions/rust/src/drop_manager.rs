@@ -54,7 +54,7 @@ struct RegisterDropTypesRequest {
 pub struct DropEvent {
     pub session_id: i64,
     pub location_in_view: Point,
-    pub local_data: Value,
+    pub local_data: Vec<Value>,
     pub allowed_operations: Vec<DropOperation>,
     pub formats: Vec<String>,
     pub accepted_operation: Option<DropOperation>,

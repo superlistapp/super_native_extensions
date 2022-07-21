@@ -52,6 +52,7 @@ class DragConfiguration {
     required this.items,
     required this.allowedOperations,
     this.animatesToStartingPositionOnCancelOrFail = true,
+    this.prefersFullSizePreviews = false,
   });
 
   final List<DragItem> items;
@@ -60,17 +61,22 @@ class DragConfiguration {
   /// macOS specific
   final bool animatesToStartingPositionOnCancelOrFail;
 
+  /// iOS specific
+  final bool prefersFullSizePreviews;
+
   dynamic serialize() => {
         'items': items.map((e) => e.serialize()),
         'allowedOperations': allowedOperations.map((e) => e.name),
         'animatesToStartingPositionOnCancelOrFail':
             animatesToStartingPositionOnCancelOrFail,
+        'prefersFullSizePreviews': prefersFullSizePreviews,
       };
 }
 
 class DragItem {
   DragItem({
     required this.dataProvider,
+    this.liftImage,
     required this.image,
     this.localData,
   });
@@ -82,6 +88,12 @@ class DragItem {
       };
 
   final DataProviderHandle dataProvider;
+
+  /// Used on iPad during lift (before dragging starts). If not set normal
+  /// drag image is used. This should closely resemble the widget being dragged.
+  final DragImage? liftImage;
+
+  /// Image used while dragging.
   final DragImage image;
   final Object? localData;
 }
