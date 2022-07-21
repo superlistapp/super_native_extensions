@@ -29,26 +29,18 @@ pub struct DataProviderEntry {
     pub handle: Arc<DataProviderHandle>,
 }
 
-pub struct PendingSourceData {
+pub struct GetDragConfigurationResult {
     pub session_id: DragSessionId,
     pub configuration: DragConfiguration,
     pub providers: HashMap<DataProviderId, DataProviderEntry>,
 }
 
-pub enum PendingSourceState {
-    Pending,
-    Ok(PendingSourceData),
-    Cancelled,
-}
-
-pub type GetDataResult = Rc<RefCell<PendingSourceState>>;
-
 pub trait PlatformDragContextDelegate {
-    fn get_data_for_drag_request(
+    fn get_drag_configuration_for_location(
         &self,
         id: PlatformDragContextId,
         location: Point,
-    ) -> GetDataResult;
+    ) -> Arc<Promise<PromiseResult<GetDragConfigurationResult>>>;
 
     fn is_location_draggable(
         &self,
@@ -175,12 +167,12 @@ impl DragManager {
         Ok(map)
     }
 
-    async fn get_data_for_drag_request(
+    async fn get_drag_configuration_for_location(
         &self,
         id: PlatformDragContextId,
         session_id: DragSessionId,
         location: Point,
-    ) -> NativeExtensionsResult<Option<PendingSourceData>> {
+    ) -> NativeExtensionsResult<Option<GetDragConfigurationResult>> {
         let configuration: DragConfigurationResponse = self
             .invoker
             .call_method_cv(
@@ -196,7 +188,7 @@ impl DragManager {
         match configuration {
             Some(configuration) => {
                 let providers = self.build_data_provider_map(id, &configuration)?;
-                Ok(Some(PendingSourceData {
+                Ok(Some(GetDragConfigurationResult {
                     session_id,
                     configuration,
                     providers,
@@ -312,12 +304,12 @@ struct DragEndRequest {
 }
 
 impl PlatformDragContextDelegate for DragManager {
-    fn get_data_for_drag_request(
+    fn get_drag_configuration_for_location(
         &self,
         id: PlatformDragContextId,
         location: Point,
-    ) -> GetDataResult {
-        let res = Rc::new(RefCell::new(PendingSourceState::Pending));
+    ) -> Arc<Promise<PromiseResult<GetDragConfigurationResult>>> {
+        let res = Arc::new(Promise::new());
         let res_clone = res.clone();
         let weak_self = self.weak_self.clone();
         let session_id = DragSessionId(self.next_session_id.next_id());
@@ -325,20 +317,20 @@ impl PlatformDragContextDelegate for DragManager {
             let this = weak_self.upgrade();
             if let Some(this) = this {
                 match this
-                    .get_data_for_drag_request(id, session_id, location)
+                    .get_drag_configuration_for_location(id, session_id, location)
                     .await
                     .ok_log_unexpected()
                     .flatten()
                 {
                     Some(data) => {
-                        res_clone.replace(PendingSourceState::Ok(data));
+                        res_clone.set(PromiseResult::Ok { value: data });
                     }
                     None => {
-                        res_clone.replace(PendingSourceState::Cancelled);
+                        res_clone.set(PromiseResult::Cancelled);
                     }
                 }
             } else {
-                res_clone.replace(PendingSourceState::Cancelled);
+                res_clone.set(PromiseResult::Cancelled);
             }
         });
         res

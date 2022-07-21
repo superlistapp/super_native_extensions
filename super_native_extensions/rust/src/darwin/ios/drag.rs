@@ -18,7 +18,6 @@ use core_graphics::{
     geometry::{CGPoint, CGRect},
 };
 
-use log::info;
 use nativeshell_core::{util::Late, Context, Value};
 use objc::{
     class,
@@ -34,12 +33,12 @@ use crate::{
     api_model::{DataProviderId, DragConfiguration, DragRequest, DropOperation, Point},
     data_provider_manager::DataProviderHandle,
     drag_manager::{
-        DataProviderEntry, DragSessionId, PendingSourceData, PendingSourceState,
-        PlatformDragContextDelegate,
+        DataProviderEntry, DragSessionId, GetDragConfigurationResult, PlatformDragContextDelegate,
     },
     error::{NativeExtensionsError, NativeExtensionsResult},
     platform_impl::platform::common::{cg_image_from_image_data, to_nsstring},
     util::DropNotifier,
+    value_promise::PromiseResult,
 };
 
 use super::{
@@ -314,7 +313,7 @@ impl PlatformDragContext {
         &self,
         _interaction: id,
         drag_session: id,
-        data: PendingSourceData,
+        data: GetDragConfigurationResult,
     ) -> id {
         let session = Rc::new(Session::new(
             self.delegate.clone(),
@@ -356,17 +355,15 @@ impl PlatformDragContext {
 
     fn items_for_beginning(&self, interaction: id, session: id) -> id {
         if let Some(delegate) = self.delegate.upgrade() {
-            let data_source =
-                delegate.get_data_for_drag_request(self.id, Point { x: 10.0, y: 10.0 });
+            let configuration_promise =
+                delegate.get_drag_configuration_for_location(self.id, Point { x: 10.0, y: 10.0 });
             loop {
-                {
-                    let items = data_source.replace(PendingSourceState::Pending);
-                    match items {
-                        PendingSourceState::Ok(data) => {
-                            return self._items_for_beginning(interaction, session, data);
+                if let Some(configuration) = configuration_promise.try_take() {
+                    match configuration {
+                        PromiseResult::Ok { value } => {
+                            return self._items_for_beginning(interaction, session, value);
                         }
-                        PendingSourceState::Cancelled => return nil,
-                        _ => {}
+                        PromiseResult::Cancelled => return nil,
                     }
                 }
                 Context::get().run_loop().platform_run_loop.poll_once();
