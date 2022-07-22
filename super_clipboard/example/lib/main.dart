@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:typed_data';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -25,25 +26,42 @@ class _DropDelegate implements RawDropContextDelegate {
 
   @override
   Future<DropOperation> onDropUpdate(DropEvent event) async {
-    print('Drop update $event');
-    return DropOperation.move;
+    print('Drop update $event, ${event.items.first.itemId}');
+    return DropOperation.copy;
   }
 
   @override
   Future<void> onPerformDrop(DropEvent event) async {
-    final reader = event.reader!;
-    final items = await reader.getItems();
-    print('Item count ${items.length}');
-    final item = items[0];
+    print('Item count ${event.items.length}, ${event.items.first.itemId}');
+    final item = event.items[0];
     // final data = await
-    item.getDataForFormat('public.url').then((data) {
+    item.readerItem?.getDataForFormat('public.url').then((data) {
       print('URL: ${data}');
     });
     // print('DATA $data');
     print('Perform drop $event');
     // Future.delayed(Duration(seconds: 2), () {
-    reader.dispose();
     // });
+  }
+
+  @override
+  Future<ItemPreview?> onGetItemPreview(ItemPreviewRequest request) async {
+    print(
+        'Item preview ${request.itemId} ${request.size} (${request.fadeOutDelay} ${request.fadeOutDuration})');
+
+    final recorder = PictureRecorder();
+    final canvas = Canvas(recorder);
+    canvas.drawRect(
+        const Rect.fromLTWH(0, 0, 100, 100), Paint()..color = Colors.blue);
+    final picture = recorder.endRecording();
+    final image = await picture.toImage(100, 100);
+
+    return ItemPreview(
+      destinationRect: const Rect.fromLTWH(100, 100, 100, 100),
+      // destinationImage: await ImageData.fromImage(image),
+      // fadeOutDuration: const Duration(milliseconds: 400),
+      // fadeOutDelay: const Duration(milliseconds: 100),
+    );
   }
 }
 

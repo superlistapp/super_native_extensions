@@ -36,6 +36,13 @@ pub struct Point {
 
 #[derive(Clone, Debug, Default, PartialEq, TryFromValue, IntoValue)]
 #[nativeshell(rename_all = "camelCase")]
+pub struct Size {
+    pub width: f64,
+    pub height: f64,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, TryFromValue, IntoValue)]
+#[nativeshell(rename_all = "camelCase")]
 pub struct ImageData {
     pub width: i32,
     pub height: i32,

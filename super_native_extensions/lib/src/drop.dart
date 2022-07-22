@@ -1,6 +1,7 @@
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:nativeshell_core/nativeshell_core.dart';
+import 'package:collection/collection.dart';
 
 import 'api_model.dart';
 import 'reader.dart';
@@ -31,20 +32,56 @@ class BaseDropEvent {
 
 typedef ReaderProvider = DataReader? Function(int sessionId);
 
+class DropEventItem {
+  DropEventItem({
+    required this.itemId,
+    required this.formats,
+    this.localData,
+    this.readerItem,
+  });
+
+  final int itemId;
+  final List<String> formats;
+  final Object? localData;
+  final DataReaderItem? readerItem;
+
+  static DropEventItem deserialize(dynamic item, DataReaderItem? readerItem) {
+    final map = item as Map;
+    return DropEventItem(
+      itemId: map['itemId'],
+      formats: (map['formats'] as List).cast<String>(),
+      localData: map['localData'],
+      readerItem: readerItem,
+    );
+  }
+
+  dynamic serialize() => {
+        'itemId': itemId,
+        'formats': formats,
+        'localData': localData,
+      };
+}
+
 class DropEvent extends BaseDropEvent {
   DropEvent({
     required super.sessionId,
     required this.locationInView,
-    required this.localData,
     required this.allowedOperations,
-    required this.formats,
-    required this.acceptedOperation,
-    required this.reader,
-  });
+    required this.items,
+    this.acceptedOperation,
+    DataReader? reader,
+  }) : _reader = reader;
+
+  final Offset locationInView;
+  final List<DropOperation> allowedOperations;
+  final List<DropEventItem> items;
+  final DropOperation? acceptedOperation;
+  final DataReader? _reader;
 
   // readerProvider is to ensure that reader is only deserialized once and
   // same instance is used subsequently.
-  static DropEvent deserialize(dynamic event, ReaderProvider readerProvider) {
+  static Future<DropEvent> deserialize(
+      dynamic event, ReaderProvider readerProvider) async {
     final map = event as Map;
     final acceptedOperation = map['acceptedOperation'];
     final sessionId = map['sessionId'] as int;
@@ -56,14 +93,20 @@ class DropEvent extends BaseDropEvent {
     }
 
     final reader = readerProvider(sessionId) ?? getReader();
+    final items = await reader?.getItems();
+
+    DropEventItem deserializeItem(int index, dynamic item) =>
+        DropEventItem.deserialize(item, items?[index]);
+
     return DropEvent(
       sessionId: sessionId,
       locationInView: OffsetExt.deserialize(map['locationInView']),
-      localData: map['localData'],
+      items: (map['items'] as Iterable)
+          .mapIndexed(deserializeItem)
+          .toList(growable: false),
       allowedOperations: (map['allowedOperations'] as Iterable)
           .map((e) => DropOperation.values.byName(e))
           .toList(growable: false),
-      formats: (map['formats'] as List).cast<String>(),
       acceptedOperation: acceptedOperation != null
           ? DropOperation.values.byName(acceptedOperation)
           : null,
@@ -75,22 +118,75 @@ class DropEvent extends BaseDropEvent {
   Map serialize() => {
         'sessionId': sessionId,
         'locationInView': locationInView.serialize(),
-        'localData': localData,
+        'items': items.map((e) => e.serialize()),
         'allowedOperation':
             allowedOperations.map((e) => e.name).toList(growable: false),
-        'formats': formats,
         'acceptedOperation': acceptedOperation?.name,
       };
 
   @override
   String toString() => serialize().toString();
+}
 
-  final Offset locationInView;
-  final List<Object?> localData;
-  final List<DropOperation> allowedOperations;
-  final List<String> formats;
-  final DropOperation? acceptedOperation;
-  final DataReader? reader;
+class ItemPreview {
+  ItemPreview({
+    required this.destinationRect,
+    this.destinationImage,
+    this.fadeOutDelay,
+    this.fadeOutDuration,
+  });
+
+  /// Destination (in global cooridantes) to where the item should land.
+  final Rect destinationRect;
+
+  /// Destination image to which the drag image will morph. If not provided,
+  /// drag image will be used.
+  final ImageData? destinationImage;
+
+  /// Override fade out delay
+  final Duration? fadeOutDelay;
+
+  /// Override fade out duration
+  final Duration? fadeOutDuration;
+
+  dynamic serialize() => {
+        'destinationRect': destinationRect.serialize(),
+        'destinationImage': destinationImage?.serialize(),
+        'fadeOutDelay': fadeOutDelay?.inSecondsDouble,
+        'fadeOutDuration': fadeOutDuration?.inSecondsDouble,
+      };
+}
+
+class ItemPreviewRequest {
+  ItemPreviewRequest({
+    required this.sessionId,
+    required this.itemId,
+    required this.size,
+    required this.fadeOutDelay,
+    required this.fadeOutDuration,
+  });
+
+  static deserialize(dynamic request) {
+    final map = request as Map;
+    return ItemPreviewRequest(
+      sessionId: map['sessionId'] as int,
+      itemId: map['itemId'] as int,
+      size: SizeExt.deserialize(map['size']),
+      fadeOutDelay: DurationExt.fromSeconds(map['fadeOutDelay'] as double),
+      fadeOutDuration:
+          DurationExt.fromSeconds(map['fadeOutDuration'] as double),
+    );
+  }
+
+  final int sessionId;
+  final int itemId;
+  final Size size;
+
+  /// Default delay before the item preview starts fading out
+  final Duration fadeOutDelay;
+
+  /// Default duration of item fade out
+  final Duration fadeOutDuration;
 }
 
 abstract class RawDropContextDelegate {
@@ -98,6 +194,7 @@ abstract class RawDropContextDelegate {
   Future<void> onPerformDrop(DropEvent event);
   Future<void> onDropLeave(BaseDropEvent event);
   Future<void> onDropEnded(BaseDropEvent event);
+  Future<ItemPreview?> onGetItemPreview(ItemPreviewRequest request);
 }
 
 final _channel =
@@ -148,20 +245,30 @@ class RawDropContext {
 
   Future<dynamic> _handleMethodCall(MethodCall call) async {
     if (call.method == 'onDropUpdate') {
-      final event = DropEvent.deserialize(call.arguments, _getReaderForSession);
-      _sessionForId(event.sessionId).reader = event.reader;
+      final event =
+          await DropEvent.deserialize(call.arguments, _getReaderForSession);
+      _sessionForId(event.sessionId).reader = event._reader;
       final operation = await _delegate?.onDropUpdate(event);
       return (operation ?? DropOperation.none).name;
     } else if (call.method == 'onPerformDrop') {
-      final event = DropEvent.deserialize(call.arguments, _getReaderForSession);
+      final event =
+          await DropEvent.deserialize(call.arguments, _getReaderForSession);
+      _sessionForId(event.sessionId).reader = event._reader;
       return await _delegate?.onPerformDrop(event);
     } else if (call.method == 'onDropLeave') {
       final event = BaseDropEvent.deserialize(call.arguments);
       return await _delegate?.onDropLeave(event);
     } else if (call.method == 'onDropEnded') {
       final event = BaseDropEvent.deserialize(call.arguments);
-      _sessions.remove(event.sessionId);
+      final session = _sessions.remove(event.sessionId);
+      session?.reader?.dispose();
       return await _delegate?.onDropEnded(event);
+    } else if (call.method == 'getPreviewForItem') {
+      final request = ItemPreviewRequest.deserialize(call.arguments);
+      final preview = await _delegate?.onGetItemPreview(request);
+      return {
+        'preview': preview?.serialize(),
+      };
     } else {
       return null;
     }

@@ -2,6 +2,7 @@ use std::{
     cell::RefCell,
     collections::HashMap,
     rc::{Rc, Weak},
+    sync::Arc,
 };
 
 use async_trait::async_trait;
@@ -11,12 +12,13 @@ use nativeshell_core::{
 };
 
 use crate::{
-    api_model::{DropOperation, Point},
+    api_model::{DropOperation, ImageData, Point, Rect, Size},
     drag_manager::{GetDragManager, PlatformDragContextId},
     error::{NativeExtensionsError, NativeExtensionsResult},
-    log::OkLog,
+    log::{OkLog, OkLogUnexpected},
     platform_impl::platform::{PlatformDataReader, PlatformDragContext, PlatformDropContext},
     reader_manager::{GetDataReaderManager, RegisteredDataReader},
+    value_promise::{Promise, PromiseResult},
 };
 
 pub type PlatformDropContextId = IsolateId;
@@ -49,22 +51,72 @@ struct RegisterDropTypesRequest {
     types: Vec<String>,
 }
 
+#[derive(Debug, TryFromValue, IntoValue, Clone, Copy, PartialEq, Hash, Eq)]
+pub struct DropSessionId(i64);
+
+impl From<i64> for DropSessionId {
+    fn from(v: i64) -> Self {
+        Self(v)
+    }
+}
+
+#[derive(Debug, TryFromValue, IntoValue, Clone, Copy, PartialEq, Hash, Eq)]
+pub struct DropItemId(i64);
+
+impl From<i64> for DropItemId {
+    fn from(v: i64) -> Self {
+        Self(v)
+    }
+}
+
+#[derive(IntoValue, Debug)]
+#[nativeshell(rename_all = "camelCase")]
+pub struct DropEventItem {
+    pub item_id: DropItemId, // unique ID within session, consistent between events
+    pub formats: Vec<String>,
+    pub local_data: Value,
+}
+
 #[derive(IntoValue, Debug)]
 #[nativeshell(rename_all = "camelCase")]
 pub struct DropEvent {
-    pub session_id: i64,
+    pub session_id: DropSessionId,
     pub location_in_view: Point,
-    pub local_data: Vec<Value>,
     pub allowed_operations: Vec<DropOperation>,
-    pub formats: Vec<String>,
     pub accepted_operation: Option<DropOperation>,
+    pub items: Vec<DropEventItem>,
     pub reader: Option<RegisteredDataReader>,
 }
 
 #[derive(IntoValue, Debug)]
 #[nativeshell(rename_all = "camelCase")]
 pub struct BaseDropEvent {
-    pub session_id: i64,
+    pub session_id: DropSessionId,
+}
+
+#[derive(IntoValue)]
+#[nativeshell(rename_all = "camelCase")]
+pub struct ItemPreviewRequest {
+    pub session_id: DropSessionId,
+    pub item_id: DropItemId,
+    pub size: Size,
+    pub fade_out_delay: f64, // delay before preview starts fading out
+    pub fade_out_duration: f64, // duration of fade out animation
+}
+
+#[derive(TryFromValue)]
+#[nativeshell(rename_all = "camelCase")]
+pub struct ItemPreview {
+    pub destination_image: Option<ImageData>,
+    pub destination_rect: Rect,
+    pub fade_out_delay: Option<f64>,
+    pub fade_out_duration: Option<f64>,
+}
+
+#[derive(TryFromValue)]
+#[nativeshell(rename_all = "camelCase")]
+pub struct ItemPreviewResponse {
+    pub preview: Option<ItemPreview>,
 }
 
 pub trait PlatformDropContextDelegate {
@@ -95,6 +147,12 @@ pub trait PlatformDropContextDelegate {
         &self,
         platform_reader: Rc<PlatformDataReader>,
     ) -> NativeExtensionsResult<RegisteredDataReader>;
+
+    fn get_preview_for_item(
+        &self,
+        id: PlatformDragContextId,
+        request: ItemPreviewRequest,
+    ) -> Arc<Promise<PromiseResult<ItemPreviewResponse>>>;
 }
 
 impl DropManager {
@@ -134,6 +192,18 @@ impl DropManager {
         context.assign_weak_self(Rc::downgrade(&context));
         self.contexts.borrow_mut().insert(isolate, context);
         Ok(())
+    }
+
+    async fn get_preview_for_item(
+        &self,
+        id: PlatformDragContextId,
+        request: ItemPreviewRequest,
+    ) -> NativeExtensionsResult<ItemPreviewResponse> {
+        let result = self
+            .invoker
+            .call_method_cv(id, "getPreviewForItem", request)
+            .await?;
+        Ok(result)
     }
 }
 
@@ -214,5 +284,31 @@ impl PlatformDropContextDelegate for DropManager {
         Context::get()
             .data_reader_manager()
             .register_platform_reader(platform_reader)
+    }
+
+    fn get_preview_for_item(
+        &self,
+        id: PlatformDragContextId,
+        request: ItemPreviewRequest,
+    ) -> Arc<Promise<PromiseResult<ItemPreviewResponse>>> {
+        let res = Arc::new(Promise::new());
+        let res_clone = res.clone();
+        let weak_self = self.weak_self.clone();
+        Context::get().run_loop().spawn(async move {
+            let this = weak_self.upgrade();
+            if let Some(this) = this {
+                let draggable = this
+                    .get_preview_for_item(id, request)
+                    .await
+                    .ok_log_unexpected();
+                match draggable {
+                    Some(draggable) => res_clone.set(PromiseResult::Ok { value: draggable }),
+                    None => res_clone.set(PromiseResult::Cancelled),
+                }
+            } else {
+                res_clone.set(PromiseResult::Cancelled);
+            }
+        });
+        res
     }
 }

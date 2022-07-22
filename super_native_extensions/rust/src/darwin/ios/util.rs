@@ -6,14 +6,17 @@ use cocoa::{
     foundation::{NSArray, NSDictionary, NSInteger, NSUInteger},
 };
 use core_foundation::array::CFIndex;
-use core_graphics::geometry::{CGPoint, CGRect, CGSize};
+use core_graphics::{
+    base::CGFloat,
+    geometry::{CGPoint, CGRect, CGSize},
+};
 use nativeshell_core::{platform::value::ValueObjcConversion, Value};
 use objc::{class, msg_send, rc::StrongPtr, sel, sel_impl};
 
 use crate::{
-    api_model::{Point, Rect},
+    api_model::{ImageData, Point, Rect, Size},
     drag_manager::DragSessionId,
-    platform_impl::platform::common::to_nsstring,
+    platform_impl::platform::common::{cg_image_from_image_data, to_nsstring},
     value_coerce::{CoerceToData, StringFormat},
     value_promise::ValuePromiseResult,
 };
@@ -49,6 +52,15 @@ impl From<Rect> for CGRect {
                 width: r.width,
                 height: r.height,
             },
+        }
+    }
+}
+
+impl From<CGSize> for Size {
+    fn from(s: CGSize) -> Self {
+        Size {
+            width: s.width,
+            height: s.height,
         }
     }
 }
@@ -212,4 +224,18 @@ impl IntoObjc for DragSessionId {
         let id: i64 = self.into();
         id.into_objc()
     }
+}
+
+pub fn image_view_from_data(image_data: ImageData) -> StrongPtr {
+    let orientation_up: NSInteger = 0; // need to flip CGImage
+    let pixel_ratio = image_data.device_pixel_ratio;
+    let image = cg_image_from_image_data(image_data);
+    let image: id = unsafe {
+        msg_send![class!(UIImage),
+        imageWithCGImage: &*image
+        scale: pixel_ratio.unwrap_or(1.0) as CGFloat
+        orientation: orientation_up]
+    };
+    let image_view: id = unsafe { msg_send![class!(UIImageView), alloc] };
+    unsafe { StrongPtr::new(msg_send![image_view, initWithImage: image]) }
 }

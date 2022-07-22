@@ -31,3 +31,22 @@ extension OffsetExt on Offset {
     return Offset(map['x'], map['y']);
   }
 }
+
+extension SizeExt on Size {
+  Map serialize() => {
+        'width': width,
+        'height': height,
+      };
+  static Size deserialize(dynamic size) {
+    final map = size as Map;
+    return Size(map['width'], map['height']);
+  }
+}
+
+extension DurationExt on Duration {
+
+  double get inSecondsDouble => inMicroseconds / 1000000.0;
+
+  static Duration fromSeconds(double seconds) =>
+      Duration(microseconds: (seconds * 1000000.0).round());
+}

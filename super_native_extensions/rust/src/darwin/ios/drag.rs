@@ -11,12 +11,9 @@ use std::{
 use block::ConcreteBlock;
 use cocoa::{
     base::{id, nil, BOOL, NO, YES},
-    foundation::{NSArray, NSInteger},
+    foundation::NSArray,
 };
-use core_graphics::{
-    base::CGFloat,
-    geometry::{CGPoint, CGRect},
-};
+use core_graphics::geometry::{CGPoint, CGRect};
 
 use nativeshell_core::{util::Late, Context, Value};
 use objc::{
@@ -36,14 +33,14 @@ use crate::{
         DataProviderEntry, DragSessionId, GetDragConfigurationResult, PlatformDragContextDelegate,
     },
     error::{NativeExtensionsError, NativeExtensionsResult},
-    platform_impl::platform::common::{cg_image_from_image_data, to_nsstring},
+    platform_impl::platform::common::to_nsstring,
     util::DropNotifier,
     value_promise::PromiseResult,
 };
 
 use super::{
     drag_common::{DropOperationExt, UIDropOperation},
-    util::IntoObjc,
+    util::{image_view_from_data, IntoObjc},
     DataProviderSessionDelegate, PlatformDataProvider,
 };
 
@@ -64,9 +61,9 @@ enum ImageType {
 }
 
 struct Session {
+    context_id: i64,
     context_delegate: Weak<dyn PlatformDragContextDelegate>,
     context_view: StrongPtr,
-    platform_drag_context_id: i64,
     session_id: DragSessionId,
     weak_self: Late<Weak<Self>>,
     in_progress: Cell<bool>,
@@ -86,7 +83,7 @@ impl Session {
         Self {
             context_delegate,
             context_view,
-            platform_drag_context_id,
+            context_id: platform_drag_context_id,
             weak_self: Late::new(),
             in_progress: Cell::new(false),
             session_id,
@@ -157,7 +154,7 @@ impl Session {
     fn did_move(&self, session: id, location: Point) {
         if let Some(delegate) = self.context_delegate.upgrade() {
             delegate.drag_session_did_move_to_location(
-                self.platform_drag_context_id,
+                self.context_id,
                 self.session_id,
                 location,
             );
@@ -189,7 +186,7 @@ impl Session {
     fn did_end_with_operation(&self, operation: UIDropOperation) {
         if let Some(delegate) = self.context_delegate.upgrade() {
             delegate.drag_session_did_end_with_operation(
-                self.platform_drag_context_id,
+                self.context_id,
                 self.session_id,
                 DropOperation::from_platform(operation),
             );
@@ -207,15 +204,7 @@ impl Session {
                 } else {
                     item.lift_image.as_ref().unwrap_or(&item.image)
                 };
-                let orientation_up: NSInteger = 0; // need to flip CGImage
-                let image = cg_image_from_image_data(drag_image.image_data.clone());
-                let image: id = msg_send![class!(UIImage),
-                    imageWithCGImage: &*image
-                    scale: drag_image.image_data.device_pixel_ratio.unwrap_or(1.0) as CGFloat
-                    orientation: orientation_up];
-
-                let image_view: id = msg_send![class!(UIImageView), alloc];
-                let image_view = StrongPtr::new(msg_send![image_view, initWithImage: image]);
+                let image_view = image_view_from_data(drag_image.image_data.clone());
 
                 let () = msg_send![*self.context_view, addSubview:*image_view];
 
@@ -254,7 +243,7 @@ impl Session {
 
 impl Drop for Session {
     fn drop(&mut self) {
-        // Delay removign view for a second in case the drop got cancelled before it
+        // Delay removing view for a second in case the drop got cancelled before it
         // even began
         let views: Vec<_> = self.views.borrow_mut().drain().map(|a| a.1).collect();
         Context::get()
@@ -330,11 +319,11 @@ impl PlatformDragContext {
 
         // There doesn't seem to be a better way to determine when session is disposed.
         // didEndWithOperation: and didTransferItems: are only called when session began drag,
-        // but it is possible for lift to begin without user actually dragging, which will
+        // but it is possible for lift to end without user actually dragging, which will
         // cancel the session; In which case we still want to cleanup the session state.
         // Also note that there is a memory leak - if items have previewProvider set at the
         // beginning the session will never get disposed :-/
-        // Setting previewProvider in sessionWillBegin seems to work.
+        // Setting previewProviders during dragging seems to work.
         let weak_self = self.weak_self.clone();
         let drop_notifier = Arc::new(DropNotifier::new(move || {
             if let Some(this) = weak_self.upgrade() {
