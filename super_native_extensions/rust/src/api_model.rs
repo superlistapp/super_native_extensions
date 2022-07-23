@@ -158,6 +158,7 @@ pub struct DragConfiguration {
 #[nativeshell(rename_all = "camelCase")]
 pub struct DragRequest {
     pub configuration: DragConfiguration,
+    pub combined_drag_image: Option<DragImage>,
     pub position: Point,
 }
 

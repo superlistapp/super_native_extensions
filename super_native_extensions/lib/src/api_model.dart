@@ -10,6 +10,7 @@ class ImageData {
     required this.height,
     required this.bytesPerRow,
     required this.data,
+    required this.sourceImage,
     this.devicePixelRatio,
   });
 
@@ -17,6 +18,7 @@ class ImageData {
   final int height;
   final int bytesPerRow;
   final Uint8List data;
+  final Image sourceImage;
   final double? devicePixelRatio;
 
   static Future<ImageData> fromImage(
@@ -29,6 +31,7 @@ class ImageData {
         height: image.height,
         bytesPerRow: image.width * 4,
         data: bytes!.buffer.asUint8List(),
+        sourceImage: image,
         devicePixelRatio: devicePixelRatio);
   }
 
@@ -117,13 +120,16 @@ class DragRequest {
   DragRequest({
     required this.configuration,
     required this.position,
+    this.combinedDragImage,
   });
 
   final DragConfiguration configuration;
   final Offset position;
+  final DragImage? combinedDragImage;
 
   dynamic serialize() => {
         'configuration': configuration.serialize(),
         'position': position.serialize(),
+        'combinedDragImage': combinedDragImage?.serialize(),
       };
 }

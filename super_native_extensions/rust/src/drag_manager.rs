@@ -239,6 +239,10 @@ impl DragManager {
                 r.ok_log();
             })
     }
+
+    fn needs_combined_drag_image(&self) -> NativeExtensionsResult<bool> {
+        Ok(PlatformDragContext::needs_combined_drag_image())
+    }
 }
 
 #[async_trait(?Send)]
@@ -257,6 +261,7 @@ impl AsyncMethodHandler for DragManager {
                 self.new_context(call.isolate, call.args.try_into()?)?;
                 Ok(Value::Null)
             }
+            "needsCombinedDragImage" => self.needs_combined_drag_image().into_platform_result(),
             "startDrag" => self
                 .start_drag(call.isolate, call.args.try_into()?)
                 .await

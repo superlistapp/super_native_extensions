@@ -35,9 +35,15 @@ class _DropDelegate implements RawDropContextDelegate {
     print('Item count ${event.items.length}, ${event.items.first.itemId}');
     final item = event.items[0];
     // final data = await
-    item.readerItem?.getDataForFormat('public.url').then((data) {
-      print('URL: ${data}');
-    });
+    final readerItem = item.readerItem;
+    if (readerItem != null) {
+      readerItem
+          .getDataForFormat((await readerItem.getAvailableFormats()).first)
+          .then((data) {
+        print('URL: ${data}');
+      });
+    }
+
     // print('DATA $data');
     print('Perform drop $event');
     // Future.delayed(Duration(seconds: 2), () {
@@ -340,10 +346,10 @@ class _MyHomePageState extends State<MyHomePage> {
           // DataSourceItemRepresentation.simple(
           //     formats: ['public.file-url'],
           //     data: utf8.encode('file:///tmp/test.txt')),
-          // DataRepresentation.lazy(
-          //     // formats: ['public.utf8-plain-text'], data: utf8.encode('baaad')),
-          //     format: 'text/plain',
-          //     dataProvider: () => utf8.encode('baaad')),
+          DataRepresentation.lazy(
+              // formats: ['public.utf8-plain-text'], data: utf8.encode('baaad')),
+              format: 'text/plain',
+              dataProvider: () => utf8.encode('baaad')),
           DataRepresentation.virtualFile(
               format: 'public.utf8-plain-text',
               // format: 'text/plain',
@@ -396,24 +402,22 @@ class _MyHomePageState extends State<MyHomePage> {
 
     final dragContext = await RawDragContext.instance();
     final session = await dragContext.startDrag(
-      request: DragRequest(
-        configuration: DragConfiguration(allowedOperations: [
-          DropOperation.copy,
-          DropOperation.move,
-          DropOperation.link
-        ], items: [
-          DragItem(
-            localData: {
-              'x': 1,
-              'y': 2,
-            },
-            dataProvider: handle,
-            image: await dragContainer.currentState!
-                .getDragImageForOffset(globalPosition),
-          )
-        ]),
-        position: globalPosition,
-      ),
+      configuration: DragConfiguration(allowedOperations: [
+        DropOperation.copy,
+        DropOperation.move,
+        DropOperation.link
+      ], items: [
+        DragItem(
+          localData: {
+            'x': 1,
+            'y': 2,
+          },
+          dataProvider: handle,
+          image: await dragContainer.currentState!
+              .getDragImageForOffset(globalPosition),
+        )
+      ]),
+      position: globalPosition,
     );
     session.dragCompleted.addListener(() {
       print('Drag completed ${session.dragCompleted.value}');

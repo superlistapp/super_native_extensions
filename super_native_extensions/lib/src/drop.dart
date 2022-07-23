@@ -32,8 +32,8 @@ class BaseDropEvent {
 
 typedef ReaderProvider = DataReader? Function(int sessionId);
 
-class DropEventItem {
-  DropEventItem({
+class DropItem {
+  DropItem({
     required this.itemId,
     required this.formats,
     this.localData,
@@ -45,9 +45,9 @@ class DropEventItem {
   final Object? localData;
   final DataReaderItem? readerItem;
 
-  static DropEventItem deserialize(dynamic item, DataReaderItem? readerItem) {
+  static DropItem deserialize(dynamic item, DataReaderItem? readerItem) {
     final map = item as Map;
-    return DropEventItem(
+    return DropItem(
       itemId: map['itemId'],
       formats: (map['formats'] as List).cast<String>(),
       localData: map['localData'],
@@ -74,7 +74,7 @@ class DropEvent extends BaseDropEvent {
 
   final Offset locationInView;
   final List<DropOperation> allowedOperations;
-  final List<DropEventItem> items;
+  final List<DropItem> items;
   final DropOperation? acceptedOperation;
   final DataReader? _reader;
 
@@ -95,8 +95,8 @@ class DropEvent extends BaseDropEvent {
     final reader = readerProvider(sessionId) ?? getReader();
     final items = await reader?.getItems();
 
-    DropEventItem deserializeItem(int index, dynamic item) =>
-        DropEventItem.deserialize(item, items?[index]);
+    DropItem deserializeItem(int index, dynamic item) =>
+        DropItem.deserialize(item, items?[index]);
 
     return DropEvent(
       sessionId: sessionId,
@@ -194,6 +194,7 @@ abstract class RawDropContextDelegate {
   Future<void> onPerformDrop(DropEvent event);
   Future<void> onDropLeave(BaseDropEvent event);
   Future<void> onDropEnded(BaseDropEvent event);
+  /// iOS only.
   Future<ItemPreview?> onGetItemPreview(ItemPreviewRequest request);
 }
 

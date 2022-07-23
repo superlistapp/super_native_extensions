@@ -71,7 +71,7 @@ impl From<i64> for DropItemId {
 
 #[derive(IntoValue, Debug)]
 #[nativeshell(rename_all = "camelCase")]
-pub struct DropEventItem {
+pub struct DropItem {
     pub item_id: DropItemId, // unique ID within session, consistent between events
     pub formats: Vec<String>,
     pub local_data: Value,
@@ -84,7 +84,7 @@ pub struct DropEvent {
     pub location_in_view: Point,
     pub allowed_operations: Vec<DropOperation>,
     pub accepted_operation: Option<DropOperation>,
-    pub items: Vec<DropEventItem>,
+    pub items: Vec<DropItem>,
     pub reader: Option<RegisteredDataReader>,
 }
 
@@ -100,7 +100,7 @@ pub struct ItemPreviewRequest {
     pub session_id: DropSessionId,
     pub item_id: DropItemId,
     pub size: Size,
-    pub fade_out_delay: f64, // delay before preview starts fading out
+    pub fade_out_delay: f64,    // delay before preview starts fading out
     pub fade_out_duration: f64, // duration of fade out animation
 }
 

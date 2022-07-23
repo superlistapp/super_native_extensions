@@ -35,7 +35,7 @@ impl PlatformDataReader {
         Ok((env, context))
     }
 
-    pub async fn get_items(&self) -> NativeExtensionsResult<Vec<i64>> {
+    pub fn get_items_sync(&self) -> NativeExtensionsResult<Vec<i64>> {
         match &self.clip_data {
             Some(clip_data) => {
                 let (env, _) = Self::get_env_and_context()?;
@@ -48,7 +48,11 @@ impl PlatformDataReader {
         }
     }
 
-    pub async fn get_formats_for_item(&self, item: i64) -> NativeExtensionsResult<Vec<String>> {
+    pub async fn get_items(&self) -> NativeExtensionsResult<Vec<i64>> {
+        self.get_items_sync()
+    }
+
+    pub fn get_formats_for_item_sync(&self, item: i64) -> NativeExtensionsResult<Vec<String>> {
         match &self.clip_data {
             Some(clip_data) => {
                 let (env, context) = Self::get_env_and_context()?;
@@ -73,6 +77,10 @@ impl PlatformDataReader {
             }
             None => Ok(Vec::new()),
         }
+    }
+
+    pub async fn get_formats_for_item(&self, item: i64) -> NativeExtensionsResult<Vec<String>> {
+        self.get_formats_for_item_sync(item)
     }
 
     thread_local! {

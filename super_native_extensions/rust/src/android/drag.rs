@@ -1,11 +1,12 @@
 use std::{cell::RefCell, collections::HashMap, rc::Weak, sync::Arc};
 
 use jni::{objects::JObject, sys::jsize, JNIEnv};
+use log::info;
 use nativeshell_core::Value;
 
 use crate::{
     android::{DRAG_DROP_UTIL, JAVA_VM},
-    api_model::{DataProviderId, DragRequest, DropOperation, ImageData, Point},
+    api_model::{DataProviderId, DragConfiguration, DragRequest, DropOperation, ImageData, Point},
     data_provider_manager::DataProviderHandle,
     drag_manager::{
         DataProviderEntry, DragSessionId, PlatformDragContextDelegate, PlatformDragContextId,
@@ -27,6 +28,7 @@ pub struct PlatformDragContext {
 
 struct DragSession {
     platform_context_id: PlatformDragContextId,
+    configuration: DragConfiguration,
     platform_context_delegate: Weak<dyn PlatformDragContextDelegate>,
     data_providers: Vec<Arc<DataProviderHandle>>,
 }
@@ -99,6 +101,10 @@ impl PlatformDragContext {
         Ok(res)
     }
 
+    pub fn needs_combined_drag_image() -> bool {
+        true
+    }
+
     pub async fn start_drag(
         &self,
         request: DragRequest,
@@ -121,16 +127,21 @@ impl PlatformDragContext {
 
         let data = PlatformDataProvider::create_clip_data_for_data_providers(&env, providers)?;
 
-        // TODO: Merge images
-        let image = &request.configuration.items[0].image;
+        let image = &request.combined_drag_image.ok_or_else(|| {
+            NativeExtensionsError::OtherError("Missing combined drag image".into())
+        })?;
         let bitmap = Self::create_bitmap(&env, &image.image_data)?;
-        let point_in_rect = &image.point_in_rect;
+        let device_pixel_ratio = image.image_data.device_pixel_ratio.unwrap_or(1.0);
+        let point_in_rect = Point {
+            x: (request.position.x - image.source_rect.x) * device_pixel_ratio,
+            y: (request.position.y - image.source_rect.y) * device_pixel_ratio,
+        };
 
         let mut sessions = self.sessions.borrow_mut();
         sessions.insert(
             session_id,
             DragSession {
-                // local_data: request.configuration.local_data,
+                configuration: request.configuration,
                 platform_context_id: self.id,
                 platform_context_delegate: self.delegate.clone(),
                 data_providers: provider_handles,
@@ -177,20 +188,20 @@ impl PlatformDragContext {
         &self,
         env: &JNIEnv<'a>,
         event: DragEvent<'a>,
-    ) -> NativeExtensionsResult<Value> {
+    ) -> NativeExtensionsResult<Vec<Value>> {
+        let sessions = self.sessions.borrow();
         let session_id = event.get_session_id(env)?;
-        // match session_id {
-        //     Some(session_id) => {
-        //         let sessions = self.sessions.borrow();
-        //         let session = sessions.get(&session_id);
-        //         match session {
-        //             Some(session) => Ok(session.local_data.clone()),
-        //             None => Ok(Value::Null),
-        //         }
-        //     }
-        //     None => Ok(Value::Null),
-        // }
-        Ok(Value::Null)
+        let session = session_id.and_then(|id| sessions.get(&id));
+
+        match session {
+            Some(session) => Ok(session
+                .configuration
+                .items
+                .iter()
+                .map(|i| i.local_data.clone())
+                .collect()),
+            None => Ok(Vec::new()),
+        }
     }
 
     pub fn get_data_provider_handles<'a>(

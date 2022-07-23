@@ -28,7 +28,7 @@ use once_cell::sync::Lazy;
 use crate::{
     api_model::{DropOperation, Size},
     drop_manager::{
-        BaseDropEvent, DropEvent, DropEventItem, DropSessionId, ItemPreview, ItemPreviewRequest,
+        BaseDropEvent, DropEvent, DropItem, DropSessionId, ItemPreview, ItemPreviewRequest,
         PlatformDropContextDelegate,
     },
     error::{NativeExtensionsError, NativeExtensionsResult},
@@ -112,7 +112,7 @@ impl Session {
                     formats.push(identifier);
                 }
             }
-            items.push(DropEventItem {
+            items.push(DropItem {
                 item_id: (item as i64).into(),
                 formats,
                 local_data: local_data

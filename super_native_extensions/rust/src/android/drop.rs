@@ -16,7 +16,9 @@ use nativeshell_core::{Context, Value};
 use crate::{
     android::{DRAG_DROP_UTIL, JAVA_VM},
     api_model::{DropOperation, Point},
-    drop_manager::{BaseDropEvent, DropEvent, PlatformDropContextDelegate},
+    drop_manager::{
+        BaseDropEvent, DropEvent, DropItem, DropSessionId, PlatformDropContextDelegate,
+    },
     error::{NativeExtensionsError, NativeExtensionsResult},
     log::OkLog,
     reader_manager::RegisteredDataReader,
@@ -37,7 +39,7 @@ pub struct PlatformDropContext {
 }
 
 struct Session {
-    id: i64,
+    id: DropSessionId,
     last_operation: Cell<DropOperation>,
 }
 
@@ -83,40 +85,71 @@ impl PlatformDropContext {
 
     fn translate_drop_event<'a>(
         event: DragEvent<'a>,
-        session_id: i64,
+        session_id: DropSessionId,
         env: &JNIEnv<'a>,
-        local_data: Value,
+        mut local_data: Vec<Value>,
         accepted_operation: Option<DropOperation>,
-        reader: Option<RegisteredDataReader>,
+        reader: Option<(Rc<PlatformDataReader>, RegisteredDataReader)>,
     ) -> NativeExtensionsResult<DropEvent> {
-        let clip_description = event.get_clip_description(env)?;
-        let mime_type_count = env
-            .call_method(clip_description, "getMimeTypeCount", "()I", &[])?
-            .i()?;
-        let mut mime_types = Vec::<String>::new();
-        for i in 0..mime_type_count {
-            let mime_type = env
-                .call_method(
-                    clip_description,
-                    "getMimeType",
-                    "(I)Ljava/lang/String;",
-                    &[i.into()],
-                )?
-                .l()?;
-            let mime_type = env.get_string(mime_type.into())?;
-            mime_types.push(mime_type.into());
-        }
+        let items = match reader.as_ref() {
+            Some((reader, _)) => {
+                // we have access to actual clipdata so use it to build items
+                let mut items = Vec::new();
+                for (index, item) in reader.get_items_sync()?.iter().enumerate() {
+                    items.push(DropItem {
+                        item_id: (index as i64).into(),
+                        formats: reader.get_formats_for_item_sync(*item)?,
+                        local_data: local_data.get(index).cloned().unwrap_or(Value::Null),
+                    });
+                }
+                items
+            }
+            None => {
+                // here we only have clip description; The number of reported data will
+                // be number or local items (if any), or 1. Each item will have types
+                // from clip description set.
+                let clip_description = event.get_clip_description(env)?;
+                let mime_type_count = env
+                    .call_method(clip_description, "getMimeTypeCount", "()I", &[])?
+                    .i()?;
+                let mut mime_types = Vec::<String>::new();
+                for i in 0..mime_type_count {
+                    let mime_type = env
+                        .call_method(
+                            clip_description,
+                            "getMimeType",
+                            "(I)Ljava/lang/String;",
+                            &[i.into()],
+                        )?
+                        .l()?;
+                    let mime_type = env.get_string(mime_type.into())?;
+                    mime_types.push(mime_type.into());
+                }
+                if local_data.is_empty() {
+                    local_data.push(Value::Null);
+                }
+                local_data
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, local_data)| DropItem {
+                        item_id: (index as i64).into(),
+                        formats: mime_types.clone(),
+                        local_data,
+                    })
+                    .collect()
+            }
+        };
+
         Ok(DropEvent {
             session_id,
             location_in_view: Point {
                 x: event.get_x(env)? as f64,
                 y: event.get_y(env)? as f64,
             },
-            local_data,
             allowed_operations: vec![DropOperation::Copy],
-            formats: mime_types,
+            items,
             accepted_operation,
-            reader,
+            reader: reader.map(|r| r.1),
         })
     }
 
@@ -182,7 +215,7 @@ impl PlatformDropContext {
                     .get_or_insert_with(|| {
                         let id = self.next_session.next_id();
                         Rc::new(Session {
-                            id,
+                            id: id.into(),
                             last_operation: Cell::new(DropOperation::None),
                         })
                     })
@@ -246,14 +279,15 @@ impl PlatformDropContext {
                                 let _permission_notifier = permission_notifier;
                             }))),
                         )?;
-                        let reader = delegate.register_platform_reader(reader)?;
+                        let registered_reader =
+                            delegate.register_platform_reader(reader.clone())?;
                         let event = Self::translate_drop_event(
                             event,
                             current_session.id,
                             env,
                             local_data,
                             Some(accepted_operation),
-                            Some(reader),
+                            Some((reader, registered_reader)),
                         )?;
                         let done = Rc::new(Cell::new(false));
                         let done_clone = done.clone();

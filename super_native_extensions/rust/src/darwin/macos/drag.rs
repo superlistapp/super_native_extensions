@@ -105,6 +105,10 @@ impl PlatformDragContext {
         }
     }
 
+    pub fn needs_combined_drag_image()->bool {
+        false
+    }
+
     pub async fn start_drag(
         &self,
         request: DragRequest,
@@ -114,13 +118,7 @@ impl PlatformDragContext {
         autoreleasepool(|| unsafe {
             self.synthetize_mouse_up_event();
 
-            let image = &request.configuration.items.first().unwrap().image;
-
-            let mut rect: NSRect = image.source_rect.clone().into();
-            flip_rect(*self.view, &mut rect);
             let mut dragging_items = Vec::<id>::new();
-            let mut first = true;
-            let snapshot = ns_image_from_image_data(vec![image.image_data.clone()]);
             let mut data_provider_handles = Vec::<_>::new();
 
             for item in request.configuration.items {
@@ -136,12 +134,14 @@ impl PlatformDragContext {
                 let dragging_item: id =
                     msg_send![dragging_item, initWithPasteboardWriter: *writer_item];
                 let dragging_item: id = msg_send![dragging_item, autorelease];
-                let () = msg_send![dragging_item,
-                   setDraggingFrame:rect
-                   contents:if first {*snapshot } else {nil}
-                ];
+
+                let image = &item.image;
+                let mut rect: NSRect = image.source_rect.clone().into();
+                flip_rect(*self.view, &mut rect);
+                let snapshot = ns_image_from_image_data(vec![image.image_data.clone()]);
+
+                let () = msg_send![dragging_item, setDraggingFrame:rect contents:*snapshot];
                 dragging_items.push(dragging_item);
-                first = false;
             }
             let event = self.last_mouse_down.borrow().as_ref().cloned().unwrap();
             let dragging_items = NSArray::arrayWithObjects(nil, &dragging_items);
