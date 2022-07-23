@@ -153,11 +153,7 @@ impl Session {
 
     fn did_move(&self, session: id, location: Point) {
         if let Some(delegate) = self.context_delegate.upgrade() {
-            delegate.drag_session_did_move_to_location(
-                self.context_id,
-                self.session_id,
-                location,
-            );
+            delegate.drag_session_did_move_to_location(self.context_id, self.session_id, location);
         }
         unsafe {
             let items: id = msg_send![session, items];
@@ -243,6 +239,17 @@ impl Session {
 
 impl Drop for Session {
     fn drop(&mut self) {
+        if !self.in_progress.get() {
+            // Session is done without even having started. We still need to inform
+            // dart code so that the session state gets properly cleaned-up.
+            if let Some(delegate) = self.context_delegate.upgrade() {
+                delegate.drag_session_did_end_with_operation(
+                    self.context_id,
+                    self.session_id,
+                    DropOperation::UserCancelled,
+                );
+            }
+        }
         // Delay removing view for a second in case the drop got cancelled before it
         // even began
         let views: Vec<_> = self.views.borrow_mut().drain().map(|a| a.1).collect();
@@ -287,6 +294,10 @@ impl PlatformDragContext {
             self.interaction.set(StrongPtr::new(interaction));
             let () = msg_send![*self.view, addInteraction: interaction];
         });
+    }
+
+    pub fn needs_combined_drag_image() -> bool {
+        false
     }
 
     pub async fn start_drag(
