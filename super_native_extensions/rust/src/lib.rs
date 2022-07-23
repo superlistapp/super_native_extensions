@@ -116,8 +116,8 @@ mod android {
 
     // JNI class loader can't load our classes, so we store the data util instance;
     // If there were more classes to load we could store the class loader instead
-    pub static CLIP_DATA_UTIL: OnceCell<jni::objects::GlobalRef> = OnceCell::new();
-    pub static DRAG_DROP_UTIL: OnceCell<jni::objects::GlobalRef> = OnceCell::new();
+    pub static CLIP_DATA_HELPER: OnceCell<jni::objects::GlobalRef> = OnceCell::new();
+    pub static DRAG_DROP_HELPER: OnceCell<jni::objects::GlobalRef> = OnceCell::new();
 
     #[no_mangle]
     #[allow(non_snake_case)]
@@ -125,8 +125,8 @@ mod android {
         env: jni::JNIEnv,
         _class: jni::objects::JClass,
         context: jni::objects::JObject,
-        clip_data_util: jni::objects::JObject,
-        drag_drop_util: jni::objects::JObject,
+        clip_data_helper: jni::objects::JObject,
+        drag_drop_helper: jni::objects::JObject,
     ) {
         use ::log::Level;
         use android_logger::Config;
@@ -144,12 +144,12 @@ mod android {
             env.new_global_ref(context)
                 .expect("Failed to create Context reference")
         });
-        CLIP_DATA_UTIL.get_or_init(|| {
-            env.new_global_ref(clip_data_util)
+        CLIP_DATA_HELPER.get_or_init(|| {
+            env.new_global_ref(clip_data_helper)
                 .expect("Failed to store clip data util")
         });
-        DRAG_DROP_UTIL.get_or_init(|| {
-            env.new_global_ref(drag_drop_util)
+        DRAG_DROP_HELPER.get_or_init(|| {
+            env.new_global_ref(drag_drop_helper)
                 .expect("Failed to store drag drop util")
         });
         init(false);

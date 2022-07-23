@@ -16,7 +16,7 @@ import java.util.ArrayList;
 
 // used from JNI
 @SuppressWarnings("UnusedDeclaration")
-public final class ClipDataUtil {
+public final class ClipDataHelper {
 
     static final String typeTextPlain = "text/plain";
     static final String typeTextHtml = "text/html";

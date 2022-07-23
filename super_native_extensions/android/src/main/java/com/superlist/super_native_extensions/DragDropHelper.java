@@ -29,7 +29,7 @@ class SessionId {
 
 // used from JNI
 @SuppressWarnings("UnusedDeclaration")
-public class DragDropUtil {
+public class DragDropHelper {
     public static native boolean onDrag(DragEvent event, long dropHandlerId);
 
     private long _nextId = 1;

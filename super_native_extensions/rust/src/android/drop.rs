@@ -14,7 +14,7 @@ use jni::{
 use nativeshell_core::{Context, Value};
 
 use crate::{
-    android::{DRAG_DROP_UTIL, JAVA_VM},
+    android::{DRAG_DROP_HELPER, JAVA_VM},
     api_model::{DropOperation, Point},
     drop_manager::{
         BaseDropEvent, DropEvent, DropItem, DropSessionId, PlatformDropContextDelegate,
@@ -67,7 +67,7 @@ impl PlatformDropContext {
             .attach_current_thread()?;
 
         env.call_method(
-            DRAG_DROP_UTIL.get().unwrap().as_obj(),
+            DRAG_DROP_HELPER.get().unwrap().as_obj(),
             "registerDropHandler",
             "(JJ)V",
             &[self.view_handle.into(), self.id.into()],
@@ -172,7 +172,7 @@ impl PlatformDropContext {
     ) -> NativeExtensionsResult<Arc<DropNotifier>> {
         let activity = env
             .call_method(
-                DRAG_DROP_UTIL.get().unwrap().as_obj(),
+                DRAG_DROP_HELPER.get().unwrap().as_obj(),
                 "getActivity",
                 "(J)Landroid/app/Activity;",
                 &[self.view_handle.into()],
@@ -333,7 +333,7 @@ impl Drop for PlatformDropContext {
 
 #[no_mangle]
 #[allow(non_snake_case)]
-pub extern "C" fn Java_com_superlist_super_1native_1extensions_DragDropUtil_onDrag(
+pub extern "C" fn Java_com_superlist_super_1native_1extensions_DragDropHelper_onDrag(
     env: JNIEnv,
     _class: JClass,
     event: JObject,

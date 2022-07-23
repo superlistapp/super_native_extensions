@@ -5,7 +5,7 @@ use log::info;
 use nativeshell_core::Value;
 
 use crate::{
-    android::{DRAG_DROP_UTIL, JAVA_VM},
+    android::{DRAG_DROP_HELPER, JAVA_VM},
     api_model::{DataProviderId, DragConfiguration, DragRequest, DropOperation, ImageData, Point},
     data_provider_manager::DataProviderHandle,
     drag_manager::{
@@ -150,7 +150,7 @@ impl PlatformDragContext {
 
         let session_id: i64 = session_id.into();
         env.call_method(
-            DRAG_DROP_UTIL.get().unwrap().as_obj(),
+            DRAG_DROP_HELPER.get().unwrap().as_obj(),
             "startDrag",
             "(JJLandroid/content/ClipData;Landroid/graphics/Bitmap;II)V",
             &[

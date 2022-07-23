@@ -14,7 +14,7 @@ use jni::{
 use nativeshell_core::{util::FutureCompleter, Value};
 
 use crate::{
-    android::{CLIP_DATA_UTIL, CONTEXT, JAVA_VM},
+    android::{CLIP_DATA_HELPER, CONTEXT, JAVA_VM},
     error::{NativeExtensionsError, NativeExtensionsResult},
     util::DropNotifier,
 };
@@ -58,7 +58,7 @@ impl PlatformDataReader {
                 let (env, context) = Self::get_env_and_context()?;
                 let formats = env
                     .call_method(
-                        CLIP_DATA_UTIL.get().unwrap().as_obj(),
+                        CLIP_DATA_HELPER.get().unwrap().as_obj(),
                         "getTypes",
                         "(Landroid/content/ClipData;ILandroid/content/Context;)[Ljava/lang/String;",
                         &[clip_data.as_obj().into(), item.into(), context.into()],
@@ -91,7 +91,7 @@ impl PlatformDataReader {
 
     #[no_mangle]
     #[allow(non_snake_case)]
-    pub extern "C" fn Java_com_superlist_super_1native_1extensions_ClipDataUtil_onData(
+    pub extern "C" fn Java_com_superlist_super_1native_1extensions_ClipDataHelper_onData(
         env: jni::JNIEnv,
         _class: jni::objects::JClass,
         handle: jint,
@@ -139,7 +139,7 @@ impl PlatformDataReader {
                 Self::PENDING.with(|m| m.borrow_mut().insert(handle, completer));
 
                 env.call_method(
-                    CLIP_DATA_UTIL.get().unwrap().as_obj(),
+                    CLIP_DATA_HELPER.get().unwrap().as_obj(),
                     "getData",
                     "(Landroid/content/ClipData;ILjava/lang/String;Landroid/content/Context;I)V",
                     &[

@@ -1,7 +1,7 @@
 use jni::{objects::JObject, JNIEnv};
 
 use crate::{
-    android::DRAG_DROP_UTIL,
+    android::DRAG_DROP_HELPER,
     drag_manager::DragSessionId,
     error::{NativeExtensionsError, NativeExtensionsResult},
 };
@@ -71,7 +71,7 @@ impl<'a> DragEvent<'a> {
     ) -> NativeExtensionsResult<Option<DragSessionId>> {
         let res = env
             .call_method(
-                DRAG_DROP_UTIL.get().unwrap().as_obj(),
+                DRAG_DROP_HELPER.get().unwrap().as_obj(),
                 "getSessionId",
                 "(Landroid/view/DragEvent;)Ljava/lang/Long;",
                 &[self.0.into()],

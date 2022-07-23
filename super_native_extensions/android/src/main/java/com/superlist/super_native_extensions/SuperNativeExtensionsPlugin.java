@@ -21,8 +21,8 @@ import io.flutter.plugin.common.MethodChannel.Result;
  */
 public class SuperNativeExtensionsPlugin implements FlutterPlugin, MethodCallHandler, ActivityAware {
 
-    static final ClipDataUtil clipDataUtil = new ClipDataUtil();
-    static final DragDropUtil dragDropUtil = new DragDropUtil();
+    static final ClipDataHelper ClipDataHelper = new ClipDataHelper();
+    static final DragDropHelper DragDropHelper = new DragDropHelper();
 
     private MethodChannel channel;
 
@@ -32,7 +32,7 @@ public class SuperNativeExtensionsPlugin implements FlutterPlugin, MethodCallHan
     public void onAttachedToEngine(@NonNull FlutterPluginBinding flutterPluginBinding) {
         try {
             if (!nativeInitialized) {
-                init(flutterPluginBinding.getApplicationContext(), clipDataUtil, dragDropUtil);
+                init(flutterPluginBinding.getApplicationContext(), ClipDataHelper, DragDropHelper);
                 nativeInitialized = true;
             }
             channel = new MethodChannel(flutterPluginBinding.getBinaryMessenger(), "super_native_extensions");
@@ -56,7 +56,7 @@ public class SuperNativeExtensionsPlugin implements FlutterPlugin, MethodCallHan
             if (flutterViewId == null) {
                 Activity activity = activityPluginBinding.getActivity();
                 FlutterView view = activity.findViewById(FlutterActivity.FLUTTER_VIEW_ID);
-                flutterViewId = dragDropUtil.registerFlutterView(view, activity);
+                flutterViewId = DragDropHelper.registerFlutterView(view, activity);
             }
             result.success(flutterViewId);
         } else {
@@ -64,7 +64,7 @@ public class SuperNativeExtensionsPlugin implements FlutterPlugin, MethodCallHan
         }
     }
 
-    public static native void init(Context context, ClipDataUtil clipDataUtil, DragDropUtil dragDropUtil);
+    public static native void init(Context context, ClipDataHelper ClipDataHelper, DragDropHelper DragDropHelper);
 
     static {
         System.loadLibrary("super_native_extensions");
@@ -86,7 +86,7 @@ public class SuperNativeExtensionsPlugin implements FlutterPlugin, MethodCallHan
     @Override
     public void onDetachedFromActivity() {
         if (flutterViewId != null) {
-            dragDropUtil.unregisterFlutterView(flutterViewId);
+            DragDropHelper.unregisterFlutterView(flutterViewId);
             flutterViewId = null;
         }
     }
