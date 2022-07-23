@@ -126,7 +126,7 @@ impl DataReaderManager {
     }
 }
 
-#[derive(IntoValue, TryFromValue, Debug)]
+#[derive(IntoValue, TryFromValue, Debug, Clone)]
 #[nativeshell(rename_all = "camelCase")]
 pub struct RegisteredDataReader {
     handle: i64,

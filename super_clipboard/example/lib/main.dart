@@ -64,7 +64,7 @@ class _DropDelegate implements RawDropContextDelegate {
 
     return ItemPreview(
       destinationRect: const Rect.fromLTWH(100, 100, 100, 100),
-      // destinationImage: await ImageData.fromImage(image),
+      destinationImage: await ImageData.fromImage(image),
       // fadeOutDuration: const Duration(milliseconds: 400),
       // fadeOutDelay: const Duration(milliseconds: 100),
     );
@@ -190,13 +190,14 @@ class DragContainerState extends State<DragContainer> {
 final dragContainer = GlobalKey<DragContainerState>();
 
 void main() async {
-  // final dropContext = await RawDropContext.instance();
-  // await dropContext.registerDropTypes([
-  //   'public.file-url',
-  //   'NSFilenamesPboardType',
-  //   'public.url',
-  //   'Apple URL pasteboard type',
-  // ]);
+  final dropContext = await RawDropContext.instance();
+  await dropContext.registerDropTypes([
+    'public.file-url',
+    'NSFilenamesPboardType',
+    'public.url',
+    'public.utf8-plain-text',
+    'Apple URL pasteboard type',
+  ]);
   await RawDragContext.instance();
   await RawDropContext.instance();
   (await RawDragContext.instance()).delegate = _DragDelegate();
@@ -347,8 +348,8 @@ class _MyHomePageState extends State<MyHomePage> {
           //     formats: ['public.file-url'],
           //     data: utf8.encode('file:///tmp/test.txt')),
           DataRepresentation.lazy(
-              // formats: ['public.utf8-plain-text'], data: utf8.encode('baaad')),
-              format: 'text/plain',
+              format: 'public.utf8-plain-text',
+              // format: 'text/plain',
               dataProvider: () => utf8.encode('baaad')),
           DataRepresentation.virtualFile(
               format: 'public.utf8-plain-text',

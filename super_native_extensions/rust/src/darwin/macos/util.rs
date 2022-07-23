@@ -15,7 +15,7 @@ use objc::{
 };
 
 use crate::{
-    api_model::{ImageData, Point, Rect},
+    api_model::{ImageData, Point, Rect, Size},
     platform_impl::platform::common::cg_image_from_image_data,
 };
 
@@ -45,6 +45,15 @@ impl From<Rect> for NSRect {
             NSPoint::new(rect.x, rect.y),
             NSSize::new(rect.width, rect.height),
         )
+    }
+}
+
+impl From<NSSize> for Size {
+    fn from(s: NSSize) -> Self {
+        Self {
+            width: s.width,
+            height: s.height,
+        }
     }
 }
 

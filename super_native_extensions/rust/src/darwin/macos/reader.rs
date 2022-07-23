@@ -25,7 +25,7 @@ pub struct PlatformDataReader {
 }
 
 impl PlatformDataReader {
-    pub async fn get_items(&self) -> NativeExtensionsResult<Vec<i64>> {
+    pub fn get_items_sync(&self) -> NativeExtensionsResult<Vec<i64>> {
         let count = autoreleasepool(|| unsafe {
             let items: id = msg_send![*self.pasteboard, pasteboardItems];
             NSArray::count(items) as i64
@@ -33,7 +33,11 @@ impl PlatformDataReader {
         Ok((0..count).collect())
     }
 
-    pub async fn get_formats_for_item(&self, item: i64) -> NativeExtensionsResult<Vec<String>> {
+    pub async fn get_items(&self) -> NativeExtensionsResult<Vec<i64>> {
+        self.get_items_sync()
+    }
+
+    pub fn get_formats_for_item_sync(&self, item: i64) -> NativeExtensionsResult<Vec<String>> {
         let types = autoreleasepool(|| unsafe {
             let items: id = msg_send![*self.pasteboard, pasteboardItems];
             if item < NSArray::count(items) as i64 {
@@ -49,6 +53,10 @@ impl PlatformDataReader {
             }
         });
         Ok(types)
+    }
+
+    pub async fn get_formats_for_item(&self, item: i64) -> NativeExtensionsResult<Vec<String>> {
+        self.get_formats_for_item_sync(item)
     }
 
     pub async fn get_data_for_item(
@@ -87,9 +95,11 @@ impl PlatformDataReader {
     }
 
     pub fn new_clipboard_reader() -> NativeExtensionsResult<Rc<Self>> {
-        let res = Rc::new(Self {
-            pasteboard: unsafe { StrongPtr::retain(NSPasteboard::generalPasteboard(nil)) },
-        });
+        Self::from_pasteboard(unsafe { StrongPtr::retain(NSPasteboard::generalPasteboard(nil)) })
+    }
+
+    pub fn from_pasteboard(pasteboard: StrongPtr) -> NativeExtensionsResult<Rc<Self>> {
+        let res = Rc::new(Self { pasteboard });
         res.assign_weak_self(Rc::downgrade(&res));
         Ok(res)
     }

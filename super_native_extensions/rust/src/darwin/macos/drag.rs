@@ -9,7 +9,7 @@ use std::{
 };
 
 use crate::{
-    api_model::{DataProviderId, DragRequest, DropOperation},
+    api_model::{DataProviderId, DragConfiguration, DragRequest, DropOperation},
     data_provider_manager::DataProviderHandle,
     drag_manager::{DataProviderEntry, DragSessionId, PlatformDragContextDelegate},
     error::NativeExtensionsResult,
@@ -32,7 +32,7 @@ use cocoa::{
 use core_foundation::base::CFRelease;
 use core_graphics::event::CGEventType;
 
-use nativeshell_core::Context;
+use nativeshell_core::{Context, Value};
 use objc::{
     class, msg_send,
     rc::{autoreleasepool, StrongPtr},
@@ -47,7 +47,7 @@ extern "C" {
 
 struct DragSession {
     session_id: DragSessionId,
-    allowed_operations: Vec<DropOperation>,
+    configuration: DragConfiguration,
     _data_provider_handles: Vec<Arc<DataProviderHandle>>,
 }
 
@@ -57,7 +57,7 @@ pub struct PlatformDragContext {
     view: StrongPtr,
     last_mouse_down: RefCell<Option<StrongPtr>>,
     last_mouse_up: RefCell<Option<StrongPtr>>,
-    sessions: RefCell<HashMap<id, DragSession>>,
+    sessions: RefCell<HashMap<NSInteger /* draggingSequenceNumber */, DragSession>>,
 }
 
 static ONCE: std::sync::Once = std::sync::Once::new();
@@ -105,7 +105,7 @@ impl PlatformDragContext {
         }
     }
 
-    pub fn needs_combined_drag_image()->bool {
+    pub fn needs_combined_drag_image() -> bool {
         false
     }
 
@@ -121,7 +121,7 @@ impl PlatformDragContext {
             let mut dragging_items = Vec::<id>::new();
             let mut data_provider_handles = Vec::<_>::new();
 
-            for item in request.configuration.items {
+            for item in &request.configuration.items {
                 let provider = providers
                     .remove(&item.data_provider_id)
                     .expect("Provider missing");
@@ -166,11 +166,12 @@ impl PlatformDragContext {
                 session,
                 setAnimatesToStartingPositionsOnCancelOrFail: animates
             ];
+            let dragging_sequence_number: NSInteger = msg_send![session, draggingSequenceNumber];
             self.sessions.borrow_mut().insert(
-                session,
+                dragging_sequence_number,
                 DragSession {
                     session_id,
-                    allowed_operations: request.configuration.allowed_operations,
+                    configuration: request.configuration,
                     _data_provider_handles: data_provider_handles,
                 },
             );
@@ -241,10 +242,12 @@ impl PlatformDragContext {
             }
         };
 
+        let dragging_sequence_number: NSInteger =
+            unsafe { msg_send![session, draggingSequenceNumber] };
         let session = self
             .sessions
             .borrow_mut()
-            .remove(&session)
+            .remove(&dragging_sequence_number)
             .expect("Drag session unexpectedly missing");
 
         let operations = DropOperation::from_platform_mask(operation);
@@ -274,8 +277,10 @@ impl PlatformDragContext {
 
     pub fn drag_moved(&self, session: id, point: NSPoint) {
         let sessions = self.sessions.borrow();
+        let dragging_sequence_number: NSInteger =
+            unsafe { msg_send![session, draggingSequenceNumber] };
         let session = sessions
-            .get(&session)
+            .get(&dragging_sequence_number)
             .expect("Drag session unexpectedly missing");
         if let Some(delegate) = self.delegate.upgrade() {
             delegate.drag_session_did_move_to_location(self.id, session.session_id, point.into());
@@ -312,16 +317,32 @@ impl PlatformDragContext {
         _context: NSInteger,
     ) -> NSDragOperation {
         let sessions = self.sessions.borrow();
-        let session = sessions.get(&session);
+        let dragging_sequence_number: NSInteger =
+            unsafe { msg_send![session, draggingSequenceNumber] };
+        let session = sessions.get(&dragging_sequence_number);
         match session {
             Some(sessions) => {
                 let mut res = NSDragOperationNone;
-                for operation in &sessions.allowed_operations {
+                for operation in &sessions.configuration.allowed_operations {
                     res |= operation.to_platform();
                 }
                 res
             }
             None => NSDragOperationNone,
+        }
+    }
+
+    pub fn get_local_data(&self, dragging_sequence_number: NSInteger) -> Vec<Value> {
+        let sessions = self.sessions.borrow();
+        if let Some(session) = sessions.get(&dragging_sequence_number) {
+            session
+                .configuration
+                .items
+                .iter()
+                .map(|i| i.local_data.clone())
+                .collect()
+        } else {
+            Vec::new()
         }
     }
 }

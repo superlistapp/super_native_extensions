@@ -189,6 +189,9 @@ impl Session {
         while !done.get() {
             Context::get().run_loop().platform_run_loop.poll_once();
         }
+        /// TODO(knopp): Let user override default progress indicator
+        // let () =
+        //     unsafe { msg_send![self.platform_session, setProgressIndicatorStyle: 0 as NSUInteger] };
         Ok(())
     }
 
@@ -395,9 +398,11 @@ impl PlatformDropContext {
     }
 
     fn session_did_end(&self, session: id) -> NativeExtensionsResult<()> {
-        self.get_session(session).session_did_end()?;
-        self.sessions.borrow_mut().remove(&session);
-        Ok(())
+        let session = self.sessions.borrow_mut().remove(&session);
+        match session {
+            Some(session) => session.session_did_end(),
+            None => Ok(()),
+        }
     }
 
     fn preview_for_dropping_item(&self, item: id, default: id) -> NativeExtensionsResult<id> {

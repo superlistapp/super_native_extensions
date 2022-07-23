@@ -132,7 +132,11 @@ class ItemPreview {
   ItemPreview({
     required this.destinationRect,
     this.destinationImage,
+
+    /// iOS only
     this.fadeOutDelay,
+
+    /// iOS only
     this.fadeOutDuration,
   });
 
@@ -194,7 +198,8 @@ abstract class RawDropContextDelegate {
   Future<void> onPerformDrop(DropEvent event);
   Future<void> onDropLeave(BaseDropEvent event);
   Future<void> onDropEnded(BaseDropEvent event);
-  /// iOS only.
+
+  /// macOS and iOS only.
   Future<ItemPreview?> onGetItemPreview(ItemPreviewRequest request);
 }
 
