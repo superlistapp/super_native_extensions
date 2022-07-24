@@ -15,9 +15,10 @@ use nativeshell_core::{
 use crate::{
     api_model::{DataProviderId, DragConfiguration, DragRequest, DropOperation, Point},
     data_provider_manager::{DataProviderHandle, GetDataProviderManager},
+    drop_manager::GetDropManager,
     error::{NativeExtensionsError, NativeExtensionsResult},
     log::{OkLog, OkLogUnexpected},
-    platform_impl::platform::{PlatformDataProvider, PlatformDragContext},
+    platform_impl::platform::{PlatformDataProvider, PlatformDragContext, PlatformDropContext},
     util::{DropNotifier, NextId},
     value_promise::{Promise, PromiseResult},
 };
@@ -36,6 +37,11 @@ pub struct GetDragConfigurationResult {
 }
 
 pub trait PlatformDragContextDelegate {
+    fn get_platform_drop_context(
+        &self,
+        id: PlatformDragContextId,
+    ) -> NativeExtensionsResult<Rc<PlatformDropContext>>;
+
     fn get_drag_configuration_for_location(
         &self,
         id: PlatformDragContextId,
@@ -309,6 +315,13 @@ struct DragEndRequest {
 }
 
 impl PlatformDragContextDelegate for DragManager {
+    fn get_platform_drop_context(
+        &self,
+        id: PlatformDragContextId,
+    ) -> NativeExtensionsResult<Rc<PlatformDropContext>> {
+        Context::get().drop_manager().get_platform_drop_context(id)
+    }
+
     fn get_drag_configuration_for_location(
         &self,
         id: PlatformDragContextId,

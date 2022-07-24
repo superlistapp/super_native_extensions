@@ -34,7 +34,7 @@ pub struct PlatformDropContext {
     id: i64,
     view_handle: i64,
     delegate: Weak<dyn PlatformDropContextDelegate>,
-    next_session: Cell<i64>,
+    next_session_id: Cell<i64>,
     current_session: RefCell<Option<Rc<Session>>>,
 }
 
@@ -53,7 +53,7 @@ impl PlatformDropContext {
             id,
             view_handle,
             delegate,
-            next_session: Cell::new(0),
+            next_session_id: Cell::new(0),
             current_session: RefCell::new(None),
         }
     }
@@ -213,7 +213,7 @@ impl PlatformDropContext {
                 let mut session = self.current_session.borrow_mut();
                 session
                     .get_or_insert_with(|| {
-                        let id = self.next_session.next_id();
+                        let id = self.next_session_id.next_id();
                         Rc::new(Session {
                             id: id.into(),
                             last_operation: Cell::new(DropOperation::None),

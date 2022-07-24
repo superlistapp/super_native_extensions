@@ -180,6 +180,17 @@ impl DropManager {
         context.register_drop_types(&request.types)
     }
 
+    pub fn get_platform_drop_context(
+        &self,
+        id: PlatformDropContextId,
+    ) -> NativeExtensionsResult<Rc<PlatformDropContext>> {
+        self.contexts
+            .borrow()
+            .get(&id)
+            .cloned()
+            .ok_or_else(|| NativeExtensionsError::PlatformContextNotFound)
+    }
+
     fn new_context(
         &self,
         isolate: IsolateId,

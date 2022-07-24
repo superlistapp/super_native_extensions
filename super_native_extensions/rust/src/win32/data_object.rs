@@ -13,7 +13,7 @@ use windows::{
     Win32::{
         Foundation::{
             BOOL, DATA_S_SAMEFORMATETC, DV_E_FORMATETC, E_NOTIMPL, E_OUTOFMEMORY,
-            OLE_E_ADVISENOTSUPPORTED, POINT, S_FALSE,
+            OLE_E_ADVISENOTSUPPORTED, POINT, S_FALSE, S_OK,
         },
         System::{
             Com::{
@@ -392,6 +392,9 @@ impl IDataObject_Impl for DataObject {
                     self.data_for_format(format.cfFormat as u32, 0)
                 }
             });
+
+        // println!("DATA {:?} {:?}", data, format_to_string(format.cfFormat as u32));
+
         match data {
             Some(data) => {
                 if (format.tymed & TYMED_HGLOBAL.0 as u32) != 0 {
@@ -460,9 +463,12 @@ impl IDataObject_Impl for DataObject {
 
     fn GetCanonicalFormatEtc(
         &self,
-        _pformatectin: *const FORMATETC,
-        _pformatetcout: *mut FORMATETC,
+        pformatectin: *const FORMATETC,
+        pformatetcout: *mut FORMATETC,
     ) -> ::windows::core::HRESULT {
+        let fmt_out = unsafe { &mut *pformatetcout };
+        let fmt_in = unsafe { &*pformatectin };
+        *fmt_out = *fmt_in;
         DATA_S_SAMEFORMATETC
     }
 
@@ -629,7 +635,15 @@ impl GetData for IDataObject {
 
     fn has_data(&self, format: u32) -> bool {
         let mut format = make_format_with_tymed(format, TYMED_HGLOBAL);
-        unsafe { self.QueryGetData(&mut format as *mut _).is_ok() }
+        // TODO(knopp): Remove when https://github.com/microsoft/win32metadata/issues/1007
+        // unsafe { self.QueryGetData(&mut format as *mut _).is_ok() }
+        let data = unsafe {
+            (::windows::core::Interface::vtable(self).QueryGetData)(
+                ::windows::core::Interface::as_raw(self),
+                ::core::mem::transmute(&mut format as *mut _),
+            )
+        };
+        data == S_OK
     }
 }
 

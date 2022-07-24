@@ -187,14 +187,22 @@ impl PlatformDragContext {
         unsafe {
             helper.InitializeFromBitmap(&mut image as *mut _, data_object.clone())?;
         }
+
+        let mut allowed_effects: u32 = 0;
+        for operation in &request.configuration.allowed_operations {
+            allowed_effects |= operation.to_platform();
+        }
+
+        if let Some(delegate) = self.delegate.upgrade() {
+            delegate
+                .get_platform_drop_context(self.id)?
+                .local_drag_will_start(request.configuration)?;
+        }
+
         let cancelled = Rc::new(Cell::new(false));
         let drop_source = DropSource::create(self.weak_self.clone(), session_id, cancelled.clone());
         let mut effects_out: u32 = 0;
         unsafe {
-            let mut allowed_effects: u32 = 0;
-            for operation in request.configuration.allowed_operations {
-                allowed_effects |= operation.to_platform();
-            }
             let _ = DoDragDrop(
                 data_object.clone(),
                 drop_source,
@@ -208,6 +216,10 @@ impl PlatformDragContext {
         // deallocated we will get notification from drop notifier
         let effect = data_object.performed_drop_effect().unwrap_or(effects_out);
         if let Some(delegate) = self.delegate.upgrade() {
+            delegate
+                .get_platform_drop_context(self.id)?
+                .local_drag_did_end()?;
+
             let operation = DropOperation::from_platform(effect);
             let operation = if operation == DropOperation::None && cancelled.get() {
                 DropOperation::UserCancelled

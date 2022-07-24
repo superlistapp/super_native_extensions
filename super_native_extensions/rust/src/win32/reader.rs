@@ -16,15 +16,19 @@ use windows::Win32::{
 
 use crate::error::NativeExtensionsResult;
 
-use super::common::{extract_formats, format_from_string, format_to_string, get_data, has_data};
+use super::{common::{extract_formats, format_from_string, format_to_string, get_data}, data_object::GetData};
 
 pub struct PlatformDataReader {
     data_object: IDataObject,
 }
 
 impl PlatformDataReader {
-    pub async fn get_items(&self) -> NativeExtensionsResult<Vec<i64>> {
+    pub fn get_items_sync(&self) -> NativeExtensionsResult<Vec<i64>> {
         Ok((0..self.item_count()? as i64).collect())
+    }
+
+    pub async fn get_items(&self) -> NativeExtensionsResult<Vec<i64>> {
+        self.get_items_sync()
     }
 
     fn item_count(&self) -> NativeExtensionsResult<usize> {
@@ -52,7 +56,7 @@ impl PlatformDataReader {
         Ok(formats)
     }
 
-    pub async fn get_formats_for_item(&self, item: i64) -> NativeExtensionsResult<Vec<String>> {
+    pub fn get_formats_for_item_sync(&self, item: i64) -> NativeExtensionsResult<Vec<String>> {
         if item == 0 {
             return Ok(self
                 .supported_formats()?
@@ -66,6 +70,10 @@ impl PlatformDataReader {
             }
         }
         Ok(vec![])
+    }
+
+    pub async fn get_formats_for_item(&self, item: i64) -> NativeExtensionsResult<Vec<String>> {
+        self.get_formats_for_item_sync(item)
     }
 
     pub async fn get_data_for_item(
@@ -88,21 +96,21 @@ impl PlatformDataReader {
         }
     }
 
-    fn new_with_data_object(data_object: IDataObject) -> NativeExtensionsResult<Rc<Self>> {
+    pub fn new_with_data_object(data_object: IDataObject) -> Rc<Self> {
         let res = Rc::new(PlatformDataReader { data_object });
         res.assign_weak_self(Rc::downgrade(&res));
-        Ok(res)
+        res
     }
 
     pub fn new_clipboard_reader() -> NativeExtensionsResult<Rc<Self>> {
         let data_object = unsafe { OleGetClipboard() }?;
-        Self::new_with_data_object(data_object)
+        Ok(Self::new_with_data_object(data_object))
     }
 
     pub fn assign_weak_self(&self, _weak: Weak<PlatformDataReader>) {}
 
     fn get_hdrop(&self) -> NativeExtensionsResult<Option<Vec<String>>> {
-        if has_data(&self.data_object, CF_HDROP.0 as u32) {
+        if self.data_object.has_data(CF_HDROP.0 as u32) {
             let data = get_data(&self.data_object, CF_HDROP.0 as u32)?;
             Ok(Some(Self::extract_files(data)))
         } else {

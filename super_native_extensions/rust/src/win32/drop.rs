@@ -1,10 +1,15 @@
-use std::{cell::RefCell, collections::HashMap, rc::Weak};
+use std::{
+    cell::{Cell, RefCell},
+    collections::HashMap,
+    rc::{Rc, Weak},
+};
 
-use nativeshell_core::util::Late;
+use nativeshell_core::{util::Late, Context, Value};
 use windows::{
     core::{implement, PCWSTR},
     Win32::{
         Foundation::{HWND, POINT, POINTL},
+        Graphics::Gdi::ScreenToClient,
         System::{
             Com::IDataObject,
             LibraryLoader::GetModuleHandleW,
@@ -14,18 +19,28 @@ use windows::{
         UI::{
             Accessibility::{SetWinEventHook, UnhookWinEvent, HWINEVENTHOOK},
             Shell::{CLSID_DragDropHelper, IDropTargetHelper},
-            WindowsAndMessaging::{EVENT_OBJECT_DESTROY, WINEVENT_INCONTEXT, OBJID_WINDOW},
+            WindowsAndMessaging::{EVENT_OBJECT_DESTROY, OBJID_WINDOW, WINEVENT_INCONTEXT},
         },
     },
 };
 
 use crate::{
-    drop_manager::{PlatformDropContextDelegate, PlatformDropContextId},
-    error::NativeExtensionsResult,
+    api_model::{DragConfiguration, DropOperation, Point},
+    drop_manager::{
+        BaseDropEvent, DropEvent, DropItem, DropSessionId, PlatformDropContextDelegate,
+        PlatformDropContextId,
+    },
+    error::{NativeExtensionsError, NativeExtensionsResult},
     log::OkLog,
+    reader_manager::RegisteredDataReader,
+    util::NextId,
 };
 
-use super::common::create_instance;
+use super::{
+    common::{create_instance, get_dpi_for_window},
+    drag_common::DropOperationExt,
+    PlatformDataReader,
+};
 
 pub struct PlatformDropContext {
     id: PlatformDropContextId,
@@ -33,10 +48,22 @@ pub struct PlatformDropContext {
     view: HWND,
     delegate: Weak<dyn PlatformDropContextDelegate>,
     hook: Late<HWINEVENTHOOK>,
+    local_session: RefCell<Option<DragConfiguration>>,
+    next_session_id: Cell<i64>,
+    current_session: RefCell<Option<Rc<Session>>>,
 }
 
 thread_local! {
     static HOOK_TO_HWND: RefCell<HashMap<isize, HWND>> = RefCell::new(HashMap::new());
+}
+
+struct Session {
+    id: DropSessionId,
+    is_inside: Cell<bool>,
+    data_object: IDataObject,
+    last_operation: Cell<DropOperation>,
+    reader: Rc<PlatformDataReader>,
+    registered_reader: RegisteredDataReader,
 }
 
 impl PlatformDropContext {
@@ -51,6 +78,9 @@ impl PlatformDropContext {
             view: HWND(view_handle as isize),
             delegate,
             hook: Late::new(),
+            local_session: RefCell::new(None),
+            next_session_id: Cell::new(0),
+            current_session: RefCell::new(None),
         }
     }
 
@@ -84,8 +114,8 @@ impl PlatformDropContext {
         unsafe {
             RegisterDragDrop(self.view, target).ok_log();
 
-            // Unregistering in Drop is too late as the HWND is already destroyed.
-            // Set we setup hook for OBJECT_DESTROY and revoke drop target there.
+            // Unregistering in drop is too late as the HWND is already destroyed.
+            // Instead we setup hook for OBJECT_DESTROY and revoke drop target there.
             let hook = SetWinEventHook(
                 EVENT_OBJECT_DESTROY,
                 EVENT_OBJECT_DESTROY,
@@ -100,6 +130,95 @@ impl PlatformDropContext {
         }
     }
 
+    pub fn local_drag_will_start(
+        &self,
+        configuration: DragConfiguration,
+    ) -> NativeExtensionsResult<()> {
+        self.local_session.replace(Some(configuration));
+        Ok(())
+    }
+
+    pub fn local_drag_did_end(&self) -> NativeExtensionsResult<()> {
+        self.local_session.replace(None);
+        if self.current_session.borrow().is_some() {
+            self.drop_end()?;
+        }
+        Ok(())
+    }
+
+    fn delegate(&self) -> NativeExtensionsResult<Rc<dyn PlatformDropContextDelegate>> {
+        self.delegate
+            .upgrade()
+            .ok_or_else(|| NativeExtensionsError::OtherError("missing context delegate".into()))
+    }
+
+    fn drop_exit(&self) -> NativeExtensionsResult<()> {
+        if let Some(session) = self.current_session.borrow().as_ref().cloned() {
+            self.delegate()?.send_drop_leave(
+                self.id,
+                BaseDropEvent {
+                    session_id: session.id,
+                },
+            );
+        }
+        Ok(())
+    }
+
+    fn drop_end(&self) -> NativeExtensionsResult<()> {
+        if let Some(session) = self.current_session.borrow_mut().take() {
+            self.delegate()?.send_drop_ended(
+                self.id,
+                BaseDropEvent {
+                    session_id: session.id,
+                },
+            );
+        }
+        Ok(())
+    }
+
+    fn event_for_session(
+        &self,
+        session: &Rc<Session>,
+        pt: &POINTL,
+        _grfkeystate: u32,
+        mask: u32,
+        accepted_operation: Option<DropOperation>,
+    ) -> NativeExtensionsResult<DropEvent> {
+        let local_data: Vec<_> = self
+            .local_session
+            .borrow()
+            .as_ref()
+            .map(|a| a.items.iter().map(|i| i.local_data.clone()).collect())
+            .unwrap_or_default();
+
+        let mut pt = POINT { x: pt.x, y: pt.y };
+        unsafe {
+            ScreenToClient(self.view, &mut pt as *mut _);
+        }
+        let scaling = get_dpi_for_window(self.view) as f64 / 96.0;
+
+        let mut items = Vec::new();
+        for (index, item) in session.reader.get_items_sync()?.iter().enumerate() {
+            items.push(DropItem {
+                item_id: (*item).into(),
+                formats: session.reader.get_formats_for_item_sync(*item)?,
+                local_data: local_data.get(index).cloned().unwrap_or(Value::Null),
+            })
+        }
+
+        Ok(DropEvent {
+            session_id: session.id,
+            location_in_view: Point {
+                x: pt.x as f64 / scaling,
+                y: pt.y as f64 / scaling,
+            },
+            allowed_operations: DropOperation::from_platform_mask(mask),
+            accepted_operation,
+            items,
+            reader: Some(session.registered_reader.clone()),
+        })
+    }
+
     fn on_drag_enter(
         &self,
         pdataobj: &Option<IDataObject>,
@@ -107,6 +226,56 @@ impl PlatformDropContext {
         pt: &POINTL,
         pdweffect: *mut u32,
     ) -> NativeExtensionsResult<()> {
+        if self.current_session.borrow().is_some() && self.local_session.borrow().is_none() {
+            // shouldn't happen
+            if self
+                .current_session
+                .borrow()
+                .as_ref()
+                .unwrap()
+                .is_inside
+                .get()
+            {
+                self.drop_exit()?;
+            }
+            self.drop_end()?;
+        }
+        let effect = unsafe { &mut *pdweffect };
+        if let Some(data_object) = pdataobj {
+            let delegate = self.delegate()?;
+            let session = self
+                .current_session
+                .borrow_mut()
+                .get_or_insert_with(|| {
+                    let reader = PlatformDataReader::new_with_data_object(data_object.clone());
+                    let registered_reader =
+                        delegate.register_platform_reader(self.id, reader.clone());
+                    Rc::new(Session {
+                        id: self.next_session_id.next_id().into(),
+                        is_inside: Cell::new(true),
+                        data_object: data_object.clone(),
+                        last_operation: Cell::new(DropOperation::None),
+                        reader,
+                        registered_reader,
+                    })
+                })
+                .clone();
+            session.is_inside.set(true);
+            let session_clone = session.clone();
+            let event = self.event_for_session(&session, pt, grfkeystate, *effect, None)?;
+            delegate.send_drop_update(
+                self.id,
+                event,
+                Box::new(move |res| {
+                    let res = res.ok_log().unwrap_or(DropOperation::None);
+                    session_clone.last_operation.set(res);
+                }),
+            );
+            *effect = session.last_operation.get().to_platform();
+        } else {
+            *effect = 0;
+        }
+
         Ok(())
     }
 
@@ -116,20 +285,73 @@ impl PlatformDropContext {
         pt: &POINTL,
         pdweffect: *mut u32,
     ) -> NativeExtensionsResult<()> {
+        let effect = unsafe { &mut *pdweffect };
+        if let Some(session) = self.current_session.borrow().as_ref().cloned() {
+            let session_clone = session.clone();
+            let event = self.event_for_session(&session, pt, grfkeystate, *effect, None)?;
+            self.delegate()?.send_drop_update(
+                self.id,
+                event,
+                Box::new(move |res| {
+                    let res = res.ok_log().unwrap_or(DropOperation::None);
+                    session_clone.last_operation.set(res);
+                }),
+            );
+            *effect = session.last_operation.get().to_platform();
+        } else {
+            *effect = 0;
+        }
         Ok(())
     }
 
     fn on_drag_leave(&self) -> NativeExtensionsResult<()> {
+        self.drop_exit()?;
+        self.current_session
+            .borrow_mut()
+            .as_ref()
+            .map(|s| s.is_inside.set(false));
+        if self.local_session.borrow().is_none() {
+            self.drop_end()?;
+        }
         Ok(())
     }
 
     fn on_drop(
         &self,
-        pdataobj: &Option<IDataObject>,
+        _pdataobj: &Option<IDataObject>,
         grfkeystate: u32,
         pt: &POINTL,
         pdweffect: *mut u32,
     ) -> NativeExtensionsResult<()> {
+        let effect = unsafe { &mut *pdweffect };
+        let session = self.current_session.borrow().as_ref().cloned();
+        if let Some(session) = session {
+            *effect = session.last_operation.get().to_platform();
+            let event = self.event_for_session(
+                &session,
+                pt,
+                grfkeystate,
+                *effect,
+                Some(session.last_operation.get()),
+            )?;
+            let done = Rc::new(Cell::new(false));
+            let done_clone = done.clone();
+            self.delegate()?.send_perform_drop(
+                self.id,
+                event,
+                Box::new(move |r| {
+                    r.ok_log();
+                    done_clone.set(true);
+                }),
+            );
+            /// TODO: I async data source
+            while !done.get() {
+                Context::get().run_loop().platform_run_loop.poll_once();
+            }
+            self.drop_end()?;
+        } else {
+            *effect = 0;
+        }
         Ok(())
     }
 }
@@ -181,12 +403,12 @@ impl IDropTarget_Impl for DropTarget {
                     .ok_log();
             }
         }
-        match self.platform_context.upgrade() {
-            Some(context) => context
+        if let Some(context) = self.platform_context.upgrade() {
+            context
                 .on_drag_enter(pdataobj, grfkeystate, pt, pdweffect)
-                .map_err(|e| e.into()),
-            None => Ok(()),
+                .ok_log();
         }
+        Ok(())
     }
 
     fn DragOver(
@@ -202,12 +424,10 @@ impl IDropTarget_Impl for DropTarget {
                     .ok_log();
             }
         }
-        match self.platform_context.upgrade() {
-            Some(context) => context
-                .on_drag_over(grfkeystate, pt, pdweffect)
-                .map_err(|e| e.into()),
-            None => Ok(()),
+        if let Some(context) = self.platform_context.upgrade() {
+            context.on_drag_over(grfkeystate, pt, pdweffect).ok_log();
         }
+        Ok(())
     }
 
     fn DragLeave(&self) -> windows::core::Result<()> {
@@ -216,10 +436,10 @@ impl IDropTarget_Impl for DropTarget {
                 drop_target_helper.DragLeave().ok_log();
             }
         }
-        match self.platform_context.upgrade() {
-            Some(context) => context.on_drag_leave().map_err(|e| e.into()),
-            None => Ok(()),
+        if let Some(context) = self.platform_context.upgrade() {
+            context.on_drag_leave().ok_log();
         }
+        Ok(())
     }
 
     fn Drop(
@@ -236,11 +456,11 @@ impl IDropTarget_Impl for DropTarget {
                     .ok_log();
             }
         }
-        match self.platform_context.upgrade() {
-            Some(context) => context
+        if let Some(context) = self.platform_context.upgrade() {
+            context
                 .on_drop(pdataobj, grfkeystate, pt, pdweffect)
-                .map_err(|e| e.into()),
-            None => Ok(()),
+                .ok_log();
         }
+        Ok(())
     }
 }

@@ -4,7 +4,7 @@ use once_cell::sync::Lazy;
 use windows::{
     core::{Interface, GUID, HRESULT},
     Win32::{
-        Foundation::{E_UNEXPECTED, HANDLE, HWND, POINT, POINTL, S_OK},
+        Foundation::{E_UNEXPECTED, HANDLE, HWND, S_OK},
         Graphics::Gdi::{
             CreateDIBSection, GetDC, GetDeviceCaps, MonitorFromWindow, ReleaseDC, BITMAPINFO,
             BITMAPINFOHEADER, BI_RGB, DIB_RGB_COLORS, HBITMAP, HMONITOR, LOGPIXELSX,
@@ -20,13 +20,7 @@ use windows::{
             Memory::{GlobalLock, GlobalSize, GlobalUnlock},
             Ole::ReleaseStgMedium,
         },
-        UI::{
-            HiDpi::{MDT_EFFECTIVE_DPI, MONITOR_DPI_TYPE},
-            WindowsAndMessaging::{
-                DispatchMessageW, FindWindowExW, MsgWaitForMultipleObjects, PeekMessageW,
-                TranslateMessage, HWND_MESSAGE, MSG, PM_NOYIELD, PM_REMOVE, QS_POSTMESSAGE,
-            },
-        },
+        UI::HiDpi::{MDT_EFFECTIVE_DPI, MONITOR_DPI_TYPE},
     },
 };
 
@@ -100,11 +94,6 @@ pub fn get_data(object: &IDataObject, format: u32) -> windows::core::Result<Vec<
 
         Ok(res)
     }
-}
-
-pub fn has_data(object: &IDataObject, format: u32) -> bool {
-    let mut format = make_format_with_tymed(format, TYMED_HGLOBAL);
-    unsafe { object.QueryGetData(&mut format as *mut _).is_ok() }
 }
 
 pub fn extract_formats(object: &IDataObject) -> windows::core::Result<Vec<FORMATETC>> {

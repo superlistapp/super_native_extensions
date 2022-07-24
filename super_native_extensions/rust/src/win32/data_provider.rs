@@ -14,7 +14,6 @@ use crate::{
     data_provider_manager::{DataProviderHandle, PlatformDataProviderDelegate},
     error::NativeExtensionsResult,
     segmented_queue::SegmentedQueueWriter,
-    util::DropNotifier,
 };
 
 use super::data_object::DataObject;
