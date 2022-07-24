@@ -23,9 +23,9 @@ use windows::{
 use crate::{
     api_model::{DataProviderId, DragRequest, DropOperation, Point},
     drag_manager::{DataProviderEntry, DragSessionId, PlatformDragContextDelegate},
-    error::NativeExtensionsResult,
+    error::{NativeExtensionsError, NativeExtensionsResult},
     log::OkLog,
-    platform_impl::platform::{common::get_dpi_for_window, data_object::DataObject},
+    platform_impl::platform::data_object::DataObject,
 };
 
 use super::{
@@ -36,7 +36,7 @@ use super::{
 
 pub struct PlatformDragContext {
     id: i64,
-    view: HWND,
+    _view: HWND,
     delegate: Weak<dyn PlatformDragContextDelegate>,
     weak_self: Late<Weak<Self>>,
 }
@@ -109,7 +109,7 @@ impl PlatformDragContext {
     pub fn new(id: i64, view_handle: i64, delegate: Weak<dyn PlatformDragContextDelegate>) -> Self {
         Self {
             id,
-            view: HWND(view_handle as isize),
+            _view: HWND(view_handle as isize),
             delegate,
             weak_self: Late::new(),
         }
@@ -117,6 +117,10 @@ impl PlatformDragContext {
 
     pub fn assign_weak_self(&self, weak_self: Weak<Self>) {
         self.weak_self.set(weak_self);
+    }
+
+    pub fn needs_combined_drag_image() -> bool {
+        true
     }
 
     pub async fn start_drag(
@@ -154,11 +158,19 @@ impl PlatformDragContext {
                 (entry.provider, entry.handle)
             })
             .collect();
+
+        let drag_image = &request.combined_drag_image.ok_or_else(|| {
+            NativeExtensionsError::OtherError("Missing combined drag image".into())
+        })?;
+
         let data_object = DataObject::create(providers);
         let helper: IDragSourceHelper = create_instance(&CLSID_DragDropHelper)?;
-        let drag_image = &request.configuration.items.first().unwrap().image;
         let hbitmap = image_data_to_hbitmap(&drag_image.image_data)?;
-        let scaling = get_dpi_for_window(self.view) as f64 / 96.0;
+        let device_pixel_ratio = drag_image.image_data.device_pixel_ratio.unwrap_or(1.0);
+        let point_in_rect = Point {
+            x: (request.position.x - drag_image.source_rect.x) * device_pixel_ratio,
+            y: (request.position.y - drag_image.source_rect.y) * device_pixel_ratio,
+        };
 
         let mut image = SHDRAGIMAGE {
             sizeDragImage: SIZE {
@@ -166,8 +178,8 @@ impl PlatformDragContext {
                 cy: drag_image.image_data.height,
             },
             ptOffset: POINT {
-                x: (drag_image.point_in_rect.x * scaling) as i32,
-                y: (drag_image.point_in_rect.y * scaling) as i32,
+                x: point_in_rect.x as i32,
+                y: point_in_rect.y as i32,
             },
             hbmpDragImage: hbitmap,
             crColorKey: 0xFFFFFFFF,

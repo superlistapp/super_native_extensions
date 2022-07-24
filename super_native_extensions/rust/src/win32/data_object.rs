@@ -7,6 +7,7 @@ use std::{
     sync::Arc,
 };
 
+use nativeshell_core::Context;
 use windows::{
     core::{implement, HRESULT},
     Win32::{
@@ -48,7 +49,7 @@ use super::{
     add_stream_entry,
     common::{
         as_u8_slice, format_from_string, format_to_string, make_format_with_tymed,
-        make_format_with_tymed_index, message_loop_hwnds, pump_message_loop,
+        make_format_with_tymed_index,
     },
     virtual_file_stream::VirtualFileStream,
     PlatformDataProvider,
@@ -58,7 +59,7 @@ const DATA_E_FORMATETC: HRESULT = HRESULT(-2147221404 + 1);
 
 struct ProviderEntry {
     provider: Rc<PlatformDataProvider>,
-    handle: Arc<DataProviderHandle>,
+    _handle: Arc<DataProviderHandle>,
 }
 
 #[implement(IDataObject, IDataObjectAsyncCapability)]
@@ -78,7 +79,7 @@ impl DataObject {
                 .into_iter()
                 .map(|p| ProviderEntry {
                     provider: p.0,
-                    handle: p.1,
+                    _handle: p.1,
                 })
                 .collect(),
             extra_data: RefCell::new(HashMap::new()),
@@ -103,14 +104,6 @@ impl DataObject {
         }
     }
 
-    // fn first_data_provider(&self) -> Rc<PlatformDataProvider> {
-    //     self.providers
-    //         .first()
-    //         .expect("No data providers")
-    //         .provider
-    //         .clone()
-    // }
-
     fn lazy_data_for_id(
         &self,
         provider: &PlatformDataProvider,
@@ -118,7 +111,6 @@ impl DataObject {
     ) -> Option<Vec<u8>> {
         let delegate = provider.delegate.upgrade();
         if let Some(delegate) = delegate {
-            let hwnds = message_loop_hwnds();
             let data = delegate.get_lazy_data(provider.isolate_id, id, None);
             loop {
                 match data.try_take() {
@@ -126,7 +118,7 @@ impl DataObject {
                         return value.coerce_to_data(StringFormat::Utf16NullTerminated)
                     }
                     Some(ValuePromiseResult::Cancelled) => return None,
-                    None => pump_message_loop(&hwnds),
+                    None => Context::get().run_loop().platform_run_loop.poll_once(),
                 }
             }
         } else {

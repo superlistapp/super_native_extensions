@@ -4,7 +4,7 @@ use once_cell::sync::Lazy;
 use windows::{
     core::{Interface, GUID, HRESULT},
     Win32::{
-        Foundation::{HANDLE, HWND, S_OK},
+        Foundation::{E_UNEXPECTED, HANDLE, HWND, POINT, POINTL, S_OK},
         Graphics::Gdi::{
             CreateDIBSection, GetDC, GetDeviceCaps, MonitorFromWindow, ReleaseDC, BITMAPINFO,
             BITMAPINFOHEADER, BI_RGB, DIB_RGB_COLORS, HBITMAP, HMONITOR, LOGPIXELSX,
@@ -195,41 +195,9 @@ pub fn create_instance<T: Interface>(clsid: &GUID) -> windows::core::Result<T> {
     unsafe { CoCreateInstance(clsid, None, CLSCTX_ALL) }
 }
 
-/// Finds all hwnds for NativeShell RunLoop(s)
-pub fn message_loop_hwnds() -> Vec<HWND> {
-    let mut hwnds = Vec::<HWND>::new();
-    unsafe {
-        // There might be multiple nativeshell core event loops in the process, find
-        // all hwnds
-        let mut last: HWND = HWND(0);
-        loop {
-            last = FindWindowExW(HWND_MESSAGE, last, "NativeShellCoreMessageWindow", None);
-            if last.0 != 0 {
-                hwnds.push(last);
-            } else {
-                break;
-            }
-        }
-    };
-    hwnds
-}
-
-pub fn pump_message_loop(hwnds: &[HWND]) {
-    unsafe {
-        // Process messages, but only from ours event loop
-        MsgWaitForMultipleObjects(&[], false, 10000000, QS_POSTMESSAGE);
-        let mut message = MSG::default();
-        loop {
-            let res = hwnds.iter().any(|hwnd| {
-                PeekMessageW(&mut message as *mut _, hwnd, 0, 0, PM_REMOVE | PM_NOYIELD).into()
-            });
-            if res {
-                TranslateMessage(&message as *const _);
-                DispatchMessageW(&message as *const _);
-            } else {
-                break;
-            }
-        }
+impl From<NativeExtensionsError> for windows::core::Error {
+    fn from(err: NativeExtensionsError) -> Self {
+        windows::core::Error::new(E_UNEXPECTED, err.to_string().into())
     }
 }
 
