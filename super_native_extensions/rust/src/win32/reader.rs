@@ -1,6 +1,7 @@
 use std::{
     ffi::CStr,
     rc::{Rc, Weak},
+    sync::Arc,
 };
 
 use byte_slice_cast::AsSliceOf;
@@ -14,12 +15,16 @@ use windows::Win32::{
     UI::Shell::DROPFILES,
 };
 
-use crate::error::NativeExtensionsResult;
+use crate::{error::NativeExtensionsResult, util::DropNotifier};
 
-use super::{common::{extract_formats, format_from_string, format_to_string, get_data}, data_object::GetData};
+use super::{
+    common::{extract_formats, format_from_string, format_to_string, get_data},
+    data_object::GetData,
+};
 
 pub struct PlatformDataReader {
     data_object: IDataObject,
+    _drop_notifier: Option<Arc<DropNotifier>>,
 }
 
 impl PlatformDataReader {
@@ -96,15 +101,21 @@ impl PlatformDataReader {
         }
     }
 
-    pub fn new_with_data_object(data_object: IDataObject) -> Rc<Self> {
-        let res = Rc::new(PlatformDataReader { data_object });
+    pub fn new_with_data_object(
+        data_object: IDataObject,
+        drop_notifier: Option<Arc<DropNotifier>>,
+    ) -> Rc<Self> {
+        let res = Rc::new(PlatformDataReader {
+            data_object,
+            _drop_notifier: drop_notifier,
+        });
         res.assign_weak_self(Rc::downgrade(&res));
         res
     }
 
     pub fn new_clipboard_reader() -> NativeExtensionsResult<Rc<Self>> {
         let data_object = unsafe { OleGetClipboard() }?;
-        Ok(Self::new_with_data_object(data_object))
+        Ok(Self::new_with_data_object(data_object, None))
     }
 
     pub fn assign_weak_self(&self, _weak: Weak<PlatformDataReader>) {}

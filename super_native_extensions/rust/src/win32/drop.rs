@@ -2,13 +2,14 @@ use std::{
     cell::{Cell, RefCell},
     collections::HashMap,
     rc::{Rc, Weak},
+    sync::Arc,
 };
 
 use nativeshell_core::{util::Late, Context, Value};
 use windows::{
-    core::{implement, PCWSTR},
+    core::{implement, Interface, PCWSTR},
     Win32::{
-        Foundation::{HWND, POINT, POINTL},
+        Foundation::{HWND, POINT, POINTL, S_OK},
         Graphics::Gdi::ScreenToClient,
         System::{
             Com::IDataObject,
@@ -18,7 +19,7 @@ use windows::{
         },
         UI::{
             Accessibility::{SetWinEventHook, UnhookWinEvent, HWINEVENTHOOK},
-            Shell::{CLSID_DragDropHelper, IDropTargetHelper},
+            Shell::{CLSID_DragDropHelper, IDataObjectAsyncCapability, IDropTargetHelper},
             WindowsAndMessaging::{EVENT_OBJECT_DESTROY, OBJID_WINDOW, WINEVENT_INCONTEXT},
         },
     },
@@ -33,7 +34,7 @@ use crate::{
     error::{NativeExtensionsError, NativeExtensionsResult},
     log::OkLog,
     reader_manager::RegisteredDataReader,
-    util::NextId,
+    util::{DropNotifier, NextId},
 };
 
 use super::{
@@ -62,6 +63,7 @@ struct Session {
     is_inside: Cell<bool>,
     data_object: IDataObject,
     last_operation: Cell<DropOperation>,
+    async_result: Rc<Cell<Option<u32>>>,
     reader: Rc<PlatformDataReader>,
     registered_reader: RegisteredDataReader,
 }
@@ -247,7 +249,26 @@ impl PlatformDropContext {
                 .current_session
                 .borrow_mut()
                 .get_or_insert_with(|| {
-                    let reader = PlatformDataReader::new_with_data_object(data_object.clone());
+                    let async_result = Rc::new(Cell::new(None));
+                    let data_object_clone = data_object.clone();
+                    let async_result_clone = async_result.clone();
+                    // Drop notifier invoked when reader gets destroyed. If we started
+                    // async operation on data object this will end it.
+                    let drop_notifier = Arc::new(DropNotifier::new(move || {
+                        if let Some(res) = async_result_clone.get().take() {
+                            if let Ok(data_object_async) =
+                                data_object_clone.cast::<IDataObjectAsyncCapability>()
+                            {
+                                unsafe {
+                                    data_object_async.EndOperation(S_OK, None, res).ok_log();
+                                }
+                            }
+                        }
+                    }));
+                    let reader = PlatformDataReader::new_with_data_object(
+                        data_object.clone(),
+                        Some(drop_notifier),
+                    );
                     let registered_reader =
                         delegate.register_platform_reader(self.id, reader.clone());
                     Rc::new(Session {
@@ -255,6 +276,7 @@ impl PlatformDropContext {
                         is_inside: Cell::new(true),
                         data_object: data_object.clone(),
                         last_operation: Cell::new(DropOperation::None),
+                        async_result,
                         reader,
                         registered_reader,
                     })
@@ -344,7 +366,19 @@ impl PlatformDropContext {
                     done_clone.set(true);
                 }),
             );
-            /// TODO: I async data source
+            let data_object_async = session.data_object.cast::<IDataObjectAsyncCapability>();
+            if let Ok(data_object_async) = data_object_async {
+                if let Ok(res) = unsafe { data_object_async.GetAsyncMode() } {
+                    if res.as_bool() {
+                        // this will be read by drop notifier in DataReader and used for
+                        // IDataObjectAsyncCapability::EndOperation result (when data reader gets dropped)
+                        session.async_result.set(Some(*effect));
+                        unsafe {
+                            data_object_async.StartOperation(None).ok_log();
+                        }
+                    }
+                }
+            }
             while !done.get() {
                 Context::get().run_loop().platform_run_loop.poll_once();
             }
