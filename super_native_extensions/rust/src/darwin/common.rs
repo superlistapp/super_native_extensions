@@ -67,5 +67,6 @@ pub fn cg_image_from_image_data(image: ImageData) -> CGImage {
 
 #[link(name = "CoreGraphics", kind = "framework")]
 extern "C" {
+    #[allow(dead_code)]
     pub fn CGAffineTransformMakeScale(sx: CGFloat, sy: CGFloat) -> CGAffineTransform;
 }
