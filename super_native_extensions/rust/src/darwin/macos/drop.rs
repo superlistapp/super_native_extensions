@@ -57,7 +57,8 @@ struct Session {
     context_view: StrongPtr,
     id: DropSessionId,
     last_operation: Cell<DropOperation>,
-    reader: RefCell<Option<(Rc<PlatformDataReader>, RegisteredDataReader)>>,
+    reader: Rc<PlatformDataReader>,
+    registered_reader: RegisteredDataReader,
 }
 
 thread_local! {
@@ -83,16 +84,6 @@ impl Session {
         let drag_context = delegate.get_platform_drag_context(self.context_id)?;
         let local_data = drag_context.get_local_data(dragging_sequence_number);
 
-        let mut reader = self.reader.borrow_mut();
-        if reader.is_none() {
-            let pasteboard: id = unsafe { msg_send![dragging_info, draggingPasteboard] };
-            let platform_reader =
-                PlatformDataReader::from_pasteboard(unsafe { StrongPtr::retain(pasteboard) })?;
-            let registered_reader = delegate.register_platform_reader(platform_reader.clone())?;
-            reader.replace((platform_reader, registered_reader.clone()));
-        }
-        let (reader, registered_reader) = reader.as_ref().unwrap();
-
         let location: NSPoint = unsafe { msg_send![dragging_info, draggingLocation] }; // window coordinates
         let location: NSPoint =
             unsafe { NSView::convertPoint_fromView_(*self.context_view, location, nil) };
@@ -101,10 +92,10 @@ impl Session {
             unsafe { msg_send![dragging_info, draggingSourceOperationMask] };
 
         let mut items = Vec::new();
-        for (index, item) in reader.get_items_sync()?.iter().enumerate() {
+        for (index, item) in self.reader.get_items_sync()?.iter().enumerate() {
             items.push(DropItem {
                 item_id: (*item).into(),
-                formats: reader.get_formats_for_item_sync(*item)?,
+                formats: self.reader.get_formats_for_item_sync(*item)?,
                 local_data: local_data.get(index).cloned().unwrap_or(Value::Null),
             })
         }
@@ -115,7 +106,7 @@ impl Session {
             allowed_operations: DropOperation::from_platform_mask(operation_mask),
             accepted_operation,
             items,
-            reader: Some(registered_reader.clone()),
+            reader: Some(self.registered_reader.clone()),
         })
     }
 
@@ -278,42 +269,55 @@ impl PlatformDropContext {
         Ok(())
     }
 
-    fn session_for_dragging_info(&self, dragging_info: id) -> Rc<Session> {
+    fn session_for_dragging_info(&self, dragging_info: id) -> NativeExtensionsResult<Rc<Session>> {
         let dragging_sequence_number: NSInteger =
             unsafe { msg_send![dragging_info, draggingSequenceNumber] };
-        self.sessions
+
+        let delegate = self
+            .delegate
+            .upgrade()
+            .ok_or_else(|| NativeExtensionsError::OtherError("missing context delegate".into()))?;
+
+        Ok(self
+            .sessions
             .borrow_mut()
             .entry(dragging_sequence_number)
             .or_insert_with(|| {
+                let pasteboard: id = unsafe { msg_send![dragging_info, draggingPasteboard] };
+                let platform_reader =
+                    PlatformDataReader::from_pasteboard(unsafe { StrongPtr::retain(pasteboard) });
+                let registered_reader =
+                    delegate.register_platform_reader(self.id, platform_reader.clone());
                 Rc::new(Session {
                     context_id: self.id,
                     context_delegate: self.delegate.clone(),
                     context_view: self.view.clone(),
                     id: (dragging_sequence_number as i64).into(),
                     last_operation: Cell::new(DropOperation::None),
-                    reader: RefCell::new(None),
+                    reader: platform_reader,
+                    registered_reader,
                 })
             })
-            .clone()
+            .clone())
     }
 
     fn dragging_updated(&self, dragging_info: id) -> NativeExtensionsResult<NSDragOperation> {
-        self.session_for_dragging_info(dragging_info)
+        self.session_for_dragging_info(dragging_info)?
             .dragging_updated(dragging_info)
     }
 
     fn dragging_exited(&self, dragging_info: id) -> NativeExtensionsResult<()> {
-        self.session_for_dragging_info(dragging_info)
+        self.session_for_dragging_info(dragging_info)?
             .dragging_exited(dragging_info)
     }
 
     fn prepare_for_drag_operation(&self, dragging_info: id) -> NativeExtensionsResult<bool> {
-        self.session_for_dragging_info(dragging_info)
+        self.session_for_dragging_info(dragging_info)?
             .prepare_for_drag_operation(dragging_info)
     }
 
     fn perform_drag_operation(&self, dragging_info: id) -> NativeExtensionsResult<bool> {
-        self.session_for_dragging_info(dragging_info)
+        self.session_for_dragging_info(dragging_info)?
             .perform_drag_operation(dragging_info)
     }
 

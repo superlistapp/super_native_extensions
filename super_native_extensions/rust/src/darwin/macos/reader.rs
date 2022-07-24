@@ -95,13 +95,15 @@ impl PlatformDataReader {
     }
 
     pub fn new_clipboard_reader() -> NativeExtensionsResult<Rc<Self>> {
-        Self::from_pasteboard(unsafe { StrongPtr::retain(NSPasteboard::generalPasteboard(nil)) })
+        Ok(Self::from_pasteboard(unsafe {
+            StrongPtr::retain(NSPasteboard::generalPasteboard(nil))
+        }))
     }
 
-    pub fn from_pasteboard(pasteboard: StrongPtr) -> NativeExtensionsResult<Rc<Self>> {
+    pub fn from_pasteboard(pasteboard: StrongPtr) -> Rc<Self> {
         let res = Rc::new(Self { pasteboard });
         res.assign_weak_self(Rc::downgrade(&res));
-        Ok(res)
+        res
     }
 
     pub fn assign_weak_self(&self, _weak: Weak<PlatformDataReader>) {}

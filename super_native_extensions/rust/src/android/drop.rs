@@ -280,7 +280,7 @@ impl PlatformDropContext {
                             }))),
                         )?;
                         let registered_reader =
-                            delegate.register_platform_reader(reader.clone())?;
+                            delegate.register_platform_reader(self.id, reader.clone());
                         let event = Self::translate_drop_event(
                             event,
                             current_session.id,

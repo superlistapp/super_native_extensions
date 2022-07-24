@@ -130,7 +130,7 @@ impl Session {
 
         let reader = if is_perform_drop {
             let platform_reader = PlatformDataReader::new_with_drop_session_items(session_items)?;
-            Some(delegate.register_platform_reader(platform_reader)?)
+            Some(delegate.register_platform_reader(self.context_id, platform_reader))
         } else {
             None
         };

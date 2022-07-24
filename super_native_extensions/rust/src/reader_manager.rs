@@ -8,7 +8,7 @@ use std::{
 use async_trait::async_trait;
 use nativeshell_core::{
     util::Late, AsyncMethodHandler, AsyncMethodInvoker, Context, FinalizableHandle,
-    IntoPlatformResult, IntoValue, MethodCall, PlatformError, PlatformResult,
+    IntoPlatformResult, IntoValue, IsolateId, MethodCall, PlatformError, PlatformResult,
     RegisteredAsyncMethodHandler, TryFromValue, Value,
 };
 
@@ -54,10 +54,11 @@ impl DataReaderManager {
     pub fn register_platform_reader(
         &self,
         platform_reader: Rc<PlatformDataReader>,
-    ) -> NativeExtensionsResult<RegisteredDataReader> {
+        isolate_id: IsolateId,
+    ) -> RegisteredDataReader {
         let id = self.next_id.next_id();
         let weak_self = self.weak_self.clone();
-        let finalizable_handle = Arc::new(FinalizableHandle::new(32, move || {
+        let finalizable_handle = Arc::new(FinalizableHandle::new(32, isolate_id, move || {
             if let Some(manager) = weak_self.upgrade() {
                 manager.readers.borrow_mut().remove(&id);
             }
@@ -71,10 +72,10 @@ impl DataReaderManager {
             },
         );
 
-        Ok(RegisteredDataReader {
+        RegisteredDataReader {
             handle: id,
             finalizable_handle: finalizable_handle.into(),
-        })
+        }
     }
 
     fn dispose_reader(&self, reader: i64) -> NativeExtensionsResult<()> {

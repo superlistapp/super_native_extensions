@@ -1,7 +1,6 @@
 use std::{cell::RefCell, collections::HashMap, rc::Weak, sync::Arc};
 
 use jni::{objects::JObject, sys::jsize, JNIEnv};
-use log::info;
 use nativeshell_core::Value;
 
 use crate::{

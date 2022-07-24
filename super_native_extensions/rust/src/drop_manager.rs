@@ -122,35 +122,36 @@ pub struct ItemPreviewResponse {
 pub trait PlatformDropContextDelegate {
     fn get_platform_drag_context(
         &self,
-        id: PlatformDragContextId,
+        id: PlatformDropContextId,
     ) -> NativeExtensionsResult<Rc<PlatformDragContext>>;
 
     fn send_drop_update(
         &self,
-        id: PlatformDragContextId,
+        id: PlatformDropContextId,
         event: DropEvent,
         res: Box<dyn FnOnce(Result<DropOperation, MethodCallError>)>,
     );
 
     fn send_perform_drop(
         &self,
-        id: PlatformDragContextId,
+        id: PlatformDropContextId,
         event: DropEvent,
         res: Box<dyn FnOnce(Result<(), MethodCallError>)>,
     );
 
-    fn send_drop_leave(&self, id: PlatformDragContextId, event: BaseDropEvent);
+    fn send_drop_leave(&self, id: PlatformDropContextId, event: BaseDropEvent);
 
-    fn send_drop_ended(&self, id: PlatformDragContextId, event: BaseDropEvent);
+    fn send_drop_ended(&self, id: PlatformDropContextId, event: BaseDropEvent);
 
     fn register_platform_reader(
         &self,
+        id: PlatformDropContextId,
         platform_reader: Rc<PlatformDataReader>,
-    ) -> NativeExtensionsResult<RegisteredDataReader>;
+    ) -> RegisteredDataReader;
 
     fn get_preview_for_item(
         &self,
-        id: PlatformDragContextId,
+        id: PlatformDropContextId,
         request: ItemPreviewRequest,
     ) -> Arc<Promise<PromiseResult<ItemPreviewResponse>>>;
 }
@@ -196,7 +197,7 @@ impl DropManager {
 
     async fn get_preview_for_item(
         &self,
-        id: PlatformDragContextId,
+        id: PlatformDropContextId,
         request: ItemPreviewRequest,
     ) -> NativeExtensionsResult<ItemPreviewResponse> {
         let result = self
@@ -238,14 +239,14 @@ impl AsyncMethodHandler for DropManager {
 impl PlatformDropContextDelegate for DropManager {
     fn get_platform_drag_context(
         &self,
-        id: PlatformDragContextId,
+        id: PlatformDropContextId,
     ) -> NativeExtensionsResult<Rc<PlatformDragContext>> {
         Context::get().drag_manager().get_platform_drag_context(id)
     }
 
     fn send_drop_update(
         &self,
-        id: PlatformDragContextId,
+        id: PlatformDropContextId,
         event: DropEvent,
         res: Box<dyn FnOnce(Result<DropOperation, MethodCallError>)>,
     ) {
@@ -255,7 +256,7 @@ impl PlatformDropContextDelegate for DropManager {
 
     fn send_perform_drop(
         &self,
-        id: PlatformDragContextId,
+        id: PlatformDropContextId,
         event: DropEvent,
         res: Box<dyn FnOnce(Result<(), MethodCallError>)>,
     ) {
@@ -263,14 +264,14 @@ impl PlatformDropContextDelegate for DropManager {
             .call_method_sync_cv(id, "onPerformDrop", event, |r| res(r));
     }
 
-    fn send_drop_leave(&self, id: PlatformDragContextId, event: BaseDropEvent) {
+    fn send_drop_leave(&self, id: PlatformDropContextId, event: BaseDropEvent) {
         self.invoker
             .call_method_sync(id, "onDropLeave", event, |r| {
                 r.ok_log();
             });
     }
 
-    fn send_drop_ended(&self, id: PlatformDragContextId, event: BaseDropEvent) {
+    fn send_drop_ended(&self, id: PlatformDropContextId, event: BaseDropEvent) {
         self.invoker
             .call_method_sync(id, "onDropEnded", event, |r| {
                 r.ok_log();
@@ -279,11 +280,12 @@ impl PlatformDropContextDelegate for DropManager {
 
     fn register_platform_reader(
         &self,
+        id: PlatformDropContextId,
         platform_reader: Rc<PlatformDataReader>,
-    ) -> NativeExtensionsResult<RegisteredDataReader> {
+    ) -> RegisteredDataReader {
         Context::get()
             .data_reader_manager()
-            .register_platform_reader(platform_reader)
+            .register_platform_reader(platform_reader, id)
     }
 
     fn get_preview_for_item(

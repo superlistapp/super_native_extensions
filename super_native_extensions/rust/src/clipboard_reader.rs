@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 use async_trait::async_trait;
 use nativeshell_core::{
-    AsyncMethodHandler, Context, IntoPlatformResult, MethodCall, PlatformError, PlatformResult,
+    AsyncMethodHandler, Context, MethodCall, PlatformError, PlatformResult,
     RegisteredAsyncMethodHandler, Value,
 };
 
@@ -32,10 +32,10 @@ impl AsyncMethodHandler for ClipboardReader {
         match call.method.as_str() {
             "newClipboardReader" => {
                 let reader = PlatformDataReader::new_clipboard_reader()?;
-                Context::get()
+                Ok(Context::get()
                     .data_reader_manager()
-                    .register_platform_reader(reader)
-                    .into_platform_result()
+                    .register_platform_reader(reader, call.isolate)
+                    .into())
             }
             _ => Err(PlatformError {
                 code: "invalid_method".into(),
