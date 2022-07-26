@@ -1,4 +1,4 @@
-use std::{os::raw::c_char, slice, sync::Arc};
+use std::{os::{raw::c_char, unix::prelude::OsStrExt}, slice, sync::Arc, path::PathBuf, ffi::{CStr, OsStr}};
 
 use cocoa::{
     base::{id, nil},
@@ -45,6 +45,20 @@ pub fn to_nserror(domain: &str, code: NSInteger, message: &str) -> StrongPtr {
             msg_send![error, initWithDomain:to_nsstring(domain) code:code userInfo:user_info];
         StrongPtr::new(error)
     }
+}
+
+pub fn nserror_description(error: id) -> String {
+    unsafe {
+        let description: id = msg_send![error, localizedDescription];
+        from_nsstring(description)
+    }
+}
+
+pub fn path_from_url(url: id) -> PathBuf {
+    let path: *const i8 = unsafe { msg_send![url, fileSystemRepresentation] };
+    let path = unsafe { CStr::from_ptr(path) };
+    let path = OsStr::from_bytes(path.to_bytes());
+    path.into()
 }
 
 pub fn cg_image_from_image_data(image: ImageData) -> CGImage {

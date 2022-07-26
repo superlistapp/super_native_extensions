@@ -37,11 +37,17 @@ class _DropDelegate implements RawDropContextDelegate {
     // final data = await
     final readerItem = item.readerItem;
     if (readerItem != null) {
-      readerItem
-          .getDataForFormat((await readerItem.getAvailableFormats()).first)
-          .then((data) {
-        print('URL: ${data}');
-      });
+      // readerItem.getDataForFormat(
+      //     (await readerItem.getAvailableFormats()).first, onData: (data) {
+      //   print('Have data ${data}');
+      // });
+      final format = (await readerItem.getAvailableFormats()).first;
+      final receiver = await readerItem.getVirtualFileReceiver(format: format);
+      receiver!.receiveVirtualFile(
+          targetFolder: "/Users/Matej/Projects/1",
+          onResult: (r) {
+            print("RES $r");
+          });
     }
 
     // print('DATA $data');

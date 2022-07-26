@@ -100,8 +100,8 @@ class DataRepresentationLazy extends DataRepresentation {
   final FutureOr<Object> Function() dataProvider;
 }
 
-class Progress {
-  Progress(this.onCancel, ValueNotifier<int> onProgress)
+class WriteProgress {
+  WriteProgress(this.onCancel, ValueNotifier<int> onProgress)
       : _onProgress = onProgress;
 
   /// Updates operation progress. Range is 0 to 100.
@@ -117,7 +117,7 @@ typedef VirtualFileEventSinkProvider = EventSink Function(
     {required int fileSize});
 
 typedef VirtualFileProvider = void Function(
-    VirtualFileEventSinkProvider sinkProvider, Progress progress);
+    VirtualFileEventSinkProvider sinkProvider, WriteProgress progress);
 
 enum VirtualFileStorage { temporaryFile, memory }
 

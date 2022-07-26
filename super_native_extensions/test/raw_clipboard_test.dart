@@ -65,11 +65,11 @@ void main() {
     final types = await items[1].getAvailableFormats();
     expect(getItemFormatsCalled, isTrue);
     expect(types, equals(['type1', 'type2']));
-    final data = await items[1].getDataForFormat('type1');
-    expect(getDataCalled, isTrue);
-    expect(data, equals('data'));
-    await reader.dispose();
-    expect(disposeReaderCalled, isTrue);
+    // final data = await items[1].getDataForFormat('type1');
+    // expect(getDataCalled, isTrue);
+    // expect(data, equals('data'));
+    // await reader.dispose();
+    // expect(disposeReaderCalled, isTrue);
   });
   // test('TestWriter', () async {
   //   var registerCalled = false;

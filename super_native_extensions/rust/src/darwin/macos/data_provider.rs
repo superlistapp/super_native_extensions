@@ -1,13 +1,12 @@
 use std::{
     cell::RefCell,
     collections::HashMap,
-    ffi::{CStr, OsStr},
     fs::File,
     io::Write,
     mem::ManuallyDrop,
     os::{
         raw::c_void,
-        unix::prelude::{FromRawFd, IntoRawFd, OsStrExt},
+        unix::prelude::{FromRawFd, IntoRawFd},
     },
     path::PathBuf,
     rc::{Rc, Weak},
@@ -39,7 +38,7 @@ use crate::{
     },
     error::NativeExtensionsResult,
     log::OkLog,
-    platform_impl::platform::common::{from_nsstring, to_nserror, to_nsstring},
+    platform_impl::platform::common::{from_nsstring, path_from_url, to_nserror, to_nsstring},
     value_promise::ValuePromiseResult,
 };
 
@@ -277,13 +276,6 @@ impl ItemState {
         }
     }
 
-    fn path_from_url(url: id) -> PathBuf {
-        let path: *const i8 = unsafe { msg_send![url, fileSystemRepresentation] };
-        let path = unsafe { CStr::from_ptr(path) };
-        let path = OsStr::from_bytes(path.to_bytes());
-        path.into()
-    }
-
     fn file_promise_do_write(
         self: &Rc<Self>,
         url: id,
@@ -295,7 +287,7 @@ impl ItemState {
     ) {
         let progress = Self::progress_for_url(url);
 
-        let path = Self::path_from_url(url);
+        let path = path_from_url(url);
         let file = File::create(&path);
         let file = match file {
             Ok(file) => file,
@@ -329,7 +321,10 @@ impl ItemState {
                         let error = to_nserror("super_dnd", 0, &message);
                         completion_fn(*error);
                     }
-                    VirtualFileResult::Cancelled => completion_fn(nil),
+                    VirtualFileResult::Cancelled => {
+                        let error = to_nserror("super_dnd", 0, "Cancelled");
+                        completion_fn(*error);
+                    }
                 }
             }),
         );

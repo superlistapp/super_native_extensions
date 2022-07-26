@@ -1,27 +1,37 @@
-use std::rc::{Rc, Weak};
+use std::{
+    cell::RefCell,
+    fs,
+    path::PathBuf,
+    rc::{Rc, Weak},
+};
 
+use block::ConcreteBlock;
 use cocoa::{
     appkit::{NSPasteboard, NSPasteboardItem},
     base::{id, nil},
-    foundation::{NSArray, NSUInteger},
+    foundation::{NSArray, NSUInteger, NSURL},
 };
 use nativeshell_core::{
     platform::value::ValueObjcConversion, util::FutureCompleter, Context, Value,
 };
 use objc::{
-    msg_send,
+    class, msg_send,
     rc::{autoreleasepool, StrongPtr},
     sel, sel_impl,
 };
 
 use crate::{
-    error::NativeExtensionsResult,
+    error::{NativeExtensionsError, NativeExtensionsResult},
     log::OkLog,
-    platform_impl::platform::common::{from_nsstring, to_nsstring},
+    platform_impl::platform::common::{
+        from_nsstring, nserror_description, path_from_url, to_nsstring,
+    },
+    reader_manager::ReadProgress,
 };
 
 pub struct PlatformDataReader {
     pasteboard: StrongPtr,
+    promise_receivers: RefCell<Vec<Option<StrongPtr>>>,
 }
 
 impl PlatformDataReader {
@@ -38,21 +48,89 @@ impl PlatformDataReader {
     }
 
     pub fn get_formats_for_item_sync(&self, item: i64) -> NativeExtensionsResult<Vec<String>> {
-        let types = autoreleasepool(|| unsafe {
+        autoreleasepool(|| unsafe {
+            let items: id = msg_send![*self.pasteboard, pasteboardItems];
+            if item < NSArray::count(items) as i64 {
+                let pasteboard_item = NSArray::objectAtIndex(items, item as NSUInteger);
+                let mut res = Vec::new();
+                fn push(res: &mut Vec<String>, s: String) {
+                    if !res.contains(&s) {
+                        res.push(s);
+                    }
+                }
+                let receiver = self.get_promise_receiver_for_item(item)?;
+                if let Some(receiver) = receiver {
+                    let receiver_types: id = msg_send![*receiver, fileTypes];
+                    for i in 0..NSArray::count(receiver_types) {
+                        push(
+                            &mut res,
+                            from_nsstring(NSArray::objectAtIndex(receiver_types, i)),
+                        );
+                    }
+                }
+                let types = NSPasteboardItem::types(pasteboard_item);
+                for i in 0..NSArray::count(types) {
+                    push(&mut res, from_nsstring(NSArray::objectAtIndex(types, i)));
+                }
+                Ok(res)
+            } else {
+                Ok(Vec::new())
+            }
+        })
+    }
+
+    fn item_has_virtual_file(&self, item: i64) -> bool {
+        autoreleasepool(|| unsafe {
             let items: id = msg_send![*self.pasteboard, pasteboardItems];
             if item < NSArray::count(items) as i64 {
                 let item = NSArray::objectAtIndex(items, item as NSUInteger);
                 let types = NSPasteboardItem::types(item);
-                let mut res = Vec::new();
                 for i in 0..NSArray::count(types) {
-                    res.push(from_nsstring(NSArray::objectAtIndex(types, i)));
+                    let format = from_nsstring(NSArray::objectAtIndex(types, i));
+                    if format == "com.apple.NSFilePromiseItemMetaData" {
+                        return true;
+                    }
                 }
-                res
-            } else {
-                Vec::new()
             }
-        });
-        Ok(types)
+            false
+        })
+    }
+
+    fn get_promise_receiver_for_item(
+        &self,
+        item: i64,
+    ) -> NativeExtensionsResult<Option<StrongPtr>> {
+        autoreleasepool(|| {
+            if self.promise_receivers.borrow().is_empty() {
+                let class = class!(NSFilePromiseReceiver) as *const _ as id;
+                let receivers: id = unsafe {
+                    msg_send![*self.pasteboard,
+                        readObjectsForClasses: NSArray::arrayWithObject(nil, class) options:nil]
+                };
+                let mut receiver_index: NSUInteger = 0;
+                let items = self.get_items_sync()?;
+                for item in items {
+                    if receiver_index < unsafe { NSArray::count(receivers) }
+                        && self.item_has_virtual_file(item)
+                    {
+                        let receiver = unsafe {
+                            StrongPtr::retain(NSArray::objectAtIndex(receivers, receiver_index))
+                        };
+                        receiver_index += 1;
+                        self.promise_receivers.borrow_mut().push(Some(receiver));
+                    } else {
+                        self.promise_receivers.borrow_mut().push(None);
+                    }
+                }
+            }
+            let res = self
+                .promise_receivers
+                .borrow()
+                .get(item as usize)
+                .map(|a| a.as_ref().cloned())
+                .flatten();
+            Ok(res)
+        })
     }
 
     pub async fn get_formats_for_item(&self, item: i64) -> NativeExtensionsResult<Vec<String>> {
@@ -63,10 +141,11 @@ impl PlatformDataReader {
         &self,
         item: i64,
         data_type: String,
+        _progress: Rc<ReadProgress>,
     ) -> NativeExtensionsResult<Value> {
         let (future, completer) = FutureCompleter::new();
         let pasteboard = self.pasteboard.clone();
-        // Retrieving data may require call back to flutter and nested run loop so don't
+        // Retrieving data may require call back to Flutter and nested run loop so don't
         // block current dispatch
         Context::get()
             .run_loop()
@@ -101,9 +180,90 @@ impl PlatformDataReader {
     }
 
     pub fn from_pasteboard(pasteboard: StrongPtr) -> Rc<Self> {
-        let res = Rc::new(Self { pasteboard });
+        let res = Rc::new(Self {
+            pasteboard,
+            promise_receivers: RefCell::new(Vec::new()),
+        });
         res.assign_weak_self(Rc::downgrade(&res));
         res
+    }
+
+    pub async fn can_get_virtual_file_for_item(
+        &self,
+        item: i64,
+        format: &str,
+    ) -> NativeExtensionsResult<bool> {
+        autoreleasepool(|| {
+            let receiver = self.get_promise_receiver_for_item(item)?;
+            match receiver {
+                Some(receiver) => {
+                    let receiver_types: id = unsafe { msg_send![*receiver, fileTypes] };
+                    for i in 0..unsafe { NSArray::count(receiver_types) } {
+                        let ty =
+                            unsafe { from_nsstring(NSArray::objectAtIndex(receiver_types, i)) };
+                        if ty == format {
+                            return Ok(true);
+                        }
+                    }
+                    Ok(false)
+                }
+                None => Ok(false),
+            }
+        })
+    }
+
+    pub async fn get_virtual_file_for_item(
+        &self,
+        item: i64,
+        _format: &str,
+        target_folder: PathBuf,
+        _progress: Rc<ReadProgress>,
+    ) -> NativeExtensionsResult<PathBuf> {
+        self.promise_receivers.borrow_mut().clear();
+        let receiver = self.get_promise_receiver_for_item(item)?;
+        match receiver {
+            Some(receiver) => {
+                let res = autoreleasepool(|| {
+                    let target_folder = target_folder.to_string_lossy();
+                    let url = unsafe { NSURL::fileURLWithPath_(nil, *to_nsstring(&target_folder)) };
+                    let queue: id = unsafe { msg_send![class!(NSOperationQueue), mainQueue] };
+                    let (future, completer) = FutureCompleter::new();
+                    let completer = Rc::new(RefCell::new(Some(completer)));
+                    let block = ConcreteBlock::new(move |url: id, error: id| {
+                        let completer = completer
+                            .borrow_mut()
+                            .take()
+                            .expect("Callback invoked more than once");
+                        if error != nil {
+                            if url != nil {
+                                fs::remove_file(path_from_url(url)).ok_log();
+                            }
+                            completer.complete(Err(NativeExtensionsError::VirtualFileReceiveError(
+                                nserror_description(error),
+                            )))
+                        } else {
+                            completer.complete(Ok(path_from_url(url)))
+                        }
+                    });
+                    let block = block.copy();
+                    unsafe {
+                        println!("URL {:?}", from_nsstring(msg_send![url, debugDescription]));
+                    }
+                    let () = unsafe {
+                        msg_send![*receiver,
+                                receivePromisedFilesAtDestination: url
+                                options: nil
+                                operationQueue: queue
+                                reader: &*block]
+                    };
+                    future
+                });
+                res.await
+            }
+            None => Err(NativeExtensionsError::OtherError(
+                "FilePromiseReceiver is not available".to_owned(),
+            )),
+        }
     }
 
     pub fn assign_weak_self(&self, _weak: Weak<PlatformDataReader>) {}

@@ -12,6 +12,7 @@ pub enum NativeExtensionsError {
     PlatformContextNotFound,
     UnsupportedOperation,
     VirtualFileSessionNotFound,
+    VirtualFileReceiveError(String),
 }
 
 pub type NativeExtensionsResult<T> = Result<T, NativeExtensionsError>;
@@ -32,6 +33,9 @@ impl Display for NativeExtensionsError {
             NativeExtensionsError::UnsupportedOperation => write!(f, "unsupported operation"),
             NativeExtensionsError::VirtualFileSessionNotFound => {
                 write!(f, "virtual session not found")
+            }
+            NativeExtensionsError::VirtualFileReceiveError(m) => {
+                write!(f, "virtual file receive error: {}", m)
             }
         }
     }

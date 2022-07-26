@@ -1,3 +1,7 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:nativeshell_core/nativeshell_core.dart';
 
 import 'context.dart';
@@ -35,7 +39,9 @@ class DataReaderItemHandle {
 }
 
 class RawReaderManager {
-  RawReaderManager._();
+  RawReaderManager._() {
+    _channel.setMethodCallHandler(_onMethodCall);
+  }
 
   Future<void> dispose(DataReaderHandle reader) async {
     await _channel.invokeMethod("disposeReader", reader._handle);
@@ -59,19 +65,114 @@ class RawReaderManager {
     return formats.cast<String>();
   }
 
-  Future<Object?> getItemData(
+  ReadProgress getItemData(
+    DataReaderItemHandle handle, {
+    required String format,
+    required ValueChanged<GetDataResult> onData,
+  }) {
+    final progress = ReadProgressImpl();
+    _progressMap[progress.id] = progress;
+    _channel.invokeMethod("getItemData", {
+      "itemHandle": handle._itemHandle,
+      "readerHandle": handle._readerHandle,
+      "format": format,
+      "progressId": progress.id,
+    }).then((value) {
+      _completeProgress(progress.id);
+      onData(GetDataResult(value, null));
+    }, onError: (error) {
+      _completeProgress(progress.id);
+      onData(GetDataResult(null, error));
+    });
+    return progress;
+  }
+
+  Future<bool> canGetVirtualFile(
     DataReaderItemHandle handle, {
     required String format,
   }) async {
-    return await _channel.invokeMethod("getItemData", {
+    return await _channel.invokeMethod("canGetVirtualFile", {
       "itemHandle": handle._itemHandle,
       "readerHandle": handle._readerHandle,
-      "format": format
+      'format': format,
     });
+  }
+
+  ReadProgress getVirtualFile(
+    DataReaderItemHandle handle, {
+    required String format,
+    required String targetFolder,
+    required ValueChanged<DataResult<String?>> onResult,
+  }) {
+    final progress = ReadProgressImpl();
+    _progressMap[progress.id] = progress;
+    _channel.invokeMethod("getVirtualFile", {
+      "itemHandle": handle._itemHandle,
+      "readerHandle": handle._readerHandle,
+      "format": format,
+      'targetFolder': targetFolder,
+      "progressId": progress.id,
+    }).then((value) {
+      _completeProgress(progress.id);
+      onResult(DataResult(value, null));
+    }, onError: (error) {
+      _completeProgress(progress.id);
+      onResult(DataResult(null, error));
+    });
+    return progress;
+  }
+
+  void _completeProgress(int progressId) {
+    final progress = _progressMap.remove(progressId);
+    if (progress != null) {
+      progress._progress.value = 100;
+    }
+  }
+
+  Future<dynamic> _onMethodCall(MethodCall call) async {
+    if (call.method == 'setProgressCancellable') {
+      final args = call.arguments as Map;
+      final progressId = args['progressId'] as int;
+      final cancellable = args['cancellable'] as bool;
+      _progressMap[progressId]?._cancellable.value = cancellable;
+    } else if (call.method == 'updateProgress') {
+      final args = call.arguments as Map;
+      final progressId = args['progressId'] as int;
+      final progress = args['progress'] as int?;
+      _progressMap[progressId]?._progress.value = progress;
+    }
+  }
+
+  void cancelProgress(int progressId) {
+    _channel.invokeMethod('cancelProgress', progressId);
   }
 
   final _channel = NativeMethodChannel('DataReaderManager',
       context: superNativeExtensionsContext);
 
+  final _progressMap = <int, ReadProgressImpl>{};
+
   static final instance = RawReaderManager._();
+}
+
+class ReadProgressImpl extends ReadProgress {
+  static int _nextId = 0;
+
+  ReadProgressImpl() : id = _nextId++;
+
+  final int id;
+
+  @override
+  void cancel() {
+    RawReaderManager.instance.cancelProgress(id);
+  }
+
+  @override
+  ValueListenable<int?> get progress => _progress;
+
+  @override
+  ValueListenable<bool> get cancellable => _cancellable;
+
+  final _cancellable = ValueNotifier(false);
+  final _progress = ValueNotifier<int?>(null);
 }

@@ -87,7 +87,7 @@ class DataProviderManager {
         'progress': progressNotifier.value,
       });
     });
-    final progress = Progress(SimpleNotifier(), progressNotifier);
+    final progress = WriteProgress(SimpleNotifier(), progressNotifier);
     final session = _VirtualSession(progress: progress);
     _virtualSessions[sessionId] = session;
 
@@ -153,7 +153,7 @@ class _VirtualSession {
   });
 
   int? _fileSize;
-  final Progress progress;
+  final WriteProgress progress;
 }
 
 class _NativeFunctions {

@@ -14,15 +14,26 @@ use nativeshell_core::{
 
 use crate::{
     error::{NativeExtensionsError, NativeExtensionsResult},
+    log::OkLog,
     platform::PlatformDataReader,
-    util::NextId,
+    util::{DropNotifier, NextId},
 };
+
+#[derive(Debug, TryFromValue, IntoValue, Clone, Copy, PartialEq, Hash, Eq)]
+struct DataReaderId(i64);
+
+impl From<i64> for DataReaderId {
+    fn from(i: i64) -> Self {
+        Self(i)
+    }
+}
 
 pub struct DataReaderManager {
     weak_self: Late<Weak<Self>>,
     invoker: Late<AsyncMethodInvoker>,
     next_id: Cell<i64>,
-    readers: RefCell<HashMap<i64, ReaderEntry>>,
+    readers: RefCell<HashMap<DataReaderId, ReaderEntry>>,
+    progresses: RefCell<HashMap<(IsolateId, i64), Weak<ReadProgress>>>,
 }
 
 struct ReaderEntry {
@@ -40,6 +51,31 @@ impl GetDataReaderManager for Context {
     }
 }
 
+pub struct ReadProgress {
+    _drop_notifier: Arc<DropNotifier>,
+    cancellation_handler: RefCell<Option<Box<dyn FnOnce()>>>,
+    on_set_cancellation_handler: Box<dyn Fn(bool)>,
+    on_progress: Box<dyn Fn(Option<i32>)>,
+}
+
+impl ReadProgress {
+    #[allow(dead_code)]
+    pub fn set_cancellation_handler(&self, handler: Option<Box<dyn FnOnce()>>) {
+        (self.on_set_cancellation_handler)(handler.is_some());
+        self.cancellation_handler.replace(handler);
+    }
+    #[allow(dead_code)]
+    pub fn report_progress(&self, progress: Option<i32>) {
+        (self.on_progress)(progress);
+    }
+    fn cancel(&self) {
+        let handler = self.cancellation_handler.replace(None);
+        if let Some(handler) = handler {
+            handler();
+        }
+    }
+}
+
 impl DataReaderManager {
     pub fn new() -> RegisteredAsyncMethodHandler<Self> {
         Self {
@@ -47,8 +83,71 @@ impl DataReaderManager {
             invoker: Late::new(),
             next_id: Cell::new(1),
             readers: RefCell::new(HashMap::new()),
+            progresses: RefCell::new(HashMap::new()),
         }
         .register("DataReaderManager")
+    }
+
+    fn new_read_progress(&self, isolate_id: IsolateId, progress_id: i64) -> Rc<ReadProgress> {
+        #[derive(IntoValue)]
+        #[nativeshell(rename_all = "camelCase")]
+        struct SetProgressCancellable {
+            progress_id: i64,
+            cancellable: bool,
+        }
+        #[derive(IntoValue)]
+        #[nativeshell(rename_all = "camelCase")]
+        struct ProgressUpdate {
+            progress_id: i64,
+            progress: Option<i32>,
+        }
+        let weak_self_1 = self.weak_self.clone();
+        let weak_self_2 = self.weak_self.clone();
+        let weak_self_3 = self.weak_self.clone();
+        let res = Rc::new(ReadProgress {
+            _drop_notifier: Arc::new(DropNotifier::new(move || {
+                if let Some(this) = weak_self_1.upgrade() {
+                    this.progresses
+                        .borrow_mut()
+                        .remove(&(isolate_id, progress_id));
+                }
+            })),
+            cancellation_handler: RefCell::new(None),
+            on_set_cancellation_handler: Box::new(move |cancellable| {
+                if let Some(this) = weak_self_2.upgrade() {
+                    this.invoker.call_method_sync(
+                        isolate_id,
+                        "setProgressCancellable",
+                        SetProgressCancellable {
+                            progress_id,
+                            cancellable,
+                        },
+                        |r| {
+                            r.ok_log();
+                        },
+                    );
+                }
+            }),
+            on_progress: Box::new(move |progress| {
+                if let Some(this) = weak_self_3.upgrade() {
+                    this.invoker.call_method_sync(
+                        isolate_id,
+                        "updateProgress",
+                        ProgressUpdate {
+                            progress_id,
+                            progress,
+                        },
+                        |r| {
+                            r.ok_log();
+                        },
+                    );
+                }
+            }),
+        });
+        self.progresses
+            .borrow_mut()
+            .insert((isolate_id, progress_id), Rc::downgrade(&res));
+        res
     }
 
     pub fn register_platform_reader(
@@ -56,7 +155,7 @@ impl DataReaderManager {
         platform_reader: Rc<PlatformDataReader>,
         isolate_id: IsolateId,
     ) -> RegisteredDataReader {
-        let id = self.next_id.next_id();
+        let id: DataReaderId = self.next_id.next_id().into();
         let weak_self = self.weak_self.clone();
         let finalizable_handle = Arc::new(FinalizableHandle::new(32, isolate_id, move || {
             if let Some(manager) = weak_self.upgrade() {
@@ -78,59 +177,91 @@ impl DataReaderManager {
         }
     }
 
-    fn dispose_reader(&self, reader: i64) -> NativeExtensionsResult<()> {
+    fn dispose_reader(&self, reader: DataReaderId) -> NativeExtensionsResult<()> {
         self.readers.borrow_mut().remove(&reader);
         Ok(())
     }
 
-    async fn get_items(&self, reader: i64) -> NativeExtensionsResult<Vec<i64>> {
-        let reader = self
-            .readers
-            .borrow()
-            .get(&reader)
-            .map(|r| r.platform_reader.clone());
-        match reader {
-            Some(reader) => reader.get_items().await,
-            None => Err(NativeExtensionsError::ReaderNotFound),
+    fn get_reader(&self, reader: DataReaderId) -> NativeExtensionsResult<Rc<PlatformDataReader>> {
+        if let Some(entry) = self.readers.borrow().get(&reader) {
+            Ok(entry.platform_reader.clone())
+        } else {
+            Err(NativeExtensionsError::ReaderNotFound)
         }
+    }
+
+    async fn get_items(&self, reader: DataReaderId) -> NativeExtensionsResult<Vec<i64>> {
+        self.get_reader(reader)?.get_items().await
     }
 
     async fn get_item_formats(
         &self,
         request: ItemFormatsRequest,
     ) -> NativeExtensionsResult<Vec<String>> {
-        let reader = self
-            .readers
-            .borrow()
-            .get(&request.reader_handle)
-            .map(|r| r.platform_reader.clone());
-        match reader {
-            Some(reader) => reader.get_formats_for_item(request.item_handle).await,
-            None => Err(NativeExtensionsError::ReaderNotFound),
-        }
+        self.get_reader(request.reader_handle)?
+            .get_formats_for_item(request.item_handle)
+            .await
     }
 
-    async fn get_item_data(&self, request: ItemDataRequest) -> NativeExtensionsResult<Value> {
-        let reader = self
-            .readers
-            .borrow()
-            .get(&request.reader_handle)
-            .map(|r| r.platform_reader.clone());
-        match reader {
-            Some(reader) => {
-                reader
-                    .get_data_for_item(request.item_handle, request.format)
-                    .await
-            }
-            None => Err(NativeExtensionsError::ReaderNotFound),
+    async fn get_item_data(
+        &self,
+        isolate_id: IsolateId,
+        request: ItemDataRequest,
+    ) -> NativeExtensionsResult<Value> {
+        let reader = self.get_reader(request.reader_handle)?;
+        let progress = self.new_read_progress(isolate_id, request.progress_id);
+        reader
+            .get_data_for_item(request.item_handle, request.format, progress)
+            .await
+    }
+
+    fn cancel_progress(
+        &self,
+        isolate_id: IsolateId,
+        progress_id: i64,
+    ) -> NativeExtensionsResult<()> {
+        let progress = self
+            .progresses
+            .borrow_mut()
+            .remove(&(isolate_id, progress_id));
+        if let Some(progress) = progress.and_then(|p| p.upgrade()) {
+            progress.cancel();
         }
+        Ok(())
+    }
+
+    async fn can_get_virtual_file(
+        &self,
+        request: VirtualFileSupportedRequest,
+    ) -> NativeExtensionsResult<bool> {
+        self.get_reader(request.reader_handle)?
+            .can_get_virtual_file_for_item(request.item_handle, &request.format)
+            .await
+    }
+
+    async fn get_virtual_file(
+        &self,
+        isolate_id: IsolateId,
+        request: VirtualFileRequest,
+    ) -> NativeExtensionsResult<String> {
+        let reader = self.get_reader(request.reader_handle)?;
+        let progress = self.new_read_progress(isolate_id, request.progress_id);
+        let res = reader
+            .get_virtual_file_for_item(
+                request.item_handle,
+                &request.format,
+                request.target_folder.into(),
+                progress,
+            )
+            .await?;
+        Ok(res.to_string_lossy().into_owned())
     }
 }
 
 #[derive(IntoValue, TryFromValue, Debug, Clone)]
 #[nativeshell(rename_all = "camelCase")]
 pub struct RegisteredDataReader {
-    handle: i64,
+    handle: DataReaderId,
     finalizable_handle: Value,
 }
 
@@ -138,14 +269,33 @@ pub struct RegisteredDataReader {
 #[nativeshell(rename_all = "camelCase")]
 struct ItemFormatsRequest {
     item_handle: i64,
-    reader_handle: i64,
+    reader_handle: DataReaderId,
 }
 
 #[derive(TryFromValue)]
 #[nativeshell(rename_all = "camelCase")]
 struct ItemDataRequest {
     item_handle: i64,
-    reader_handle: i64,
+    reader_handle: DataReaderId,
+    format: String,
+    progress_id: i64,
+}
+
+#[derive(TryFromValue)]
+#[nativeshell(rename_all = "camelCase")]
+struct VirtualFileRequest {
+    item_handle: i64,
+    reader_handle: DataReaderId,
+    format: String,
+    progress_id: i64,
+    target_folder: String,
+}
+
+#[derive(TryFromValue)]
+#[nativeshell(rename_all = "camelCase")]
+struct VirtualFileSupportedRequest {
+    item_handle: i64,
+    reader_handle: DataReaderId,
     format: String,
 }
 
@@ -173,7 +323,18 @@ impl AsyncMethodHandler for DataReaderManager {
                 .await
                 .into_platform_result(),
             "getItemData" => self
-                .get_item_data(call.args.try_into()?)
+                .get_item_data(call.isolate, call.args.try_into()?)
+                .await
+                .into_platform_result(),
+            "cancelProgress" => self
+                .cancel_progress(call.isolate, call.args.try_into()?)
+                .into_platform_result(),
+            "canGetVirtualFile" => self
+                .can_get_virtual_file(call.args.try_into()?)
+                .await
+                .into_platform_result(),
+            "getVirtualFile" => self
+                .get_virtual_file(call.isolate, call.args.try_into()?)
                 .await
                 .into_platform_result(),
             _ => Err(PlatformError {

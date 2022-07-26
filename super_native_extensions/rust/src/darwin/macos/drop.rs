@@ -263,8 +263,13 @@ impl PlatformDropContext {
                 .iter()
                 .map(|ty| to_nsstring(&ty).autorelease())
                 .collect();
-            let types = NSArray::arrayWithObjects(nil, &types);
-            let _: id = msg_send![*self.view, registerForDraggedTypes: types];
+            let our_types = NSArray::arrayWithObjects(nil, &types);
+            let promise_receiver_types: id =
+                msg_send![class!(NSFilePromiseReceiver), readableDraggedTypes];
+            let all_types: id = msg_send![class!(NSMutableArray), array];
+            let () = msg_send![all_types, addObjectsFromArray: our_types];
+            let () = msg_send![all_types, addObjectsFromArray: promise_receiver_types];
+            let _: id = msg_send![*self.view, registerForDraggedTypes: all_types];
         });
         Ok(())
     }

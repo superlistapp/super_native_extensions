@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:super_clipboard/super_clipboard.dart';
 import 'package:super_native_extensions/raw_clipboard.dart';
 
@@ -18,13 +20,22 @@ class ClipboardReaderItem {
     }
     final platformKey = key.platformType();
     for (final type in platformKey.readableSystemTypes()) {
-      final value = await rawItem.getDataForFormat(type);
-      if (value != null) {
-        final converted = await platformKey.convertFromSystem(value, type);
-        if (converted != null) {
-          return converted;
+      final completer = Completer<T?>();
+      final progress =
+          await rawItem.getDataForFormat(type, onData: (data) async {
+        if (data.isError) {
+          completer.completeError(data.error!);
+        } else {
+          final converted = data.data != null
+              ? await platformKey.convertFromSystem(data.data!, type)
+              : null;
+          completer.complete(converted);
         }
-      }
+      });
+      progress.progress.addListener(() {
+        print('Progress update ${progress.progress.value}');
+      });
+      return completer.future;
     }
     return null;
   }

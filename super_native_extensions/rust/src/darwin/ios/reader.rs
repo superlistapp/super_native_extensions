@@ -109,7 +109,7 @@ impl PlatformDataReader {
         autoreleasepool(|| unsafe {
             let providers = self.get_items_providers();
             if item < providers.len() as i64 {
-                // travels between threads, must be refcounted because and block is Fn
+                // travels between threads, must be refcounted because lock is Fn
                 let completer = Arc::new(Mutex::new(Capsule::new(completer)));
                 let provider = providers[item as usize];
                 let sender = Context::get().run_loop().new_sender();
