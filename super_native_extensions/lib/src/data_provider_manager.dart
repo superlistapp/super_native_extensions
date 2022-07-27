@@ -80,7 +80,7 @@ class DataProviderManager {
     required int virtualFileId,
     required int streamHandle,
   }) async {
-    final progressNotifier = ValueNotifier<int>(0);
+    final progressNotifier = ValueNotifier<double>(0.0);
     progressNotifier.addListener(() {
       _channel.invokeMethod('virtualFileUpdateProgress', {
         'sessionId': sessionId,

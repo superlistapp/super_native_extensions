@@ -101,16 +101,15 @@ class DataRepresentationLazy extends DataRepresentation {
 }
 
 class WriteProgress {
-  WriteProgress(this.onCancel, ValueNotifier<int> onProgress)
+  WriteProgress(this.onCancel, ValueNotifier<double> onProgress)
       : _onProgress = onProgress;
 
-  /// Updates operation progress. Range is 0 to 100.
-  void updateProgress(int progress) {
-    _onProgress.value = progress;
+  void updateProgress(double fraction) {
+    _onProgress.value = fraction;
   }
 
   final Listenable onCancel;
-  final ValueNotifier<int> _onProgress;
+  final ValueNotifier<double> _onProgress;
 }
 
 typedef VirtualFileEventSinkProvider = EventSink Function(

@@ -266,7 +266,7 @@ impl ItemState {
     fn progress_for_url(url: id) -> StrongPtr {
         unsafe {
             let progress = StrongPtr::retain(
-                msg_send![class!(NSProgress), progressWithTotalUnitCount: 100 as u64],
+                msg_send![class!(NSProgress), discreteProgressWithTotalUnitCount: 1000 as u64],
             );
             let () = msg_send![*progress, setKind:*to_nsstring("NSProgressKindFile")];
             let () = msg_send![*progress, setFileURL: url];
@@ -308,7 +308,8 @@ impl ItemState {
             descriptor,
             Box::new(|_| {}),
             Box::new(move |cnt| {
-                let () = unsafe { msg_send![*progress_clone, setCompletedUnitCount: cnt as u64] };
+                let completed = (cnt * 1000.0).round() as u64;
+                let () = unsafe { msg_send![*progress_clone, setCompletedUnitCount: completed] };
             }),
             Box::new(move |result| {
                 let _handle = data_provider_handle;

@@ -1,4 +1,6 @@
 use std::{
+    fs,
+    path::{Path, PathBuf},
     rc::{Rc, Weak},
     sync::{Arc, Mutex},
 };
@@ -21,9 +23,13 @@ use objc::{
 };
 
 use crate::{
-    error::NativeExtensionsResult,
+    error::{NativeExtensionsError, NativeExtensionsResult},
     log::OkLog,
-    platform_impl::platform::common::{from_nsstring, to_nsstring},
+    platform_impl::platform::{
+        common::{from_nsstring, nserror_description, path_from_url, to_nsstring},
+        progress_bridge::bridge_progress,
+    },
+    reader_manager::ReadProgress,
 };
 
 pub struct PlatformDataReader {
@@ -65,7 +71,7 @@ impl PlatformDataReader {
         Ok((0..count).collect())
     }
 
-    pub async fn get_formats_for_item(&self, item: i64) -> NativeExtensionsResult<Vec<String>> {
+    pub fn get_formats_for_item_sync(&self, item: i64) -> NativeExtensionsResult<Vec<String>> {
         let formats = autoreleasepool(|| unsafe {
             let providers = self.get_items_providers();
             if item < providers.len() as i64 {
@@ -81,6 +87,10 @@ impl PlatformDataReader {
             }
         });
         Ok(formats)
+    }
+
+    pub async fn get_formats_for_item(&self, item: i64) -> NativeExtensionsResult<Vec<String>> {
+        self.get_formats_for_item_sync(item)
     }
 
     unsafe fn maybe_decode_bplist(data: id) -> id {
@@ -104,6 +114,7 @@ impl PlatformDataReader {
         &self,
         item: i64,
         format: String,
+        read_progress: Rc<ReadProgress>,
     ) -> NativeExtensionsResult<Value> {
         let (future, completer) = FutureCompleter::new();
         autoreleasepool(|| unsafe {
@@ -131,8 +142,9 @@ impl PlatformDataReader {
                     });
                 });
                 let block = block.copy();
-                let () = msg_send![provider, loadDataRepresentationForTypeIdentifier:*to_nsstring(&format)
+                let ns_progress: id = msg_send![provider, loadDataRepresentationForTypeIdentifier:*to_nsstring(&format)
                                       completionHandler:&*block];
+                bridge_progress(ns_progress, read_progress);
             } else {
                 completer.complete(Ok(Value::Null));
             }
@@ -156,6 +168,95 @@ impl PlatformDataReader {
         });
         res.assign_weak_self(Rc::downgrade(&res));
         Ok(res)
+    }
+
+    pub async fn can_get_virtual_file_for_item(
+        &self,
+        item: i64,
+        format: &str,
+    ) -> NativeExtensionsResult<bool> {
+        let formats = self.get_formats_for_item_sync(item)?;
+        Ok(formats.iter().any(|f| f == format))
+    }
+
+    fn get_target_path(source_path: &Path, target_folder: &Path) -> PathBuf {
+        let name = source_path.file_name().expect("Couldn't get file name");
+        let target_path = target_folder.join(&name);
+        if !target_path.exists() {
+            return target_path;
+        } else {
+            let mut i = 2;
+            let stem = source_path
+                .file_stem()
+                .expect("Couldn't get file stem")
+                .to_string_lossy();
+            let extension = source_path.extension();
+            let suffix = extension
+                .map(|a| format!(".{}", a.to_string_lossy()))
+                .unwrap_or("".into());
+            loop {
+                let target_path = target_folder.join(&format!("{} {}{}", stem, i, suffix));
+                if !target_path.exists() {
+                    return target_path;
+                }
+                i += 1;
+            }
+        }
+    }
+
+    pub async fn get_virtual_file_for_item(
+        &self,
+        item: i64,
+        format: &str,
+        target_folder: PathBuf,
+        read_progress: Rc<ReadProgress>,
+    ) -> NativeExtensionsResult<PathBuf> {
+        let (future, completer) = FutureCompleter::new();
+        autoreleasepool(|| unsafe {
+            let providers = self.get_items_providers();
+            if item < providers.len() as i64 {
+                // travels between threads, must be refcounted because lock is Fn
+                let completer = Arc::new(Mutex::new(Capsule::new(completer)));
+                let provider = providers[item as usize];
+                let sender = Context::get().run_loop().new_sender();
+                let block = ConcreteBlock::new(move |url: id, err: id| {
+                    struct Movable<T>(T);
+                    unsafe impl<T> Send for Movable<T> {}
+                    let res = if err != nil {
+                        Err(NativeExtensionsError::VirtualFileReceiveError(
+                            nserror_description(err),
+                        ))
+                    } else {
+                        let source_path = path_from_url(url);
+                        let target_path = Self::get_target_path(&source_path, &target_folder);
+                        match fs::rename(&source_path, &target_path) {
+                            Ok(_) => Ok(target_path),
+                            Err(err) => Err(NativeExtensionsError::VirtualFileReceiveError(
+                                err.to_string(),
+                            )),
+                        }
+                    };
+                    let completer = completer.clone();
+                    sender.send(move || {
+                        let completer = completer
+                            .lock()
+                            .unwrap()
+                            .take()
+                            .expect("Block invoked more than once");
+                        completer.complete(res);
+                    });
+                });
+                let block = block.copy();
+                let ns_progress: id = msg_send![provider, loadFileRepresentationForTypeIdentifier:*to_nsstring(format)
+                                      completionHandler:&*block];
+                bridge_progress(ns_progress, read_progress);
+            } else {
+                completer.complete(Err(NativeExtensionsError::OtherError(
+                    "Invalid item".into(),
+                )));
+            }
+        });
+        future.await
     }
 
     pub fn assign_weak_self(&self, _weak: Weak<PlatformDataReader>) {}

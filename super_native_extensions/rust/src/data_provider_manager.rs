@@ -69,7 +69,7 @@ pub trait PlatformDataProviderDelegate {
         virtual_file_id: DataProviderValueId,
         stream_handle: i32,
         on_size_known: Box<dyn Fn(Option<i64>)>,
-        on_progress: Box<dyn Fn(i32 /* 0 - 100 */)>,
+        on_progress: Box<dyn Fn(f64 /* 0.0 - 1.0 */)>,
         on_done: Box<dyn FnOnce(VirtualFileResult)>,
     ) -> Arc<VirtualSessionHandle>;
 }
@@ -110,7 +110,7 @@ struct VirtualFileSession {
     isolate_id: IsolateId,
     size_known: Cell<bool>,
     on_size_known: Box<dyn Fn(Option<i64>)>,
-    on_progress: Box<dyn Fn(i32 /* 0 - 100 */)>,
+    on_progress: Box<dyn Fn(f64 /* 0.0 - 1.0 */)>,
     on_done: Box<dyn FnOnce(VirtualFileResult)>,
 }
 
@@ -284,7 +284,7 @@ impl PlatformDataProviderDelegate for DataProviderManager {
         virtual_file_id: DataProviderValueId,
         stream_handle: i32,
         on_size_known: Box<dyn Fn(Option<i64>)>,
-        on_progress: Box<dyn Fn(i32 /* 0 - 100 */)>,
+        on_progress: Box<dyn Fn(f64 /* 0.0 - 1.0 */)>,
         on_done: Box<dyn FnOnce(VirtualFileResult)>,
     ) -> Arc<VirtualSessionHandle> {
         let weak_self = self.weak_self.clone();
@@ -333,7 +333,7 @@ impl PlatformDataProviderDelegate for DataProviderManager {
 #[nativeshell(rename_all = "camelCase")]
 struct VirtualFileUpdateProgress {
     session_id: VirtualSessionId,
-    progress: i32,
+    progress: f64,
 }
 
 #[derive(Debug, TryFromValue)]

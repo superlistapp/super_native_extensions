@@ -27,11 +27,11 @@ class DataReader {
 }
 
 abstract class ReadProgress {
-  /// Range is 0 to 100.
+  /// Range is 0.0 to 1.0.
   /// Starts with null (indeterminate progress).
   /// Guaranteed to fire at least once on both completion or failure
-  /// (with value of 100).
-  ValueListenable<int?> get progress;
+  /// (with value of 1.0).
+  ValueListenable<double?> get fraction;
 
   /// This may change over time, client must be prepared to handle that.
   ValueListenable<bool> get cancellable;

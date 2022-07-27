@@ -178,6 +178,9 @@ impl Session {
         let delegate = self.context_delegate()?;
         let done = Rc::new(Cell::new(false));
         let done_clone = done.clone();
+        /// TODO(knopp): Let user override default progress indicator
+        let () =
+            unsafe { msg_send![self.platform_session, setProgressIndicatorStyle: 0 as NSUInteger] };
         delegate.send_perform_drop(
             self.context_id,
             event,
@@ -189,9 +192,6 @@ impl Session {
         while !done.get() {
             Context::get().run_loop().platform_run_loop.poll_once();
         }
-        /// TODO(knopp): Let user override default progress indicator
-        // let () =
-        //     unsafe { msg_send![self.platform_session, setProgressIndicatorStyle: 0 as NSUInteger] };
         Ok(())
     }
 

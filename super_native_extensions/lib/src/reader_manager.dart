@@ -125,7 +125,7 @@ class RawReaderManager {
   void _completeProgress(int progressId) {
     final progress = _progressMap.remove(progressId);
     if (progress != null) {
-      progress._progress.value = 100;
+      progress._fraction.value = 1.0;
     }
   }
 
@@ -138,8 +138,8 @@ class RawReaderManager {
     } else if (call.method == 'updateProgress') {
       final args = call.arguments as Map;
       final progressId = args['progressId'] as int;
-      final progress = args['progress'] as int?;
-      _progressMap[progressId]?._progress.value = progress;
+      final fraction = args['fraction'] as double?;
+      _progressMap[progressId]?._fraction.value = fraction;
     }
   }
 
@@ -168,11 +168,11 @@ class ReadProgressImpl extends ReadProgress {
   }
 
   @override
-  ValueListenable<int?> get progress => _progress;
+  ValueListenable<double?> get fraction => _fraction;
 
   @override
   ValueListenable<bool> get cancellable => _cancellable;
 
   final _cancellable = ValueNotifier(false);
-  final _progress = ValueNotifier<int?>(null);
+  final _fraction = ValueNotifier<double?>(null);
 }

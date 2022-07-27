@@ -6,6 +6,7 @@ use std::{
 };
 
 use async_trait::async_trait;
+
 use nativeshell_core::{
     util::Late, AsyncMethodHandler, AsyncMethodInvoker, Context, FinalizableHandle,
     IntoPlatformResult, IntoValue, IsolateId, MethodCall, PlatformError, PlatformResult,
@@ -55,7 +56,7 @@ pub struct ReadProgress {
     _drop_notifier: Arc<DropNotifier>,
     cancellation_handler: RefCell<Option<Box<dyn FnOnce()>>>,
     on_set_cancellation_handler: Box<dyn Fn(bool)>,
-    on_progress: Box<dyn Fn(Option<i32>)>,
+    on_progress: Box<dyn Fn(Option<f64>)>,
 }
 
 impl ReadProgress {
@@ -65,7 +66,7 @@ impl ReadProgress {
         self.cancellation_handler.replace(handler);
     }
     #[allow(dead_code)]
-    pub fn report_progress(&self, progress: Option<i32>) {
+    pub fn report_progress(&self, progress: Option<f64>) {
         (self.on_progress)(progress);
     }
     fn cancel(&self) {
@@ -99,7 +100,7 @@ impl DataReaderManager {
         #[nativeshell(rename_all = "camelCase")]
         struct ProgressUpdate {
             progress_id: i64,
-            progress: Option<i32>,
+            fraction: Option<f64>,
         }
         let weak_self_1 = self.weak_self.clone();
         let weak_self_2 = self.weak_self.clone();
@@ -128,14 +129,14 @@ impl DataReaderManager {
                     );
                 }
             }),
-            on_progress: Box::new(move |progress| {
+            on_progress: Box::new(move |fraction| {
                 if let Some(this) = weak_self_3.upgrade() {
                     this.invoker.call_method_sync(
                         isolate_id,
                         "updateProgress",
                         ProgressUpdate {
                             progress_id,
-                            progress,
+                            fraction,
                         },
                         |r| {
                             r.ok_log();

@@ -43,11 +43,21 @@ class _DropDelegate implements RawDropContextDelegate {
       // });
       final format = (await readerItem.getAvailableFormats()).first;
       final receiver = await readerItem.getVirtualFileReceiver(format: format);
-      receiver!.receiveVirtualFile(
+      final progress = receiver!.receiveVirtualFile(
           targetFolder: "/Users/Matej/Projects/1",
           onResult: (r) {
             print("RES $r");
           });
+      // final progress = readerItem.getDataForFormat(format, onData: (r) {
+      //   print("RES $r");
+      // });
+      progress.fraction.addListener(() {
+        print("PROGRESS ${progress.fraction.value}");
+      });
+      Future.delayed(Duration(seconds: 2), () {
+        print('Cancellable ${progress.cancellable}');
+        // progress.cancel();
+      });
     }
 
     // print('DATA $data');
@@ -118,7 +128,7 @@ class _DragDelegate implements RawDragContextDelegate {
                 if (cancelled[0]) {
                   return;
                 }
-                progress.updateProgress(i * 10);
+                progress.updateProgress(i.toDouble() / 10.0);
                 if (i == 9) {
                   print('Done');
                   sink.add(utf8.encode('Hello, cruel world!\n'));
@@ -382,7 +392,7 @@ class _MyHomePageState extends State<MyHomePage> {
                     return;
                   }
                   sink.add(line);
-                  progress.updateProgress(i);
+                  progress.updateProgress(i.toDouble() / count.toDouble());
                   await Future.delayed(const Duration(milliseconds: 100));
                 }
                 // sink.close();

@@ -1,4 +1,13 @@
-use std::{os::{raw::c_char, unix::prelude::OsStrExt}, slice, sync::Arc, path::PathBuf, ffi::{CStr, OsStr}};
+use std::{
+    ffi::{CStr, OsStr},
+    os::{
+        raw::{c_char, c_void},
+        unix::prelude::OsStrExt,
+    },
+    path::PathBuf,
+    slice,
+    sync::Arc,
+};
 
 use cocoa::{
     base::{id, nil},
@@ -12,7 +21,7 @@ use core_graphics::{
     image::CGImage,
 };
 
-use objc::{class, msg_send, rc::StrongPtr, sel, sel_impl};
+use objc::{class, msg_send, rc::StrongPtr, runtime::Object, sel, sel_impl};
 
 use crate::api_model::ImageData;
 
@@ -81,6 +90,22 @@ pub fn cg_image_from_image_data(image: ImageData) -> CGImage {
 
 #[link(name = "CoreGraphics", kind = "framework")]
 extern "C" {
-    #[allow(dead_code)]
     pub fn CGAffineTransformMakeScale(sx: CGFloat, sy: CGFloat) -> CGAffineTransform;
+}
+
+#[allow(non_camel_case_types)]
+pub type objc_AssociationPolicy = usize;
+pub const OBJC_ASSOCIATION_ASSIGN: objc_AssociationPolicy = 0;
+pub const OBJC_ASSOCIATION_RETAIN_NONATOMIC: objc_AssociationPolicy = 1;
+pub const OBJC_ASSOCIATION_COPY_NONATOMIC: objc_AssociationPolicy = 3;
+pub const OBJC_ASSOCIATION_RETAIN: objc_AssociationPolicy = 769;
+pub const OBJC_ASSOCIATION_COPY: objc_AssociationPolicy = 771;
+
+extern "C" {
+    pub fn objc_setAssociatedObject(
+        object: *mut Object,
+        key: *const c_void,
+        value: *mut Object,
+        policy: objc_AssociationPolicy,
+    );
 }

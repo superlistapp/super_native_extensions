@@ -14,6 +14,7 @@ use cocoa::{
     base::{id, nil},
     foundation::{NSArray, NSProcessInfo, NSURL},
 };
+use log::info;
 use nativeshell_core::{
     util::{Capsule, Late},
     Context, IsolateId, RunLoopSender,
@@ -119,7 +120,7 @@ impl PlatformDataProvider {
                             register_file_representation(
                                 *item_provider,
                                 &format,
-                                true,
+                                false,
                                 move |callback| {
                                     session_clone.file_representation(id, storage, callback)
                                 },
@@ -437,9 +438,9 @@ impl DataProviderSession {
                     stream_handle,
                     Box::new(move |_| {}),
                     Box::new(move |cnt| {
-                        let () = unsafe {
-                            msg_send![*progress_clone, setCompletedUnitCount: cnt as u64]
-                        };
+                        let completed = (cnt * 1000.0).round() as u64;
+                        let () =
+                            unsafe { msg_send![*progress_clone, setCompletedUnitCount: completed] };
                     }),
                     Box::new(move |result| match result {
                         VirtualFileResult::Done => {
@@ -485,7 +486,7 @@ impl DataProviderSession {
     ) -> id {
         unsafe {
             let progress = StrongPtr::retain(
-                msg_send![class!(NSProgress), progressWithTotalUnitCount: 100 as u64],
+                msg_send![class!(NSProgress), discreteProgressWithTotalUnitCount: 1000 as u64],
             );
             self.fetch_virtual_file(id, progress.clone(), storage, callback);
             *progress

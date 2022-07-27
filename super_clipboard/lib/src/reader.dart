@@ -32,8 +32,8 @@ class ClipboardReaderItem {
           completer.complete(converted);
         }
       });
-      progress.progress.addListener(() {
-        print('Progress update ${progress.progress.value}');
+      progress.fraction.addListener(() {
+        print('Progress update ${progress.fraction.value}');
       });
       return completer.future;
     }
