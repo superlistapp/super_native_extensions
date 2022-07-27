@@ -219,7 +219,6 @@ impl PlatformDataReader {
         target_folder: PathBuf,
         _progress: Rc<ReadProgress>,
     ) -> NativeExtensionsResult<PathBuf> {
-        self.promise_receivers.borrow_mut().clear();
         let receiver = self.get_promise_receiver_for_item(item)?;
         match receiver {
             Some(receiver) => {
@@ -246,9 +245,6 @@ impl PlatformDataReader {
                         }
                     });
                     let block = block.copy();
-                    unsafe {
-                        println!("URL {:?}", from_nsstring(msg_send![url, debugDescription]));
-                    }
                     let () = unsafe {
                         msg_send![*receiver,
                                 receivePromisedFilesAtDestination: url
