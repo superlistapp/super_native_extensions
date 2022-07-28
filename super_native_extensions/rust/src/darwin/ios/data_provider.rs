@@ -14,7 +14,7 @@ use cocoa::{
     base::{id, nil},
     foundation::{NSArray, NSProcessInfo, NSURL},
 };
-use log::info;
+
 use nativeshell_core::{
     util::{Capsule, Late},
     Context, IsolateId, RunLoopSender,

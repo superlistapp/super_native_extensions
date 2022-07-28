@@ -1,16 +1,10 @@
-use std::{
-    ffi::c_void,
-    mem::ManuallyDrop,
-    rc::Rc,
-    sync::{Arc, Mutex},
-};
+use std::{ffi::c_void, mem::ManuallyDrop, rc::Rc, sync::Arc};
 
 use cocoa::{
     base::{id, nil, BOOL, YES},
     foundation::NSUInteger,
 };
 
-use nativeshell_core::{util::Capsule, Context, RunLoopSender};
 use objc::{
     class,
     declare::ClassDecl,
@@ -35,13 +29,12 @@ static POLICY_KEY: char = 'k';
 /// Bridges NSPRogress to ReadProgress. Will retain ReadProgress for as long as the
 /// NSProgress is alive.
 #[allow(dead_code)]
-pub unsafe fn bridge_progress(ns_progress: id, read_progress: Rc<ReadProgress>) {
+pub unsafe fn bridge_progress(ns_progress: id, read_progress: Arc<ReadProgress>) {
     let bridge: id = msg_send![*PROGRESS_BRIDGE_CLASS, new];
     let bridge = StrongPtr::new(bridge);
     let state = Rc::new(State {
         ns_progress,
-        read_progress: Arc::new(Mutex::new(Capsule::new(read_progress.clone()))),
-        sender: Context::get().run_loop().new_sender(),
+        read_progress: read_progress.clone(),
     });
     (**bridge).set_ivar("state", Rc::into_raw(state) as *const c_void);
     #[allow(non_upper_case_globals)]
@@ -56,9 +49,12 @@ pub unsafe fn bridge_progress(ns_progress: id, read_progress: Rc<ReadProgress>) 
 
     let cancellable: BOOL = msg_send![ns_progress, isCancellable];
     if cancellable == YES {
-        let weak = WeakPtr::new(ns_progress);
+        struct Movable<T>(T);
+        unsafe impl<T> Send for Movable<T> {}
+        let weak = Movable(WeakPtr::new(ns_progress));
         read_progress.set_cancellation_handler(Some(Box::new(move || {
-            let progress = weak.load();
+            let weak = weak;
+            let progress = weak.0.load();
             if *progress != nil {
                 let () = msg_send![*progress, cancel];
             }
@@ -70,8 +66,7 @@ pub unsafe fn bridge_progress(ns_progress: id, read_progress: Rc<ReadProgress>) 
 
 struct State {
     ns_progress: id,
-    read_progress: Arc<Mutex<Capsule<Rc<ReadProgress>>>>,
-    sender: RunLoopSender,
+    read_progress: Arc<ReadProgress>,
 }
 
 extern "C" fn dealloc(this: &Object, _sel: Sel) {
@@ -104,11 +99,7 @@ extern "C" fn observe_value_for_key_path(
     };
     let state = ManuallyDrop::new(unsafe { Rc::from_raw(state_ptr) });
     let completed: f64 = unsafe { msg_send![object, fractionCompleted] };
-    let progress = state.read_progress.clone();
-    state.sender.send(move || {
-        let progress = progress.lock().unwrap().get_ref().unwrap().clone();
-        progress.report_progress(Some(completed));
-    });
+    state.read_progress.report_progress(Some(completed));
 }
 
 static PROGRESS_BRIDGE_CLASS: Lazy<&'static Class> = Lazy::new(|| unsafe {

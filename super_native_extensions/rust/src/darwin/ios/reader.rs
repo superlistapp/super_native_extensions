@@ -114,7 +114,7 @@ impl PlatformDataReader {
         &self,
         item: i64,
         format: String,
-        read_progress: Rc<ReadProgress>,
+        read_progress: Arc<ReadProgress>,
     ) -> NativeExtensionsResult<Value> {
         let (future, completer) = FutureCompleter::new();
         autoreleasepool(|| unsafe {
@@ -209,7 +209,7 @@ impl PlatformDataReader {
         item: i64,
         format: &str,
         target_folder: PathBuf,
-        read_progress: Rc<ReadProgress>,
+        read_progress: Arc<ReadProgress>,
     ) -> NativeExtensionsResult<PathBuf> {
         let (future, completer) = FutureCompleter::new();
         autoreleasepool(|| unsafe {
