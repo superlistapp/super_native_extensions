@@ -605,6 +605,7 @@ impl IDataObjectAsyncCapability_Impl for DataObject {
 
 pub trait GetData {
     fn get_data(&self, format: u32) -> windows::core::Result<Vec<u8>>;
+    fn has_data_for_format(&self, format: &FORMATETC) -> bool;
     fn has_data(&self, format: u32) -> bool;
 }
 
@@ -633,10 +634,10 @@ impl GetData for IDataObject {
         }
     }
 
-    fn has_data(&self, format: u32) -> bool {
-        let mut format = make_format_with_tymed(format, TYMED_HGLOBAL);
+    fn has_data_for_format(&self, format: &FORMATETC) -> bool {
         // TODO(knopp): Remove when https://github.com/microsoft/win32metadata/issues/1007
         // unsafe { self.QueryGetData(&mut format as *mut _).is_ok() }
+        let mut format = format.clone();
         let data = unsafe {
             (::windows::core::Interface::vtable(self).QueryGetData)(
                 ::windows::core::Interface::as_raw(self),
@@ -645,6 +646,11 @@ impl GetData for IDataObject {
         };
         data == S_OK
     }
+
+    fn has_data(&self, format: u32) -> bool {
+        let format = make_format_with_tymed(format, TYMED_HGLOBAL);
+        self.has_data_for_format(&format)
+    }
 }
 
 impl GetData for DataObject {
@@ -652,7 +658,11 @@ impl GetData for DataObject {
         let res = self.extra_data.borrow().get(&(format as u16)).cloned();
         res.ok_or_else(|| DV_E_FORMATETC.into())
     }
-
+    fn has_data_for_format(&self, format: &FORMATETC) -> bool {
+        format.tymed == TYMED_HGLOBAL.0 as u32
+            && format.lindex == 0
+            && self.has_data(format.cfFormat as u32)
+    }
     fn has_data(&self, format: u32) -> bool {
         self.extra_data.borrow().contains_key(&(format as u16))
     }

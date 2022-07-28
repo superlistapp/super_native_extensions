@@ -1,4 +1,4 @@
-use std::{cell::Cell, sync::Mutex};
+use std::{cell::Cell, sync::Mutex, path::{Path, PathBuf}};
 
 use nativeshell_core::{util::Capsule, Context, RunLoopSender};
 
@@ -46,5 +46,30 @@ impl NextId for Cell<i64> {
         let next_id = self.get();
         self.replace(next_id + 1);
         next_id
+    }
+}
+
+pub fn get_target_path(target_folder: &Path, file_name: &str) -> PathBuf {
+    let target_path = target_folder.join(&file_name);
+    if !target_path.exists() {
+        return target_path;
+    } else {
+        let mut i = 2;
+        let source_path = Path::new(file_name);
+        let stem = source_path
+            .file_stem()
+            .expect("Couldn't get file stem")
+            .to_string_lossy();
+        let extension = source_path.extension();
+        let suffix = extension
+            .map(|a| format!(".{}", a.to_string_lossy()))
+            .unwrap_or("".into());
+        loop {
+            let target_path = target_folder.join(&format!("{} {}{}", stem, i, suffix));
+            if !target_path.exists() {
+                return target_path;
+            }
+            i += 1;
+        }
     }
 }

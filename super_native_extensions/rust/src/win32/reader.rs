@@ -2,23 +2,28 @@ use std::{
     ffi::CStr,
     path::{Path, PathBuf},
     rc::{Rc, Weak},
+    slice,
     sync::Arc,
 };
 
 use byte_slice_cast::AsSliceOf;
-use nativeshell_core::Value;
+use nativeshell_core::{util::FutureCompleter, Value};
 use windows::Win32::{
     System::{
-        Com::{IDataObject, TYMED_HGLOBAL},
+        Com::{IDataObject, STGMEDIUM, TYMED, TYMED_HGLOBAL, TYMED_ISTREAM},
         DataExchange::RegisterClipboardFormatW,
-        Ole::OleGetClipboard,
+        Memory::{GlobalLock, GlobalSize, GlobalUnlock},
+        Ole::{OleGetClipboard, ReleaseStgMedium},
         SystemServices::CF_HDROP,
     },
-    UI::Shell::{CFSTR_FILEDESCRIPTOR, DROPFILES, FILEDESCRIPTORW, FILEGROUPDESCRIPTORW},
+    UI::Shell::{
+        CFSTR_FILECONTENTS, CFSTR_FILEDESCRIPTOR, DROPFILES, FILEDESCRIPTORW, FILEGROUPDESCRIPTORW,
+    },
 };
 
 use crate::{
     error::{NativeExtensionsError, NativeExtensionsResult},
+    platform_impl::platform::common::make_format_with_tymed_index,
     reader_manager::ReadProgress,
     util::DropNotifier,
 };
@@ -35,7 +40,6 @@ pub struct PlatformDataReader {
 
 /// Virtual file descriptor
 struct FileDescriptor {
-    index: usize,
     name: String,
     format: String,
 }
@@ -196,8 +200,7 @@ impl PlatformDataReader {
 
         let res: Vec<_> = files
             .iter()
-            .enumerate()
-            .map(|(index, f)| {
+            .map(|f| {
                 let file_name = f.cFileName;
                 let len = file_name
                     .iter()
@@ -214,11 +217,7 @@ impl PlatformDataReader {
                             ext.unwrap_or_default().to_string_lossy()
                         )
                     });
-                FileDescriptor {
-                    index,
-                    name,
-                    format,
-                }
+                FileDescriptor { name, format }
             })
             .collect();
         Ok(res)
@@ -296,6 +295,31 @@ impl PlatformDataReader {
         Ok(false)
     }
 
+    fn do_get_virtual_file(
+        medium: &STGMEDIUM,
+        file_name: &str,
+        target_folder: PathBuf,
+        completer: FutureCompleter<NativeExtensionsResult<PathBuf>>,
+    ) {
+        match TYMED(medium.tymed as i32) {
+            TYMED_HGLOBAL => {
+                let data = unsafe {
+                    let size = GlobalSize(medium.Anonymous.hGlobal);
+                    let data = GlobalLock(medium.Anonymous.hGlobal);
+
+                    let v = slice::from_raw_parts(data as *const u8, size);
+                    let res: Vec<u8> = v.into();
+                    GlobalUnlock(medium.Anonymous.hGlobal);
+                    res
+                };
+            }
+            TYMED_ISTREAM => {}
+            _ => completer.complete(Err(NativeExtensionsError::VirtualFileReceiveError(
+                "unsupported data format (unexpected tymed)".into(),
+            ))),
+        }
+    }
+
     pub async fn get_virtual_file_for_item(
         &self,
         item: i64,
@@ -311,7 +335,23 @@ impl PlatformDataReader {
         let descriptor = descriptors.get(item as usize).ok_or_else(|| {
             NativeExtensionsError::VirtualFileReceiveError("item not found".into())
         })?;
-        println!("FN {:?}", descriptor.name);
-        Err(NativeExtensionsError::UnsupportedOperation)
+        let format = unsafe { RegisterClipboardFormatW(CFSTR_FILECONTENTS) };
+        let format = make_format_with_tymed_index(
+            format,
+            TYMED(TYMED_ISTREAM.0 | TYMED_HGLOBAL.0),
+            item as i32,
+        );
+        if self.data_object.has_data_for_format(&format) {
+            unsafe {
+                let mut medium = self.data_object.GetData(&format as *const _)?;
+                let (future, completer) = FutureCompleter::new();
+                Self::do_get_virtual_file(&medium, &descriptor.name, target_folder, completer);
+                ReleaseStgMedium(&mut medium as *mut STGMEDIUM);
+                return future.await;
+            }
+        }
+        Err(NativeExtensionsError::VirtualFileReceiveError(
+            "item not found".into(),
+        ))
     }
 }
