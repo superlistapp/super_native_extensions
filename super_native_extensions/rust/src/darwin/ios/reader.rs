@@ -30,6 +30,7 @@ use crate::{
         progress_bridge::bridge_progress,
     },
     reader_manager::ReadProgress,
+    util::get_target_path,
 };
 
 pub struct PlatformDataReader {
@@ -179,31 +180,6 @@ impl PlatformDataReader {
         Ok(formats.iter().any(|f| f == format))
     }
 
-    fn get_target_path(source_path: &Path, target_folder: &Path) -> PathBuf {
-        let name = source_path.file_name().expect("Couldn't get file name");
-        let target_path = target_folder.join(&name);
-        if !target_path.exists() {
-            return target_path;
-        } else {
-            let mut i = 2;
-            let stem = source_path
-                .file_stem()
-                .expect("Couldn't get file stem")
-                .to_string_lossy();
-            let extension = source_path.extension();
-            let suffix = extension
-                .map(|a| format!(".{}", a.to_string_lossy()))
-                .unwrap_or("".into());
-            loop {
-                let target_path = target_folder.join(&format!("{} {}{}", stem, i, suffix));
-                if !target_path.exists() {
-                    return target_path;
-                }
-                i += 1;
-            }
-        }
-    }
-
     pub async fn get_virtual_file_for_item(
         &self,
         item: i64,
@@ -228,7 +204,11 @@ impl PlatformDataReader {
                         ))
                     } else {
                         let source_path = path_from_url(url);
-                        let target_path = Self::get_target_path(&source_path, &target_folder);
+                        let source_name = source_path
+                            .file_name()
+                            .expect("Missing file name")
+                            .to_string_lossy();
+                        let target_path = get_target_path(&target_folder, &source_name);
                         match fs::rename(&source_path, &target_path) {
                             Ok(_) => Ok(target_path),
                             Err(err) => Err(NativeExtensionsError::VirtualFileReceiveError(
