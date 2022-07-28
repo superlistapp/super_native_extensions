@@ -2,15 +2,16 @@ use std::{
     cell::{Cell, RefCell},
     collections::HashMap,
     rc::{Rc, Weak},
-    sync::Arc,
+    sync::{self, Arc, Mutex},
 };
 
 use async_trait::async_trait;
 
 use nativeshell_core::{
-    util::Late, AsyncMethodHandler, AsyncMethodInvoker, Context, FinalizableHandle,
-    IntoPlatformResult, IntoValue, IsolateId, MethodCall, PlatformError, PlatformResult,
-    RegisteredAsyncMethodHandler, TryFromValue, Value,
+    util::{Capsule, Late},
+    AsyncMethodHandler, AsyncMethodInvoker, Context, FinalizableHandle, IntoPlatformResult,
+    IntoValue, IsolateId, MethodCall, PlatformError, PlatformResult, RegisteredAsyncMethodHandler,
+    RunLoopSender, TryFromValue, Value,
 };
 
 use crate::{
@@ -34,7 +35,7 @@ pub struct DataReaderManager {
     invoker: Late<AsyncMethodInvoker>,
     next_id: Cell<i64>,
     readers: RefCell<HashMap<DataReaderId, ReaderEntry>>,
-    progresses: RefCell<HashMap<(IsolateId, i64), Weak<ReadProgress>>>,
+    progresses: RefCell<HashMap<(IsolateId, i64), sync::Weak<ReadProgress>>>,
 }
 
 struct ReaderEntry {
@@ -52,27 +53,82 @@ impl GetDataReaderManager for Context {
     }
 }
 
-pub struct ReadProgress {
-    _drop_notifier: Arc<DropNotifier>,
-    cancellation_handler: RefCell<Option<Box<dyn FnOnce()>>>,
-    on_set_cancellation_handler: Box<dyn Fn(bool)>,
+struct ReadProgressInner {
+    cancellation_handler: Option<Box<dyn FnOnce() + Send>>,
+    on_set_cancellation_handler: Box<dyn Fn(bool /* is cancellable */)>,
     on_progress: Box<dyn Fn(Option<f64>)>,
 }
 
+pub struct ReadProgress {
+    _drop_notifier: Arc<DropNotifier>,
+    sender: RunLoopSender,
+    inner: Mutex<Capsule<ReadProgressInner>>,
+}
+
+/// Progress is thread safe. It must be created on main thread. Callbacks
+/// specified in constructor are guaranteed to be invoked on main thread.
 impl ReadProgress {
+    fn new<F1, F2>(
+        drop_notifier: Arc<DropNotifier>,
+        on_set_cancellation_handler: F1,
+        on_progress: F2,
+    ) -> Self
+    where
+        F1: Fn(bool) + 'static,
+        F2: Fn(Option<f64>) + 'static,
+    {
+        Self {
+            _drop_notifier: drop_notifier,
+            sender: Context::get().run_loop().new_sender(),
+            inner: Mutex::new(Capsule::new(ReadProgressInner {
+                cancellation_handler: None,
+                on_set_cancellation_handler: Box::new(on_set_cancellation_handler),
+                on_progress: Box::new(on_progress),
+            })),
+        }
+    }
+
     #[allow(dead_code)]
-    pub fn set_cancellation_handler(&self, handler: Option<Box<dyn FnOnce()>>) {
-        (self.on_set_cancellation_handler)(handler.is_some());
-        self.cancellation_handler.replace(handler);
+    pub fn set_cancellation_handler(self: &Arc<Self>, handler: Option<Box<dyn FnOnce() + Send>>) {
+        if Context::current().is_some() {
+            let mut inner = self.inner.lock().unwrap();
+            let mut inner = inner.get_mut().unwrap();
+            (inner.on_set_cancellation_handler)(handler.is_some());
+            inner.cancellation_handler = handler;
+        } else {
+            let self_clone = self.clone();
+            self.sender.send(move || {
+                self_clone.set_cancellation_handler(handler);
+            });
+        }
     }
     #[allow(dead_code)]
-    pub fn report_progress(&self, progress: Option<f64>) {
-        (self.on_progress)(progress);
+    pub fn report_progress(self: &Arc<Self>, fraction: Option<f64>) {
+        if Context::current().is_some() {
+            let inner = self.inner.lock().unwrap();
+            let inner = inner.get_ref().unwrap();
+            (inner.on_progress)(fraction);
+        } else {
+            let self_clone = self.clone();
+            self.sender.send(move || {
+                self_clone.report_progress(fraction);
+            });
+        }
     }
-    fn cancel(&self) {
-        let handler = self.cancellation_handler.replace(None);
-        if let Some(handler) = handler {
-            handler();
+
+    fn cancel(self: &Arc<Self>) {
+        if Context::current().is_some() {
+            let mut inner = self.inner.lock().unwrap();
+            let inner = inner.get_mut().unwrap();
+            let handler = inner.cancellation_handler.take();
+            if let Some(handler) = handler {
+                handler();
+            }
+        } else {
+            let self_clone = self.clone();
+            self.sender.send(move || {
+                self_clone.cancel();
+            });
         }
     }
 }
@@ -89,7 +145,7 @@ impl DataReaderManager {
         .register("DataReaderManager")
     }
 
-    fn new_read_progress(&self, isolate_id: IsolateId, progress_id: i64) -> Rc<ReadProgress> {
+    fn new_read_progress(&self, isolate_id: IsolateId, progress_id: i64) -> Arc<ReadProgress> {
         #[derive(IntoValue)]
         #[nativeshell(rename_all = "camelCase")]
         struct SetProgressCancellable {
@@ -105,16 +161,15 @@ impl DataReaderManager {
         let weak_self_1 = self.weak_self.clone();
         let weak_self_2 = self.weak_self.clone();
         let weak_self_3 = self.weak_self.clone();
-        let res = Rc::new(ReadProgress {
-            _drop_notifier: Arc::new(DropNotifier::new(move || {
+        let res = Arc::new(ReadProgress::new(
+            Arc::new(DropNotifier::new(move || {
                 if let Some(this) = weak_self_1.upgrade() {
                     this.progresses
                         .borrow_mut()
                         .remove(&(isolate_id, progress_id));
                 }
             })),
-            cancellation_handler: RefCell::new(None),
-            on_set_cancellation_handler: Box::new(move |cancellable| {
+            move |cancellable| {
                 if let Some(this) = weak_self_2.upgrade() {
                     this.invoker.call_method_sync(
                         isolate_id,
@@ -128,8 +183,8 @@ impl DataReaderManager {
                         },
                     );
                 }
-            }),
-            on_progress: Box::new(move |fraction| {
+            },
+            move |fraction| {
                 if let Some(this) = weak_self_3.upgrade() {
                     this.invoker.call_method_sync(
                         isolate_id,
@@ -143,11 +198,11 @@ impl DataReaderManager {
                         },
                     );
                 }
-            }),
-        });
+            },
+        ));
         self.progresses
             .borrow_mut()
-            .insert((isolate_id, progress_id), Rc::downgrade(&res));
+            .insert((isolate_id, progress_id), Arc::downgrade(&res));
         res
     }
 

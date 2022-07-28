@@ -13,6 +13,7 @@ pub enum NativeExtensionsError {
     UnsupportedOperation,
     VirtualFileSessionNotFound,
     VirtualFileReceiveError(String),
+    InvalidData,
 }
 
 pub type NativeExtensionsResult<T> = Result<T, NativeExtensionsError>;
@@ -37,6 +38,7 @@ impl Display for NativeExtensionsError {
             NativeExtensionsError::VirtualFileReceiveError(m) => {
                 write!(f, "virtual file receive error: {}", m)
             }
+            NativeExtensionsError::InvalidData => write!(f, "invalid data"),
         }
     }
 }

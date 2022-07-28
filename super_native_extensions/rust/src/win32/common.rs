@@ -76,26 +76,6 @@ pub unsafe fn as_u8_slice<T: Sized>(p: &T) -> &[u8] {
     ::std::slice::from_raw_parts((p as *const T) as *const u8, ::std::mem::size_of::<T>())
 }
 
-pub fn get_data(object: &IDataObject, format: u32) -> windows::core::Result<Vec<u8>> {
-    let mut format = make_format_with_tymed(format, TYMED_HGLOBAL);
-
-    unsafe {
-        let mut medium = object.GetData(&mut format as *mut _)?;
-
-        let size = GlobalSize(medium.Anonymous.hGlobal);
-        let data = GlobalLock(medium.Anonymous.hGlobal);
-
-        let v = slice::from_raw_parts(data as *const u8, size);
-        let res: Vec<u8> = v.into();
-
-        GlobalUnlock(medium.Anonymous.hGlobal);
-
-        ReleaseStgMedium(&mut medium as *mut STGMEDIUM);
-
-        Ok(res)
-    }
-}
-
 pub fn extract_formats(object: &IDataObject) -> windows::core::Result<Vec<FORMATETC>> {
     let e = unsafe { object.EnumFormatEtc(DATADIR_GET.0 as u32)? };
     let mut res = Vec::new();
