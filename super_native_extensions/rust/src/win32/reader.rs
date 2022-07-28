@@ -1,16 +1,22 @@
 use std::{
     ffi::CStr,
+    fs,
+    ops::Deref,
     path::{Path, PathBuf},
     rc::{Rc, Weak},
     slice,
     sync::Arc,
+    thread,
 };
 
 use byte_slice_cast::AsSliceOf;
-use nativeshell_core::{util::FutureCompleter, Value};
+use nativeshell_core::{
+    util::{Capsule, FutureCompleter},
+    Context, RunLoopSender, Value,
+};
 use windows::Win32::{
     System::{
-        Com::{IDataObject, STGMEDIUM, TYMED, TYMED_HGLOBAL, TYMED_ISTREAM},
+        Com::{IDataObject, IStream, STGMEDIUM, TYMED, TYMED_HGLOBAL, TYMED_ISTREAM},
         DataExchange::RegisterClipboardFormatW,
         Memory::{GlobalLock, GlobalSize, GlobalUnlock},
         Ole::{OleGetClipboard, ReleaseStgMedium},
@@ -25,7 +31,7 @@ use crate::{
     error::{NativeExtensionsError, NativeExtensionsResult},
     platform_impl::platform::common::make_format_with_tymed_index,
     reader_manager::ReadProgress,
-    util::DropNotifier,
+    util::{get_target_path, DropNotifier, Movable},
 };
 
 use super::{
@@ -299,6 +305,7 @@ impl PlatformDataReader {
         medium: &STGMEDIUM,
         file_name: &str,
         target_folder: PathBuf,
+        progress: Arc<ReadProgress>,
         completer: FutureCompleter<NativeExtensionsResult<PathBuf>>,
     ) {
         match TYMED(medium.tymed as i32) {
@@ -312,8 +319,32 @@ impl PlatformDataReader {
                     GlobalUnlock(medium.Anonymous.hGlobal);
                     res
                 };
+                let path = get_target_path(&target_folder, file_name);
+                match fs::write(&path, &data) {
+                    Ok(_) => completer.complete(Ok(path)),
+                    Err(err) => completer.complete(Err(
+                        NativeExtensionsError::VirtualFileReceiveError(err.to_string()),
+                    )),
+                }
             }
-            TYMED_ISTREAM => {}
+            TYMED_ISTREAM => match unsafe { medium.Anonymous.pstm.as_ref() } {
+                Some(stream) => {
+                    let reader = VirtualStreamReader {
+                        sender: Context::get().run_loop().new_sender(),
+                        stream: unsafe { Movable::new(stream.clone()) },
+                        file_name: file_name.into(),
+                        target_folder,
+                        progress,
+                        completer: Capsule::new(completer),
+                    };
+                    thread::spawn(move || {
+                        reader.read();
+                    });
+                }
+                None => completer.complete(Err(NativeExtensionsError::VirtualFileReceiveError(
+                    "IStream missing".into(),
+                ))),
+            },
             _ => completer.complete(Err(NativeExtensionsError::VirtualFileReceiveError(
                 "unsupported data format (unexpected tymed)".into(),
             ))),
@@ -325,7 +356,7 @@ impl PlatformDataReader {
         item: i64,
         _format: &str,
         target_folder: PathBuf,
-        _progress: Arc<ReadProgress>,
+        progress: Arc<ReadProgress>,
     ) -> NativeExtensionsResult<PathBuf> {
         let descriptors = self.get_file_descriptors()?.ok_or_else(|| {
             NativeExtensionsError::VirtualFileReceiveError(
@@ -345,7 +376,13 @@ impl PlatformDataReader {
             unsafe {
                 let mut medium = self.data_object.GetData(&format as *const _)?;
                 let (future, completer) = FutureCompleter::new();
-                Self::do_get_virtual_file(&medium, &descriptor.name, target_folder, completer);
+                Self::do_get_virtual_file(
+                    &medium,
+                    &descriptor.name,
+                    target_folder,
+                    progress,
+                    completer,
+                );
                 ReleaseStgMedium(&mut medium as *mut STGMEDIUM);
                 return future.await;
             }
@@ -353,5 +390,34 @@ impl PlatformDataReader {
         Err(NativeExtensionsError::VirtualFileReceiveError(
             "item not found".into(),
         ))
+    }
+}
+
+// Most streams in COM should be agile, also the documentation for IDataObjectAsyncCapability
+// assumes that the stream is read on background thread so we wrap it inside Movable
+// in order to be able to send it.
+
+struct VirtualStreamReader {
+    sender: RunLoopSender,
+    stream: Movable<IStream>,
+    file_name: String,
+    target_folder: PathBuf,
+    progress: Arc<ReadProgress>,
+    completer: Capsule<FutureCompleter<NativeExtensionsResult<PathBuf>>>,
+}
+
+impl VirtualStreamReader {
+    fn read_inner(&self) -> NativeExtensionsResult<PathBuf> {
+        unsafe {}
+        todo!()
+    }
+
+    fn read(self) {
+        let res = self.read_inner();
+        let mut completer = self.completer;
+        self.sender.send(move || {
+            let completer = completer.take().unwrap();
+            completer.complete(res);
+        });
     }
 }

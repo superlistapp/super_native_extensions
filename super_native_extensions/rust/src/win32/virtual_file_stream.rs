@@ -21,8 +21,10 @@ use windows::{
 };
 
 use crate::{
-    data_provider_manager::VirtualSessionHandle, segmented_queue::SegmentedQueueReader,
-    util::DropNotifier, value_promise::Promise,
+    data_provider_manager::VirtualSessionHandle,
+    segmented_queue::SegmentedQueueReader,
+    util::{DropNotifier, Movable},
+    value_promise::Promise,
 };
 
 struct StreamInner {
@@ -133,8 +135,6 @@ impl VirtualFileStream {
         error_promise: Arc<Promise<String>>,
         handle: Arc<VirtualSessionHandle>, // fired when stream is dropped
     ) -> (IStream, Arc<DropNotifier>) {
-        struct Movable<T>(T);
-        unsafe impl<T> Send for Movable<T> {}
         let promise = Arc::new(Promise::<(Movable<IStream>, Box<dyn FnOnce() + Send>)>::new());
         let promise_clone = promise.clone();
         thread::spawn(move || unsafe {
@@ -163,13 +163,14 @@ impl VirtualFileStream {
                     stream_capsule.get_ref().unwrap().dispose();
                 });
             });
-            promise_clone.set((Movable(mashalled), clean_up));
+            promise_clone.set((Movable::new(mashalled), clean_up));
             run_loop.run(); // will be stopped in drop
             CoUninitialize();
         });
 
         let res = promise.wait();
-        let stream: IStream = unsafe { CoGetInterfaceAndReleaseStream(res.0 .0) }.unwrap();
+        let stream = res.0.take();
+        let stream: IStream = unsafe { CoGetInterfaceAndReleaseStream(stream) }.unwrap();
         let drop_notifier = Arc::new(DropNotifier::new_with_boxed(res.1));
         (stream, drop_notifier)
     }

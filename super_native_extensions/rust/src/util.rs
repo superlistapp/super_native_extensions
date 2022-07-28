@@ -1,4 +1,8 @@
-use std::{cell::Cell, sync::Mutex, path::{Path, PathBuf}};
+use std::{
+    cell::Cell,
+    path::{Path, PathBuf},
+    sync::Mutex, ops::Deref,
+};
 
 use nativeshell_core::{util::Capsule, Context, RunLoopSender};
 
@@ -71,5 +75,28 @@ pub fn get_target_path(target_folder: &Path, file_name: &str) -> PathBuf {
             }
             i += 1;
         }
+    }
+}
+
+/// Structure that can be used to move non-send objects accross thread. Unsafe.
+pub struct Movable<T>(T);
+unsafe impl<T> Send for Movable<T> {}
+
+impl<T> Movable<T> {
+    /// Safety: This function is unsafe because it turns non Send object into Send.
+    pub unsafe fn new(t: T) -> Self {
+        Self(t)
+    }
+
+    pub fn take(self) -> T {
+        self.0
+    }
+}
+
+impl<T> Deref for Movable<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
