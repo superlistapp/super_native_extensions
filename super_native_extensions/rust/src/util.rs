@@ -1,7 +1,8 @@
 use std::{
     cell::Cell,
+    ops::Deref,
     path::{Path, PathBuf},
-    sync::Mutex, ops::Deref,
+    sync::Mutex,
 };
 
 use nativeshell_core::{util::Capsule, Context, RunLoopSender};
@@ -98,5 +99,11 @@ impl<T> Deref for Movable<T> {
 
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+impl<T: Clone> Clone for Movable<T> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
     }
 }

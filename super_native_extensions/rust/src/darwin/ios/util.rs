@@ -17,6 +17,7 @@ use crate::{
     api_model::{ImageData, Point, Rect, Size},
     drag_manager::DragSessionId,
     platform_impl::platform::common::{cg_image_from_image_data, to_nsstring},
+    util::Movable,
     value_coerce::{CoerceToData, StringFormat},
     value_promise::ValuePromiseResult,
 };
@@ -115,11 +116,6 @@ pub fn to_nsdata(data: &[u8]) -> StrongPtr {
 
 // NSItemProvider utility methods
 
-#[derive(Clone)]
-struct Movable<T>(T);
-
-unsafe impl<T> Send for Movable<T> {}
-
 pub fn register_data_representation<F>(item_provider: id, type_identifier: &str, handler: F)
 where
     F: Fn(Box<dyn Fn(id /* NSData */, id /* NSError */) + 'static + Send>) -> id + 'static + Send,
@@ -128,10 +124,10 @@ where
     let block = ConcreteBlock::new(move |completion_block: id| -> id {
         let completion_block = unsafe { &mut *(completion_block as *mut Block<(id, id), ()>) };
         let completion_block = unsafe { RcBlock::copy(completion_block) };
-        let completion_block = Movable(completion_block);
+        let completion_block = unsafe { Movable::new(completion_block) };
         let completion_fn = move |data: id, err: id| {
             let completion_block = completion_block.clone();
-            unsafe { completion_block.0.call((data, err)) };
+            unsafe { completion_block.call((data, err)) };
         };
         handler(Box::new(completion_fn))
     });
@@ -162,10 +158,10 @@ pub fn register_file_representation<F>(
         let completion_block =
             unsafe { &mut *(completion_block as *mut Block<(id, BOOL, id), ()>) };
         let completion_block = unsafe { RcBlock::copy(completion_block) };
-        let completion_block = Movable(completion_block);
+        let completion_block = unsafe { Movable::new(completion_block) };
         let completion_fn = move |data: id, coordinated: bool, err: id| {
             let completion_block = completion_block.clone();
-            unsafe { completion_block.0.call((data, coordinated as BOOL, err)) };
+            unsafe { completion_block.call((data, coordinated as BOOL, err)) };
         };
         handler(Box::new(completion_fn))
     });

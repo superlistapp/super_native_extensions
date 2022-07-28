@@ -34,6 +34,7 @@ use crate::{
     error::NativeExtensionsResult,
     log::OkLog,
     platform_impl::platform::common::{from_nsstring, to_nserror, to_nsstring},
+    util::Movable,
     value_promise::ValuePromiseResult,
 };
 
@@ -401,17 +402,11 @@ impl DataProviderSession {
         storage: VirtualFileStorage,
         callback: Box<dyn Fn(id, bool, id) + Send>,
     ) {
-        #[derive(Clone)]
-        struct Movable<T>(T);
-
-        unsafe impl<T> Send for Movable<T> {}
-
-        let progress = Movable(progress);
+        let progress = unsafe { Movable::new(progress) };
         let self_clone = self.clone();
         Self::on_platform_thread(&self, move |s| match s {
             Some((source, source_delegate, session_delegate)) => {
-                let progress = progress;
-                let progress = progress.0;
+                let progress = progress.take();
                 // For some reason iOS seems to eagerly fetch items immediatelly
                 // at the beginning of drag (before even dragInteraction:sessionWillBegin:).
                 // If we detect that return empty data.

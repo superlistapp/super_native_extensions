@@ -20,6 +20,7 @@ use crate::{
         objc_setAssociatedObject, to_nsstring, OBJC_ASSOCIATION_RETAIN,
     },
     reader_manager::ReadProgress,
+    util::Movable,
 };
 
 use super::superclass;
@@ -49,12 +50,9 @@ pub unsafe fn bridge_progress(ns_progress: id, read_progress: Arc<ReadProgress>)
 
     let cancellable: BOOL = msg_send![ns_progress, isCancellable];
     if cancellable == YES {
-        struct Movable<T>(T);
-        unsafe impl<T> Send for Movable<T> {}
-        let weak = Movable(WeakPtr::new(ns_progress));
+        let weak = Movable::new(WeakPtr::new(ns_progress));
         read_progress.set_cancellation_handler(Some(Box::new(move || {
-            let weak = weak;
-            let progress = weak.0.load();
+            let progress = weak.load();
             if *progress != nil {
                 let () = msg_send![*progress, cancel];
             }

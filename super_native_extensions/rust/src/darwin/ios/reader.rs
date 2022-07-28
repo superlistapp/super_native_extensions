@@ -1,6 +1,6 @@
 use std::{
     fs,
-    path::{Path, PathBuf},
+    path::PathBuf,
     rc::{Rc, Weak},
     sync::{Arc, Mutex},
 };
@@ -30,7 +30,7 @@ use crate::{
         progress_bridge::bridge_progress,
     },
     reader_manager::ReadProgress,
-    util::get_target_path,
+    util::{get_target_path, Movable},
 };
 
 pub struct PlatformDataReader {
@@ -126,10 +126,8 @@ impl PlatformDataReader {
                 let provider = providers[item as usize];
                 let sender = Context::get().run_loop().new_sender();
                 let block = ConcreteBlock::new(move |data: id, _err: id| {
-                    struct Movable<T>(T);
-                    unsafe impl<T> Send for Movable<T> {}
                     let data = Self::maybe_decode_bplist(data);
-                    let data = Movable(StrongPtr::retain(data));
+                    let data = Movable::new(StrongPtr::retain(data));
                     let completer = completer.clone();
                     sender.send(move || {
                         let completer = completer
@@ -138,8 +136,9 @@ impl PlatformDataReader {
                             .take()
                             .expect("Block invoked more than once");
                         let data = data;
-                        completer
-                            .complete(Ok(Value::from_objc(*data.0).ok_log().unwrap_or_default()))
+                        completer.complete(Ok(Value::from_objc(*data.take())
+                            .ok_log()
+                            .unwrap_or_default()))
                     });
                 });
                 let block = block.copy();
@@ -196,8 +195,6 @@ impl PlatformDataReader {
                 let provider = providers[item as usize];
                 let sender = Context::get().run_loop().new_sender();
                 let block = ConcreteBlock::new(move |url: id, err: id| {
-                    struct Movable<T>(T);
-                    unsafe impl<T> Send for Movable<T> {}
                     let res = if err != nil {
                         Err(NativeExtensionsError::VirtualFileReceiveError(
                             nserror_description(err),
