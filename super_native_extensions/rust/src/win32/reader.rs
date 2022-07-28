@@ -5,7 +5,10 @@ use std::{
     path::{Path, PathBuf},
     rc::{Rc, Weak},
     slice,
-    sync::Arc,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex,
+    },
     thread,
 };
 
@@ -15,8 +18,12 @@ use nativeshell_core::{
     Context, RunLoopSender, Value,
 };
 use windows::Win32::{
+    Foundation::S_OK,
     System::{
-        Com::{IDataObject, IStream, STGMEDIUM, TYMED, TYMED_HGLOBAL, TYMED_ISTREAM},
+        Com::{
+            IDataObject, IStream, StructuredStorage::STATFLAG_NONAME, STATSTG, STGMEDIUM, TYMED,
+            TYMED_HGLOBAL, TYMED_ISTREAM,
+        },
         DataExchange::RegisterClipboardFormatW,
         Memory::{GlobalLock, GlobalSize, GlobalUnlock},
         Ole::{OleGetClipboard, ReleaseStgMedium},
@@ -36,7 +43,7 @@ use crate::{
 
 use super::{
     common::{extract_formats, format_from_string, format_to_string},
-    data_object::GetData,
+    data_object::{DataObject, GetData},
 };
 
 pub struct PlatformDataReader {
@@ -374,7 +381,9 @@ impl PlatformDataReader {
         );
         if self.data_object.has_data_for_format(&format) {
             unsafe {
-                let mut medium = self.data_object.GetData(&format as *const _)?;
+                let mut medium = DataObject::with_local_request(|| {
+                    self.data_object.GetData(&format as *const _)
+                })?;
                 let (future, completer) = FutureCompleter::new();
                 Self::do_get_virtual_file(
                     &medium,
@@ -407,13 +416,71 @@ struct VirtualStreamReader {
 }
 
 impl VirtualStreamReader {
+    fn get_length(&self) -> NativeExtensionsResult<u64> {
+        let mut stat = STATSTG::default();
+        unsafe {
+            self.stream
+                .Stat(&mut stat as *mut _, STATFLAG_NONAME.0 as u32)?;
+        }
+        Ok(stat.cbSize as u64)
+    }
+
     fn read_inner(&self) -> NativeExtensionsResult<PathBuf> {
-        unsafe {}
-        todo!()
+        let cancelled = Arc::new(AtomicBool::new(false));
+        let cancelled_clone = cancelled.clone();
+        self.progress
+            .set_cancellation_handler(Some(Box::new(move || {
+                cancelled_clone.store(true, Ordering::Release);
+            })));
+        let length = self.get_length()?;
+        let mut num_read: u64 = 0;
+        let mut buf = Vec::<u8>::new();
+        buf.resize(1024 * 256, 0);
+        let mut last_reported_progress = 0f64;
+        loop {
+            if cancelled.load(Ordering::Acquire) {
+                return Err(NativeExtensionsError::VirtualFileReceiveError(
+                    "cancelled".into(),
+                ));
+            }
+            let to_read = (length - num_read).min(buf.len() as u64) as u32;
+            if to_read == 0 {
+                break;
+            }
+            let mut did_read = 0u32;
+            let res = unsafe {
+                self.stream
+                    .Read(buf.as_ptr() as *mut _, to_read, &mut did_read as *mut _)
+            };
+            if res != S_OK {
+                return Err(windows::core::Error::from(res).into());
+            }
+            if to_read == 0 {
+                return Err(NativeExtensionsError::VirtualFileReceiveError(
+                    "stream ended prematurely".into(),
+                ));
+            }
+            num_read += did_read as u64;
+
+            let progress = num_read as f64 / length as f64;
+            if progress >= last_reported_progress + 0.05 {
+                last_reported_progress = progress;
+                self.progress.report_progress(Some(progress));
+            }
+        }
+        self.progress.report_progress(Some(1.0));
+
+        println!("NUM READ {:?}", num_read);
+
+        Ok("ASFASDF".into())
     }
 
     fn read(self) {
         let res = self.read_inner();
+        if res.is_err() {
+            println!("Clean-up");
+        }
+        println!("X");
         let mut completer = self.completer;
         self.sender.send(move || {
             let completer = completer.take().unwrap();

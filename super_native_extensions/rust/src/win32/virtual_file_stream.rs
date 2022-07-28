@@ -2,11 +2,11 @@ use std::{
     cell::{Cell, RefCell},
     rc::Rc,
     slice,
-    sync::Arc,
+    sync::{Arc, Mutex},
     thread,
 };
 
-use nativeshell_core::{util::Capsule, RunLoop};
+use nativeshell_core::{util::Capsule, RunLoop, RunLoopSender};
 use windows::{
     core::{implement, Interface},
     Win32::{
@@ -28,7 +28,7 @@ use crate::{
 };
 
 struct StreamInner {
-    run_loop: Rc<RunLoop>,
+    run_loop: Option<(RunLoopSender, Capsule<Rc<RunLoop>>)>,
     reader: SegmentedQueueReader,
     size_promise: Arc<Promise<Option<i64>>>,
     error_promise: Arc<Promise<String>>,
@@ -37,12 +37,12 @@ struct StreamInner {
 }
 
 struct Stream {
-    inner: RefCell<Option<StreamInner>>,
+    inner: Mutex<Option<StreamInner>>,
 }
 
 impl Stream {
     fn dispose(&self) {
-        self.inner.take();
+        self.inner.lock().unwrap().take();
     }
 
     fn read(
@@ -51,7 +51,7 @@ impl Stream {
         cb: u32,
         pcbread: *mut u32,
     ) -> windows::core::HRESULT {
-        let inner = self.inner.borrow();
+        let inner = self.inner.lock().unwrap();
         match inner.as_ref() {
             Some(inner) => {
                 // This doesn't entirely conform to ISequentialStream::Read documentation.
@@ -80,7 +80,7 @@ impl Stream {
     }
 
     fn seek(&self, dlibmove: i64, dworigin: STREAM_SEEK) -> windows::core::Result<u64> {
-        let inner = self.inner.borrow();
+        let inner = self.inner.lock().unwrap();
         match inner.as_ref() {
             Some(inner) => {
                 let position = if dworigin == STREAM_SEEK_SET {
@@ -106,7 +106,7 @@ impl Stream {
         pstatstg: *mut windows::Win32::System::Com::STATSTG,
         _grfstatflag: u32,
     ) -> windows::core::Result<()> {
-        let inner = self.inner.borrow();
+        let inner = self.inner.lock().unwrap();
         if let Some(inner) = inner.as_ref() {
             let size = inner.size_promise.wait_clone();
             let statstg = unsafe { &mut *pstatstg };
@@ -118,18 +118,51 @@ impl Stream {
 
 impl Drop for StreamInner {
     fn drop(&mut self) {
-        self.run_loop.stop();
+        if let Some((sender, mut run_loop)) = self.run_loop.take() {
+            sender.send(move || {
+                run_loop.take().unwrap().stop();
+            });
+        }
     }
 }
 
 #[implement(IStream)]
 pub struct VirtualFileStream {
-    stream: Rc<Stream>,
+    stream: Arc<Stream>,
 }
 
 impl VirtualFileStream {
-    /// Moves the stream to another thread and return marshalled proxy
-    pub fn create_on_another_thread(
+    /// Creates agile stream that can be accessed on any thread. This should be
+    /// used when stream is accessed by local applicaiton on background thread.
+    pub fn create_agile(
+        reader: SegmentedQueueReader,
+        size_promise: Arc<Promise<Option<i64>>>,
+        error_promise: Arc<Promise<String>>,
+        handle: Arc<VirtualSessionHandle>,
+    ) -> (IStream, Arc<DropNotifier>) {
+        let stream = Arc::new(Stream {
+            inner: Mutex::new(Some(StreamInner {
+                run_loop: None,
+                reader,
+                size_promise,
+                error_promise,
+                _handle: handle,
+                position: Cell::new(0),
+            })),
+        });
+        let stream_clone = stream.clone();
+        let stream: IStream = VirtualFileStream { stream }.into();
+        (
+            stream.into(),
+            Arc::new(DropNotifier::new(move || {
+                stream_clone.dispose();
+            })),
+        )
+    }
+
+    /// Moves the stream to another thread and return marshalled proxy.
+    /// This should be used when providing stream to other applications.
+    pub fn create_marshalled_on_background_thread(
         reader: SegmentedQueueReader,
         size_promise: Arc<Promise<Option<i64>>>,
         error_promise: Arc<Promise<String>>,
@@ -140,9 +173,9 @@ impl VirtualFileStream {
         thread::spawn(move || unsafe {
             CoInitialize(std::ptr::null_mut()).ok();
             let run_loop = Rc::new(RunLoop::new());
-            let stream = Rc::new(Stream {
-                inner: RefCell::new(Some(StreamInner {
-                    run_loop: run_loop.clone(),
+            let stream = Arc::new(Stream {
+                inner: Mutex::new(Some(StreamInner {
+                    run_loop: Some((run_loop.new_sender(), Capsule::new(run_loop.clone()))),
                     reader,
                     size_promise,
                     error_promise,
@@ -150,18 +183,15 @@ impl VirtualFileStream {
                     position: Cell::new(0),
                 })),
             });
-            let stream_capsule = Capsule::new(stream.clone());
+            let stream_clone = stream.clone();
             let stream: IStream = VirtualFileStream { stream }.into();
             let mashalled = CoMarshalInterThreadInterfaceInStream(&IStream::IID, stream).unwrap();
-            let sender = run_loop.new_sender();
             // Ensure stream disposal when parent dataobject is disposed. This is
             // to ensure that when stream leaks it is at least destroyed (and thread
             // released)  when data object is destroyed.
             // https://github.com/microsoft/terminal/issues/13498
             let clean_up = Box::new(move || {
-                sender.send(move || {
-                    stream_capsule.get_ref().unwrap().dispose();
-                });
+                stream_clone.dispose();
             });
             promise_clone.set((Movable::new(mashalled), clean_up));
             run_loop.run(); // will be stopped in drop

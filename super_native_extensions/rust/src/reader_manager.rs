@@ -80,11 +80,14 @@ impl ReadProgress {
         Self {
             _drop_notifier: drop_notifier,
             sender: Context::get().run_loop().new_sender(),
-            inner: Mutex::new(Capsule::new(ReadProgressInner {
-                cancellation_handler: None,
-                on_set_cancellation_handler: Box::new(on_set_cancellation_handler),
-                on_progress: Box::new(on_progress),
-            })),
+            inner: Mutex::new(Capsule::new_with_sender(
+                ReadProgressInner {
+                    cancellation_handler: None,
+                    on_set_cancellation_handler: Box::new(on_set_cancellation_handler),
+                    on_progress: Box::new(on_progress),
+                },
+                Context::get().run_loop().new_sender(),
+            )),
         }
     }
 

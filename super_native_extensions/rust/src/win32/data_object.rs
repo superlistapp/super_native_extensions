@@ -278,6 +278,7 @@ impl DataObject {
         provider: &PlatformDataProvider,
         virtual_file_id: DataProviderValueId,
         storage_suggestion: &Option<VirtualFileStorage>,
+        agile: bool,
     ) -> Option<IStream> {
         if let Some(delegate) = provider.delegate.upgrade() {
             let storage_suggestion =
@@ -313,12 +314,16 @@ impl DataObject {
                     }
                 }),
             );
-            let (stream, notifier) = VirtualFileStream::create_on_another_thread(
-                reader,
-                size_promise,
-                error_promise,
-                drop_notifier,
-            );
+            let (stream, notifier) = if agile {
+                VirtualFileStream::create_agile(reader, size_promise, error_promise, drop_notifier)
+            } else {
+                VirtualFileStream::create_marshalled_on_background_thread(
+                    reader,
+                    size_promise,
+                    error_promise,
+                    drop_notifier,
+                )
+            };
             // The drop notifier will be invoked when DataObject gets released
             // That will ensure that the stream is destroyed when data object
             // is dropped in case the cleant leaks the stream.
@@ -329,7 +334,7 @@ impl DataObject {
         }
     }
 
-    fn stream_for_virtual_file_index(&self, mut index: usize) -> Option<IStream> {
+    fn stream_for_virtual_file_index(&self, mut index: usize, agile: bool) -> Option<IStream> {
         for provider in &self.providers {
             let provider = &provider.provider;
             // Skip all virtual files before the requested one.
@@ -350,7 +355,7 @@ impl DataObject {
                     storage_suggestion,
                 } = repr
                 {
-                    return self.stream_for_virtual_file(&provider, *id, storage_suggestion);
+                    return self.stream_for_virtual_file(&provider, *id, storage_suggestion, agile);
                 }
             }
         }
@@ -358,17 +363,32 @@ impl DataObject {
     }
 }
 
+thread_local! {
+    static IS_LOCAL_REQUEST: Cell<bool> = Cell::new(false);
+}
+
+impl DataObject {
+    pub fn with_local_request<T, F: FnOnce() -> T>(f: F) -> T {
+        let prev = IS_LOCAL_REQUEST.with(|a| a.replace(true));
+        let res = f();
+        IS_LOCAL_REQUEST.with(|a| a.set(prev));
+        res
+    }
+
+    fn is_local_request() -> bool {
+        IS_LOCAL_REQUEST.with(|f| f.get())
+    }
+}
+
 impl IDataObject_Impl for DataObject {
-    fn GetData(
-        &self,
-        pformatetcin: *const windows::Win32::System::Com::FORMATETC,
-    ) -> windows::core::Result<windows::Win32::System::Com::STGMEDIUM> {
+    fn GetData(&self, pformatetcin: *const FORMATETC) -> windows::core::Result<STGMEDIUM> {
         let format = unsafe { &*pformatetcin };
         let format_file_descriptor = unsafe { RegisterClipboardFormatW(CFSTR_FILEDESCRIPTOR) };
         let format_file_contents = unsafe { RegisterClipboardFormatW(CFSTR_FILECONTENTS) };
 
         if format.cfFormat as u32 == format_file_contents {
-            let stream = self.stream_for_virtual_file_index(format.lindex as usize);
+            let stream = self
+                .stream_for_virtual_file_index(format.lindex as usize, Self::is_local_request());
             return Ok(STGMEDIUM {
                 tymed: TYMED_ISTREAM.0 as u32,
                 Anonymous: STGMEDIUM_0 {

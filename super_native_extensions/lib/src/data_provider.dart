@@ -100,16 +100,9 @@ class DataRepresentationLazy extends DataRepresentation {
   final FutureOr<Object> Function() dataProvider;
 }
 
-class WriteProgress {
-  WriteProgress(this.onCancel, ValueNotifier<double> onProgress)
-      : _onProgress = onProgress;
-
-  void updateProgress(double fraction) {
-    _onProgress.value = fraction;
-  }
-
-  final Listenable onCancel;
-  final ValueNotifier<double> _onProgress;
+abstract class WriteProgress {
+  void updateProgress(double fraction);
+  Listenable get onCancel;
 }
 
 typedef VirtualFileEventSinkProvider = EventSink Function(

@@ -70,8 +70,14 @@ class DataProviderManager {
           streamHandle: fileHandle);
     } else if (call.method == 'cancelVirtualFile') {
       final sessionId = call.arguments as int;
-      final session = _virtualSessions.remove(sessionId);
-      (session?.progress.onCancel as SimpleNotifier?)?.notify();
+      // Don't allow cancelling completed sessions. This can happen on
+      // windows when IStream gets released by the client (which is what
+      // triggers cancellation on windows) after having read entire length
+      // before dart code hasn't yet closed the sink.
+      if (_virtualSessions[sessionId]?.isCompleted != true) {
+        final session = _virtualSessions.remove(sessionId);
+        (session?.progress.onCancel as SimpleNotifier?)?.notify();
+      }
     }
   }
 
@@ -87,7 +93,7 @@ class DataProviderManager {
         'progress': progressNotifier.value,
       });
     });
-    final progress = WriteProgress(SimpleNotifier(), progressNotifier);
+    final progress = WriteProgressImpl(SimpleNotifier(), progressNotifier);
     final session = _VirtualSession(progress: progress);
     _virtualSessions[sessionId] = session;
 
@@ -107,7 +113,11 @@ class DataProviderManager {
     }
 
     final sink = _VirtualFileSink(
-        handle: streamHandle, onClose: onComplete, onError: onError);
+      session: session,
+      handle: streamHandle,
+      onClose: onComplete,
+      onError: onError,
+    );
 
     final virtualFile = _virtualFile[virtualFileId];
     if (virtualFile != null) {
@@ -147,13 +157,55 @@ class DataProviderManager {
   final _virtualSessions = <int, _VirtualSession>{};
 }
 
+class WriteProgressImpl extends WriteProgress {
+  WriteProgressImpl(Listenable onCancel, ValueNotifier<double> onProgress)
+      : _onCancel = onCancel,
+        _onProgress = onProgress;
+
+  @override
+  void updateProgress(double fraction) {
+    _onProgress.value = fraction;
+    _hasExplicitProgress = true;
+  }
+
+  @override
+  Listenable get onCancel => _onCancel;
+
+  /// Used to update progress based on bytes written to stream.
+  /// Only used unless user manually calls updateProgress.
+  void updateProgressImplicit(double fraction) {
+    if (_hasExplicitProgress) {
+      return;
+    }
+    // throttle updates
+    if (fraction == 1 || (fraction - _onProgress.value).abs() >= 0.05) {
+      _onProgress.value = fraction;
+    }
+  }
+
+  bool _hasExplicitProgress = false;
+  final Listenable _onCancel;
+  final ValueNotifier<double> _onProgress;
+}
+
 class _VirtualSession {
   _VirtualSession({
     required this.progress,
   });
 
   int? _fileSize;
-  final WriteProgress progress;
+  int _bytesWritten = 0;
+  final WriteProgressImpl progress;
+
+  void didWriteBytes(int bytes) {
+    _bytesWritten += bytes;
+    final fileSize = _fileSize ?? 0;
+    if (fileSize > 0) {
+      progress.updateProgressImplicit(_bytesWritten / fileSize);
+    }
+  }
+
+  bool get isCompleted => _bytesWritten == _fileSize;
 }
 
 class _NativeFunctions {
@@ -189,12 +241,14 @@ class _NativeFunctions {
 
 class _VirtualFileSink extends EventSink<Uint8List> {
   bool _closed = false;
+  final _VirtualSession session;
   final int handle;
   Pointer<Uint8>? _buffer;
   Future<void> Function() onClose;
   Future<void> Function(String) onError;
 
   _VirtualFileSink({
+    required this.session,
     required this.handle,
     required this.onClose,
     required this.onError,
@@ -215,6 +269,7 @@ class _VirtualFileSink extends EventSink<Uint8List> {
           .asTypedList(bufferSize)
           .setRange(0, len, data.sublist(numWritten, numWritten + len));
       _NativeFunctions.instance.streamWrite(handle, _buffer!, len);
+      session.didWriteBytes(len);
       numWritten += len;
     }
   }
