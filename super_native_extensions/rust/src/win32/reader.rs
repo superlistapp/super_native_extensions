@@ -1,13 +1,13 @@
 use std::{
     ffi::CStr,
-    fs,
-    ops::Deref,
+    fs::{self, File},
+    io::Write,
     path::{Path, PathBuf},
     rc::{Rc, Weak},
     slice,
     sync::{
         atomic::{AtomicBool, Ordering},
-        Arc, Mutex,
+        Arc,
     },
     thread,
 };
@@ -17,8 +17,12 @@ use nativeshell_core::{
     util::{Capsule, FutureCompleter},
     Context, RunLoopSender, Value,
 };
+use rand::{distributions::Alphanumeric, Rng};
 use windows::Win32::{
     Foundation::S_OK,
+    Storage::FileSystem::{
+        SetFileAttributesW, FILE_ATTRIBUTE_ARCHIVE, FILE_ATTRIBUTE_HIDDEN, FILE_ATTRIBUTE_TEMPORARY,
+    },
     System::{
         Com::{
             IDataObject, IStream, StructuredStorage::STATFLAG_NONAME, STATSTG, STGMEDIUM, TYMED,
@@ -36,6 +40,7 @@ use windows::Win32::{
 
 use crate::{
     error::{NativeExtensionsError, NativeExtensionsResult},
+    log::OkLog,
     platform_impl::platform::common::make_format_with_tymed_index,
     reader_manager::ReadProgress,
     util::{get_target_path, DropNotifier, Movable},
@@ -426,6 +431,35 @@ impl VirtualStreamReader {
     }
 
     fn read_inner(&self) -> NativeExtensionsResult<PathBuf> {
+        let temp_name: String = rand::thread_rng()
+            .sample_iter(&Alphanumeric)
+            .take(30)
+            .map(char::from)
+            .collect();
+        let temp_path = self.target_folder.join(format!(".{}", temp_name));
+        let file = File::create(&temp_path)?;
+        unsafe {
+            let path: String = temp_path.to_string_lossy().into();
+            SetFileAttributesW(path, FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_TEMPORARY);
+        }
+        match self.read_and_write(file) {
+            Ok(_) => {
+                let path = get_target_path(&self.target_folder, &self.file_name);
+                fs::rename(temp_path, &path)?;
+                unsafe {
+                    let path: String = path.to_string_lossy().into();
+                    SetFileAttributesW(path, FILE_ATTRIBUTE_ARCHIVE);
+                }
+                Ok(path)
+            }
+            Err(err) => {
+                fs::remove_file(temp_path).ok_log();
+                Err(err)
+            }
+        }
+    }
+
+    fn read_and_write(&self, mut f: File) -> NativeExtensionsResult<()> {
         let cancelled = Arc::new(AtomicBool::new(false));
         let cancelled_clone = cancelled.clone();
         self.progress
@@ -455,11 +489,12 @@ impl VirtualStreamReader {
             if res != S_OK {
                 return Err(windows::core::Error::from(res).into());
             }
-            if to_read == 0 {
+            if did_read == 0 {
                 return Err(NativeExtensionsError::VirtualFileReceiveError(
                     "stream ended prematurely".into(),
                 ));
             }
+            f.write_all(&mut buf[..did_read as usize])?;
             num_read += did_read as u64;
 
             let progress = num_read as f64 / length as f64;
@@ -470,17 +505,11 @@ impl VirtualStreamReader {
         }
         self.progress.report_progress(Some(1.0));
 
-        println!("NUM READ {:?}", num_read);
-
-        Ok("ASFASDF".into())
+        Ok(())
     }
 
     fn read(self) {
         let res = self.read_inner();
-        if res.is_err() {
-            println!("Clean-up");
-        }
-        println!("X");
         let mut completer = self.completer;
         self.sender.send(move || {
             let completer = completer.take().unwrap();

@@ -67,6 +67,7 @@ features = [
     "Data_Xml_Dom",
     "Win32_Foundation",
     "Win32_Graphics_Gdi",
+    "Win32_Storage_FileSystem",
     "Win32_System_Com_Marshal",
     "Win32_System_Com_StructuredStorage",
     "Win32_System_DataExchange",

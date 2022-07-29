@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{fmt::Display, io};
 
 use nativeshell_core::{MethodCallError, PlatformError, Value};
 
@@ -13,6 +13,7 @@ pub enum NativeExtensionsError {
     UnsupportedOperation,
     VirtualFileSessionNotFound,
     VirtualFileReceiveError(String),
+    IOError(io::Error),
     InvalidData,
 }
 
@@ -38,6 +39,7 @@ impl Display for NativeExtensionsError {
             NativeExtensionsError::VirtualFileReceiveError(m) => {
                 write!(f, "virtual file receive error: {}", m)
             }
+            NativeExtensionsError::IOError(e) => e.fmt(f),
             NativeExtensionsError::InvalidData => write!(f, "invalid data"),
         }
     }
@@ -58,5 +60,11 @@ impl From<NativeExtensionsError> for PlatformError {
 impl From<MethodCallError> for NativeExtensionsError {
     fn from(error: MethodCallError) -> Self {
         NativeExtensionsError::MethodCallError(error)
+    }
+}
+
+impl From<io::Error> for NativeExtensionsError {
+    fn from(e: io::Error) -> Self {
+        NativeExtensionsError::IOError(e)
     }
 }
