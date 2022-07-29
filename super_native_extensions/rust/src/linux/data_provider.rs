@@ -1,12 +1,12 @@
 use std::{
-    ffi::{CStr, CString},
     mem::ManuallyDrop,
     os::raw::{c_int, c_uint},
     ptr::null_mut,
-    rc::Weak,
+    rc::{Rc, Weak},
+    sync::Arc,
 };
 
-use gdk_sys::{gdk_atom_intern, gdk_atom_name, gdk_display_get_default, GdkAtom};
+use gdk_sys::gdk_display_get_default;
 use glib_sys::{gpointer, GFALSE};
 use gtk_sys::{
     gtk_clipboard_get_default, gtk_clipboard_set_with_data, gtk_main_iteration,
@@ -19,35 +19,36 @@ use nativeshell_core::{util::Late, IsolateId};
 use scopeguard::defer;
 
 use crate::{
+    api_model::{DataProvider, DataRepresentation},
+    data_provider_manager::{DataProviderHandle, PlatformDataProviderDelegate},
     error::NativeExtensionsResult,
     value_coerce::{CoerceToData, StringFormat},
-    writer_data::{DataSource, ClipboardWriterItem},
-    writer_manager::PlatformDataSourceDelegate,
 };
 
-// Use gtk function to set/retrieve text (there are multiple possible format,
-// we don't want to mess with that)
-pub const TYPE_TEXT: &str = "text/plain";
+use super::common::{atom_from_string, atom_to_string, TYPE_TEXT, TYPE_URI};
 
-// Special care for URIs. When writing URIs from multiple items are merged into one
-// URI list, when reading URI list is split into multiple items.
-pub const TYPE_URI: &str = "text/uri-list";
-
-pub struct PlatformClipboardWriter {
-    weak_self: Late<Weak<Self>>,
-    delegate: Weak<dyn PlatformDataSourceDelegate>,
-    isolate_id: IsolateId,
-    source: DataSource,
+pub fn platform_stream_write(_handle: i32, _data: &[u8]) -> i32 {
+    0
 }
-impl PlatformClipboardWriter {
+
+pub fn platform_stream_close(_handle: i32, _delete: bool) {}
+
+pub struct PlatformDataProvider {
+    weak_self: Late<Weak<Self>>,
+    delegate: Weak<dyn PlatformDataProviderDelegate>,
+    isolate_id: IsolateId,
+    data: DataProvider,
+}
+
+impl PlatformDataProvider {
     pub fn new(
-        delegate: Weak<dyn PlatformDataSourceDelegate>,
+        delegate: Weak<dyn PlatformDataProviderDelegate>,
         isolate_id: IsolateId,
-        source: DataSource,
+        data_provider: DataProvider,
     ) -> Self {
         Self {
             delegate,
-            source,
+            data: data_provider,
             isolate_id,
             weak_self: Late::new(),
         }
@@ -55,6 +56,37 @@ impl PlatformClipboardWriter {
 
     pub fn assign_weak_self(&self, weak_self: Weak<Self>) {
         self.weak_self.set(weak_self);
+    }
+
+    pub async fn write_to_clipboard(
+        providers: Vec<(Rc<PlatformDataProvider>, Arc<DataProviderHandle>)>,
+    ) -> NativeExtensionsResult<()> {
+        let data_object = DataObject::new(providers);
+        data_object.write_to_clipboard().await
+    }
+}
+
+struct ProviderEntry {
+    provider: Rc<PlatformDataProvider>,
+    _handle: Arc<DataProviderHandle>,
+}
+
+struct DataObject {
+    providers: Vec<ProviderEntry>,
+}
+
+impl DataObject {
+    pub fn new(providers: Vec<(Rc<PlatformDataProvider>, Arc<DataProviderHandle>)>) -> Rc<Self> {
+        let res = Rc::new(Self {
+            providers: providers
+                .into_iter()
+                .map(|p| ProviderEntry {
+                    provider: p.0,
+                    _handle: p.1,
+                })
+                .collect(),
+        });
+        res
     }
 
     fn set_data(selection_data: *mut GtkSelectionData, data: &[u8]) {
@@ -79,18 +111,18 @@ impl PlatformClipboardWriter {
         }
     }
 
-    fn get_data_for_item(&self, item: &ClipboardWriterItem, ty: &str) -> Option<Vec<u8>> {
-        for data in &item.data {
+    fn get_data_for_item(&self, item: &PlatformDataProvider, ty: &str) -> Option<Vec<u8>> {
+        for data in &item.data.representations {
             match data {
-                crate::writer_data::ClipboardWriterItemData::Simple { types, data } => {
-                    if types.iter().any(|t| t == ty) {
+                DataRepresentation::Simple { format, data } => {
+                    if format == ty {
                         return data.coerce_to_data(StringFormat::Utf8);
                     }
                 }
-                crate::writer_data::ClipboardWriterItemData::Lazy { types, id } => {
-                    if types.iter().any(|t| t == ty) {
-                        if let Some(delegate) = self.delegate.upgrade() {
-                            let promise = delegate.get_lazy_data(self.isolate_id, *id, None);
+                DataRepresentation::Lazy { format, id } => {
+                    if format == ty {
+                        if let Some(delegate) = item.delegate.upgrade() {
+                            let promise = delegate.get_lazy_data(item.isolate_id, *id, None);
                             loop {
                                 if let Some(result) = promise.try_take() {
                                     match result {
@@ -131,16 +163,16 @@ impl PlatformClipboardWriter {
         if target == TYPE_URI {
             // merge URIs from all items
             let mut data = Vec::<u8>::new();
-            for item in &self.source.items {
-                if let Some(item_data) = self.get_data_for_item(item, &target) {
+            for item in &self.providers {
+                if let Some(item_data) = self.get_data_for_item(&item.provider, &target) {
                     data.extend_from_slice(&item_data);
                     data.push(b'\r');
                     data.push(b'\n');
                 }
             }
             Self::set_data(selection_data, &data);
-        } else if let Some(item) = self.source.items.first() {
-            if let Some(data) = self.get_data_for_item(item, &target) {
+        } else if let Some(item) = self.providers.first() {
+            if let Some(data) = self.get_data_for_item(&item.provider, &target) {
                 Self::set_data(selection_data, &data);
             }
         }
@@ -152,20 +184,18 @@ impl PlatformClipboardWriter {
         info: c_uint,
         user_data: gpointer,
     ) {
-        let user_data = user_data as *const PlatformClipboardWriter;
-        let weak = ManuallyDrop::new(Weak::from_raw(user_data));
-        if let Some(platform_clipboard) = weak.upgrade() {
-            platform_clipboard.get_data(clipboard, selection_data, info);
-        }
+        let user_data = user_data as *const DataObject;
+        let this = ManuallyDrop::new(Rc::from_raw(user_data));
+        this.get_data(clipboard, selection_data, info);
     }
 
     unsafe extern "C" fn _clear(_clipboard: *mut GtkClipboard, user_data: gpointer) {
         // Dealoc WeakPr
-        let user_data = user_data as *const PlatformClipboardWriter;
-        Weak::from_raw(user_data);
+        let user_data = user_data as *const DataObject;
+        Rc::from_raw(user_data);
     }
 
-    pub async fn write_to_clipboard(&self) -> NativeExtensionsResult<()> {
+    pub async fn write_to_clipboard(self: &Rc<Self>) -> NativeExtensionsResult<()> {
         unsafe {
             let target_list = self.create_target_list();
             defer! { gtk_target_list_unref(target_list); }
@@ -177,7 +207,7 @@ impl PlatformClipboardWriter {
             let display = gdk_display_get_default();
             let clipboard = gtk_clipboard_get_default(display);
 
-            let user_data = Weak::into_raw(self.weak_self.clone());
+            let user_data = Rc::into_raw(self.clone());
 
             gtk_clipboard_set_with_data(
                 clipboard,
@@ -205,18 +235,14 @@ impl PlatformClipboardWriter {
     fn create_target_list(&self) -> *mut GtkTargetList {
         unsafe {
             let list = gtk_target_list_new(null_mut(), 0);
-            if let Some(item) = self.source.items.first() {
-                for data in &item.data {
-                    match data {
-                        crate::writer_data::ClipboardWriterItemData::Simple { types, data: _ } => {
-                            for ty in types {
-                                Self::add_types(list, ty);
-                            }
+            if let Some(item) = self.providers.first() {
+                for repr in &item.provider.data.representations {
+                    match repr {
+                        DataRepresentation::Simple { format, data: _ } => {
+                            Self::add_types(list, format);
                         }
-                        crate::writer_data::ClipboardWriterItemData::Lazy { types, id: _ } => {
-                            for ty in types {
-                                Self::add_types(list, ty);
-                            }
+                        DataRepresentation::Lazy { format, id: _ } => {
+                            Self::add_types(list, format);
                         }
                         _ => {}
                     }
@@ -225,14 +251,4 @@ impl PlatformClipboardWriter {
             list
         }
     }
-}
-
-pub fn atom_from_string(s: &str) -> GdkAtom {
-    let s = CString::new(s).unwrap();
-    unsafe { gdk_atom_intern(s.as_ptr(), GFALSE) }
-}
-
-pub unsafe fn atom_to_string(atom: &GdkAtom) -> String {
-    let s = gdk_atom_name(*atom);
-    CStr::from_ptr(s).to_string_lossy().into()
 }

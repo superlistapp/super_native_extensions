@@ -110,15 +110,6 @@ pub struct DataProvider {
 
 //
 
-#[derive(Debug, TryFromValue, IntoValue, Clone, Copy, PartialEq, Hash, Eq)]
-pub struct DataSourceId(i64);
-
-impl From<i64> for DataSourceId {
-    fn from(value: i64) -> Self {
-        Self(value)
-    }
-}
-
 #[derive(Debug, TryFromValue, IntoValue, Copy, Clone, PartialEq)]
 #[nativeshell(rename_all = "camelCase")]
 pub enum VirtualFileStorage {

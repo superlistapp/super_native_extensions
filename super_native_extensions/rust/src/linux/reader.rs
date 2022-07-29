@@ -1,8 +1,10 @@
 use std::{
     ffi::CStr,
     os::raw::{c_char, c_int},
-    rc::Weak,
+    path::PathBuf,
+    rc::{Rc, Weak},
     slice,
+    sync::Arc,
 };
 
 use gdk_sys::{gdk_display_get_default, GdkAtom};
@@ -18,11 +20,14 @@ use nativeshell_core::{
     Value,
 };
 
-use crate::error::NativeExtensionsResult;
+use crate::{
+    error::{NativeExtensionsError, NativeExtensionsResult},
+    reader_manager::ReadProgress,
+};
 
-use super::{atom_from_string, atom_to_string, TYPE_TEXT, TYPE_URI};
+use super::common::{atom_from_string, atom_to_string, TYPE_TEXT, TYPE_URI};
 
-pub struct PlatformClipboardReader {
+pub struct PlatformDataReader {
     clipboard: *mut GtkClipboard,
     inner: Late<Inner>,
 }
@@ -32,7 +37,7 @@ struct Inner {
     uris: Vec<String>,
 }
 
-impl PlatformClipboardReader {
+impl PlatformDataReader {
     async fn init(&self) {
         if !self.inner.is_set() {
             let targets = self.get_targets().await;
@@ -55,7 +60,7 @@ impl PlatformClipboardReader {
         Ok((0..num_items as i64).collect())
     }
 
-    pub async fn get_types_for_item(&self, item: i64) -> NativeExtensionsResult<Vec<String>> {
+    pub async fn get_formats_for_item(&self, item: i64) -> NativeExtensionsResult<Vec<String>> {
         self.init().await;
         if item == 0 {
             Ok(self.inner.targets.clone())
@@ -66,7 +71,12 @@ impl PlatformClipboardReader {
         }
     }
 
-    pub async fn get_data_for_item(&self, item: i64, data_type: String) -> NativeExtensionsResult<Value> {
+    pub async fn get_data_for_item(
+        &self,
+        item: i64,
+        data_type: String,
+        _progress: Arc<ReadProgress>,
+    ) -> NativeExtensionsResult<Value> {
         let item = item as usize;
         if data_type == TYPE_URI && item < self.inner.uris.len() {
             Ok(self.inner.uris[item].clone().into())
@@ -83,19 +93,21 @@ impl PlatformClipboardReader {
         }
     }
 
-    pub fn new_default() -> NativeExtensionsResult<Self> {
+    pub fn new_clipboard_reader() -> NativeExtensionsResult<Rc<Self>> {
         let clipboard = unsafe {
             let display = gdk_display_get_default();
             let clipboard = gtk_clipboard_get_default(display);
             g_object_ref(clipboard as *mut _) as *mut GtkClipboard
         };
-        Ok(PlatformClipboardReader {
+        let res = Rc::new(PlatformDataReader {
             clipboard,
             inner: Late::new(),
-        })
+        });
+        res.assign_weak_self(Rc::downgrade(&res));
+        Ok(res)
     }
 
-    pub fn assign_weak_self(&self, _weak: Weak<PlatformClipboardReader>) {}
+    pub fn assign_weak_self(&self, _weak: Weak<PlatformDataReader>) {}
 
     async fn get_targets(&self) -> Vec<String> {
         let (future, completer) = FutureCompleter::new();
@@ -221,9 +233,27 @@ impl PlatformClipboardReader {
             completer.complete(data);
         }
     }
+
+    pub async fn can_get_virtual_file_for_item(
+        &self,
+        _item: i64,
+        _format: &str,
+    ) -> NativeExtensionsResult<bool> {
+        Ok(false)
+    }
+
+    pub async fn get_virtual_file_for_item(
+        &self,
+        _item: i64,
+        _format: &str,
+        _target_folder: PathBuf,
+        _progress: Arc<ReadProgress>,
+    ) -> NativeExtensionsResult<PathBuf> {
+        Err(NativeExtensionsError::UnsupportedOperation)
+    }
 }
 
-impl Drop for PlatformClipboardReader {
+impl Drop for PlatformDataReader {
     fn drop(&mut self) {
         unsafe {
             g_object_unref(self.clipboard as *mut _);
