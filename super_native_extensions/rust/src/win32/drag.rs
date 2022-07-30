@@ -22,7 +22,7 @@ use windows::{
 
 use crate::{
     api_model::{DataProviderId, DragRequest, DropOperation, Point},
-    drag_manager::{DataProviderEntry, DragSessionId, PlatformDragContextDelegate},
+    drag_manager::{DataProviderEntry, DragSessionId, PlatformDragContextDelegate, PlatformDragContextId},
     error::{NativeExtensionsError, NativeExtensionsResult},
     log::OkLog,
     platform_impl::platform::data_object::DataObject,
@@ -106,7 +106,11 @@ impl IDropSource_Impl for DropSource {
 }
 
 impl PlatformDragContext {
-    pub fn new(id: PlatformDragContextId, view_handle: i64, delegate: Weak<dyn PlatformDragContextDelegate>) -> Self {
+    pub fn new(
+        id: PlatformDragContextId,
+        view_handle: i64,
+        delegate: Weak<dyn PlatformDragContextDelegate>,
+    ) -> Self {
         Self {
             id,
             _view: HWND(view_handle as isize),

@@ -267,8 +267,7 @@ impl PlatformDataReader {
                     break;
                 } else {
                     res.push(String::from_utf16_lossy(
-                        &data
-                            .get(offset..offset + len)
+                        data.get(offset..offset + len)
                             .ok_or(NativeExtensionsError::InvalidData)?,
                     ));
                 }
@@ -282,8 +281,7 @@ impl PlatformDataReader {
             let mut offset = 0;
             loop {
                 let str = CStr::from_bytes_with_nul(
-                    &data
-                        .get(offset..)
+                    data.get(offset..)
                         .ok_or(NativeExtensionsError::InvalidData)?,
                 )
                 .unwrap();
@@ -494,7 +492,7 @@ impl VirtualStreamReader {
                     "stream ended prematurely".into(),
                 ));
             }
-            f.write_all(&mut buf[..did_read as usize])?;
+            f.write_all(&buf[..did_read as usize])?;
             num_read += did_read as u64;
 
             let progress = num_read as f64 / length as f64;

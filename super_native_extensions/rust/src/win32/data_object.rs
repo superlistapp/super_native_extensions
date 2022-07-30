@@ -140,7 +140,7 @@ impl DataObject {
                     }
                     DataRepresentation::Lazy { format, id } => {
                         if &format_string == format {
-                            return self.lazy_data_for_id(&provider, *id);
+                            return self.lazy_data_for_id(provider, *id);
                         }
                     }
                     _ => {}
@@ -355,7 +355,7 @@ impl DataObject {
                     storage_suggestion,
                 } = repr
                 {
-                    return self.stream_for_virtual_file(&provider, *id, storage_suggestion, agile);
+                    return self.stream_for_virtual_file(provider, *id, storage_suggestion, agile);
                 }
             }
         }
@@ -657,7 +657,7 @@ impl GetData for IDataObject {
     fn has_data_for_format(&self, format: &FORMATETC) -> bool {
         // TODO(knopp): Remove when https://github.com/microsoft/win32metadata/issues/1007
         // unsafe { self.QueryGetData(&mut format as *mut _).is_ok() }
-        let mut format = format.clone();
+        let mut format = *format;
         let data = unsafe {
             (::windows::core::Interface::vtable(self).QueryGetData)(
                 ::windows::core::Interface::as_raw(self),

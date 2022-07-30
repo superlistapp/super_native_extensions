@@ -1,4 +1,4 @@
-use std::{mem::size_of, os::raw::c_void, ptr::null_mut, slice};
+use std::{mem::size_of, os::raw::c_void, ptr::null_mut};
 
 use once_cell::sync::Lazy;
 use windows::{
@@ -13,12 +13,10 @@ use windows::{
         System::{
             Com::{
                 CoCreateInstance, IDataObject, CLSCTX_ALL, DATADIR_GET, DVASPECT_CONTENT,
-                FORMATETC, STGMEDIUM, TYMED, TYMED_HGLOBAL,
+                FORMATETC, TYMED,
             },
             DataExchange::{GetClipboardFormatNameW, RegisterClipboardFormatW},
             LibraryLoader::{GetProcAddress, LoadLibraryA},
-            Memory::{GlobalLock, GlobalSize, GlobalUnlock},
-            Ole::ReleaseStgMedium,
         },
         UI::HiDpi::{MDT_EFFECTIVE_DPI, MONITOR_DPI_TYPE},
     },
@@ -223,6 +221,6 @@ pub fn get_dpi_for_window(hwnd: HWND) -> u32 {
         let hdc = GetDC(hwnd);
         let dpi = GetDeviceCaps(hdc, LOGPIXELSX);
         ReleaseDC(hwnd, hdc);
-        return dpi as u32;
+        dpi as u32
     }
 }

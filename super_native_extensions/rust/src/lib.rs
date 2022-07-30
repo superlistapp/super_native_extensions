@@ -1,6 +1,7 @@
-#![allow(clippy::type_complexity)]
-#![allow(clippy::single_match)]
 #![allow(clippy::comparison_chain)]
+#![allow(clippy::new_without_default)]
+#![allow(clippy::single_match)]
+#![allow(clippy::type_complexity)]
 
 use std::ffi::c_void;
 

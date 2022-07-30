@@ -328,10 +328,9 @@ impl PlatformDropContext {
 
     fn on_drag_leave(&self) -> NativeExtensionsResult<()> {
         self.drop_exit()?;
-        self.current_session
-            .borrow_mut()
-            .as_ref()
-            .map(|s| s.is_inside.set(false));
+        if let Some(s) = self.current_session.borrow_mut().as_ref() {
+            s.is_inside.set(false)
+        }
         if self.local_session.borrow().is_none() {
             self.drop_end()?;
         }

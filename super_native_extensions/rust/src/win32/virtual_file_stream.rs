@@ -1,5 +1,5 @@
 use std::{
-    cell::{Cell, RefCell},
+    cell::Cell,
     rc::Rc,
     slice,
     sync::{Arc, Mutex},
@@ -69,7 +69,7 @@ impl Stream {
                     // TODO(knopp): Can we somehow pass the message?
                     return E_FAIL;
                 }
-                if data.len() > 0 as usize {
+                if !data.is_empty() {
                     S_OK
                 } else {
                     S_FALSE
@@ -153,7 +153,7 @@ impl VirtualFileStream {
         let stream_clone = stream.clone();
         let stream: IStream = VirtualFileStream { stream }.into();
         (
-            stream.into(),
+            stream,
             Arc::new(DropNotifier::new(move || {
                 stream_clone.dispose();
             })),
