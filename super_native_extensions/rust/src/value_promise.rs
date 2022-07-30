@@ -42,7 +42,7 @@ impl<T> Promise<T> {
 impl<T: Clone> Promise<T> {
     pub fn try_clone(&self) -> Option<T> {
         let lock = self.data.lock().unwrap();
-        lock.as_ref().map(|c| c.clone())
+        lock.as_ref().cloned()
     }
 
     pub fn wait_clone(&self) -> T {

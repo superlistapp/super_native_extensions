@@ -68,7 +68,7 @@ pub struct DataObject {
 
 impl DataObject {
     pub fn new(providers: Vec<(Rc<PlatformDataProvider>, Arc<DataProviderHandle>)>) -> Rc<Self> {
-        let res = Rc::new(Self {
+        Rc::new(Self {
             providers: providers
                 .into_iter()
                 .map(|p| ProviderEntry {
@@ -76,8 +76,7 @@ impl DataObject {
                     _handle: p.1,
                 })
                 .collect(),
-        });
-        res
+        })
     }
 
     fn set_data_(selection_data: &SelectionData, data: &[u8]) -> NativeExtensionsResult<()> {

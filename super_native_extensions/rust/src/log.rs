@@ -47,15 +47,16 @@ impl<T> OkLogUnexpected<T> for std::result::Result<T, NativeExtensionsError> {
         match self {
             Ok(value) => Some(value),
             Err(err) => {
-                if let NativeExtensionsError::MethodCallError(err) = &err {
-                    if let MethodCallError::SendError(err) = err {
-                        match err {
-                            // These are expected errors during isolate shutdown and
-                            // do not need to be logged
-                            SendMessageError::MessageRefused => return None,
-                            SendMessageError::IsolateShutDown => return None,
-                            _ => {}
-                        }
+                if let NativeExtensionsError::MethodCallError(
+                    MethodCallError::SendError(err), //
+                ) = &err
+                {
+                    match err {
+                        // These are expected errors during isolate shutdown and
+                        // do not need to be logged
+                        SendMessageError::MessageRefused => return None,
+                        SendMessageError::IsolateShutDown => return None,
+                        _ => {}
                     }
                 }
                 let location = Location::caller();

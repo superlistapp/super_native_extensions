@@ -134,7 +134,7 @@ impl DataProviderManager {
             .borrow()
             .get(&provider_id)
             .map(|e| e.platform_data_provider.clone())
-            .ok_or_else(|| NativeExtensionsError::DataSourceNotFound)
+            .ok_or(NativeExtensionsError::DataSourceNotFound)
     }
 
     fn register_provider(
@@ -170,8 +170,8 @@ impl DataProviderManager {
     ) -> NativeExtensionsResult<()> {
         let sessions = self.virtual_sessions.borrow();
         let session = sessions
-            .get(&&progress.session_id)
-            .ok_or_else(|| NativeExtensionsError::VirtualFileSessionNotFound)?;
+            .get(&progress.session_id)
+            .ok_or(NativeExtensionsError::VirtualFileSessionNotFound)?;
         (session.on_progress)(progress.progress);
         Ok(())
     }
@@ -183,7 +183,7 @@ impl DataProviderManager {
         let sessions = self.virtual_sessions.borrow();
         let session = sessions
             .get(&size_known.session_id)
-            .ok_or_else(|| NativeExtensionsError::VirtualFileSessionNotFound)?;
+            .ok_or(NativeExtensionsError::VirtualFileSessionNotFound)?;
         session.size_known.replace(true);
         (session.on_size_known)(Some(size_known.file_size));
         Ok(())
@@ -194,8 +194,8 @@ impl DataProviderManager {
             .virtual_sessions
             .borrow_mut()
             .remove(&complete.session_id)
-            .ok_or_else(|| NativeExtensionsError::VirtualFileSessionNotFound)?;
-        if session.size_known.get() == false {
+            .ok_or(NativeExtensionsError::VirtualFileSessionNotFound)?;
+        if !session.size_known.get() {
             (session.on_size_known)(None);
         }
         (session.on_done)(VirtualFileResult::Done);
@@ -207,8 +207,8 @@ impl DataProviderManager {
             .virtual_sessions
             .borrow_mut()
             .remove(&error.session_id)
-            .ok_or_else(|| NativeExtensionsError::VirtualFileSessionNotFound)?;
-        if session.size_known.get() == false {
+            .ok_or(NativeExtensionsError::VirtualFileSessionNotFound)?;
+        if !session.size_known.get() {
             (session.on_size_known)(None);
         }
         (session.on_done)(VirtualFileResult::Error {
@@ -222,8 +222,8 @@ impl DataProviderManager {
             .virtual_sessions
             .borrow_mut()
             .remove(&complete.session_id)
-            .ok_or_else(|| NativeExtensionsError::VirtualFileSessionNotFound)?;
-        if session.size_known.get() == false {
+            .ok_or(NativeExtensionsError::VirtualFileSessionNotFound)?;
+        if !session.size_known.get() {
             (session.on_size_known)(None);
         }
         (session.on_done)(VirtualFileResult::Cancelled);
@@ -449,7 +449,7 @@ pub extern "C" fn super_native_extensions_stream_write(
     len: i64,
 ) -> i32 {
     let buf = unsafe { slice::from_raw_parts(data as *const u8, len as usize) };
-    platform_stream_write(handle, &buf)
+    platform_stream_write(handle, buf)
 }
 
 #[no_mangle]

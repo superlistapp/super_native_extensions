@@ -176,7 +176,7 @@ impl DropManager {
             .borrow()
             .get(&isolate)
             .cloned()
-            .ok_or_else(|| NativeExtensionsError::PlatformContextNotFound)?;
+            .ok_or(NativeExtensionsError::PlatformContextNotFound)?;
         context.register_drop_types(&request.types)
     }
 
@@ -188,7 +188,7 @@ impl DropManager {
             .borrow()
             .get(&id)
             .cloned()
-            .ok_or_else(|| NativeExtensionsError::PlatformContextNotFound)
+            .ok_or(NativeExtensionsError::PlatformContextNotFound)
     }
 
     fn new_context(
@@ -262,7 +262,7 @@ impl PlatformDropContextDelegate for DropManager {
         res: Box<dyn FnOnce(Result<DropOperation, MethodCallError>)>,
     ) {
         self.invoker
-            .call_method_sync_cv(id, "onDropUpdate", event, |r| res(r));
+            .call_method_sync_cv(id, "onDropUpdate", event, res);
     }
 
     fn send_perform_drop(
@@ -272,7 +272,7 @@ impl PlatformDropContextDelegate for DropManager {
         res: Box<dyn FnOnce(Result<(), MethodCallError>)>,
     ) {
         self.invoker
-            .call_method_sync_cv(id, "onPerformDrop", event, |r| res(r));
+            .call_method_sync_cv(id, "onPerformDrop", event, res);
     }
 
     fn send_drop_leave(&self, id: PlatformDropContextId, event: BaseDropEvent) {

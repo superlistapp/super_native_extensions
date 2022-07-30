@@ -88,16 +88,11 @@ pub enum DataRepresentation {
 
 impl DataRepresentation {
     pub fn is_virtual_file(&self) -> bool {
-        if let Self::VirtualFile {
+        matches!(self, Self::VirtualFile {
             id: _,
             format: _,
             storage_suggestion: _,
-        } = self
-        {
-            true
-        } else {
-            false
-        }
+        })
     }
 }
 

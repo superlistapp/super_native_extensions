@@ -141,7 +141,7 @@ impl DragManager {
             .borrow()
             .get(&id)
             .cloned()
-            .ok_or_else(|| NativeExtensionsError::PlatformContextNotFound)
+            .ok_or(NativeExtensionsError::PlatformContextNotFound)
     }
 
     fn build_data_provider_map(
@@ -230,9 +230,9 @@ impl DragManager {
             .borrow()
             .get(&isolate)
             .cloned()
-            .ok_or_else(|| NativeExtensionsError::PlatformContextNotFound)?;
+            .ok_or(NativeExtensionsError::PlatformContextNotFound)?;
         let session_id = DragSessionId(self.next_session_id.next_id());
-        let provider_map = self.build_data_provider_map(isolate, &&request.configuration)?;
+        let provider_map = self.build_data_provider_map(isolate, &request.configuration)?;
         context
             .start_drag(request, provider_map, session_id)
             .await?;

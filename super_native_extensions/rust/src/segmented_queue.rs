@@ -324,7 +324,7 @@ pub struct SegmentedQueueReader {
 impl SegmentedQueueReader {
     fn new(state: Arc<QueueState>) -> Self {
         Self {
-            state: state,
+            state,
             current_segment: Cell::new(0),
         }
     }
@@ -337,7 +337,7 @@ impl SegmentedQueueReader {
             match segment {
                 Some(segment) => {
                     let data = segment.read(max_len);
-                    if data.len() == 0 {
+                    if data.is_empty() {
                         self.current_segment.replace(self.current_segment.get() + 1);
                     } else {
                         return data;

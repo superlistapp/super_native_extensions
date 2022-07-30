@@ -54,10 +54,11 @@ impl NextId for Cell<i64> {
     }
 }
 
+#[allow(dead_code)]
 pub fn get_target_path(target_folder: &Path, file_name: &str) -> PathBuf {
     let target_path = target_folder.join(&file_name);
     if !target_path.exists() {
-        return target_path;
+        target_path
     } else {
         let mut i = 2;
         let source_path = Path::new(file_name);
@@ -68,7 +69,7 @@ pub fn get_target_path(target_folder: &Path, file_name: &str) -> PathBuf {
         let extension = source_path.extension();
         let suffix = extension
             .map(|a| format!(".{}", a.to_string_lossy()))
-            .unwrap_or("".into());
+            .unwrap_or_else(|| "".into());
         loop {
             let target_path = target_folder.join(&format!("{} {}{}", stem, i, suffix));
             if !target_path.exists() {
@@ -83,6 +84,7 @@ pub fn get_target_path(target_folder: &Path, file_name: &str) -> PathBuf {
 pub struct Movable<T>(T);
 unsafe impl<T> Send for Movable<T> {}
 
+#[allow(dead_code)]
 impl<T> Movable<T> {
     /// Safety: This function is unsafe because it turns non Send object into Send.
     pub unsafe fn new(t: T) -> Self {

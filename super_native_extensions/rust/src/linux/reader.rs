@@ -82,7 +82,7 @@ impl PlatformDataReader {
             let mut targets = self.reader.get_targets().await;
             let has_text = targets
                 .iter()
-                .any(|t| target_includes_text(&Atom::intern(&t)));
+                .any(|t| target_includes_text(&Atom::intern(t)));
             if has_text {
                 // framework part only recognizes text/plain as text. Make sure
                 // to include it in types.
@@ -266,7 +266,7 @@ impl WidgetReader {
     fn request_data_if_needed(&self, format: Atom, completer: FutureCompleter<SelectionData>) {
         let first = {
             let mut pending = self.pending.borrow_mut();
-            let entry = pending.entry(format.value()).or_insert_with(|| Vec::new());
+            let entry = pending.entry(format.value()).or_insert(Vec::new());
             let first = entry.is_empty();
             entry.push(completer);
             first
