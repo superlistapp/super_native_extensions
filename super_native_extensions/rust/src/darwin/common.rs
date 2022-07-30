@@ -78,7 +78,7 @@ pub fn path_from_url(url: id) -> PathBuf {
 pub fn cg_image_from_image_data(image: ImageData) -> CGImage {
     let data = CGDataProvider::from_buffer(Arc::new(image.data));
     let rgb = CGColorSpace::create_with_name(unsafe { kCGColorSpaceSRGB })
-        .unwrap_or_else(|| CGColorSpace::create_device_rgb());
+        .unwrap_or_else(CGColorSpace::create_device_rgb);
     CGImage::new(
         image.width as usize,
         image.height as usize,

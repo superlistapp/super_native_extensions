@@ -33,7 +33,7 @@ use crate::{
     },
     error::{NativeExtensionsError, NativeExtensionsResult},
     log::OkLog,
-    platform_impl::platform::common::{from_nsstring, CGAffineTransformMakeScale, superclass},
+    platform_impl::platform::common::{from_nsstring, superclass, CGAffineTransformMakeScale},
     value_promise::PromiseResult,
 };
 
@@ -113,10 +113,7 @@ impl Session {
             items.push(DropItem {
                 item_id: (item as i64).into(),
                 formats,
-                local_data: local_data
-                    .get(i as usize)
-                    .cloned()
-                    .unwrap_or_else(|| Value::Null),
+                local_data: local_data.get(i as usize).cloned().unwrap_or(Value::Null),
             });
         }
 

@@ -128,8 +128,7 @@ impl PlatformDataReader {
                 .promise_receivers
                 .borrow()
                 .get(item as usize)
-                .map(|a| a.as_ref().cloned())
-                .flatten();
+                .and_then(|a| a.as_ref().cloned());
             Ok(res)
         })
     }

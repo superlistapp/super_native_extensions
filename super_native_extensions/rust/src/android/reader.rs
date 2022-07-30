@@ -2,7 +2,7 @@ use std::{
     cell::{Cell, RefCell},
     collections::HashMap,
     rc::Rc,
-    sync::Arc,
+    sync::Arc, path::PathBuf,
 };
 
 use jni::{
@@ -16,6 +16,7 @@ use nativeshell_core::{util::FutureCompleter, Value};
 use crate::{
     android::{CLIP_DATA_HELPER, CONTEXT, JAVA_VM},
     error::{NativeExtensionsError, NativeExtensionsResult},
+    reader_manager::ReadProgress,
     util::DropNotifier,
 };
 
@@ -125,6 +126,7 @@ impl PlatformDataReader {
         &self,
         item: i64,
         format: String,
+        _progress: Arc<ReadProgress>,
     ) -> NativeExtensionsResult<Value> {
         match &self.clip_data {
             Some(clip_data) => {
@@ -199,5 +201,23 @@ impl PlatformDataReader {
             )?
             .l()?;
         Self::from_clip_data(&env, clip_data, None)
+    }
+
+    pub async fn can_get_virtual_file_for_item(
+        &self,
+        _item: i64,
+        _format: &str,
+    ) -> NativeExtensionsResult<bool> {
+        Ok(false)
+    }
+
+    pub async fn get_virtual_file_for_item(
+        &self,
+        _item: i64,
+        _format: &str,
+        _target_folder: PathBuf,
+        _progress: Arc<ReadProgress>,
+    ) -> NativeExtensionsResult<PathBuf> {
+        Err(NativeExtensionsError::UnsupportedOperation)
     }
 }

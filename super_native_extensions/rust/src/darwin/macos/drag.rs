@@ -86,7 +86,7 @@ impl PlatformDragContext {
     }
 
     unsafe fn synthetize_mouse_up_event(&self) {
-        if let Some(event) = self.last_mouse_down.borrow().as_ref().clone().cloned() {
+        if let Some(event) = self.last_mouse_down.borrow().as_ref().cloned() {
             let opposite = match event.eventType() {
                 NSLeftMouseDown => CGEventType::LeftMouseUp,
                 NSRightMouseDown => CGEventType::RightMouseUp,
@@ -233,13 +233,8 @@ impl PlatformDragContext {
             let app = NSApplication::sharedApplication(nil);
             let event: id = msg_send![app, currentEvent];
             const K_VKESCAPE: c_ushort = 0x35;
-            if NSEvent::eventType(event) == NSEventType::NSKeyDown
+            NSEvent::eventType(event) == NSEventType::NSKeyDown
                 && NSEvent::keyCode(event) == K_VKESCAPE
-            {
-                true
-            } else {
-                false
-            }
         };
 
         let dragging_sequence_number: NSInteger =
@@ -415,7 +410,7 @@ where
     }
 }
 
-extern "C" fn mouse_down(this: &mut Object, _sel: Sel, event: id) -> () {
+extern "C" fn mouse_down(this: &mut Object, _sel: Sel, event: id) {
     with_state(this, |state| state.on_mouse_down(event), || ());
 
     unsafe {
@@ -423,7 +418,7 @@ extern "C" fn mouse_down(this: &mut Object, _sel: Sel, event: id) -> () {
     }
 }
 
-extern "C" fn mouse_up(this: &mut Object, _sel: Sel, event: id) -> () {
+extern "C" fn mouse_up(this: &mut Object, _sel: Sel, event: id) {
     with_state(this, |state| state.on_mouse_up(event), || ());
 
     unsafe {

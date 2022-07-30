@@ -1,3 +1,5 @@
+#![allow(clippy::let_unit_value)]
+
 #[cfg(target_os = "macos")]
 #[path = "macos/mod.rs"]
 mod os;

@@ -261,7 +261,7 @@ impl PlatformDropContext {
         autoreleasepool(|| unsafe {
             let types: Vec<id> = types
                 .iter()
-                .map(|ty| to_nsstring(&ty).autorelease())
+                .map(|ty| to_nsstring(ty).autorelease())
                 .collect();
             let our_types = NSArray::arrayWithObjects(nil, &types);
             let promise_receiver_types: id =

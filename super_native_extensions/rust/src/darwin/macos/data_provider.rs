@@ -38,7 +38,9 @@ use crate::{
     },
     error::NativeExtensionsResult,
     log::OkLog,
-    platform_impl::platform::common::{from_nsstring, path_from_url, to_nserror, to_nsstring, superclass},
+    platform_impl::platform::common::{
+        from_nsstring, path_from_url, superclass, to_nserror, to_nsstring,
+    },
     value_promise::ValuePromiseResult,
 };
 
@@ -156,9 +158,7 @@ impl ItemState {
     }
 
     fn virtual_file_info(self: &Rc<Self>) -> Option<VirtualFileInfo> {
-        if Class::get("NSFilePromiseProvider").is_none() {
-            return None;
-        }
+        Class::get("NSFilePromiseProvider")?;
         self.data_provider.upgrade().and_then(|data_provider| {
             let data = &data_provider.data;
             data.representations.iter().find_map(|item| match item {
@@ -184,10 +184,10 @@ impl ItemState {
                     .iter()
                     .filter_map(|d| match d {
                         DataRepresentation::Simple { format, data: _ } => {
-                            Some(to_nsstring(&format).autorelease())
+                            Some(to_nsstring(format).autorelease())
                         }
                         DataRepresentation::Lazy { format, id: _ } => {
-                            Some(to_nsstring(&format).autorelease())
+                            Some(to_nsstring(format).autorelease())
                         }
                         _ => None,
                     })
@@ -254,7 +254,7 @@ impl ItemState {
                 let data = &data_provider.data;
                 data.suggested_name
                     .as_ref()
-                    .map(|name| to_nsstring(&name).autorelease())
+                    .map(|name| to_nsstring(name).autorelease())
                     .unwrap_or(nil)
             }
             None => nil,
@@ -264,7 +264,7 @@ impl ItemState {
     fn progress_for_url(url: id) -> StrongPtr {
         unsafe {
             let progress = StrongPtr::retain(
-                msg_send![class!(NSProgress), discreteProgressWithTotalUnitCount: 1000 as u64],
+                msg_send![class!(NSProgress), discreteProgressWithTotalUnitCount: 1000u64],
             );
             let () = msg_send![*progress, setKind:*to_nsstring("NSProgressKindFile")];
             let () = msg_send![*progress, setFileURL: url];
@@ -296,7 +296,7 @@ impl ItemState {
             }
         };
         let descriptor = file.into_raw_fd();
-        FILE_PATHS.lock().unwrap().insert(descriptor, path.clone());
+        FILE_PATHS.lock().unwrap().insert(descriptor, path);
 
         let progress_clone = progress.clone();
         let progress_clone2 = progress.clone();

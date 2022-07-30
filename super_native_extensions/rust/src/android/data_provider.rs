@@ -174,7 +174,7 @@ impl PlatformDataProvider {
                     }
                 }
                 DataRepresentation::Lazy { format, id: _ } => {
-                    if !contains(clipboard_mime_types, &format) {
+                    if !contains(clipboard_mime_types, format) {
                         clipboard_mime_types.push(format.into())
                     }
                     // always use URI for lazy data

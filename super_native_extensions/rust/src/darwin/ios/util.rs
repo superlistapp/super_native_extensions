@@ -68,11 +68,7 @@ impl From<CGSize> for Size {
 
 pub fn value_to_nsdata(value: &Value) -> StrongPtr {
     fn is_map_or_list(value: &Value) -> bool {
-        match value {
-            Value::Map(_) => true,
-            Value::List(_) => true,
-            _ => false,
-        }
+        matches!(value, Value::Map(_) | Value::List(_))
     }
     if is_map_or_list(value) {
         let objc = value.to_objc();

@@ -82,7 +82,7 @@ impl PlatformDataProvider {
         handle: Option<Arc<DataProviderHandle>>,
         delegate: Option<Weak<dyn DataProviderSessionDelegate>>,
     ) -> StrongPtr {
-        let delegate = delegate.unwrap_or(self.weak_self.clone());
+        let delegate = delegate.unwrap_or_else(|| self.weak_self.clone());
         let session =
             DataProviderSession::new(self.state.clone(), handle, self.weak_self.clone(), delegate);
         let state = self.state.lock().unwrap();
@@ -103,7 +103,7 @@ impl PlatformDataProvider {
                 if let Some(format) = format {
                     let session_clone = session.clone();
                     let format_clone = format.clone();
-                    register_data_representation(*item_provider, &format, move |callback| {
+                    register_data_representation(*item_provider, format, move |callback| {
                         session_clone.value_for_format(&format_clone, callback)
                     });
                 }
@@ -120,7 +120,7 @@ impl PlatformDataProvider {
                         VirtualFileStorage::TemporaryFile => {
                             register_file_representation(
                                 *item_provider,
-                                &format,
+                                format,
                                 false,
                                 move |callback| {
                                     session_clone.file_representation(id, storage, callback)
@@ -128,17 +128,12 @@ impl PlatformDataProvider {
                             );
                         }
                         VirtualFileStorage::Memory => {
-                            register_data_representation(
-                                *item_provider,
-                                &format,
-                                move |callback| {
-                                    let callback2 =
-                                        Box::new(move |data: id, _: bool, error: id| {
-                                            callback(data, error)
-                                        });
-                                    session_clone.file_representation(id, storage, callback2)
-                                },
-                            );
+                            register_data_representation(*item_provider, format, move |callback| {
+                                let callback2 = Box::new(move |data: id, _: bool, error: id| {
+                                    callback(data, error)
+                                });
+                                session_clone.file_representation(id, storage, callback2)
+                            });
                         }
                     }
                 }
@@ -269,7 +264,7 @@ impl DataProviderSession {
     }
 
     fn fetch_value(&self, id: DataProviderValueId, callback: Box<dyn Fn(id, id) + Send>) -> id {
-        Self::on_platform_thread(&self, move |s| match s {
+        Self::on_platform_thread(self, move |s| match s {
             Some((source, source_delegate, session_delegate)) => {
                 // For some reason iOS seems to eagerly fetch items immediatelly
                 // at the beginning of drag (before even dragInteraction:sessionWillBegin:).
@@ -404,7 +399,7 @@ impl DataProviderSession {
     ) {
         let progress = unsafe { Movable::new(progress) };
         let self_clone = self.clone();
-        Self::on_platform_thread(&self, move |s| match s {
+        Self::on_platform_thread(self, move |s| match s {
             Some((source, source_delegate, session_delegate)) => {
                 let progress = progress.take();
                 // For some reason iOS seems to eagerly fetch items immediatelly
@@ -481,7 +476,7 @@ impl DataProviderSession {
     ) -> id {
         unsafe {
             let progress = StrongPtr::retain(
-                msg_send![class!(NSProgress), discreteProgressWithTotalUnitCount: 1000 as u64],
+                msg_send![class!(NSProgress), discreteProgressWithTotalUnitCount: 1000u64],
             );
             self.fetch_virtual_file(id, progress.clone(), storage, callback);
             *progress

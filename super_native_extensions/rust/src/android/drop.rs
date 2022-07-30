@@ -234,12 +234,11 @@ impl PlatformDropContext {
                         None, // accepted operation
                         None, // reader
                     )?;
-                    let session_clone = current_session.clone();
                     delegate.send_drop_update(
                         self.id,
                         event,
                         Box::new(move |res| {
-                            session_clone
+                            current_session
                                 .last_operation
                                 .replace(res.ok_log().unwrap_or(DropOperation::None));
                         }),
@@ -302,7 +301,7 @@ impl PlatformDropContext {
                         while !done.get() {
                             Context::get().run_loop().platform_run_loop.poll_once();
                         }
-                        return Ok(true);
+                        Ok(true)
                     } else {
                         Ok(false)
                     }

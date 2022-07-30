@@ -10,7 +10,7 @@ use objc::{
     declare::ClassDecl,
     msg_send,
     rc::StrongPtr,
-    runtime::{objc_getClass, Class, Object},
+    runtime::{objc_getClass, Class},
     sel, sel_impl,
 };
 
