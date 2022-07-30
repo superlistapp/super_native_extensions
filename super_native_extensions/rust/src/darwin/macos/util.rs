@@ -77,11 +77,6 @@ pub(super) fn class_decl_from_name(name: &str) -> ManuallyDrop<ClassDecl> {
     ManuallyDrop::new(unsafe { std::mem::transmute(res) })
 }
 
-pub unsafe fn superclass(this: &Object) -> &Class {
-    let superclass: id = msg_send![this, superclass];
-    &*(superclass as *const _)
-}
-
 pub fn ns_image_from_image_data(images: Vec<ImageData>) -> StrongPtr {
     unsafe {
         let res = StrongPtr::new(msg_send![NSImage::alloc(nil), init]);

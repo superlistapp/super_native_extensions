@@ -38,11 +38,9 @@ use crate::{
     },
     error::NativeExtensionsResult,
     log::OkLog,
-    platform_impl::platform::common::{from_nsstring, path_from_url, to_nserror, to_nsstring},
+    platform_impl::platform::common::{from_nsstring, path_from_url, to_nserror, to_nsstring, superclass},
     value_promise::ValuePromiseResult,
 };
-
-use super::util::superclass;
 
 pub fn platform_stream_write(handle: i32, data: &[u8]) -> i32 {
     let mut file = ManuallyDrop::new(unsafe { File::from_raw_fd(handle) });

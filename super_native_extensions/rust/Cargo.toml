@@ -3,7 +3,7 @@
 [profile.release]
 lto = true
 panic = "abort"
-strip = true
+strip = "symbols"
 
 [package]
 name = "super_native_extensions"

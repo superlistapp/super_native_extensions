@@ -33,7 +33,7 @@ use crate::{
         DataProviderEntry, DragSessionId, GetDragConfigurationResult, PlatformDragContextDelegate,
     },
     error::{NativeExtensionsError, NativeExtensionsResult},
-    platform_impl::platform::common::to_nsstring,
+    platform_impl::platform::common::{to_nsstring, superclass},
     util::DropNotifier,
     value_promise::PromiseResult,
 };
@@ -509,11 +509,6 @@ extern "C" fn dealloc(this: &Object, _sel: Sel) {
         let superclass = superclass(this);
         let () = msg_send![super(this, superclass), dealloc];
     }
-}
-
-pub unsafe fn superclass(this: &Object) -> &Class {
-    let superclass: id = msg_send![this, superclass];
-    &*(superclass as *const _)
 }
 
 extern "C" fn items_for_beginning(

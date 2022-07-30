@@ -33,13 +33,11 @@ use crate::{
     },
     error::{NativeExtensionsError, NativeExtensionsResult},
     log::OkLog,
-    platform_impl::platform::common::{from_nsstring, CGAffineTransformMakeScale},
+    platform_impl::platform::common::{from_nsstring, CGAffineTransformMakeScale, superclass},
     value_promise::PromiseResult,
 };
 
-use super::{
-    drag_common::DropOperationExt, superclass, util::image_view_from_data, PlatformDataReader,
-};
+use super::{drag_common::DropOperationExt, util::image_view_from_data, PlatformDataReader};
 
 pub struct PlatformDropContext {
     id: i64,

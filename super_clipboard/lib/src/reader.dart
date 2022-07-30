@@ -21,8 +21,7 @@ class ClipboardReaderItem {
     final platformKey = key.platformType();
     for (final type in platformKey.readableSystemTypes()) {
       final completer = Completer<T?>();
-      final progress =
-          await rawItem.getDataForFormat(type, onData: (data) async {
+      final progress = rawItem.getDataForFormat(type, onData: (data) async {
         if (data.isError) {
           completer.completeError(data.error!);
         } else {

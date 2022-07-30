@@ -11,9 +11,9 @@ use objc::{
 };
 use once_cell::sync::Lazy;
 
-use crate::util::DropNotifier;
+use crate::{util::DropNotifier, platform_impl::platform::common::superclass};
 
-use super::{superclass, util::IntoObjc};
+use super::util::IntoObjc;
 
 extern "C" fn dealloc(this: &Object, _sel: Sel) {
     unsafe {

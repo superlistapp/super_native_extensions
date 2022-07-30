@@ -3,6 +3,7 @@ use std::{
     fs,
     path::PathBuf,
     rc::{Rc, Weak},
+    sync::Arc,
 };
 
 use block::ConcreteBlock;
@@ -141,7 +142,7 @@ impl PlatformDataReader {
         &self,
         item: i64,
         data_type: String,
-        _progress: Rc<ReadProgress>,
+        _progress: Arc<ReadProgress>,
     ) -> NativeExtensionsResult<Value> {
         let (future, completer) = FutureCompleter::new();
         let pasteboard = self.pasteboard.clone();
@@ -217,7 +218,7 @@ impl PlatformDataReader {
         item: i64,
         _format: &str,
         target_folder: PathBuf,
-        _progress: Rc<ReadProgress>,
+        _progress: Arc<ReadProgress>,
     ) -> NativeExtensionsResult<PathBuf> {
         let receiver = self.get_promise_receiver_for_item(item)?;
         match receiver {

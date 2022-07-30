@@ -23,7 +23,7 @@ use crate::{
     util::Movable,
 };
 
-use super::superclass;
+use super::common::superclass;
 
 static POLICY_KEY: char = 'k';
 

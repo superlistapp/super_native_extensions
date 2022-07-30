@@ -21,7 +21,12 @@ use core_graphics::{
     image::CGImage,
 };
 
-use objc::{class, msg_send, rc::StrongPtr, runtime::Object, sel, sel_impl};
+use objc::{
+    class, msg_send,
+    rc::StrongPtr,
+    runtime::{Class, Object},
+    sel, sel_impl,
+};
 
 use crate::api_model::ImageData;
 
@@ -108,4 +113,9 @@ extern "C" {
         value: *mut Object,
         policy: objc_AssociationPolicy,
     );
+}
+
+pub unsafe fn superclass(this: &Object) -> &Class {
+    let superclass: id = msg_send![this, superclass];
+    &*(superclass as *const _)
 }
