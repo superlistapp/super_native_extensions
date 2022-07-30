@@ -213,6 +213,9 @@ void main() async {
     'public.url',
     'public.utf8-plain-text',
     'Apple URL pasteboard type',
+    'text/uri-list',
+    'text/plain',
+
   ]);
   await RawDragContext.instance();
   await RawDropContext.instance();
@@ -364,7 +367,8 @@ class _MyHomePageState extends State<MyHomePage> {
           //     formats: ['public.file-url'],
           //     data: utf8.encode('file:///tmp/test.txt')),
           DataRepresentation.lazy(
-              format: 'public.utf8-plain-text',
+              // format: 'public.utf8-plain-text',
+              format: 'text/uri-list',
               // format: 'text/plain',
               dataProvider: () => utf8.encode('baaad')),
           DataRepresentation.virtualFile(
@@ -443,7 +447,7 @@ class _MyHomePageState extends State<MyHomePage> {
       print('Done with source');
     });
     session.lastScreenLocation.addListener(() {
-      print('Last screen location ${session.lastScreenLocation.value}');
+      // print('Last screen location ${session.lastScreenLocation.value}');
     });
   }
 

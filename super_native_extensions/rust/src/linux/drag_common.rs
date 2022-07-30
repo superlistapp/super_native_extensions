@@ -5,6 +5,7 @@ use crate::api_model::DropOperation;
 pub trait DropOperationExt {
     fn to_platform(&self) -> DragAction;
     fn from_platform(action: DragAction) -> Self;
+    fn from_platform_mask(actions: DragAction) -> Vec<DropOperation>;
 }
 
 impl DropOperationExt for DropOperation {
@@ -27,5 +28,19 @@ impl DropOperationExt for DropOperation {
             DragAction::LINK => Self::Link,
             _ => Self::None,
         }
+    }
+
+    fn from_platform_mask(actions: DragAction) -> Vec<DropOperation> {
+        let mut res = Vec::new();
+        if actions.contains(DragAction::MOVE) {
+            res.push(DropOperation::Move);
+        }
+        if actions.contains(DragAction::COPY) {
+            res.push(DropOperation::Copy);
+        }
+        if actions.contains(DragAction::LINK) {
+            res.push(DropOperation::Link);
+        }
+        res
     }
 }

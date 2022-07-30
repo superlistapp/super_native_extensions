@@ -14,10 +14,10 @@ use gdk::{
 
 use gtk::{prelude::DragContextExtManual, traits::WidgetExt, SelectionData, Widget};
 use gtk_sys::GtkWidget;
-use nativeshell_core::{util::Late, Context};
+use nativeshell_core::{util::Late, Context, Value};
 
 use crate::{
-    api_model::{DataProviderId, DragRequest, DropOperation, Point},
+    api_model::{DataProviderId, DragConfiguration, DragRequest, DropOperation, Point},
     drag_manager::{
         DataProviderEntry, DragSessionId, PlatformDragContextDelegate, PlatformDragContextId,
     },
@@ -43,6 +43,7 @@ struct Session {
     context_id: PlatformDragContextId,
     context_delegate: Weak<dyn PlatformDragContextDelegate>,
     data_object: Rc<DataObject>,
+    configuration: DragConfiguration,
     weak_self: Late<Weak<Self>>,
     last_position: RefCell<Point>,
     last_operation: Cell<DropOperation>,
@@ -54,12 +55,14 @@ impl Session {
         context_id: PlatformDragContextId,
         context_delegate: Weak<dyn PlatformDragContextDelegate>,
         data_object: Rc<DataObject>,
+        configuration: DragConfiguration,
     ) -> Rc<Self> {
         let res = Rc::new(Self {
             id,
             context_id,
             context_delegate,
             data_object,
+            configuration,
             weak_self: Late::new(),
             last_position: RefCell::new(Point::default()),
             last_operation: Cell::new(DropOperation::None),
@@ -126,9 +129,8 @@ impl PlatformDragContext {
         view_handle: i64,
         delegate: Weak<dyn PlatformDragContextDelegate>,
     ) -> Self {
-        unsafe { gtk::set_initialized() };
-
         let view: Widget = unsafe { from_glib_none(view_handle as *mut GtkWidget) };
+
         let weak = WeakRef::new();
         weak.set(Some(&view));
 
@@ -209,7 +211,7 @@ impl PlatformDragContext {
             .ok_or_else(|| NativeExtensionsError::OtherError("Missing mouse event".into()))?;
         let view = self.view()?;
         let mut actions = DragAction::empty();
-        for operation in request.configuration.allowed_operations {
+        for operation in &request.configuration.allowed_operations {
             actions |= operation.to_platform();
         }
         let context = view.drag_begin_with_coordinates(
@@ -230,7 +232,13 @@ impl PlatformDragContext {
                 );
                 context.drag_set_icon_surface(&surface)
             }
-            let session = Session::new(session_id, self.id, self.delegate.clone(), object);
+            let session = Session::new(
+                session_id,
+                self.id,
+                self.delegate.clone(),
+                object,
+                request.configuration,
+            );
             self.sessions.borrow_mut().insert(context.clone(), session);
             let weak_self = self.weak_self.clone();
             context.connect_cancel(move |context, reason| {
@@ -258,6 +266,18 @@ impl PlatformDragContext {
         }
 
         Ok(())
+    }
+
+    pub fn local_data(&self) -> Vec<Value> {
+        match self.sessions.borrow().iter().next().map(|a| a.1.clone()) {
+            Some(session) => session
+                .configuration
+                .items
+                .iter()
+                .map(|i| i.local_data.clone())
+                .collect(),
+            None => Vec::new(),
+        }
     }
 }
 

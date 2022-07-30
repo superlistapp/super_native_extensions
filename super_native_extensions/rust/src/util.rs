@@ -107,3 +107,25 @@ impl<T: Clone> Clone for Movable<T> {
         Self(self.0.clone())
     }
 }
+
+//
+//
+//
+
+pub trait TryGetOrInsert<T> {
+    fn try_get_or_insert_with<E, F>(&mut self, f: F) -> Result<&mut T, E>
+    where
+        F: FnOnce() -> Result<T, E>;
+}
+
+impl<T> TryGetOrInsert<T> for Option<T> {
+    fn try_get_or_insert_with<E, F>(&mut self, f: F) -> Result<&mut T, E>
+    where
+        F: FnOnce() -> Result<T, E>,
+    {
+        match self {
+            Some(value) => Ok(value),
+            None => Ok(self.get_or_insert(f()?)),
+        }
+    }
+}
