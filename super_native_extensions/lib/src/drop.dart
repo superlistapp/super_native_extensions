@@ -95,8 +95,11 @@ class DropEvent extends BaseDropEvent {
     final reader = readerProvider(sessionId) ?? getReader();
     final items = await reader?.getItems();
 
-    DropItem deserializeItem(int index, dynamic item) =>
-        DropItem.deserialize(item, items?[index]);
+    DropItem deserializeItem(int index, dynamic item) {
+      final readerItem =
+          (items != null && index < items.length) ? items[index] : null;
+      return DropItem.deserialize(item, readerItem);
+    }
 
     return DropEvent(
       sessionId: sessionId,

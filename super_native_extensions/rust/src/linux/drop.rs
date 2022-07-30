@@ -25,7 +25,7 @@ use crate::{
 };
 
 use super::{
-    common::{TargetListExt, TYPE_TEXT},
+    common::{TargetListExt, TYPE_TEXT, TYPE_URI},
     drag_common::DropOperationExt,
     PlatformDataReader, WidgetReader,
 };
@@ -132,6 +132,7 @@ impl PlatformDropContext {
                 .delegate()?
                 .get_platform_drag_context(self.id)?
                 .local_data();
+            let number_of_items = local_data.len().max(info.number_of_items);
             let event = DropEvent {
                 session_id: session.id,
                 location_in_view: Point {
@@ -140,10 +141,15 @@ impl PlatformDropContext {
                 },
                 allowed_operations: DropOperation::from_platform_mask(context.actions()),
                 accepted_operation: None,
-                items: (0..info.number_of_items)
+                items: (0..number_of_items)
                     .map(|i| DropItem {
                         item_id: (i as i64).into(),
-                        formats: info.targets.clone(),
+                        formats: info
+                            .targets
+                            .iter()
+                            .filter(|f| i == 0 || *f == TYPE_URI)
+                            .cloned()
+                            .collect(),
                         local_data: local_data.get(i).cloned().unwrap_or(Value::Null),
                     })
                     .collect(),
