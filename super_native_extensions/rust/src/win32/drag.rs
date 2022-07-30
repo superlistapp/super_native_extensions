@@ -35,7 +35,7 @@ use super::{
 };
 
 pub struct PlatformDragContext {
-    id: i64,
+    id: PlatformDragContextId,
     _view: HWND,
     delegate: Weak<dyn PlatformDragContextDelegate>,
     weak_self: Late<Weak<Self>>,
@@ -106,7 +106,7 @@ impl IDropSource_Impl for DropSource {
 }
 
 impl PlatformDragContext {
-    pub fn new(id: i64, view_handle: i64, delegate: Weak<dyn PlatformDragContextDelegate>) -> Self {
+    pub fn new(id: PlatformDragContextId, view_handle: i64, delegate: Weak<dyn PlatformDragContextDelegate>) -> Self {
         Self {
             id,
             _view: HWND(view_handle as isize),

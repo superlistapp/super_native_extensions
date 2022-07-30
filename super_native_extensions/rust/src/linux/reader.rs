@@ -1,34 +1,25 @@
 use std::{
-    ffi::CStr,
-    os::raw::{c_char, c_int},
     path::PathBuf,
     rc::{Rc, Weak},
-    slice,
     sync::Arc,
 };
 
-use gdk_sys::{gdk_display_get_default, GdkAtom};
-use glib_sys::{gpointer, GFALSE};
-use gobject_sys::{g_object_ref, g_object_unref};
-use gtk_sys::{
-    gtk_clipboard_get_default, gtk_clipboard_request_contents, gtk_clipboard_request_targets,
-    gtk_clipboard_request_text, gtk_clipboard_request_uris, gtk_selection_data_get_data,
-    gtk_selection_data_get_length, gtk_targets_include_text, GtkClipboard, GtkSelectionData,
-};
-use nativeshell_core::{
-    util::{FutureCompleter, Late},
-    Value,
-};
+use gdk::{Atom, Display};
+use gtk::Clipboard;
+use nativeshell_core::{util::Late, Value};
 
 use crate::{
     error::{NativeExtensionsError, NativeExtensionsResult},
     reader_manager::ReadProgress,
 };
 
-use super::common::{atom_from_string, atom_to_string, TYPE_TEXT, TYPE_URI};
+use super::{
+    clipboard_async::ClipboardAsync,
+    common::{target_includes_text, TYPE_URI},
+};
 
 pub struct PlatformDataReader {
-    clipboard: *mut GtkClipboard,
+    clipboard: Clipboard,
     inner: Late<Inner>,
 }
 
@@ -40,9 +31,9 @@ struct Inner {
 impl PlatformDataReader {
     async fn init(&self) {
         if !self.inner.is_set() {
-            let targets = self.get_targets().await;
+            let targets = self.clipboard.get_targets().await;
             let uris = if targets.iter().any(|t| t == TYPE_URI) {
-                self.get_uri_list().await
+                self.clipboard.get_uri_list().await
             } else {
                 Vec::new()
             };
@@ -81,12 +72,12 @@ impl PlatformDataReader {
         if data_type == TYPE_URI && item < self.inner.uris.len() {
             Ok(self.inner.uris[item].clone().into())
         } else if item == 0 {
-            let mut target = atom_from_string(&data_type);
-            let is_text = unsafe { gtk_targets_include_text(&mut target as *mut _, 1) } != GFALSE;
+            let target = Atom::intern(&data_type);
+            let is_text = target_includes_text(&target);
             if is_text {
-                Ok(self.get_text().await.into())
+                Ok(self.clipboard.get_text().await.into())
             } else {
-                Ok(self.get_data(&data_type).await.into())
+                Ok(self.clipboard.get_data(&data_type).await.into())
             }
         } else {
             Ok(Value::Null)
@@ -94,11 +85,10 @@ impl PlatformDataReader {
     }
 
     pub fn new_clipboard_reader() -> NativeExtensionsResult<Rc<Self>> {
-        let clipboard = unsafe {
-            let display = gdk_display_get_default();
-            let clipboard = gtk_clipboard_get_default(display);
-            g_object_ref(clipboard as *mut _) as *mut GtkClipboard
-        };
+        let display = Display::default()
+            .ok_or_else(|| NativeExtensionsError::OtherError("Display not found".into()))?;
+        let clipboard = Clipboard::default(&display)
+            .ok_or_else(|| NativeExtensionsError::OtherError("Clipboard not found".into()))?;
         let res = Rc::new(PlatformDataReader {
             clipboard,
             inner: Late::new(),
@@ -108,131 +98,6 @@ impl PlatformDataReader {
     }
 
     pub fn assign_weak_self(&self, _weak: Weak<PlatformDataReader>) {}
-
-    async fn get_targets(&self) -> Vec<String> {
-        let (future, completer) = FutureCompleter::new();
-        unsafe {
-            gtk_clipboard_request_targets(
-                self.clipboard,
-                Some(Self::on_targets),
-                Box::into_raw(Box::new(completer)) as *mut _,
-            )
-        };
-        future.await
-    }
-
-    async fn get_text(&self) -> Option<String> {
-        let (future, completer) = FutureCompleter::new();
-        unsafe {
-            gtk_clipboard_request_text(
-                self.clipboard,
-                Some(Self::on_text),
-                Box::into_raw(Box::new(completer)) as *mut _,
-            )
-        }
-        future.await
-    }
-
-    async fn get_uri_list(&self) -> Vec<String> {
-        let (future, completer) = FutureCompleter::new();
-        unsafe {
-            gtk_clipboard_request_uris(
-                self.clipboard,
-                Some(Self::on_uri_list),
-                Box::into_raw(Box::new(completer)) as *mut _,
-            )
-        }
-        future.await
-    }
-
-    async fn get_data(&self, ty: &str) -> Option<Vec<u8>> {
-        let (future, completer) = FutureCompleter::new();
-        unsafe {
-            gtk_clipboard_request_contents(
-                self.clipboard,
-                atom_from_string(ty),
-                Some(Self::on_contents),
-                Box::into_raw(Box::new(completer)) as *mut _,
-            )
-        }
-        future.await
-    }
-
-    extern "C" fn on_targets(
-        _: *mut GtkClipboard,
-        targets: *mut GdkAtom,
-        n_targets: c_int,
-        completer: gpointer,
-    ) {
-        let has_text = unsafe { gtk_targets_include_text(targets, n_targets) } != GFALSE;
-        let targets = unsafe { slice::from_raw_parts(targets, n_targets as usize) };
-        let completer = completer as *mut FutureCompleter<Vec<String>>;
-        let completer = unsafe { Box::from_raw(completer) };
-        let mut targets: Vec<_> = targets
-            .iter()
-            .map(|t| unsafe { atom_to_string(t) })
-            .collect();
-        // Ensure we report our TEXT_TYPE
-        if has_text && !targets.iter().any(|a| a == TYPE_TEXT) {
-            targets.push(TYPE_TEXT.to_owned());
-        }
-        completer.complete(targets);
-    }
-
-    extern "C" fn on_text(_: *mut GtkClipboard, text: *const c_char, completer: gpointer) {
-        let completer = completer as *mut FutureCompleter<Option<String>>;
-        let completer = unsafe { Box::from_raw(completer) };
-        if text.is_null() {
-            completer.complete(None)
-        } else {
-            let text = unsafe { CStr::from_ptr(text) }.to_string_lossy();
-            completer.complete(Some(text.into()))
-        }
-    }
-
-    extern "C" fn on_uri_list(_: *mut GtkClipboard, list: *mut *mut c_char, completer: gpointer) {
-        let completer = completer as *mut FutureCompleter<Vec<String>>;
-        let completer = unsafe { Box::from_raw(completer) };
-        let mut res = Vec::new();
-        if !list.is_null() {
-            let mut index = 0usize;
-            loop {
-                let uri = unsafe { *list.add(index) };
-                if uri.is_null() {
-                    break;
-                } else {
-                    let uri = unsafe { CStr::from_ptr(uri) }.to_string_lossy();
-                    res.push(uri.into());
-                }
-                index += 1;
-            }
-        }
-        completer.complete(res)
-    }
-
-    extern "C" fn on_contents(
-        _: *mut GtkClipboard,
-        selection_data: *mut GtkSelectionData,
-        completer: gpointer,
-    ) {
-        let completer = completer as *mut FutureCompleter<Option<Vec<u8>>>;
-        let completer = unsafe { Box::from_raw(completer) };
-        if selection_data.is_null() {
-            completer.complete(None);
-        } else {
-            let data = unsafe {
-                let data = gtk_selection_data_get_data(selection_data);
-                if data.is_null() {
-                    None
-                } else {
-                    let len = gtk_selection_data_get_length(selection_data) as usize;
-                    let s = slice::from_raw_parts(data, len);
-                    Some(s.to_owned())
-                }
-            };
-            completer.complete(data);
-        }
-    }
 
     pub async fn can_get_virtual_file_for_item(
         &self,
@@ -250,13 +115,5 @@ impl PlatformDataReader {
         _progress: Arc<ReadProgress>,
     ) -> NativeExtensionsResult<PathBuf> {
         Err(NativeExtensionsError::UnsupportedOperation)
-    }
-}
-
-impl Drop for PlatformDataReader {
-    fn drop(&mut self) {
-        unsafe {
-            g_object_unref(self.clipboard as *mut _);
-        }
     }
 }

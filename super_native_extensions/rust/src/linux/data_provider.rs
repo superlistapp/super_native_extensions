@@ -1,31 +1,22 @@
 use std::{
-    mem::ManuallyDrop,
-    os::raw::{c_int, c_uint},
-    ptr::null_mut,
     rc::{Rc, Weak},
     sync::Arc,
 };
 
-use gdk_sys::gdk_display_get_default;
-use glib_sys::{gpointer, GFALSE};
-use gtk_sys::{
-    gtk_clipboard_get_default, gtk_clipboard_set_with_data, gtk_main_iteration,
-    gtk_selection_data_get_target, gtk_selection_data_set, gtk_selection_data_set_text,
-    gtk_target_list_add, gtk_target_list_add_text_targets, gtk_target_list_new,
-    gtk_target_list_unref, gtk_target_table_free, gtk_target_table_new_from_list,
-    gtk_targets_include_text, GtkClipboard, GtkSelectionData, GtkTargetList,
-};
-use nativeshell_core::{util::Late, IsolateId};
-use scopeguard::defer;
+use gdk::{Atom, Display};
+
+use gtk::{Clipboard, SelectionData, TargetList};
+use nativeshell_core::{util::Late, Context, IsolateId};
 
 use crate::{
     api_model::{DataProvider, DataRepresentation},
     data_provider_manager::{DataProviderHandle, PlatformDataProviderDelegate},
-    error::NativeExtensionsResult,
+    error::{NativeExtensionsError, NativeExtensionsResult},
+    log::OkLog,
     value_coerce::{CoerceToData, StringFormat},
 };
 
-use super::common::{atom_from_string, atom_to_string, TYPE_TEXT, TYPE_URI};
+use super::common::{target_includes_text, TargetListExt, TYPE_TEXT, TYPE_URI};
 
 pub fn platform_stream_write(_handle: i32, _data: &[u8]) -> i32 {
     0
@@ -62,7 +53,7 @@ impl PlatformDataProvider {
         providers: Vec<(Rc<PlatformDataProvider>, Arc<DataProviderHandle>)>,
     ) -> NativeExtensionsResult<()> {
         let data_object = DataObject::new(providers);
-        data_object.write_to_clipboard().await
+        data_object.write_to_clipboard()
     }
 }
 
@@ -71,7 +62,7 @@ struct ProviderEntry {
     _handle: Arc<DataProviderHandle>,
 }
 
-struct DataObject {
+pub struct DataObject {
     providers: Vec<ProviderEntry>,
 }
 
@@ -89,26 +80,17 @@ impl DataObject {
         res
     }
 
-    fn set_data(selection_data: *mut GtkSelectionData, data: &[u8]) {
-        unsafe {
-            let mut target = gtk_selection_data_get_target(selection_data);
-            let is_text = gtk_targets_include_text(&mut target as *mut _, 1) != GFALSE;
-            if is_text {
-                gtk_selection_data_set_text(
-                    selection_data,
-                    data.as_ptr() as *const _,
-                    data.len() as c_int,
-                );
-            } else {
-                gtk_selection_data_set(
-                    selection_data,
-                    target,
-                    8,
-                    data.as_ptr(),
-                    data.len() as c_int,
-                );
-            }
+    fn set_data_(selection_data: &SelectionData, data: &[u8]) -> NativeExtensionsResult<()> {
+        let target = selection_data.target();
+        if target_includes_text(&target) {
+            selection_data.set_text(
+                std::str::from_utf8(data)
+                    .map_err(|e| NativeExtensionsError::OtherError(e.to_string()))?,
+            );
+        } else {
+            selection_data.set(&target, 8, data);
         }
+        Ok(())
     }
 
     fn get_data_for_item(&self, item: &PlatformDataProvider, ty: &str) -> Option<Vec<u8>> {
@@ -134,9 +116,7 @@ impl DataObject {
                                         }
                                     }
                                 }
-                                unsafe {
-                                    gtk_main_iteration();
-                                }
+                                Context::get().run_loop().platform_run_loop.poll_once();
                             }
                         }
                     }
@@ -147,18 +127,14 @@ impl DataObject {
         None
     }
 
-    fn get_data(
-        &self,
-        _clipboard: *mut GtkClipboard,
-        selection_data: *mut GtkSelectionData,
-        _info: c_uint,
-    ) {
-        let mut target = unsafe { gtk_selection_data_get_target(selection_data) };
-        let is_text = unsafe { gtk_targets_include_text(&mut target as *mut _, 1) } != GFALSE;
+    pub fn get_data(&self, selection_data: &SelectionData) -> NativeExtensionsResult<()> {
+        let target = selection_data.target();
+        let is_text = target_includes_text(&target);
+
         let target = if is_text {
             TYPE_TEXT.to_owned()
         } else {
-            unsafe { atom_to_string(&target) }
+            target.name().as_str().to_owned()
         };
         if target == TYPE_URI {
             // merge URIs from all items
@@ -170,85 +146,51 @@ impl DataObject {
                     data.push(b'\n');
                 }
             }
-            Self::set_data(selection_data, &data);
+            Self::set_data_(selection_data, &data)?;
         } else if let Some(item) = self.providers.first() {
             if let Some(data) = self.get_data_for_item(&item.provider, &target) {
-                Self::set_data(selection_data, &data);
+                Self::set_data_(selection_data, &data)?;
             }
         }
-    }
-
-    unsafe extern "C" fn _get_data(
-        clipboard: *mut GtkClipboard,
-        selection_data: *mut GtkSelectionData,
-        info: c_uint,
-        user_data: gpointer,
-    ) {
-        let user_data = user_data as *const DataObject;
-        let this = ManuallyDrop::new(Rc::from_raw(user_data));
-        this.get_data(clipboard, selection_data, info);
-    }
-
-    unsafe extern "C" fn _clear(_clipboard: *mut GtkClipboard, user_data: gpointer) {
-        // Dealoc WeakPr
-        let user_data = user_data as *const DataObject;
-        Rc::from_raw(user_data);
-    }
-
-    pub async fn write_to_clipboard(self: &Rc<Self>) -> NativeExtensionsResult<()> {
-        unsafe {
-            let target_list = self.create_target_list();
-            defer! { gtk_target_list_unref(target_list); }
-
-            let mut n_targets: c_int = 0;
-            let targets = gtk_target_table_new_from_list(target_list, &mut n_targets as *mut _);
-            defer! { gtk_target_table_free(targets, n_targets); }
-
-            let display = gdk_display_get_default();
-            let clipboard = gtk_clipboard_get_default(display);
-
-            let user_data = Rc::into_raw(self.clone());
-
-            gtk_clipboard_set_with_data(
-                clipboard,
-                targets,
-                n_targets as c_uint,
-                Some(Self::_get_data),
-                Some(Self::_clear),
-                user_data as *mut _,
-            );
-        }
-
         Ok(())
     }
 
-    fn add_types(target_list: *mut GtkTargetList, ty: &str) {
-        if ty == TYPE_TEXT {
-            unsafe { gtk_target_list_add_text_targets(target_list, 0) };
-        } else {
-            unsafe {
-                gtk_target_list_add(target_list, atom_from_string(ty), 0, 0);
-            };
-        }
+    pub fn write_to_clipboard(self: &Rc<Self>) -> NativeExtensionsResult<()> {
+        let list = self.create_target_list();
+        let targets = list.get_target_entries();
+        let display = Display::default()
+            .ok_or_else(|| NativeExtensionsError::OtherError("Display not found".into()))?;
+        let clipboard = Clipboard::default(&display)
+            .ok_or_else(|| NativeExtensionsError::OtherError("Clipboard not found".into()))?;
+        let self_clone = self.clone();
+        clipboard.set_with_data(&targets, move |_, selection_data, _| {
+            self_clone.get_data(selection_data).ok_log();
+        });
+        Ok(())
     }
 
-    fn create_target_list(&self) -> *mut GtkTargetList {
-        unsafe {
-            let list = gtk_target_list_new(null_mut(), 0);
-            if let Some(item) = self.providers.first() {
-                for repr in &item.provider.data.representations {
-                    match repr {
-                        DataRepresentation::Simple { format, data: _ } => {
-                            Self::add_types(list, format);
-                        }
-                        DataRepresentation::Lazy { format, id: _ } => {
-                            Self::add_types(list, format);
-                        }
-                        _ => {}
+    pub fn create_target_list(&self) -> TargetList {
+        let list = TargetList::new(&[]);
+        fn add(list: &TargetList, ty: &str) {
+            if ty == TYPE_TEXT {
+                list.add_text_targets(0);
+            } else {
+                list.add(&Atom::intern(ty), 0, 0);
+            }
+        }
+        if let Some(item) = self.providers.first() {
+            for repr in &item.provider.data.representations {
+                match repr {
+                    DataRepresentation::Simple { format, data: _ } => {
+                        add(&list, format);
                     }
+                    DataRepresentation::Lazy { format, id: _ } => {
+                        add(&list, format);
+                    }
+                    _ => {}
                 }
             }
-            list
         }
+        list
     }
 }
