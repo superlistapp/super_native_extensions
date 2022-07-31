@@ -228,6 +228,7 @@ pub struct WidgetReader {
     data_received_sig: Cell<Option<SignalHandlerId>>,
     current_time: Cell<u32>,
     pending: RefCell<HashMap<usize, Vec<FutureCompleter<SelectionData>>>>,
+    on_all_requests_resolved: RefCell<Option<Box<dyn FnOnce()>>>,
 }
 
 impl WidgetReader {
@@ -238,6 +239,7 @@ impl WidgetReader {
             data_received_sig: Cell::new(None),
             current_time: Cell::new(0),
             pending: RefCell::new(HashMap::new()),
+            on_all_requests_resolved: RefCell::new(None),
         });
         let weak = Rc::downgrade(&res);
         res.data_received_sig
@@ -316,6 +318,25 @@ impl WidgetReader {
             for c in completers {
                 c.complete(data.clone())
             }
+        }
+        if self.pending.borrow().is_empty() {
+            let cb = self.on_all_requests_resolved.borrow_mut().take();
+            if let Some(cb) = cb {
+                cb();
+            }
+        }
+    }
+
+    /// Invokes the provided callback when there are no more pending get
+    /// requests.
+    pub fn on_all_requests_resolved<F>(&self, f: F)
+    where
+        F: FnOnce() + 'static,
+    {
+        if self.pending.borrow().is_empty() {
+            f();
+        } else {
+            self.on_all_requests_resolved.replace(Some(Box::new(f)));
         }
     }
 }

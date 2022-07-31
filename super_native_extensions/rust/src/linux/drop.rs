@@ -8,9 +8,13 @@ use gdk::{
     Atom, DragAction, DragContext,
 };
 
-use gtk::{prelude::WidgetExtManual, traits::WidgetExt, DestDefaults, TargetList, Widget};
+use gtk::{
+    prelude::{DragContextExtManual, WidgetExtManual},
+    traits::WidgetExt,
+    DestDefaults, TargetList, Widget,
+};
 use gtk_sys::GtkWidget;
-use nativeshell_core::{util::Late, Value};
+use nativeshell_core::{util::Late, Context, Value};
 
 use crate::{
     api_model::{DropOperation, Point},
@@ -79,8 +83,24 @@ impl PlatformDropContext {
             });
             let weak_self = self.weak_self.clone();
             view.connect_drag_leave(move |_, c, time| {
+                let c = c.clone();
+                let weak_self = weak_self.clone();
+                // Ensure drag_leave comes after drag drop
+                Context::get()
+                    .run_loop()
+                    .schedule_next(move || {
+                        if let Some(this) = weak_self.upgrade() {
+                            this.drag_leave(&c, time).ok_log();
+                        }
+                    })
+                    .detach();
+            });
+            let weak_self = self.weak_self.clone();
+            view.connect_drag_drop(move |_, c, x, y, time| {
                 if let Some(this) = weak_self.upgrade() {
-                    this.drag_leave(c, time).ok_log();
+                    this.drag_drop(c, x, y, time).ok_log().unwrap_or(false)
+                } else {
+                    false
                 }
             });
         }
@@ -114,6 +134,46 @@ impl PlatformDropContext {
         }))
     }
 
+    fn create_drop_event(
+        &self,
+        session: &Rc<Session>,
+        context: &DragContext,
+        x: i32,
+        y: i32,
+        accepted_operation: Option<DropOperation>,
+    ) -> Option<DropEvent> {
+        let reader_info = session.platform_reader.reader_info()?;
+        let local_data = self
+            .delegate()
+            .ok()?
+            .get_platform_drag_context(self.id)
+            .ok()?
+            .local_data();
+        let number_of_items = local_data.len().max(reader_info.number_of_items);
+        Some(DropEvent {
+            session_id: session.id,
+            location_in_view: Point {
+                x: x as f64,
+                y: y as f64,
+            },
+            allowed_operations: DropOperation::from_platform_mask(context.actions()),
+            accepted_operation,
+            items: (0..number_of_items)
+                .map(|i| DropItem {
+                    item_id: (i as i64).into(),
+                    formats: reader_info
+                        .targets
+                        .iter()
+                        .filter(|f| i == 0 || *f == TYPE_URI)
+                        .cloned()
+                        .collect(),
+                    local_data: local_data.get(i).cloned().unwrap_or(Value::Null),
+                })
+                .collect(),
+            reader: Some(session.registered_reader.clone()),
+        })
+    }
+
     fn drag_motion(
         &self,
         context: &DragContext,
@@ -127,45 +187,63 @@ impl PlatformDropContext {
             .try_get_or_insert_with(|| self.new_session(context))?
             .clone();
         session.widget_reader.update_current_time(time);
-        if let Some(info) = session.platform_reader.reader_info() {
-            let local_data = self
-                .delegate()?
-                .get_platform_drag_context(self.id)?
-                .local_data();
-            let number_of_items = local_data.len().max(info.number_of_items);
-            let event = DropEvent {
-                session_id: session.id,
-                location_in_view: Point {
-                    x: x as f64,
-                    y: y as f64,
-                },
-                allowed_operations: DropOperation::from_platform_mask(context.actions()),
-                accepted_operation: None,
-                items: (0..number_of_items)
-                    .map(|i| DropItem {
-                        item_id: (i as i64).into(),
-                        formats: info
-                            .targets
-                            .iter()
-                            .filter(|f| i == 0 || *f == TYPE_URI)
-                            .cloned()
-                            .collect(),
-                        local_data: local_data.get(i).cloned().unwrap_or(Value::Null),
-                    })
-                    .collect(),
-                reader: Some(session.registered_reader.clone()),
-            };
+        if let Some(event) = self.create_drop_event(&session, context, x, y, None) {
             let session_clone = session.clone();
+            let context = context.clone();
             self.delegate()?.send_drop_update(
                 self.id,
                 event,
                 Box::new(move |res| {
                     let res = res.ok_log().unwrap_or(DropOperation::None);
                     session_clone.last_operation.set(res);
+                    context.drag_status(res.to_platform(), time);
                 }),
             );
+        } else {
+            context.drag_status(DragAction::empty(), time);
         }
-        context.drag_status(session.last_operation.get().to_platform(), time);
+        Ok(true)
+    }
+
+    fn drag_drop(
+        &self,
+        context: &DragContext,
+        x: i32,
+        y: i32,
+        time: u32,
+    ) -> NativeExtensionsResult<bool> {
+        let session = self.current_session.borrow_mut().take();
+        if let Some(session) = session {
+            session.widget_reader.update_current_time(time);
+
+            if let Some(event) =
+                self.create_drop_event(&session, context, x, y, Some(session.last_operation.get()))
+            {
+                let done = Rc::new(Cell::new(Option::<bool>::None));
+                let done_clone = done.clone();
+                self.delegate()?.send_perform_drop(
+                    self.id,
+                    event,
+                    Box::new(move |r| {
+                        let ok = r.ok_log().is_some();
+                        done_clone.set(Some(ok));
+                    }),
+                );
+                while done.get().is_none() {
+                    Context::get().run_loop().platform_run_loop.poll_once();
+                }
+                let context = context.clone();
+                let deleting = session.last_operation.get() == DropOperation::Move;
+                let ok = done.get().unwrap_or(false);
+                session.widget_reader.on_all_requests_resolved(move || {
+                    context.drag_finish(ok, deleting, time);
+                });
+            } else {
+                context.drag_finish(false, false, time);
+            }
+        } else {
+            context.drag_finish(false, false, time);
+        }
         Ok(true)
     }
 
