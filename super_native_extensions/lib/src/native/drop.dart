@@ -3,11 +3,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:nativeshell_core/nativeshell_core.dart';
 
-import '../util.dart';
-import 'context.dart';
 import '../api_model.dart';
 import '../drop.dart';
 import '../reader.dart';
+import '../util.dart';
+import 'api_model.dart';
+import 'context.dart';
 import 'reader_manager.dart';
 
 final _channel =
@@ -15,6 +16,15 @@ final _channel =
 
 class Session {
   DataReader? reader;
+}
+
+extension ItemPreviewExt on ItemPreview {
+  dynamic serialize() => {
+        'destinationRect': destinationRect.serialize(),
+        'destinationImage': destinationImage?.serialize(),
+        'fadeOutDelay': fadeOutDelay?.inSecondsDouble,
+        'fadeOutDuration': fadeOutDuration?.inSecondsDouble,
+      };
 }
 
 extension BaseDropEventExt on BaseDropEvent {

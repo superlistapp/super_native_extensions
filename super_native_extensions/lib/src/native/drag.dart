@@ -7,11 +7,45 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:nativeshell_core/nativeshell_core.dart';
 
-import 'context.dart';
 import '../api_model.dart';
 import '../data_provider.dart';
-import '../util.dart';
 import '../drag.dart';
+import '../util.dart';
+import 'api_model.dart';
+import 'context.dart';
+
+extension DragConfigurationExt on DragConfiguration {
+  dynamic serialize() => {
+        'items': items.map((e) => e.serialize()),
+        'allowedOperations': allowedOperations.map((e) => e.name),
+        'animatesToStartingPositionOnCancelOrFail':
+            animatesToStartingPositionOnCancelOrFail,
+        'prefersFullSizePreviews': prefersFullSizePreviews,
+      };
+}
+
+extension DragItemExt on DragItem {
+  dynamic serialize() => {
+        'dataProviderId': dataProvider.id,
+        'localData': localData,
+        'image': image.serialize(),
+      };
+}
+
+extension DragImageExt on DragImage {
+  dynamic serialize() => {
+        'imageData': imageData.serialize(),
+        'sourceRect': sourceRect.serialize(),
+      };
+}
+
+extension DragRequestExt on DragRequest {
+  dynamic serialize() => {
+        'configuration': configuration.serialize(),
+        'position': position.serialize(),
+        'combinedDragImage': combinedDragImage?.serialize(),
+      };
+}
 
 class DragSessionImpl extends DragSession {
   @override

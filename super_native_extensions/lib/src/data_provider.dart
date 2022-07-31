@@ -12,11 +12,6 @@ class DataProvider {
     this.suggestedName,
   });
 
-  dynamic serialize() => {
-        'representations': representations.map((e) => e.serialize()),
-        'suggestedName': suggestedName,
-      };
-
   /// Registers this source with native code. The source data will be kept alive
   /// until handle is disposed.
   Future<DataProviderHandle> register() {

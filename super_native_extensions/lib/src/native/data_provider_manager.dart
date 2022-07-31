@@ -12,6 +12,13 @@ import '../data_provider.dart';
 import '../data_provider_manager.dart';
 import '../util.dart';
 
+extension DataProviderExt on DataProvider {
+  dynamic serialize() => {
+        'representations': representations.map((e) => e.serialize()),
+        'suggestedName': suggestedName,
+      };
+}
+
 class DataProviderManagerImpl implements DataProviderManager {
   DataProviderManagerImpl() {
     _channel.setMethodCallHandler(_onMethodCall);

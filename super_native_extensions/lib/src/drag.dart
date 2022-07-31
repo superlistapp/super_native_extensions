@@ -3,9 +3,69 @@ import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 
 import 'api_model.dart';
+import 'data_provider.dart';
 import 'mutex.dart';
 
 import 'native/drag.dart' if (dart.library.js) 'web/drag.dart';
+
+class DragConfiguration {
+  DragConfiguration({
+    required this.items,
+    required this.allowedOperations,
+    this.animatesToStartingPositionOnCancelOrFail = true,
+    this.prefersFullSizePreviews = false,
+  });
+
+  final List<DragItem> items;
+  final List<DropOperation> allowedOperations;
+
+  /// macOS specific
+  final bool animatesToStartingPositionOnCancelOrFail;
+
+  /// iOS specific
+  final bool prefersFullSizePreviews;
+}
+
+class DragItem {
+  DragItem({
+    required this.dataProvider,
+    this.liftImage,
+    required this.image,
+    this.localData,
+  });
+
+  final DataProviderHandle dataProvider;
+
+  /// Used on iPad during lift (before dragging starts). If not set normal
+  /// drag image is used. This should closely resemble the widget being dragged.
+  final DragImage? liftImage;
+
+  /// Image used while dragging.
+  final DragImage image;
+  final Object? localData;
+}
+
+class DragImage {
+  DragImage({
+    required this.imageData,
+    required this.sourceRect,
+  });
+
+  final ImageData imageData;
+  final ui.Rect sourceRect;
+}
+
+class DragRequest {
+  DragRequest({
+    required this.configuration,
+    required this.position,
+    this.combinedDragImage,
+  });
+
+  final DragConfiguration configuration;
+  final ui.Offset position;
+  final DragImage? combinedDragImage;
+}
 
 abstract class DragSession {
   Listenable get dragStarted;

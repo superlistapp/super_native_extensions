@@ -92,13 +92,6 @@ class ItemPreview {
 
   /// Override fade out duration
   final Duration? fadeOutDuration;
-
-  dynamic serialize() => {
-        'destinationRect': destinationRect.serialize(),
-        'destinationImage': destinationImage?.serialize(),
-        'fadeOutDelay': fadeOutDelay?.inSecondsDouble,
-        'fadeOutDuration': fadeOutDuration?.inSecondsDouble,
-      };
 }
 
 class ItemPreviewRequest {

@@ -1,9 +1,6 @@
 import 'dart:typed_data';
 import 'dart:ui';
 
-import 'data_provider.dart';
-import 'util.dart';
-
 class ImageData {
   ImageData({
     required this.width,
@@ -34,14 +31,6 @@ class ImageData {
         sourceImage: image,
         devicePixelRatio: devicePixelRatio);
   }
-
-  dynamic serialize() => {
-        'width': width,
-        'height': height,
-        'bytesPerRow': bytesPerRow,
-        'data': data,
-        'devicePixelRatio': devicePixelRatio,
-      };
 }
 
 //
@@ -49,87 +38,3 @@ class ImageData {
 //
 
 enum DropOperation { none, userCancelled, forbidden, copy, move, link }
-
-class DragConfiguration {
-  DragConfiguration({
-    required this.items,
-    required this.allowedOperations,
-    this.animatesToStartingPositionOnCancelOrFail = true,
-    this.prefersFullSizePreviews = false,
-  });
-
-  final List<DragItem> items;
-  final List<DropOperation> allowedOperations;
-
-  /// macOS specific
-  final bool animatesToStartingPositionOnCancelOrFail;
-
-  /// iOS specific
-  final bool prefersFullSizePreviews;
-
-  dynamic serialize() => {
-        'items': items.map((e) => e.serialize()),
-        'allowedOperations': allowedOperations.map((e) => e.name),
-        'animatesToStartingPositionOnCancelOrFail':
-            animatesToStartingPositionOnCancelOrFail,
-        'prefersFullSizePreviews': prefersFullSizePreviews,
-      };
-}
-
-class DragItem {
-  DragItem({
-    required this.dataProvider,
-    this.liftImage,
-    required this.image,
-    this.localData,
-  });
-
-  dynamic serialize() => {
-        'dataProviderId': dataProvider.id,
-        'localData': localData,
-        'image': image.serialize(),
-      };
-
-  final DataProviderHandle dataProvider;
-
-  /// Used on iPad during lift (before dragging starts). If not set normal
-  /// drag image is used. This should closely resemble the widget being dragged.
-  final DragImage? liftImage;
-
-  /// Image used while dragging.
-  final DragImage image;
-  final Object? localData;
-}
-
-class DragImage {
-  DragImage({
-    required this.imageData,
-    required this.sourceRect,
-  });
-
-  dynamic serialize() => {
-        'imageData': imageData.serialize(),
-        'sourceRect': sourceRect.serialize(),
-      };
-
-  final ImageData imageData;
-  final Rect sourceRect;
-}
-
-class DragRequest {
-  DragRequest({
-    required this.configuration,
-    required this.position,
-    this.combinedDragImage,
-  });
-
-  final DragConfiguration configuration;
-  final Offset position;
-  final DragImage? combinedDragImage;
-
-  dynamic serialize() => {
-        'configuration': configuration.serialize(),
-        'position': position.serialize(),
-        'combinedDragImage': combinedDragImage?.serialize(),
-      };
-}
