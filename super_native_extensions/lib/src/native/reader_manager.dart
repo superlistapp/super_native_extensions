@@ -50,13 +50,13 @@ class RawReaderManagerImpl extends RawReaderManager {
   }
 
   @override
-  Future<List<DataReaderItem>> getItems(DataReaderHandle reader) async {
+  Future<List<DataReaderItemHandleImpl>> getItems(
+      DataReaderHandle reader) async {
     final handles =
         await _channel.invokeMethod("getItems", reader._handle) as List<int>;
     return handles
-        .map((handle) => DataReaderItem(
-            handle: DataReaderItemHandle._(
-                itemHandle: handle, readerHandle: reader._handle)))
+        .map((handle) => DataReaderItemHandle._(
+            itemHandle: handle, readerHandle: reader._handle))
         .toList(growable: false);
   }
 

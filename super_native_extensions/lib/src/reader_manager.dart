@@ -13,7 +13,7 @@ abstract class RawReaderManager {
 
   Future<void> dispose(DataReaderHandle reader);
 
-  Future<List<DataReaderItem>> getItems(DataReaderHandle reader);
+  Future<List<DataReaderItemHandle>> getItems(DataReaderHandle reader);
 
   Future<List<String>> getItemFormats(DataReaderItemHandle handle);
 

@@ -9,7 +9,9 @@ import 'reader_manager.dart';
 class DataReader {
   Future<List<DataReaderItem>> getItems() {
     return _mutex.protect(() async {
-      _items ??= await RawReaderManager.instance.getItems(_handle);
+      _items ??= (await RawReaderManager.instance.getItems(_handle))
+          .map((handle) => DataReaderItem(handle: handle))
+          .toList(growable: false);
       return _items!;
     });
   }

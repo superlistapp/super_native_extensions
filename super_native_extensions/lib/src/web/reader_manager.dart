@@ -14,8 +14,11 @@ class RawReaderManagerImpl extends RawReaderManager {
   }
 
   @override
-  ReadProgress getItemData(DataReaderItemHandle handle,
-      {required String format, required ValueChanged<GetDataResult> onData}) {
+  ReadProgress getItemData(
+    DataReaderItemHandle handle, {
+    required String format,
+    required ValueChanged<GetDataResult> onData,
+  }) {
     // TODO: implement getItemData
     throw UnimplementedError();
   }
@@ -27,7 +30,7 @@ class RawReaderManagerImpl extends RawReaderManager {
   }
 
   @override
-  Future<List<DataReaderItem>> getItems(DataReaderHandle reader) {
+  Future<List<DataReaderItemHandle>> getItems(DataReaderHandle reader) {
     // TODO: implement getItems
     throw UnimplementedError();
   }
