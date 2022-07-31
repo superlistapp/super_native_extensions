@@ -44,24 +44,20 @@ enum ReaderSource {
 
 impl PlatformDataReader {
     fn get_items_providers(&self) -> Vec<id> {
-        let mut res = Vec::<id>::new();
         match &self.source {
             ReaderSource::Pasteboard(pasteboard) => {
                 let providers: id = unsafe { msg_send![**pasteboard, itemProviders] };
-                for i in 0..unsafe { NSArray::count(providers) } {
-                    let provider = unsafe { NSArray::objectAtIndex(providers, i) };
-                    res.push(provider);
-                }
+                (0..unsafe { NSArray::count(providers) })
+                    .map(|i| unsafe { NSArray::objectAtIndex(providers, i) })
+                    .collect()
             }
-            ReaderSource::DropSessionItems(items) => {
-                for i in 0..unsafe { NSArray::count(**items) } {
-                    let item: id = unsafe { NSArray::objectAtIndex(**items, i) };
-                    let provider: id = unsafe { msg_send![item, itemProvider] };
-                    res.push(provider);
-                }
-            }
+            ReaderSource::DropSessionItems(items) => (0..unsafe { NSArray::count(**items) })
+                .map(|i| {
+                    let item = unsafe { NSArray::objectAtIndex(**items, i) };
+                    unsafe { msg_send![item, itemProvider] }
+                })
+                .collect(),
         }
-        res
     }
 
     pub async fn get_items(&self) -> NativeExtensionsResult<Vec<i64>> {
@@ -78,11 +74,9 @@ impl PlatformDataReader {
             if item < providers.len() as i64 {
                 let provider = providers[item as usize];
                 let identifiers: id = msg_send![provider, registeredTypeIdentifiers];
-                let mut res = Vec::new();
-                for i in 0..NSArray::count(identifiers) {
-                    res.push(from_nsstring(NSArray::objectAtIndex(identifiers, i)));
-                }
-                res
+                (0..NSArray::count(identifiers))
+                    .map(|i| from_nsstring(NSArray::objectAtIndex(identifiers, i)))
+                    .collect()
             } else {
                 Vec::new()
             }

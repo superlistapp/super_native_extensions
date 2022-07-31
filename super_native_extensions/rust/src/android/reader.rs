@@ -1,8 +1,9 @@
 use std::{
     cell::{Cell, RefCell},
     collections::HashMap,
+    path::PathBuf,
     rc::Rc,
-    sync::Arc, path::PathBuf,
+    sync::Arc,
 };
 
 use jni::{
@@ -68,12 +69,12 @@ impl PlatformDataReader {
                 if formats.is_null() {
                     Ok(Vec::new())
                 } else {
-                    let mut res = Vec::new();
-                    for i in 0..env.get_array_length(*formats)? {
-                        let obj = env.get_object_array_element(*formats, i)?;
-                        res.push(env.get_string(obj.into())?.into())
-                    }
-                    Ok(res)
+                    (0..env.get_array_length(*formats)?)
+                        .map(|i| {
+                            let obj = env.get_object_array_element(*formats, i)?;
+                            Ok(env.get_string(obj.into())?.into())
+                        })
+                        .collect()
                 }
             }
             None => Ok(Vec::new()),

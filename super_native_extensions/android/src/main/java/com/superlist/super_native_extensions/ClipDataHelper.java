@@ -1,7 +1,13 @@
 package com.superlist.super_native_extensions;
 
+import static android.content.ContentResolver.SCHEME_ANDROID_RESOURCE;
+import static android.content.ContentResolver.SCHEME_CONTENT;
+import static android.content.ContentResolver.SCHEME_FILE;
+
 import android.content.ClipData;
+import android.content.ContentResolver;
 import android.content.Context;
+import android.content.Intent;
 import android.content.res.AssetFileDescriptor;
 import android.net.Uri;
 import android.os.Handler;
@@ -9,8 +15,11 @@ import android.os.Looper;
 import android.util.Log;
 
 import java.io.ByteArrayOutputStream;
+import java.io.Closeable;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 
@@ -33,9 +42,8 @@ public final class ClipDataHelper {
     private final Handler handler = new Handler(Looper.getMainLooper());
 
     public void getData(ClipData data, int index, String type, Context context, int handle) {
-
-            Object res = _getData(data, index, type, context);
-            onData(handle, res);
+        Object res = _getData(data, index, type, context);
+        onData(handle, res);
     }
 
     native void onData(int handle, Object data);
@@ -82,7 +90,7 @@ public final class ClipDataHelper {
     }
 
     CharSequence getText(ClipData.Item item, Context context) {
-        return item.coerceToText(context);
+        return coerceToPlainText(item, context);
     }
 
     CharSequence getHtml(ClipData.Item item, Context context) {
@@ -148,6 +156,88 @@ public final class ClipDataHelper {
             } catch (IOException e) {
                 // Java is annoying
             }
+        }
+    }
+
+    // Similar to item.coerceToText but prefers text/plain
+    private CharSequence coerceToPlainText(ClipData.Item item, Context context) {
+        // If this Item has an explicit textual value, simply return that.
+        CharSequence text = item.getText();
+        if (text != null) {
+            return text;
+        }
+
+        // If this Item has a URI value, try using that.
+        Uri uri = item.getUri();
+        if (uri != null) {
+            // First see if the URI can be opened as a plain text stream
+            // (of any sub-type).  If so, this is the best textual
+            // representation for it.
+            final ContentResolver resolver = context.getContentResolver();
+            AssetFileDescriptor descr = null;
+            FileInputStream stream = null;
+            InputStreamReader reader = null;
+            try {
+                try {
+                    // Ask for a stream of the desired type.
+                    descr = resolver.openTypedAssetFileDescriptor(uri, "text/plain", null);
+                } catch (SecurityException e) {
+                    Log.w("ClipData", "Failure opening stream", e);
+                } catch (FileNotFoundException | RuntimeException e) {
+                    // Unable to open content URI as text...  not really an
+                    // error, just something to ignore.
+                    try {
+                        // Retry for other text types
+                        descr = resolver.openTypedAssetFileDescriptor(uri, "text/*", null);
+                    } catch (SecurityException e_) {
+                        Log.w("ClipData", "Failure opening stream", e);
+                    } catch (FileNotFoundException | RuntimeException e_) {
+                    }
+                }
+                if (descr != null) {
+                    try {
+                        stream = descr.createInputStream();
+                        reader = new InputStreamReader(stream, "UTF-8");
+
+                        // Got it...  copy the stream into a local string and return it.
+                        final StringBuilder builder = new StringBuilder(128);
+                        char[] buffer = new char[8192];
+                        int len;
+                        while ((len = reader.read(buffer)) > 0) {
+                            builder.append(buffer, 0, len);
+                        }
+                        return builder.toString();
+                    } catch (IOException e) {
+                        // Something bad has happened.
+                        Log.w("ClipData", "Failure loading text", e);
+                        return e.toString();
+                    }
+                }
+            } finally {
+                closeQuietly(descr);
+                closeQuietly(stream);
+                closeQuietly(reader);
+            }
+
+            // If we couldn't open the URI as a stream, use the URI itself as a textual
+            // representation (but not for "content", "android.resource" or "file" schemes).
+            final String scheme = uri.getScheme();
+            if (SCHEME_CONTENT.equals(scheme)
+                    || SCHEME_ANDROID_RESOURCE.equals(scheme)
+                    || SCHEME_FILE.equals(scheme)) {
+                return "";
+            }
+            return uri.toString();
+        }
+
+        // Shouldn't get here, but just in case...
+        return "";
+    }
+
+    static void closeQuietly(Closeable closeable) {
+        try {
+            closeable.close();
+        } catch (IOException e) {
         }
     }
 }
