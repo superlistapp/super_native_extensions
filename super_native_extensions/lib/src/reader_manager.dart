@@ -1,7 +1,9 @@
 import 'package:flutter/foundation.dart';
 
-import 'native/reader_manager.dart';
 import 'reader.dart';
+
+import 'native/reader_manager.dart'
+    if (dart.library.js) 'web/reader_manager.dart';
 
 typedef DataReaderHandle = DataReaderHandleImpl;
 typedef DataReaderItemHandle = DataReaderItemHandleImpl;

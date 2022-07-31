@@ -4,7 +4,8 @@ import 'package:flutter/foundation.dart';
 
 import 'api_model.dart';
 import 'mutex.dart';
-import 'native/drag.dart';
+
+import 'native/drag.dart' if (dart.library.js) 'web/drag.dart';
 
 abstract class DragSession {
   Listenable get dragStarted;

@@ -1,4 +1,5 @@
-import 'native/clipboard_reader.dart';
+import 'native/clipboard_reader.dart'
+    if (dart.library.js) 'web/clipboard_reader.dart';
 import 'reader.dart';
 
 abstract class RawClipboardReader {

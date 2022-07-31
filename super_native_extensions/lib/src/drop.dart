@@ -1,37 +1,26 @@
-import 'package:collection/collection.dart';
 import 'package:flutter/widgets.dart';
-import 'package:super_native_extensions/raw_drag_drop.dart';
 
 import 'dart:ui' as ui;
 
 import 'api_model.dart';
 import 'mutex.dart';
-import 'native/drop.dart';
 import 'reader.dart';
-import 'reader_manager.dart';
 import 'util.dart';
+
+import 'native/drop.dart' if (dart.library.js) 'web/drop.dart';
 
 class BaseDropEvent {
   BaseDropEvent({
     required this.sessionId,
   });
 
-  static BaseDropEvent deserialize(dynamic event) {
-    final map = event as Map;
-    return BaseDropEvent(sessionId: map['sessionId']);
-  }
-
-  Map serialize() => {
-        'sessionId': sessionId,
-      };
-
   @override
-  String toString() => serialize().toString();
+  String toString() => {
+        'sessionId': sessionId,
+      }.toString();
 
   final int sessionId;
 }
-
-typedef ReaderProvider = DataReader? Function(int sessionId);
 
 class DropItem {
   DropItem({
@@ -46,21 +35,12 @@ class DropItem {
   final Object? localData;
   final DataReaderItem? readerItem;
 
-  static DropItem deserialize(dynamic item, DataReaderItem? readerItem) {
-    final map = item as Map;
-    return DropItem(
-      itemId: map['itemId'],
-      formats: (map['formats'] as List).cast<String>(),
-      localData: map['localData'],
-      readerItem: readerItem,
-    );
-  }
-
-  dynamic serialize() => {
+  @override
+  String toString() => {
         'itemId': itemId,
         'formats': formats,
         'localData': localData,
-      };
+      }.toString();
 }
 
 class DropEvent extends BaseDropEvent {
@@ -70,66 +50,22 @@ class DropEvent extends BaseDropEvent {
     required this.allowedOperations,
     required this.items,
     this.acceptedOperation,
-    this.reader,
   });
 
   final ui.Offset locationInView;
   final List<DropOperation> allowedOperations;
   final List<DropItem> items;
   final DropOperation? acceptedOperation;
-  final DataReader? reader;
-
-  // readerProvider is to ensure that reader is only deserialized once and
-  // same instance is used subsequently.
-  static Future<DropEvent> deserialize(
-      dynamic event, ReaderProvider readerProvider) async {
-    final map = event as Map;
-    final acceptedOperation = map['acceptedOperation'];
-    final sessionId = map['sessionId'] as int;
-    DataReader? getReader() {
-      final reader = map['reader'];
-      return reader != null
-          ? DataReader(handle: DataReaderHandle.deserialize(reader))
-          : null;
-    }
-
-    final reader = readerProvider(sessionId) ?? getReader();
-    final items = await reader?.getItems();
-
-    DropItem deserializeItem(int index, dynamic item) {
-      final readerItem =
-          (items != null && index < items.length) ? items[index] : null;
-      return DropItem.deserialize(item, readerItem);
-    }
-
-    return DropEvent(
-      sessionId: sessionId,
-      locationInView: OffsetExt.deserialize(map['locationInView']),
-      items: (map['items'] as Iterable)
-          .mapIndexed(deserializeItem)
-          .toList(growable: false),
-      allowedOperations: (map['allowedOperations'] as Iterable)
-          .map((e) => DropOperation.values.byName(e))
-          .toList(growable: false),
-      acceptedOperation: acceptedOperation != null
-          ? DropOperation.values.byName(acceptedOperation)
-          : null,
-      reader: reader,
-    );
-  }
 
   @override
-  Map serialize() => {
+  String toString() => {
         'sessionId': sessionId,
         'locationInView': locationInView.serialize(),
-        'items': items.map((e) => e.serialize()),
+        'items': items.map((e) => e.toString()),
         'allowedOperation':
             allowedOperations.map((e) => e.name).toList(growable: false),
         'acceptedOperation': acceptedOperation?.name,
-      };
-
-  @override
-  String toString() => serialize().toString();
+      }.toString();
 }
 
 class ItemPreview {

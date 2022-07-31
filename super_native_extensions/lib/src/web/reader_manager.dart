@@ -2,6 +2,10 @@ import 'package:flutter/foundation.dart';
 import 'package:super_native_extensions/src/reader.dart';
 import 'package:super_native_extensions/src/reader_manager.dart';
 
+class DataReaderHandleImpl {}
+
+class DataReaderItemHandleImpl {}
+
 class RawReaderManagerImpl extends RawReaderManager {
   @override
   Future<void> dispose(DataReaderHandle reader) {
