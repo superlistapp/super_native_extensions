@@ -43,7 +43,7 @@ class _DropDelegate implements RawDropContextDelegate {
       // });
       final format = (await readerItem.getAvailableFormats()).first;
       final receiver = await readerItem.getVirtualFileReceiver(format: format);
-      final progress = receiver!.receiveVirtualFile(
+      final progress = receiver?.receiveVirtualFile(
           targetFolder: "/Users/Matej/Projects/1",
           onResult: (r) {
             print("RES $r");
@@ -51,13 +51,15 @@ class _DropDelegate implements RawDropContextDelegate {
       // final progress = readerItem.getDataForFormat(format, onData: (r) {
       //   print("RES $r");
       // });
-      progress.fraction.addListener(() {
-        print("PROGRESS ${progress.fraction.value}");
-      });
-      Future.delayed(Duration(seconds: 2), () {
-        print('Cancellable ${progress.cancellable}');
-        // progress.cancel();
-      });
+      if (progress != null) {
+        progress.fraction.addListener(() {
+          print("PROGRESS ${progress.fraction.value}");
+        });
+        Future.delayed(Duration(seconds: 2), () {
+          print('Cancellable ${progress.cancellable}');
+          // progress.cancel();
+        });
+      }
     }
 
     // print('DATA $data');
@@ -105,9 +107,9 @@ class _DragDelegate implements RawDragContextDelegate {
     session.dragCompleted.addListener(() {
       print("Drag completed ${session.dragCompleted.value}");
     });
-    session.sessionIsDoneWithDataSource.addListener(() {
-      print("Session is done with data source");
-    });
+    // session.sessionIsDoneWithDataSource.addListener(() {
+    //   print("Session is done with data source");
+    // });
     session.lastScreenLocation.addListener(() {
       print('Last screen location ${session.lastScreenLocation.value}');
     });
@@ -215,7 +217,6 @@ void main() async {
     'Apple URL pasteboard type',
     'text/uri-list',
     'text/plain',
-
   ]);
   await RawDragContext.instance();
   await RawDropContext.instance();
@@ -443,9 +444,9 @@ class _MyHomePageState extends State<MyHomePage> {
     session.dragCompleted.addListener(() {
       print('Drag completed ${session.dragCompleted.value}');
     });
-    session.sessionIsDoneWithDataSource.addListener(() {
-      print('Done with source');
-    });
+    // session.sessionIsDoneWithDataSource.addListener(() {
+    //   print('Done with source');
+    // });
     session.lastScreenLocation.addListener(() {
       // print('Last screen location ${session.lastScreenLocation.value}');
     });

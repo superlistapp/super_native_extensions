@@ -44,7 +44,6 @@ extension SizeExt on Size {
 }
 
 extension DurationExt on Duration {
-
   double get inSecondsDouble => inMicroseconds / 1000000.0;
 
   static Duration fromSeconds(double seconds) =>

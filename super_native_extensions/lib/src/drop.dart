@@ -1,13 +1,14 @@
-import 'package:flutter/services.dart';
-import 'package:flutter/widgets.dart';
-import 'package:nativeshell_core/nativeshell_core.dart';
 import 'package:collection/collection.dart';
+import 'package:flutter/widgets.dart';
+import 'package:super_native_extensions/raw_drag_drop.dart';
+
+import 'dart:ui' as ui;
 
 import 'api_model.dart';
+import 'mutex.dart';
+import 'native/drop.dart';
 import 'reader.dart';
 import 'reader_manager.dart';
-import 'context.dart';
-import 'mutex.dart';
 import 'util.dart';
 
 class BaseDropEvent {
@@ -69,14 +70,14 @@ class DropEvent extends BaseDropEvent {
     required this.allowedOperations,
     required this.items,
     this.acceptedOperation,
-    DataReader? reader,
-  }) : _reader = reader;
+    this.reader,
+  });
 
-  final Offset locationInView;
+  final ui.Offset locationInView;
   final List<DropOperation> allowedOperations;
   final List<DropItem> items;
   final DropOperation? acceptedOperation;
-  final DataReader? _reader;
+  final DataReader? reader;
 
   // readerProvider is to ensure that reader is only deserialized once and
   // same instance is used subsequently.
@@ -144,7 +145,7 @@ class ItemPreview {
   });
 
   /// Destination (in global cooridantes) to where the item should land.
-  final Rect destinationRect;
+  final ui.Rect destinationRect;
 
   /// Destination image to which the drag image will morph. If not provided,
   /// drag image will be used.
@@ -187,7 +188,7 @@ class ItemPreviewRequest {
 
   final int sessionId;
   final int itemId;
-  final Size size;
+  final ui.Size size;
 
   /// Default delay before the item preview starts fading out
   final Duration fadeOutDelay;
@@ -206,84 +207,31 @@ abstract class RawDropContextDelegate {
   Future<ItemPreview?> onGetItemPreview(ItemPreviewRequest request);
 }
 
-final _channel =
-    NativeMethodChannel('DropManager', context: superNativeExtensionsContext);
-
-class Session {
-  DataReader? reader;
-}
-
-class RawDropContext {
-  RawDropContext._();
-
-  static RawDropContext? _instance;
-  static final _mutex = Mutex();
-
-  static final _sessions = <int, Session>{};
-
+abstract class RawDropContext {
   set delegate(RawDropContextDelegate? delegate) {
     _delegate = delegate;
-  }
-
-  RawDropContextDelegate? _delegate;
-
-  Future<void> _initialize() async {
-    WidgetsFlutterBinding.ensureInitialized();
-    final view = await getFlutterView();
-    _channel.setMethodCallHandler(_handleMethodCall);
-    await _channel.invokeMethod("newContext", {'viewHandle': view});
   }
 
   static Future<RawDropContext> instance() {
     return _mutex.protect(() async {
       if (_instance == null) {
-        _instance = RawDropContext._();
-        await _instance!._initialize();
+        _instance = RawDropContextImpl();
+        await _instance!.initialize();
       }
       return _instance!;
     });
   }
 
-  Session _sessionForId(int id) {
-    return _sessions.putIfAbsent(id, () => Session());
-  }
+  @protected
+  Future<void> initialize();
 
-  DataReader? _getReaderForSession(int sessionId) {
-    return _sessionForId(sessionId).reader;
-  }
+  Future<void> registerDropTypes(List<String> types);
 
-  Future<dynamic> _handleMethodCall(MethodCall call) async {
-    if (call.method == 'onDropUpdate') {
-      final event =
-          await DropEvent.deserialize(call.arguments, _getReaderForSession);
-      _sessionForId(event.sessionId).reader = event._reader;
-      final operation = await _delegate?.onDropUpdate(event);
-      return (operation ?? DropOperation.none).name;
-    } else if (call.method == 'onPerformDrop') {
-      final event =
-          await DropEvent.deserialize(call.arguments, _getReaderForSession);
-      _sessionForId(event.sessionId).reader = event._reader;
-      return await _delegate?.onPerformDrop(event);
-    } else if (call.method == 'onDropLeave') {
-      final event = BaseDropEvent.deserialize(call.arguments);
-      return await _delegate?.onDropLeave(event);
-    } else if (call.method == 'onDropEnded') {
-      final event = BaseDropEvent.deserialize(call.arguments);
-      final session = _sessions.remove(event.sessionId);
-      session?.reader?.dispose();
-      return await _delegate?.onDropEnded(event);
-    } else if (call.method == 'getPreviewForItem') {
-      final request = ItemPreviewRequest.deserialize(call.arguments);
-      final preview = await _delegate?.onGetItemPreview(request);
-      return {
-        'preview': preview?.serialize(),
-      };
-    } else {
-      return null;
-    }
-  }
+  @protected
+  RawDropContextDelegate? get delegate => _delegate;
 
-  Future<void> registerDropTypes(List<String> types) {
-    return _channel.invokeMethod("registerDropTypes", {'types': types});
-  }
+  RawDropContextDelegate? _delegate;
+
+  static RawDropContext? _instance;
+  static final _mutex = Mutex();
 }
