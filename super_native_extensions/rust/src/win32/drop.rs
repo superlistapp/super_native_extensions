@@ -199,14 +199,20 @@ impl PlatformDropContext {
         }
         let scaling = get_dpi_for_window(self.view) as f64 / 96.0;
 
-        let mut items = Vec::new();
-        for (index, item) in session.reader.get_items_sync()?.iter().enumerate() {
-            items.push(DropItem {
-                item_id: (*item).into(),
-                formats: session.reader.get_formats_for_item_sync(*item)?,
-                local_data: local_data.get(index).cloned().unwrap_or(Value::Null),
+        let reader_items = session.reader.get_items_sync()?;
+
+        let items: Vec<_> = (0..local_data.len().max(reader_items.len()))
+            .map(|index| {
+                Ok(DropItem {
+                    item_id: (index as i64).into(),
+                    formats: match reader_items.get(index) {
+                        Some(item) => session.reader.get_formats_for_item_sync(*item)?,
+                        None => Vec::new(),
+                    },
+                    local_data: local_data.get(index).cloned().unwrap_or(Value::Null),
+                })
             })
-        }
+            .collect::<NativeExtensionsResult<_>>()?;
 
         Ok(DropEvent {
             session_id: session.id,
