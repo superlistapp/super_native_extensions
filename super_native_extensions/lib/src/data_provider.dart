@@ -147,9 +147,10 @@ class DataProviderHandle {
   /// DataSource is disposed automatically when no longer needed for clipboard
   /// or drag&drop by [RawClipboardWriter] and [RawDragContext].
   Future<void> dispose() async {
-    assert(!_disposed);
-    _disposed = true;
-    _onDispose.notify();
-    await DataProviderManager.instance.unregisterDataProvider(id);
+    if (!_disposed) {
+      _disposed = true;
+      _onDispose.notify();
+      await DataProviderManager.instance.unregisterDataProvider(id);
+    }
   }
 }

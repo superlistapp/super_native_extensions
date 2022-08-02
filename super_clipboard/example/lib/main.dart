@@ -1,10 +1,10 @@
 import 'dart:convert';
 import 'dart:typed_data';
-import 'dart:ui';
+import 'dart:ui' hide window;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:super_clipboard/super_clipboard.dart';
+import 'package:super_clipboard/super_clipboard.dart' hide DataProvider;
 import 'package:super_native_extensions/raw_drag_drop.dart';
 import 'package:super_native_extensions/raw_clipboard.dart';
 
@@ -37,27 +37,32 @@ class _DropDelegate implements RawDropContextDelegate {
     // final data = await
     final readerItem = item.readerItem;
     if (readerItem != null) {
-      // readerItem.getDataForFormat(
-      //     (await readerItem.getAvailableFormats()).first, onData: (data) {
-      //   print('Have data ${data}');
-      // });
+      final data = readerItem
+          .getDataForFormat((await readerItem.getAvailableFormats()).first);
+      final a = await data.first;
+      print('Have data ${a}');
+
       final format = (await readerItem.getAvailableFormats()).first;
       final receiver = await readerItem.getVirtualFileReceiver(format: format);
-      final progress = receiver?.receiveVirtualFile(
-          targetFolder: "/Users/Matej/Projects/1",
-          onResult: (r) {
-            print("RES $r");
-          });
-      // final progress = readerItem.getDataForFormat(format, onData: (r) {
-      //   print("RES $r");
-      // });
-      if (progress != null) {
+      final res = receiver?.receiveVirtualFile(
+        targetFolder: "/Users/Matej/Projects/1",
+      );
+      if (res != null) {
+        final value = res.first;
+        final progress = res.second;
+        // final progress = readerItem.getDataForFormat(format, onData: (r) {
+        //   print("RES $r");
+        // });
         progress.fraction.addListener(() {
           print("PROGRESS ${progress.fraction.value}");
         });
         Future.delayed(Duration(seconds: 2), () {
           print('Cancellable ${progress.cancellable}');
           // progress.cancel();
+        });
+        // final data = await value;
+        value.then((value) {
+          print("RES $value");
         });
       }
     }
@@ -114,6 +119,9 @@ class _DragDelegate implements RawDragContextDelegate {
       print('Last screen location ${session.lastScreenLocation.value}');
     });
     final data = DataProvider(suggestedName: "File1.txt", representations: [
+      // DataRepresentation.lazy(
+      //     format: 'public.utf8-plain-text',
+      //     dataProvider: () => 'plain text lazy'),
       DataRepresentation.virtualFile(
           format: 'public.utf8-plain-text',
           storageSuggestion: VirtualFileStorage.temporaryFile,
@@ -208,6 +216,8 @@ class DragContainerState extends State<DragContainer> {
 final dragContainer = GlobalKey<DragContainerState>();
 
 void main() async {
+  // myKey(20);
+
   final dropContext = await RawDropContext.instance();
   await dropContext.registerDropTypes([
     'public.file-url',
@@ -268,51 +278,77 @@ class MyHomePage extends StatefulWidget {
   State<MyHomePage> createState() => _MyHomePageState();
 }
 
-final customKey = CustomClipboardType<Uint8List>(
-    "com.superlist.clipboard.Example.CustomType");
+final formatCustom =
+    CustomDataFormat<Uint8List>("com.superlist.clipboard.Example.CustomType");
 
 class _MyHomePageState extends State<MyHomePage> {
   void copy() async {
-    final writer = ClipboardWriter();
-    writer.write(typeHtml, '<b><i>Html</i></b> Value');
-    writer.write(typePlaintext, 'Plaintext Value');
-    writer.write(customKey, Uint8List.fromList([1, 2, 3, 4]));
-    final disposeListenables = await writer.commitToClipboard();
-    for (final l in disposeListenables) {
-      l.addListener(() {
-        print('Clipboard disposed');
-      });
-    }
+    // final transfer = DataTransfer();
+    final item = ClipboardWriterItem();
+    item.addData(formatHtml.encode('<b><i>Html</i></b> Value'));
+    item.addData(formatPlainText.encode('Plaintext value'));
+    item.addData(formatCustom.encode(Uint8List.fromList([1, 2, 3, 4])));
+    item.onRegistered.addListener(() {
+      print('Clipboard registered');
+    });
+    item.onDisposed.addListener(() {
+      print('Clipboard disposed');
+    });
+    // window.navigator.clipboard!.write(ClipboardItem);
+    // final writer = ClipboardWriter();
+    // writer.write(typeHtml, '<b><i>Html</i></b> Value');
+    // writer.write(typePlaintext, 'Plaintext Value');
+    // .write(customKey, Uint8List.fromList([1, 2, 3, 4]));
+    // final disposeListenables = await writer.commitToClipboard();
+    ClipboardWriter.instance.write([item]);
+    // for (final l in disposeListenables) {
+    //   l.addListener(() {
+    //     print('Clipboard disposed');
+    //   });
+    // }
   }
 
   void copyLazy() async {
-    final writer = ClipboardWriter();
-    writer.writeLazy(typeHtml, () async {
-      // await Future.delayed(Duration(seconds: 2));
-      // print('Producing lazy plain text value');
-      return '<b>Lazy <i>Html</i></b> Value';
+    final item = ClipboardWriterItem();
+    item.addData(formatHtml.encodeLazy(() => 'Lazy <b><i>Html</i></b> Value'));
+    item.addData(formatPlainText.encodeLazy(() => 'Lazy Plaintext value'));
+    item.addData(
+        formatCustom.encodeLazy(() => Uint8List.fromList([1, 2, 3, 4])));
+    item.onRegistered.addListener(() {
+      print('Clipboard lazy registered');
     });
-    writer.writeLazy(typePlaintext, () {
-      // print('Producing lazy html value');
-      return 'Lazy Plaintext Value';
+    item.onDisposed.addListener(() {
+      print('Clipboard lazy disposed');
     });
-    writer.writeLazy(customKey, () {
-      // print('Producing lazy custom value');
-      return Uint8List.fromList([1, 2, 3, 4, 5]);
-    });
-    final disposeListenables = await writer.commitToClipboard();
-    for (final l in disposeListenables) {
-      l.addListener(() {
-        print('Clipboard lazy disposed');
-      });
-    }
+    ClipboardWriter.instance.write([item]);
+
+    // final writer = ClipboardWriter();
+    // writer.writeLazy(typeHtml, () async {
+    // await Future.delayed(Duration(seconds: 2));
+    // print('Producing lazy plain text value');
+    // return '<b>Lazy <i>Html</i></b> Value';
+    // });
+    // writer.writeLazy(typePlaintext, () {
+    // print('Producing lazy html value');
+    // return 'Lazy Plaintext Value';
+    // });
+    // writer.writeLazy(customKey, () {
+    //   // print('Producing lazy custom value');
+    //   return Uint8List.fromList([1, 2, 3, 4, 5]);
+    // });
+    // final disposeListenables = await writer.commitToClipboard();
+    // for (final l in disposeListenables) {
+    //   l.addListener(() {
+    //     print('Clipboard lazy disposed');
+    //   });
+    // }
   }
 
   void paste() async {
-    final reader = await ClipboardReader.newDefaultReader();
-    final plainText = await reader.readValue(typePlaintext);
-    final html = await reader.readValue(typeHtml);
-    final custom = await reader.readValue(customKey);
+    final reader = await ClipboardReader.readClipboard();
+    final plainText = await reader.readValue(formatPlainText);
+    final html = await reader.readValue(formatHtml);
+    final custom = await reader.readValue(formatCustom);
     setState(() {
       _content =
           "Clipboard content:\n\nplaintext: $plainText\n\nhtml: $html\n\ncustom: $custom";
@@ -368,10 +404,14 @@ class _MyHomePageState extends State<MyHomePage> {
           //     formats: ['public.file-url'],
           //     data: utf8.encode('file:///tmp/test.txt')),
           DataRepresentation.lazy(
-              // format: 'public.utf8-plain-text',
-              format: 'text/uri-list',
-              // format: 'text/plain',
-              dataProvider: () => utf8.encode('baaad')),
+              format: 'public.utf8-plain-text2',
+              dataProvider: () => 'plain text lazy'),
+          // DataRepresentation.lazy(
+          //     // format: 'public.utf8-plain-text',
+          //     format: 'text/uri-list',
+          //     // format: 'text/plain',
+          //     dataProvider: () => utf8.encode('baaad')),
+
           DataRepresentation.virtualFile(
               format: 'public.utf8-plain-text',
               // format: 'text/plain',

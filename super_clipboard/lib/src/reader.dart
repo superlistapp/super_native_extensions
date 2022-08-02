@@ -1,74 +1,54 @@
-import 'dart:async';
+import 'package:super_native_extensions/raw_clipboard.dart' as raw;
 
-import 'package:super_clipboard/super_clipboard.dart';
-import 'package:super_native_extensions/raw_clipboard.dart';
+import 'format.dart';
 
 class ClipboardReaderItem {
-  ClipboardReaderItem._(this.rawItem);
+  ClipboardReaderItem._(this.item);
 
-  Future<bool> hasValue(ClipboardType key) async {
-    final platformKey = key.platformType();
-    final allTypes = await rawItem.getAvailableFormats();
-    return platformKey
-        .readableSystemTypes()
-        .any((element) => allTypes.contains(element));
+  Future<bool> hasValue(DataFormat f) async {
+    final formats = await item.getAvailableFormats();
+    return formats.any(f.canHandle);
   }
 
-  Future<T?> readValue<T>(ClipboardType<T> key) async {
-    if (!await hasValue(key)) {
-      return null;
-    }
-    final platformKey = key.platformType();
-    for (final type in platformKey.readableSystemTypes()) {
-      final res = rawItem.getDataForFormat(type);
-
-      // , onData: (data) async {
-      //   if (data.isError) {
-      //     completer.completeError(data.error!);
-      //   } else {
-      //     final converted = data.data != null
-      //         ? await platformKey.convertFromSystem(data.data!, type)
-      //         : null;
-      //     completer.complete(converted);
-      //   }
-      // });
-      res.second.fraction.addListener(() {
-        // print('Progress update ${progress.fraction.value}');
-      });
-      final res2 = await res.first;
-      final converted =
-          res2 != null ? await platformKey.convertFromSystem(res2, type) : null;
-      return converted;
+  Future<T?> readValue<T>(DataFormat<T> key) async {
+    final formats = await item.getAvailableFormats();
+    for (final format in formats) {
+      if (key.canHandle(format)) {
+        final data = await item.getDataForFormat(format).first;
+        if (data != null) {
+          return key.decode(format, data);
+        }
+      }
     }
     return null;
   }
 
-  final DataReaderItem rawItem;
+  final raw.DataReaderItem item;
 }
 
 class ClipboardReader {
-  ClipboardReader._(this.rawReader);
+  ClipboardReader._(this.reader);
 
-  static Future<ClipboardReader> newDefaultReader() async =>
-      ClipboardReader._(await RawClipboardReader.instance.newClipboardReader());
+  static Future<ClipboardReader> readClipboard() async => ClipboardReader._(
+      await raw.RawClipboardReader.instance.newClipboardReader());
 
   Future<List<ClipboardReaderItem>> getItems() async =>
-      (await rawReader.getItems())
+      (await reader.getItems())
           .map((e) => ClipboardReaderItem._(e))
           .toList(growable: false);
 
-  Future<bool> hasValue(ClipboardType key) async {
+  Future<bool> hasValue(DataFormat format) async {
     for (final item in await getItems()) {
-      if (await item.hasValue(key)) {
+      if (await item.hasValue(format)) {
         return true;
       }
     }
     return false;
   }
 
-  Future<T?> readValue<T>(ClipboardType<T> key) async {
+  Future<T?> readValue<T>(DataFormat<T> format) async {
     for (final item in await getItems()) {
-      final value = await item.readValue(key);
+      final value = await item.readValue(format);
       if (value != null) {
         return value;
       }
@@ -76,5 +56,5 @@ class ClipboardReader {
     return null;
   }
 
-  final DataReader rawReader;
+  final raw.DataReader reader;
 }

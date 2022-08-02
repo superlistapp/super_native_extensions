@@ -1,20 +1,22 @@
-import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'common.dart';
+class FormatException implements Exception {
+  final String message;
+  FormatException(this.message);
+}
 
-String? fromSystemUtf8(Object value, String type) {
+String fromSystemUtf8(Object value, String format) {
   if (value is String) {
     return value;
   } else if (value is List<int>) {
     return utf8.decode(value);
   } else {
-    return null;
+    throw FormatException('Unsupported value type: ${value.runtimeType}');
   }
 }
 
-String? fromSystemUtf16NullTerminated(Object value, String format) {
+String fromSystemUtf16NullTerminated(Object value, String format) {
   if (value is String) {
     return value;
   } else if (value is TypedData) {
@@ -25,96 +27,12 @@ String? fromSystemUtf16NullTerminated(Object value, String format) {
     }
     return String.fromCharCodes(codeUnits);
   } else {
-    return null;
+    throw FormatException('Unsupported value type: ${value.runtimeType}');
   }
 }
 
 // Platform plugin will try to coerce String to expected type
 Object passthrough(dynamic value, String type) => value;
-
-class SimpleClipboardType<T> extends ClipboardType<T> {
-  final ClipboardPlatformType<T>? android;
-  final ClipboardPlatformType<T>? ios;
-  final ClipboardPlatformType<T>? linux;
-  final ClipboardPlatformType<T>? macos;
-  final ClipboardPlatformType<T>? windows;
-
-  const SimpleClipboardType({
-    this.android,
-    this.ios,
-    this.linux,
-    this.macos,
-    this.windows,
-  });
-
-  @override
-  ClipboardPlatformType<T> platformTypeFor(ClipboardPlatform platform) {
-    switch (platform) {
-      case ClipboardPlatform.android:
-        return android ?? const FallbackClipboardPlatformType();
-      case ClipboardPlatform.ios:
-        return ios ?? const FallbackClipboardPlatformType();
-      case ClipboardPlatform.linux:
-        return linux ?? const FallbackClipboardPlatformType();
-      case ClipboardPlatform.macos:
-        return macos ?? const FallbackClipboardPlatformType();
-      case ClipboardPlatform.windows:
-        return windows ?? const FallbackClipboardPlatformType();
-    }
-  }
-}
-
-class FallbackClipboardPlatformType<T> extends ClipboardPlatformType<T> {
-  const FallbackClipboardPlatformType();
-
-  @override
-  Future<T> convertFromSystem(Object value, String platformType) {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<Object> convertToSystem(T value, String platformType) {
-    throw UnimplementedError();
-  }
-
-  @override
-  List<String> readableSystemTypes() => [];
-
-  @override
-  List<String> writableSystemTypes() => [];
-}
-
-class SimpleClipboardPlatformType<T> extends ClipboardPlatformType<T> {
-  const SimpleClipboardPlatformType({
-    required this.onConvertFromSystem,
-    required this.onConvertToSystem,
-    required this.types,
-  });
-
-  final FutureOr<T?> Function(Object value, String platformType)
-      onConvertFromSystem;
-  final FutureOr<Object> Function(T value, String platformType)
-      onConvertToSystem;
-  final List<String> types;
-
-  @override
-  FutureOr<T?> convertFromSystem(Object value, String platformType) =>
-      onConvertFromSystem(value, platformType);
-
-  @override
-  FutureOr<Object> convertToSystem(value, String platformType) =>
-      onConvertToSystem(value, platformType);
-
-  @override
-  List<String> readableSystemTypes() => types;
-
-  @override
-  List<String> writableSystemTypes() => types;
-}
-
-// These types will be converted to CF constants with number
-// appended to the prefix
-const cfInternalPrefix = 'NativeShell_InternalWindowsFormat_';
 
 // https://docs.microsoft.com/en-us/windows/win32/dataxchg/html-clipboard-format
 // https://docs.microsoft.com/en-us/troubleshoot/developer/visualstudio/cpp/general/add-html-code-clipboard
@@ -178,7 +96,7 @@ Object windowsHtmlToSystem(String text, String format) {
   }
 }
 
-String? windowsHtmlFromSystem(Object value, String format) {
+String windowsHtmlFromSystem(Object value, String format) {
   if (format == cfHtml) {
     if (value is List<int>) {
       String decoded = utf8.decode(value);
@@ -198,8 +116,9 @@ String? windowsHtmlFromSystem(Object value, String format) {
           return utf8.decode(value.sublist(startFragment, endFragment));
         }
       }
+      throw FormatException('Malformed CFHTML');
     }
-    return null;
+    throw FormatException('Unsupported value type: ${value.runtimeType}');
   } else {
     return fromSystemUtf16NullTerminated(value, format);
   }

@@ -1,66 +1,73 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
-import 'package:super_native_extensions/raw_clipboard.dart';
+import 'package:flutter/material.dart';
+import 'package:super_native_extensions/raw_clipboard.dart' as raw;
 
-import 'common.dart';
+import 'encoded_data.dart';
+import 'util.dart';
+
+class ClipboardWriterItem {
+  void addData(FutureOr<EncodedData> data) {
+    _data.add(data);
+  }
+
+  Listenable get onRegistered => _onRegistered;
+  Listenable get onDisposed => _onDisposed;
+
+  final _onRegistered = SimpleNotifier();
+  final _onDisposed = SimpleNotifier();
+  final _data = <FutureOr<EncodedData>>[];
+}
 
 class ClipboardWriter {
-  void write<T>(ClipboardType<T> key, T value) {
-    _actions.add(() async {
-      final platformKey = key.platformType();
-      for (final format in platformKey.writableSystemTypes()) {
-        final data = await platformKey.convertToSystem(value, format);
-        _currentItemData
-            .add(DataRepresentation.simple(format: format, data: data));
-      }
-    });
-  }
+  ClipboardWriter._();
 
-  void writeLazy<T>(ClipboardType<T> key, FutureOr<T> Function() itemProvider) {
-    _actions.add(() {
-      final platformKey = key.platformType();
-      for (final format in platformKey.writableSystemTypes()) {
-        _currentItemData.add(DataRepresentation.lazy(
-            format: format,
-            dataProvider: () async {
-              final value = await itemProvider();
-              return await platformKey.convertToSystem(value, format);
-            }));
-      }
-    });
-  }
-
-  void nextItem() {
-    _actions.add(() {
-      _items.add(DataProvider(representations: _currentItemData));
-      _currentItemData = [];
-    });
-  }
-
-  Future<List<Listenable>> commitToClipboard() async {
-    final items = await _buildWriterData();
-    final handles = <DataProviderHandle>[];
+  Future<void> write(Iterable<ClipboardWriterItem> items) async {
+    final providers = <Pair<raw.DataProvider, ClipboardWriterItem>>[];
     for (final item in items) {
-      handles.add(await item.register());
+      final representations = <raw.DataRepresentation>[];
+      for (final data in item._data) {
+        for (final entry in (await data).entries) {
+          if (entry is EncodedDataEntrySimple) {
+            representations.add(raw.DataRepresentation.simple(
+              format: entry.format,
+              data: entry.data,
+            ));
+          } else if (entry is EncodedDataEntryLazy) {
+            representations.add(raw.DataRepresentation.lazy(
+              format: entry.format,
+              dataProvider: entry.dataProvider,
+            ));
+          } else {
+            throw StateError("Invalid data entry type ${entry.runtimeType}");
+          }
+        }
+      }
+      if (representations.isNotEmpty) {
+        providers.add(Pair(
+          raw.DataProvider(representations: representations),
+          item,
+        ));
+      }
     }
-    await RawClipboardWriter.instance.write(handles);
-    return handles.map((e) => e.onDispose).toList(growable: false);
+    final handles = <raw.DataProviderHandle>[];
+    for (final p in providers) {
+      final handle = await p.first.register();
+      handles.add(handle);
+      handle.onDispose.addListener(() {
+        p.second._onDisposed.notify();
+      });
+      p.second._onRegistered.notify();
+    }
+    try {
+      await raw.RawClipboardWriter.instance.write(handles);
+    } catch (e) {
+      for (final handle in handles) {
+        handle.dispose();
+      }
+      rethrow;
+    }
   }
 
-  Future<List<DataProvider>> _buildWriterData() async {
-    _items = [];
-    _currentItemData = [];
-    for (final action in _actions) {
-      await action();
-    }
-    if (_currentItemData.isNotEmpty) {
-      _items.add(DataProvider(representations: _currentItemData));
-    }
-    return _items;
-  }
-
-  final _actions = <FutureOr<void> Function()>[];
-  List<DataProvider> _items = [];
-  List<DataRepresentation> _currentItemData = [];
+  static final instance = ClipboardWriter._();
 }
