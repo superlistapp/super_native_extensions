@@ -70,12 +70,12 @@ class RawReaderManagerImpl extends RawReaderManager {
   }
 
   @override
-  ReadProgress getItemData(
+  Pair<Future<Object?>, ReadProgress> getItemData(
     DataReaderItemHandle handle, {
     required String format,
-    required ValueChanged<GetDataResult> onData,
   }) {
     final progress = ReadProgressImpl(readerManager: this);
+    final completer = Completer<Object?>();
     _progressMap[progress.id] = progress;
     _channel.invokeMethod("getItemData", {
       "itemHandle": handle._itemHandle,
@@ -84,12 +84,12 @@ class RawReaderManagerImpl extends RawReaderManager {
       "progressId": progress.id,
     }).then((value) {
       _completeProgress(progress.id);
-      onData(GetDataResult(value, null));
+      completer.complete(value);
     }, onError: (error) {
       _completeProgress(progress.id);
-      onData(GetDataResult(null, error));
+      completer.completeError(error);
     });
-    return progress;
+    return Pair(completer.future, progress);
   }
 
   @override
@@ -105,13 +105,13 @@ class RawReaderManagerImpl extends RawReaderManager {
   }
 
   @override
-  ReadProgress getVirtualFile(
+  Pair<Future<String?>, ReadProgress> getVirtualFile(
     DataReaderItemHandle handle, {
     required String format,
     required String targetFolder,
-    required ValueChanged<DataResult<String?>> onResult,
   }) {
     final progress = ReadProgressImpl(readerManager: this);
+    final completer = Completer<String?>();
     _progressMap[progress.id] = progress;
     _channel.invokeMethod("getVirtualFile", {
       "itemHandle": handle._itemHandle,
@@ -121,12 +121,12 @@ class RawReaderManagerImpl extends RawReaderManager {
       "progressId": progress.id,
     }).then((value) {
       _completeProgress(progress.id);
-      onResult(DataResult(value, null));
+      completer.complete(value);
     }, onError: (error) {
       _completeProgress(progress.id);
-      onResult(DataResult(null, error));
+      completer.completeError(error);
     });
-    return progress;
+    return Pair(completer.future, progress);
   }
 
   void _completeProgress(int progressId) {

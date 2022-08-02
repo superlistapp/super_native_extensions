@@ -5,8 +5,5 @@ class RawDropContextImpl extends RawDropContext {
   Future<void> initialize() async {}
 
   @override
-  Future<void> registerDropTypes(List<String> types) {
-    // TODO: implement registerDropTypes
-    throw UnimplementedError();
-  }
+  Future<void> registerDropTypes(List<String> types) async {}
 }

@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
 
 import 'mutex.dart';
 import 'reader_manager.dart';
@@ -41,26 +40,11 @@ abstract class ReadProgress {
   void cancel();
 }
 
-typedef GetDataResult = DataResult<Object?>;
+class Pair<T, U> {
+  const Pair(this.first, this.second);
 
-class DataResult<T> {
-  DataResult(this.data, this.error);
-
-  bool get isError => error != null;
-
-  @override
-  String toString() {
-    if (error != null) {
-      return error!.toString();
-    } else if (data != null) {
-      return data.toString();
-    } else {
-      return '<null>';
-    }
-  }
-
-  final T data;
-  final PlatformException? error;
+  final T first;
+  final U second;
 }
 
 class DataReaderItem {
@@ -72,12 +56,10 @@ class DataReaderItem {
     });
   }
 
-  ReadProgress getDataForFormat(
-    String format, {
-    required ValueChanged<GetDataResult> onData,
-  }) {
-    return RawReaderManager.instance
-        .getItemData(_handle, format: format, onData: onData);
+  Pair<Future<Object?>, ReadProgress> getDataForFormat(
+    String format,
+  ) {
+    return RawReaderManager.instance.getItemData(_handle, format: format);
   }
 
   Future<VirtualFileReceiver?> getVirtualFileReceiver(
@@ -106,13 +88,12 @@ class VirtualFileReceiver {
     required this.format,
   });
 
-  ReadProgress receiveVirtualFile({
+  Pair<Future<String?>, ReadProgress> receiveVirtualFile({
     /// Target folder must be same for all files received in one session.
     required String targetFolder,
-    required ValueChanged<DataResult<String?>> onResult,
   }) {
-    return RawReaderManager.instance.getVirtualFile(item,
-        format: format, targetFolder: targetFolder, onResult: onResult);
+    return RawReaderManager.instance
+        .getVirtualFile(item, format: format, targetFolder: targetFolder);
   }
 
   final DataReaderItemHandle item;

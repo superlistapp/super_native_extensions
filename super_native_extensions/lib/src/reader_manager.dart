@@ -1,5 +1,3 @@
-import 'package:flutter/foundation.dart';
-
 import 'reader.dart';
 
 import 'native/reader_manager.dart'
@@ -17,10 +15,9 @@ abstract class RawReaderManager {
 
   Future<List<String>> getItemFormats(DataReaderItemHandle handle);
 
-  ReadProgress getItemData(
+  Pair<Future<Object?>, ReadProgress> getItemData(
     DataReaderItemHandle handle, {
     required String format,
-    required ValueChanged<GetDataResult> onData,
   });
 
   Future<bool> canGetVirtualFile(
@@ -28,10 +25,9 @@ abstract class RawReaderManager {
     required String format,
   });
 
-  ReadProgress getVirtualFile(
+  Pair<Future<String?>, ReadProgress> getVirtualFile(
     DataReaderItemHandle handle, {
     required String format,
     required String targetFolder,
-    required ValueChanged<DataResult<String?>> onResult,
   });
 }

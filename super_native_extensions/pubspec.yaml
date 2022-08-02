@@ -16,6 +16,7 @@ dependencies:
   meta: ^1.7.0
   ffi: ^2.0.1
   collection: ^1.16.0
+  js: ^0.6.4
   nativeshell_core:
     path:
       ../../rust/nativeshell_ng/core/dart

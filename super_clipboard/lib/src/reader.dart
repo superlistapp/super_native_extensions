@@ -20,21 +20,25 @@ class ClipboardReaderItem {
     }
     final platformKey = key.platformType();
     for (final type in platformKey.readableSystemTypes()) {
-      final completer = Completer<T?>();
-      final progress = rawItem.getDataForFormat(type, onData: (data) async {
-        if (data.isError) {
-          completer.completeError(data.error!);
-        } else {
-          final converted = data.data != null
-              ? await platformKey.convertFromSystem(data.data!, type)
-              : null;
-          completer.complete(converted);
-        }
+      final res = rawItem.getDataForFormat(type);
+
+      // , onData: (data) async {
+      //   if (data.isError) {
+      //     completer.completeError(data.error!);
+      //   } else {
+      //     final converted = data.data != null
+      //         ? await platformKey.convertFromSystem(data.data!, type)
+      //         : null;
+      //     completer.complete(converted);
+      //   }
+      // });
+      res.second.fraction.addListener(() {
+        // print('Progress update ${progress.fraction.value}');
       });
-      progress.fraction.addListener(() {
-        print('Progress update ${progress.fraction.value}');
-      });
-      return completer.future;
+      final res2 = await res.first;
+      final converted =
+          res2 != null ? await platformKey.convertFromSystem(res2, type) : null;
+      return converted;
     }
     return null;
   }
