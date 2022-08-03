@@ -3,77 +3,56 @@ import 'dart:async';
 import 'format.dart';
 import 'platform.dart';
 
-abstract class PlatformFormat<T>
-    implements PlatformEncoder<T>, PlatformDecoder<T> {}
-
-class SimplePlatformFormat<T> implements PlatformFormat<T> {
-  const SimplePlatformFormat({
+class SimplePlatformCodec<T> implements PlatformCodec<T> {
+  const SimplePlatformCodec({
     required this.onDecode,
     required this.onEncode,
     required this.formats,
   });
 
-  final FutureOr<T> Function(Object value, String platformType) onDecode;
-  final FutureOr<Object> Function(T value, String platformType) onEncode;
+  final FutureOr<T> Function(Object value, PlatformFormat format) onDecode;
+  final FutureOr<Object> Function(T value, PlatformFormat format) onEncode;
+
+  final List<PlatformFormat> formats;
 
   @override
-  final List<String> formats;
+  List<PlatformFormat> get encodableFormats => formats;
 
   @override
-  bool canDecode(String platformFormat) {
-    return formats.contains(platformFormat);
-  }
+  List<PlatformFormat> get decodableFormats => formats;
 
   @override
-  FutureOr<T> decode(Object data, String format) {
+  FutureOr<T> decode(Object data, PlatformFormat format) {
     return onDecode(data, format);
   }
 
   @override
-  FutureOr<Object> encode(T t, String format) {
+  FutureOr<Object> encode(T t, PlatformFormat format) {
     return onEncode(t, format);
   }
 }
 
-class FallbackPlatformFormat<T> implements PlatformFormat<T> {
-  const FallbackPlatformFormat();
+class FallbackPlatformCodec<T> implements PlatformCodec<T> {
+  const FallbackPlatformCodec();
 
   @override
-  bool canDecode(String format) {
-    return false;
-  }
-
-  @override
-  FutureOr<T> decode(Object data, String format) {
+  FutureOr<T> decode(Object data, PlatformFormat format) {
     throw UnimplementedError();
   }
 
   @override
-  FutureOr<Object> encode(T t, String format) {
+  FutureOr<Object> encode(T t, PlatformFormat format) {
     throw UnimplementedError();
   }
 
   @override
-  List<String> get formats => [];
-}
-
-abstract class BaseDataFormat<T> extends DataFormat<T> {
-  const BaseDataFormat();
-
-  PlatformFormat<T> formatForPlatform(ClipboardPlatform platform);
+  List<PlatformFormat> get encodableFormats => [];
 
   @override
-  PlatformDecoder<T> decoderForPlatform(ClipboardPlatform platform) {
-    return formatForPlatform(platform);
-  }
-
-  @override
-  PlatformEncoder<T> encoderForPlatform(ClipboardPlatform platform) {
-    return formatForPlatform(platform);
-  }
+  List<PlatformFormat> get decodableFormats => [];
 }
 
-class SimpleDataFormat<T> extends BaseDataFormat<T> {
+class SimpleDataFormat<T> extends EncodableDataFormat<T> {
   const SimpleDataFormat({
     this.android,
     this.ios,
@@ -83,28 +62,28 @@ class SimpleDataFormat<T> extends BaseDataFormat<T> {
     this.web,
   });
 
-  final PlatformFormat<T>? android;
-  final PlatformFormat<T>? ios;
-  final PlatformFormat<T>? linux;
-  final PlatformFormat<T>? macos;
-  final PlatformFormat<T>? windows;
-  final PlatformFormat<T>? web;
+  final PlatformCodec<T>? android;
+  final PlatformCodec<T>? ios;
+  final PlatformCodec<T>? linux;
+  final PlatformCodec<T>? macos;
+  final PlatformCodec<T>? windows;
+  final PlatformCodec<T>? web;
 
   @override
-  PlatformFormat<T> formatForPlatform(ClipboardPlatform platform) {
+  PlatformCodec<T> codecForPlatform(ClipboardPlatform platform) {
     switch (platform) {
       case ClipboardPlatform.android:
-        return android ?? const FallbackPlatformFormat();
+        return android ?? const FallbackPlatformCodec();
       case ClipboardPlatform.ios:
-        return ios ?? const FallbackPlatformFormat();
+        return ios ?? const FallbackPlatformCodec();
       case ClipboardPlatform.linux:
-        return linux ?? const FallbackPlatformFormat();
+        return linux ?? const FallbackPlatformCodec();
       case ClipboardPlatform.macos:
-        return macos ?? const FallbackPlatformFormat();
+        return macos ?? const FallbackPlatformCodec();
       case ClipboardPlatform.windows:
-        return windows ?? const FallbackPlatformFormat();
+        return windows ?? const FallbackPlatformCodec();
       case ClipboardPlatform.web:
-        return web ?? const FallbackPlatformFormat();
+        return web ?? const FallbackPlatformCodec();
     }
   }
 }

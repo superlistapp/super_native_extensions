@@ -2,26 +2,51 @@ import 'dart:async';
 
 import 'encoded_data.dart';
 import 'platform.dart';
+import 'writer.dart';
 
+/// Callback to obtain data lazily. See [EncodableDataFormat.encodeLazy];
 typedef DataProvider<T> = FutureOr<T> Function();
 
-abstract class PlatformEncoder<T> {
-  List<String> get formats;
-  FutureOr<Object> encode(T t, String format);
-}
+/// Platform specific name for data format. For example value for plain text
+/// for macOS and iOS would be 'public.utf8-plain-text', for android, Linux
+/// and web 'text/plain' and for windows 'NativeShell_InternalWindowsFormat_13',
+/// which maps to CF_UNICODETEXT (value of 13).
+typedef PlatformFormat = String;
 
-abstract class PlatformDecoder<T> {
-  bool canDecode(String format);
-  FutureOr<T> decode(Object data, String format);
-}
-
-abstract class DataFormat<T> {
+/// Base class for platform independent data format.
+abstract class DataFormat {
   const DataFormat();
 
+  /// Returns name of primary platform format for this data format.
+  /// This format will be used when writing / reading virtual files.
+  PlatformFormat get primaryFormat =>
+      primaryFormatForPlatform(_currentPlatform);
+
+  ClipboardPlatform get _currentPlatform => clipboardPlatform;
+
+  PlatformFormat primaryFormatForPlatform(ClipboardPlatform platform);
+}
+
+/// Codec for encoding and decoding data from/to platform specific format.
+abstract class PlatformCodec<T> {
+  List<PlatformFormat> get encodableFormats;
+  FutureOr<Object> encode(T t, PlatformFormat format);
+
+  List<PlatformFormat> get decodableFormats;
+  FutureOr<T> decode(Object data, PlatformFormat format);
+}
+
+/// Data format that supports encoding / decoding values. Used when writing to
+/// and reading from clipboard.
+abstract class EncodableDataFormat<T> extends DataFormat {
+  const EncodableDataFormat();
+
+  /// Encodes the provided data to platform specific format. This encoded data
+  /// can be used to initialize [ClipboardWriterItem].
   FutureOr<EncodedData> encode(T data) async {
-    final encoder = encoderForPlatform(_currentPlatform);
+    final encoder = codecForPlatform(_currentPlatform);
     final entries = <EncodedDataEntry>[];
-    for (final format in encoder.formats) {
+    for (final format in encoder.encodableFormats) {
       entries.add(
         EncodedDataEntrySimple(format, await encoder.encode(data, format)),
       );
@@ -29,10 +54,14 @@ abstract class DataFormat<T> {
     return EncodedData(entries);
   }
 
+  /// Encodes the provided lazy data. Some platforms support providing the data
+  /// on demand. In which case the DataProvider callback will be invoked when
+  /// the data is requested. On platforms that do not support this (iOS, web)
+  /// the provider callback will be called eagerly.
   FutureOr<EncodedData> encodeLazy(DataProvider<T> provider) {
-    final encoder = encoderForPlatform(_currentPlatform);
+    final encoder = codecForPlatform(_currentPlatform);
     final entries = <EncodedDataEntry>[];
-    for (final format in encoder.formats) {
+    for (final format in encoder.encodableFormats) {
       entries.add(
         EncodedDataEntryLazy(
             format, () async => encoder.encode(await provider(), format)),
@@ -41,16 +70,18 @@ abstract class DataFormat<T> {
     return EncodedData(entries);
   }
 
-  bool canHandle(String format) {
-    return decoderForPlatform(_currentPlatform).canDecode(format);
+  bool canDecode(PlatformFormat format) {
+    return codecForPlatform(_currentPlatform).decodableFormats.contains(format);
   }
 
-  FutureOr<T> decode(String format, Object data) {
-    return decoderForPlatform(_currentPlatform).decode(data, format);
+  FutureOr<T> decode(PlatformFormat format, Object data) {
+    return codecForPlatform(_currentPlatform).decode(data, format);
   }
 
-  ClipboardPlatform get _currentPlatform => clipboardPlatform;
+  @override
+  String primaryFormatForPlatform(ClipboardPlatform platform) {
+    return codecForPlatform(platform).encodableFormats.first;
+  }
 
-  PlatformEncoder<T> encoderForPlatform(ClipboardPlatform platform);
-  PlatformDecoder<T> decoderForPlatform(ClipboardPlatform platform);
+  PlatformCodec<T> codecForPlatform(ClipboardPlatform platform);
 }

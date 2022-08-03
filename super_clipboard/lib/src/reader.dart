@@ -5,18 +5,18 @@ import 'format.dart';
 class ClipboardReaderItem {
   ClipboardReaderItem._(this.item);
 
-  Future<bool> hasValue(DataFormat f) async {
+  Future<bool> hasValue(EncodableDataFormat f) async {
     final formats = await item.getAvailableFormats();
-    return formats.any(f.canHandle);
+    return formats.any(f.canDecode);
   }
 
-  Future<T?> readValue<T>(DataFormat<T> key) async {
+  Future<T?> readValue<T>(EncodableDataFormat<T> format) async {
     final formats = await item.getAvailableFormats();
-    for (final format in formats) {
-      if (key.canHandle(format)) {
-        final data = await item.getDataForFormat(format).first;
+    for (final f in formats) {
+      if (format.canDecode(f)) {
+        final data = await item.getDataForFormat(f).first;
         if (data != null) {
-          return key.decode(format, data);
+          return format.decode(f, data);
         }
       }
     }
@@ -37,7 +37,7 @@ class ClipboardReader {
           .map((e) => ClipboardReaderItem._(e))
           .toList(growable: false);
 
-  Future<bool> hasValue(DataFormat format) async {
+  Future<bool> hasValue(EncodableDataFormat format) async {
     for (final item in await getItems()) {
       if (await item.hasValue(format)) {
         return true;
@@ -46,7 +46,7 @@ class ClipboardReader {
     return false;
   }
 
-  Future<T?> readValue<T>(DataFormat<T> format) async {
+  Future<T?> readValue<T>(EncodableDataFormat<T> format) async {
     for (final item in await getItems()) {
       final value = await item.readValue(format);
       if (value != null) {

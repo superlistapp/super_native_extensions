@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:super_clipboard/src/format.dart';
+
 import 'format_conversions.dart';
 import 'formats_base.dart';
 import 'platform.dart';
@@ -9,34 +11,34 @@ import 'platform.dart';
 const cfInternalPrefix = 'NativeShell_InternalWindowsFormat_';
 
 const formatPlainText = SimpleDataFormat<String>(
-  ios: SimplePlatformFormat<String>(
+  ios: SimplePlatformCodec<String>(
     formats: ['public.utf8-plain-text'],
     onDecode: fromSystemUtf8,
     onEncode: passthrough,
   ),
-  macos: SimplePlatformFormat<String>(
+  macos: SimplePlatformCodec<String>(
     formats: ['public.utf8-plain-text'],
     onDecode: fromSystemUtf8,
     onEncode: passthrough,
   ),
-  android: SimplePlatformFormat<String>(
+  android: SimplePlatformCodec<String>(
     formats: ['text/plain'],
     onDecode: fromSystemUtf8,
     onEncode: passthrough,
   ),
-  linux: SimplePlatformFormat<String>(
+  linux: SimplePlatformCodec<String>(
     formats: ['text/plain'],
     onDecode: fromSystemUtf8,
     onEncode: passthrough,
   ),
-  windows: SimplePlatformFormat(
+  windows: SimplePlatformCodec(
     formats: [
       '${cfInternalPrefix}13' // CF_UNICODETEXT
     ],
     onDecode: fromSystemUtf16NullTerminated,
     onEncode: passthrough,
   ),
-  web: SimplePlatformFormat(
+  web: SimplePlatformCodec(
     formats: ['text/plain'],
     onDecode: fromSystemUtf8,
     onEncode: passthrough,
@@ -47,27 +49,27 @@ const formatPlainText = SimpleDataFormat<String>(
 /// version in clipboard as well, otherwise setting the content may fail on some
 /// platforms (i.e. Android).
 const formatHtml = SimpleDataFormat<String>(
-  ios: SimplePlatformFormat<String>(
+  ios: SimplePlatformCodec<String>(
     formats: ['public.html'],
     onDecode: fromSystemUtf8,
     onEncode: passthrough,
   ),
-  macos: SimplePlatformFormat<String>(
+  macos: SimplePlatformCodec<String>(
     formats: ['public.html'],
     onDecode: fromSystemUtf8,
     onEncode: passthrough,
   ),
-  android: SimplePlatformFormat<String>(
+  android: SimplePlatformCodec<String>(
     formats: ['text/html'],
     onDecode: fromSystemUtf8,
     onEncode: passthrough,
   ),
-  linux: SimplePlatformFormat<String>(
+  linux: SimplePlatformCodec<String>(
     formats: ['text/html'],
     onDecode: fromSystemUtf8,
     onEncode: passthrough,
   ),
-  windows: SimplePlatformFormat<String>(
+  windows: SimplePlatformCodec<String>(
     onDecode: windowsHtmlFromSystem,
     onEncode: windowsHtmlToSystem,
     formats: [
@@ -77,7 +79,7 @@ const formatHtml = SimpleDataFormat<String>(
   ),
 );
 
-class CustomDataFormat<T> extends BaseDataFormat {
+class CustomDataFormat<T> extends EncodableDataFormat {
   CustomDataFormat(
     this.applicationId, {
     FutureOr<T> Function(Object value, String platformType)? onDecode,
@@ -98,26 +100,26 @@ class CustomDataFormat<T> extends BaseDataFormat {
   }
 
   @override
-  PlatformFormat formatForPlatform(ClipboardPlatform platform) {
+  PlatformCodec codecForPlatform(ClipboardPlatform platform) {
     switch (platform) {
       case ClipboardPlatform.android:
-        return SimplePlatformFormat<T>(
+        return SimplePlatformCodec<T>(
             onDecode: onDecode,
             onEncode: onEncode,
             formats: ["application/x-private;appId=$applicationId"]);
       case ClipboardPlatform.ios:
-        return SimplePlatformFormat<T>(
+        return SimplePlatformCodec<T>(
             onDecode: onDecode, onEncode: onEncode, formats: [applicationId]);
       case ClipboardPlatform.linux:
-        return SimplePlatformFormat<T>(
+        return SimplePlatformCodec<T>(
             onDecode: onDecode,
             onEncode: onEncode,
             formats: ["application/x-private;appId=$applicationId"]);
       case ClipboardPlatform.macos:
-        return SimplePlatformFormat<T>(
+        return SimplePlatformCodec<T>(
             onDecode: onDecode, onEncode: onEncode, formats: [applicationId]);
       case ClipboardPlatform.windows:
-        return SimplePlatformFormat<T>(
+        return SimplePlatformCodec<T>(
             onDecode: onDecode, onEncode: onEncode, formats: [applicationId]);
       case ClipboardPlatform.web:
         throw UnsupportedError('Custom values are not supported on web.');

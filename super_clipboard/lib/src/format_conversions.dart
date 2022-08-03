@@ -1,12 +1,14 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:super_clipboard/super_clipboard.dart';
+
 class FormatException implements Exception {
   final String message;
   FormatException(this.message);
 }
 
-String fromSystemUtf8(Object value, String format) {
+String fromSystemUtf8(Object value, PlatformFormat format) {
   if (value is String) {
     return value;
   } else if (value is List<int>) {
@@ -16,7 +18,7 @@ String fromSystemUtf8(Object value, String format) {
   }
 }
 
-String fromSystemUtf16NullTerminated(Object value, String format) {
+String fromSystemUtf16NullTerminated(Object value, PlatformFormat format) {
   if (value is String) {
     return value;
   } else if (value is TypedData) {
@@ -32,7 +34,7 @@ String fromSystemUtf16NullTerminated(Object value, String format) {
 }
 
 // Platform plugin will try to coerce String to expected type
-Object passthrough(dynamic value, String type) => value;
+Object passthrough(dynamic value, PlatformFormat format) => value;
 
 // https://docs.microsoft.com/en-us/windows/win32/dataxchg/html-clipboard-format
 // https://docs.microsoft.com/en-us/troubleshoot/developer/visualstudio/cpp/general/add-html-code-clipboard
@@ -67,7 +69,7 @@ Uint8List _createFooter() {
   return utf8.encode('<!--EndFragment-->\r\n</body>\r\n</html>') as Uint8List;
 }
 
-Object windowsHtmlToSystem(String text, String format) {
+Object windowsHtmlToSystem(String text, PlatformFormat format) {
   if (format == cfHtml) {
     final headerLength = _createHeader(includeHtml: true).length;
     final lines = const LineSplitter().convert(text);
@@ -96,7 +98,7 @@ Object windowsHtmlToSystem(String text, String format) {
   }
 }
 
-String windowsHtmlFromSystem(Object value, String format) {
+String windowsHtmlFromSystem(Object value, PlatformFormat format) {
   if (format == cfHtml) {
     if (value is List<int>) {
       String decoded = utf8.decode(value);

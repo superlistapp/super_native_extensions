@@ -10,7 +10,7 @@ class EncodedData {
 abstract class EncodedDataEntry {
   EncodedDataEntry(this.format);
 
-  final String format;
+  final PlatformFormat format;
 }
 
 class EncodedDataEntrySimple extends EncodedDataEntry {
