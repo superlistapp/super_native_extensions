@@ -66,13 +66,14 @@ class DraggableWidget extends StatelessWidget {
   const DraggableWidget({
     super.key,
     required this.child,
-    this.getDragItems = _defaultGetDragItems,
+    this.dragItems = _defaultDragItemsProvider,
   });
 
   final Widget child;
-  final DragItemsProvider getDragItems;
+  final DragItemsProvider dragItems;
 
-  static List<DragItemWidgetState> _defaultGetDragItems(BuildContext context) {
+  static List<DragItemWidgetState> _defaultDragItemsProvider(
+      BuildContext context) {
     final state = context.findAncestorStateOfType<DragItemWidgetState>();
     if (state != null) {
       return [state];
@@ -115,7 +116,7 @@ class DraggableWidget extends StatelessWidget {
     return BaseDraggableWidget(
         child: child,
         dragConfiguration: (_, session) async {
-          final items = getDragItems(context);
+          final items = dragItems(context);
           return dragConfigurationForItems(items, session);
         });
   }

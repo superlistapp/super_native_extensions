@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 import 'package:super_native_extensions/raw_drag_drop.dart' as raw;
@@ -182,6 +183,8 @@ abstract class _DragDetector extends StatelessWidget {
     }
   }
 
+  void onDraggingStarted() {}
+
   void _maybeStartDragWithSession(
     raw.DragContext context,
     Offset position,
@@ -195,6 +198,7 @@ abstract class _DragDetector extends StatelessWidget {
           session: session,
           configuration: await dragConfiguration.intoRaw(devicePixelRatio),
           position: position);
+      onDraggingStarted();
     }
   }
 }
@@ -243,6 +247,11 @@ class _MobileDragDetector extends _DragDetector {
       },
       child: child,
     );
+  }
+
+  @override
+  void onDraggingStarted() {
+    HapticFeedback.mediumImpact();
   }
 }
 

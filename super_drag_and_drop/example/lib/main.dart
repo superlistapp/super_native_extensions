@@ -68,6 +68,9 @@ class _MyHomePageState extends State<MyHomePage> {
     });
   }
 
+  final item1 = GlobalKey<DragItemWidgetState>();
+  final item2 = GlobalKey<DragItemWidgetState>();
+
   @override
   Widget build(BuildContext context) {
     // This method is rerun every time setState is called, for instance as done
@@ -113,13 +116,24 @@ class _MyHomePageState extends State<MyHomePage> {
               height: 10,
             ),
             DragItemWidget(
-              child: DraggableWidget(
-                child: Container(
-                  color: Colors.blue,
-                  padding: const EdgeInsets.all(10),
-                  child: const Text('Drag me'),
-                ),
+              key: item1,
+              dragItem: (image, session) async {
+                final item = DragItem(image: await image());
+                item.addData(formatPlainText.encode('Hello 1'));
+                return item;
+              },
+              allowedOperations: () => [DropOperation.copy],
+              child: Container(
+                color: Colors.blue,
+                padding: const EdgeInsets.all(10),
+                child: const Text('Drag item 1'),
               ),
+            ),
+            const SizedBox(
+              height: 10,
+            ),
+            DragItemWidget(
+              key: item2,
               dragItem: (image, session) async {
                 session.dragStarted.addListener(() {
                   print('Drag started');
@@ -140,9 +154,18 @@ class _MyHomePageState extends State<MyHomePage> {
                 item.addData(formatPlainText.encode('Hello'));
                 return item;
               },
-              allowedOperations: () => [
-                DropOperation.copy,
-              ],
+              allowedOperations: () => [DropOperation.copy],
+              child: DraggableWidget(
+                dragItems: (_) => [
+                  item1.currentState!,
+                  item2.currentState!,
+                ],
+                child: Container(
+                  color: Colors.blue,
+                  padding: const EdgeInsets.all(10),
+                  child: const Text('Drag me'),
+                ),
+              ),
             ),
           ],
         ),
