@@ -7,8 +7,16 @@ class DragContextImpl extends DragContext {
   Future<void> initialize() async {}
 
   @override
-  Future<DragSession> startDrag(
-      {required DragConfiguration configuration, required Offset position}) {
+  DragSession newSession() {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<DragSession> startDrag({
+    required DragSession session,
+    required DragConfiguration configuration,
+    required Offset position,
+  }) {
     // TODO: implement startDrag
     throw UnimplementedError();
   }

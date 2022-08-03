@@ -33,7 +33,7 @@ use crate::{
         DataProviderEntry, DragSessionId, GetDragConfigurationResult, PlatformDragContextDelegate,
     },
     error::{NativeExtensionsError, NativeExtensionsResult},
-    platform_impl::platform::common::{to_nsstring, superclass},
+    platform_impl::platform::common::{superclass, to_nsstring},
     util::DropNotifier,
     value_promise::PromiseResult,
 };
@@ -160,8 +160,11 @@ impl Session {
             for i in 0..NSArray::count(items) {
                 let item = NSArray::objectAtIndex(items, i);
                 let preview_provider: id = msg_send![item, previewProvider];
+                // If lift image is specified now create preview provider for dragging.
                 // If this is done when creating items the whole session leaks...
-                if preview_provider.is_null() {
+                if preview_provider.is_null()
+                    && self.configuration.items[i as usize].lift_image.is_some()
+                {
                     let (index, _) = PlatformDragContext::item_info(item);
                     let image = self.image_view_for_item(index, ImageType::Drag);
                     let provider = ConcreteBlock::new(move || {
@@ -355,8 +358,9 @@ impl PlatformDragContext {
 
     fn items_for_beginning(&self, interaction: id, session: id) -> id {
         if let Some(delegate) = self.delegate.upgrade() {
+            let location: CGPoint = unsafe { msg_send![session, locationInView:*self.view] };
             let configuration_promise =
-                delegate.get_drag_configuration_for_location(self.id, Point { x: 10.0, y: 10.0 });
+                delegate.get_drag_configuration_for_location(self.id, location.into());
             loop {
                 if let Some(configuration) = configuration_promise.try_take() {
                     match configuration {

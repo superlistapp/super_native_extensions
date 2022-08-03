@@ -88,11 +88,14 @@ pub enum DataRepresentation {
 
 impl DataRepresentation {
     pub fn is_virtual_file(&self) -> bool {
-        matches!(self, Self::VirtualFile {
-            id: _,
-            format: _,
-            storage_suggestion: _,
-        })
+        matches!(
+            self,
+            Self::VirtualFile {
+                id: _,
+                format: _,
+                storage_suggestion: _,
+            }
+        )
     }
 }
 
@@ -152,7 +155,7 @@ pub struct DragRequest {
 #[nativeshell(rename_all = "camelCase")]
 pub enum DropOperation {
     None,
-    UserCancelled, // macOS, windows - drag cancelled by user pressing escape
+    UserCancelled, // macOS, windows, linux - drag cancelled by user pressing escape
     Forbidden,     // Used on iOS, maps to None on other platforms
     Copy,          // macOS, iOS, Windows, Linux, Android
     Move,          // macOS, iOS (within same app), Windows, Linux

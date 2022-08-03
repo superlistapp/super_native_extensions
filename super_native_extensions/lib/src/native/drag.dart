@@ -174,7 +174,13 @@ class DragContextImpl extends DragContext {
   }
 
   @override
+  DragSession newSession() {
+    return DragSessionImpl();
+  }
+
+  @override
   Future<DragSession> startDrag({
+    required DragSession session,
     required DragConfiguration configuration,
     required Offset position,
   }) async {
@@ -188,12 +194,11 @@ class DragContextImpl extends DragContext {
     );
     final sessionId =
         await _channel.invokeMethod("startDrag", request.serialize());
-    final session = DragSessionImpl();
     // TODO
     // dataSource.onDispose.addListener(() {
     //   session._sessionIsDoneWithDataSource.notify();
     // });
-    _sessions[sessionId] = session;
+    _sessions[sessionId] = session as DragSessionImpl;
     for (final item in request.configuration.items) {
       _dataProviders[item.dataProvider.id] = item.dataProvider;
     }

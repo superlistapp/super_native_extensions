@@ -37,4 +37,27 @@ class ImageData {
 // Drag
 //
 
-enum DropOperation { none, userCancelled, forbidden, copy, move, link }
+/// Represents result of a drag & drop operation.
+enum DropOperation {
+  /// No drop operation performed.
+  none,
+
+  /// Drag cancelled by user pressing escape key.
+  ///
+  /// Supported on: macOS, Windows, Linux.
+  userCancelled,
+
+  /// Drag operation is generally supported but forbidden in this instance.
+  ///
+  /// Supported on: iOS; Maps to none on other platforms.
+  forbidden,
+
+  /// Supported on: macOS, Windows, Linux, Android, Web.
+  copy,
+
+  /// Supported on: macOS, iOS (only within same app), Windows, Linux.
+  move,
+
+  /// Supported on: macOS, Windows, Linux.
+  link
+}

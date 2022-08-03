@@ -463,7 +463,9 @@ class _MyHomePageState extends State<MyHomePage> {
     final handle = await data.register();
 
     final dragContext = await DragContext.instance();
-    final session = await dragContext.startDrag(
+    final session = dragContext.newSession();
+    await dragContext.startDrag(
+      session: session,
       configuration: DragConfiguration(allowedOperations: [
         DropOperation.copy,
         DropOperation.move,

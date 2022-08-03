@@ -1,6 +1,7 @@
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 
 import 'api_model.dart';
 import 'data_provider.dart';
@@ -69,8 +70,8 @@ class DragRequest {
 
 abstract class DragSession {
   Listenable get dragStarted;
-  ValueNotifier<DropOperation?> get dragCompleted;
-  ValueNotifier<ui.Offset?> get lastScreenLocation;
+  ValueListenable<DropOperation?> get dragCompleted;
+  ValueListenable<ui.Offset?> get lastScreenLocation;
 }
 
 abstract class DragContextDelegate {
@@ -110,7 +111,10 @@ abstract class DragContext {
     });
   }
 
-  Future<DragSession> startDrag({
+  DragSession newSession();
+
+  Future<void> startDrag({
+    required DragSession session,
     required DragConfiguration configuration,
     required ui.Offset position,
   });

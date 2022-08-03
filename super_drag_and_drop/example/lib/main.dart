@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:super_clipboard/super_clipboard.dart';
+import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 
 void main() {
   runApp(const MyApp());
@@ -27,6 +29,11 @@ class MyApp extends StatelessWidget {
       home: const MyHomePage(title: 'Flutter Demo Home Page'),
     );
   }
+}
+
+void x() {
+  final DropOperation d;
+  DropOperation.copy;
 }
 
 class MyHomePage extends StatefulWidget {
@@ -101,6 +108,29 @@ class _MyHomePageState extends State<MyHomePage> {
             Text(
               '$_counter',
               style: Theme.of(context).textTheme.headline4,
+            ),
+            const SizedBox(
+              height: 10,
+            ),
+            DragItemWidget(
+              child: SimpleDraggable(
+                child: Container(
+                  color: Colors.blue,
+                  padding: const EdgeInsets.all(10),
+                  child: const Text('Drag me'),
+                ),
+              ),
+              onGetItem: (image) async {
+                final item = DragItem(
+                  image: await image(),
+                  localData: 'Hi',
+                );
+                item.addData(formatPlainText.encode('Hello'));
+                return item;
+              },
+              onGetAllowedOperations: () => [
+                DropOperation.copy,
+              ],
             ),
           ],
         ),
