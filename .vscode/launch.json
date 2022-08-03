@@ -5,21 +5,41 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "example",
+            "name": "clipboard example",
             "cwd": "super_clipboard/example",
             "request": "launch",
             "type": "dart"
         },
         {
-            "name": "example (profile mode)",
+            "name": "clipboard example (profile mode)",
             "cwd": "super_clipboard/example",
             "request": "launch",
             "type": "dart",
             "flutterMode": "profile"
         },
         {
-            "name": "example (release mode)",
+            "name": "clipboard example (release mode)",
             "cwd": "super_clipboard/example",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "release"
+        },
+        {
+            "name": "drag and drop example",
+            "cwd": "super_drag_and_drop/example",
+            "request": "launch",
+            "type": "dart"
+        },
+        {
+            "name": "drag and drop example (profile mode)",
+            "cwd": "super_drag_and_drop/example",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "profile"
+        },
+        {
+            "name": "drag and drop example (release mode)",
+            "cwd": "super_drag_and_drop/example",
             "request": "launch",
             "type": "dart",
             "flutterMode": "release"
