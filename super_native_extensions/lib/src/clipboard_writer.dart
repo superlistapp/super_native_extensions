@@ -3,8 +3,8 @@ import 'data_provider.dart';
 import 'native/clipboard_writer.dart'
     if (dart.library.js) 'web/clipboard_writer.dart';
 
-abstract class RawClipboardWriter {
-  static final RawClipboardWriter instance = RawClipboardWriterImpl();
+abstract class ClipboardWriter {
+  static final ClipboardWriter instance = ClipboardWriterImpl();
 
   Future<void> write(List<DataProviderHandle> providers);
 }

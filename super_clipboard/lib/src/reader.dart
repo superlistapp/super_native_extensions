@@ -30,7 +30,7 @@ class ClipboardReader {
   ClipboardReader._(this.reader);
 
   static Future<ClipboardReader> readClipboard() async => ClipboardReader._(
-      await raw.RawClipboardReader.instance.newClipboardReader());
+      await raw.ClipboardReader.instance.newClipboardReader());
 
   Future<List<ClipboardReaderItem>> getItems() async =>
       (await reader.getItems())

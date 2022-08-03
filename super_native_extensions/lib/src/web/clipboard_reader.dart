@@ -25,7 +25,7 @@ class ClipboardReaderHandle extends DataReaderItemHandleImpl {
   }
 }
 
-class RawClipboardReaderImpl extends RawClipboardReader {
+class ClipboardReaderImpl extends ClipboardReader {
   @override
   Future<DataReader> newClipboardReader() async {
     final items = await getClipboard().read();

@@ -78,7 +78,7 @@ class ClipboardWriter {
       p.second._onRegistered.notify();
     }
     try {
-      await raw.RawClipboardWriter.instance.write(handles);
+      await raw.ClipboardWriter.instance.write(handles);
     } catch (e) {
       for (final handle in handles) {
         handle.dispose();

@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:super_clipboard/super_clipboard.dart' hide DataProvider;
 import 'package:super_native_extensions/raw_drag_drop.dart';
-import 'package:super_native_extensions/raw_clipboard.dart';
+import 'package:super_native_extensions/raw_clipboard.dart' as raw;
 
 class DragException implements Exception {
   final String message;
@@ -118,13 +118,13 @@ class _DragDelegate implements RawDragContextDelegate {
     session.lastScreenLocation.addListener(() {
       print('Last screen location ${session.lastScreenLocation.value}');
     });
-    final data = DataProvider(suggestedName: "File1.txt", representations: [
+    final data = raw.DataProvider(suggestedName: "File1.txt", representations: [
       // DataRepresentation.lazy(
       //     format: 'public.utf8-plain-text',
       //     dataProvider: () => 'plain text lazy'),
-      DataRepresentation.virtualFile(
+      raw.DataRepresentation.virtualFile(
           format: 'public.utf8-plain-text',
-          storageSuggestion: VirtualFileStorage.temporaryFile,
+          storageSuggestion: raw.VirtualFileStorage.temporaryFile,
           virtualFileProvider: (sinkProvider, progress) async {
             final sink = sinkProvider(fileSize: 32);
             final cancelled = [false];
@@ -359,7 +359,7 @@ class _MyHomePageState extends State<MyHomePage> {
     // final rect = MatrixUtils.transformRect(renderObject.getTransformTo(null),
     //     Rect.fromLTWH(0, 0, renderObject.size.width, renderObject.size.height));
 
-    final data = DataProvider(
+    final data = raw.DataProvider(
 
         // DataSourceItem(representations: [
         //   DataSourceItemRepresentation.simple(
@@ -403,7 +403,7 @@ class _MyHomePageState extends State<MyHomePage> {
           // DataSourceItemRepresentation.simple(
           //     formats: ['public.file-url'],
           //     data: utf8.encode('file:///tmp/test.txt')),
-          DataRepresentation.lazy(
+          raw.DataRepresentation.lazy(
               format: 'public.utf8-plain-text2',
               dataProvider: () => 'plain text lazy'),
           // DataRepresentation.lazy(
@@ -412,10 +412,10 @@ class _MyHomePageState extends State<MyHomePage> {
           //     // format: 'text/plain',
           //     dataProvider: () => utf8.encode('baaad')),
 
-          DataRepresentation.virtualFile(
+          raw.DataRepresentation.virtualFile(
               format: 'public.utf8-plain-text',
               // format: 'text/plain',
-              storageSuggestion: VirtualFileStorage.temporaryFile,
+              storageSuggestion: raw.VirtualFileStorage.temporaryFile,
               virtualFileProvider: (sinkProvider, progress) async {
                 final line = utf8.encode("This is a single line\n");
                 const count = 100;

@@ -5,8 +5,8 @@ import 'context.dart';
 import '../data_provider.dart';
 import '../clipboard_writer.dart';
 
-class RawClipboardWriterImpl extends RawClipboardWriter {
-  RawClipboardWriterImpl() {
+class ClipboardWriterImpl extends ClipboardWriter {
+  ClipboardWriterImpl() {
     _channel.setMethodCallHandler(_onMethodCall);
   }
 

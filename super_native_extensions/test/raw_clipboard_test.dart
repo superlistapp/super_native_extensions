@@ -57,7 +57,7 @@ void main() {
       }
       assert(false, 'Unexpected call $call');
     });
-    final reader = await RawClipboardReader.instance.newClipboardReader();
+    final reader = await ClipboardReader.instance.newClipboardReader();
     expect(newDefaultReaderCalled, isTrue);
     final items = await reader.getItems();
     expect(getItemsCalled, isTrue);

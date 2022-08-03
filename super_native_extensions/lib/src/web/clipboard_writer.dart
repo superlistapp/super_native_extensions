@@ -6,7 +6,7 @@ import '../data_provider.dart';
 import 'clipboard_api.dart';
 import 'js_util.dart';
 
-class RawClipboardWriterImpl extends RawClipboardWriter {
+class ClipboardWriterImpl extends ClipboardWriter {
   List<DataProviderHandle> _currentPayload = [];
 
   ClipboardItem translateProvider(DataProvider provider) {
