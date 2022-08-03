@@ -113,22 +113,34 @@ class _MyHomePageState extends State<MyHomePage> {
               height: 10,
             ),
             DragItemWidget(
-              child: SimpleDraggable(
+              child: DraggableWidget(
                 child: Container(
                   color: Colors.blue,
                   padding: const EdgeInsets.all(10),
                   child: const Text('Drag me'),
                 ),
               ),
-              onGetItem: (image) async {
+              dragItem: (image, session) async {
+                session.dragStarted.addListener(() {
+                  print('Drag started');
+                });
+                session.dragCompleted.addListener(() {
+                  print('Session completed ${session.dragCompleted.value}');
+                });
                 final item = DragItem(
                   image: await image(),
                   localData: 'Hi',
                 );
+                item.onRegistered.addListener(() {
+                  print('Item registered');
+                });
+                item.onDisposed.addListener(() {
+                  print('Item disposed');
+                });
                 item.addData(formatPlainText.encode('Hello'));
                 return item;
               },
-              onGetAllowedOperations: () => [
+              allowedOperations: () => [
                 DropOperation.copy,
               ],
             ),

@@ -7,8 +7,9 @@ import android.content.ContextWrapper;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.Paint;
 import android.graphics.Point;
-import android.util.Log;
 import android.view.DragEvent;
 import android.view.View;
 
@@ -59,13 +60,16 @@ public class DragDropHelper {
 
         @Override
         public void onProvideShadowMetrics(Point outShadowSize, Point outShadowTouchPoint) {
-            outShadowSize.set(bitmap.getWidth(), bitmap.getHeight());
-            outShadowTouchPoint.set(touchPoint.x, touchPoint.y);
+            outShadowSize.set(bitmap.getWidth() + 20, bitmap.getHeight() + 20);
+            outShadowTouchPoint.set(touchPoint.x + 10, touchPoint.y + 10);
         }
 
         @Override
         public void onDrawShadow(Canvas canvas) {
-            canvas.drawBitmap(bitmap, 0, 0, null);
+            Paint shadowPaint = new Paint();
+            shadowPaint.setShadowLayer(5, 0, 0, Color.BLACK);
+            // TODO(knopp): Actual shadow
+            canvas.drawBitmap(bitmap, 10, 10, shadowPaint);
         }
     }
 
@@ -99,7 +103,6 @@ public class DragDropHelper {
 
         if (view != null) {
             view.setOnDragListener((v, event) -> {
-                Log.i("flutter", "DragEvent " + event);
                 return onDrag(event, handlerId);
             });
         }

@@ -1,4 +1,4 @@
-package com.example.example
+package com.example.clipboard
 
 import io.flutter.embedding.android.FlutterActivity
 
