@@ -13,7 +13,7 @@ use nativeshell_core::{
 };
 
 use crate::{
-    api_model::{DataProviderId, DragConfiguration, DragRequest, DropOperation, Point},
+    api_model::{DataProviderId, DragConfiguration, DragItem, DragRequest, DropOperation, Point},
     data_provider_manager::{DataProviderHandle, GetDataProviderManager},
     drop_manager::GetDropManager,
     error::{NativeExtensionsError, NativeExtensionsResult},
@@ -36,6 +36,11 @@ pub struct GetDragConfigurationResult {
     pub providers: HashMap<DataProviderId, DataProviderEntry>,
 }
 
+pub struct GetAdditionalItemsResult {
+    pub items: Vec<DragItem>,
+    pub providers: HashMap<DataProviderId, DataProviderEntry>,
+}
+
 pub trait PlatformDragContextDelegate {
     fn get_platform_drop_context(
         &self,
@@ -47,6 +52,13 @@ pub trait PlatformDragContextDelegate {
         id: PlatformDragContextId,
         location: Point,
     ) -> Arc<Promise<PromiseResult<GetDragConfigurationResult>>>;
+
+    fn get_additional_items_for_location(
+        &self,
+        id: PlatformDragContextId,
+        session_id: DragSessionId,
+        location: Point,
+    ) -> Arc<Promise<PromiseResult<GetAdditionalItemsResult>>>;
 
     fn is_location_draggable(
         &self,
@@ -147,10 +159,10 @@ impl DragManager {
     fn build_data_provider_map(
         &self,
         isolate: IsolateId,
-        configuration: &DragConfiguration,
+        items: &Vec<DragItem>,
     ) -> NativeExtensionsResult<HashMap<DataProviderId, DataProviderEntry>> {
         let mut map = HashMap::new();
-        for item in &configuration.items {
+        for item in items {
             let provider_id = item.data_provider_id;
             let provider = Context::get()
                 .data_provider_manager()
@@ -179,12 +191,24 @@ impl DragManager {
         session_id: DragSessionId,
         location: Point,
     ) -> NativeExtensionsResult<Option<GetDragConfigurationResult>> {
+        #[derive(IntoValue)]
+        #[nativeshell(rename_all = "camelCase")]
+        struct DragConfigurationRequest {
+            session_id: DragSessionId,
+            location: Point,
+        }
+        #[derive(TryFromValue, Debug)]
+        #[nativeshell(rename_all = "camelCase")]
+        struct DragConfigurationResponse {
+            configuration: Option<DragConfiguration>,
+        }
+
         let configuration: DragConfigurationResponse = self
             .invoker
             .call_method_cv(
                 id,
                 "getConfigurationForDragRequest",
-                DataSourceRequest {
+                DragConfigurationRequest {
                     location,
                     session_id,
                 },
@@ -193,7 +217,7 @@ impl DragManager {
         let configuration = configuration.configuration;
         match configuration {
             Some(configuration) => {
-                let providers = self.build_data_provider_map(id, &configuration)?;
+                let providers = self.build_data_provider_map(id, &configuration.items)?;
                 Ok(Some(GetDragConfigurationResult {
                     session_id,
                     configuration,
@@ -204,11 +228,53 @@ impl DragManager {
         }
     }
 
+    async fn get_additional_items_for_location(
+        &self,
+        id: PlatformDragContextId,
+        session_id: DragSessionId,
+        location: Point,
+    ) -> NativeExtensionsResult<Option<GetAdditionalItemsResult>> {
+        #[derive(IntoValue)]
+        #[nativeshell(rename_all = "camelCase")]
+        struct AdditionalItemsRequest {
+            session_id: DragSessionId,
+            location: Point,
+        }
+        #[derive(TryFromValue, Debug)]
+        #[nativeshell(rename_all = "camelCase")]
+        struct AdditionalItemsResponse {
+            items: Option<Vec<DragItem>>,
+        }
+        let response: AdditionalItemsResponse = self
+            .invoker
+            .call_method_cv(
+                id,
+                "getAdditionalItemsForLocation",
+                AdditionalItemsRequest {
+                    location,
+                    session_id,
+                },
+            )
+            .await?;
+        match response.items {
+            Some(items) => {
+                let providers = self.build_data_provider_map(id, &items)?;
+                Ok(Some(GetAdditionalItemsResult { items, providers }))
+            }
+            None => Ok(None),
+        }
+    }
+
     async fn is_location_draggable(
         &self,
         id: PlatformDragContextId,
         location: Point,
     ) -> NativeExtensionsResult<bool> {
+        #[derive(IntoValue)]
+        #[nativeshell(rename_all = "camelCase")]
+        struct LocationDraggableRequest {
+            location: Point,
+        }
         let result: bool = self
             .invoker
             .call_method_cv(
@@ -232,7 +298,7 @@ impl DragManager {
             .cloned()
             .ok_or(NativeExtensionsError::PlatformContextNotFound)?;
         let session_id = DragSessionId(self.next_session_id.next_id());
-        let provider_map = self.build_data_provider_map(isolate, &request.configuration)?;
+        let provider_map = self.build_data_provider_map(isolate, &request.configuration.items)?;
         context
             .start_drag(request, provider_map, session_id)
             .await?;
@@ -281,39 +347,6 @@ impl AsyncMethodHandler for DragManager {
     }
 }
 
-#[derive(IntoValue)]
-#[nativeshell(rename_all = "camelCase")]
-struct DataSourceRequest {
-    location: Point,
-    session_id: DragSessionId,
-}
-
-#[derive(IntoValue)]
-#[nativeshell(rename_all = "camelCase")]
-struct LocationDraggableRequest {
-    location: Point,
-}
-
-#[derive(TryFromValue, Debug)]
-#[nativeshell(rename_all = "camelCase")]
-struct DragConfigurationResponse {
-    configuration: Option<DragConfiguration>,
-}
-
-#[derive(IntoValue)]
-#[nativeshell(rename_all = "camelCase")]
-struct DragMoveRequest {
-    session_id: DragSessionId,
-    screen_location: Point,
-}
-
-#[derive(IntoValue)]
-#[nativeshell(rename_all = "camelCase")]
-struct DragEndRequest {
-    session_id: DragSessionId,
-    drop_operation: DropOperation,
-}
-
 impl PlatformDragContextDelegate for DragManager {
     fn get_platform_drop_context(
         &self,
@@ -336,6 +369,38 @@ impl PlatformDragContextDelegate for DragManager {
             if let Some(this) = this {
                 match this
                     .get_drag_configuration_for_location(id, session_id, location)
+                    .await
+                    .ok_log_unexpected()
+                    .flatten()
+                {
+                    Some(data) => {
+                        res_clone.set(PromiseResult::Ok { value: data });
+                    }
+                    None => {
+                        res_clone.set(PromiseResult::Cancelled);
+                    }
+                }
+            } else {
+                res_clone.set(PromiseResult::Cancelled);
+            }
+        });
+        res
+    }
+
+    fn get_additional_items_for_location(
+        &self,
+        id: PlatformDragContextId,
+        session_id: DragSessionId,
+        location: Point,
+    ) -> Arc<Promise<PromiseResult<GetAdditionalItemsResult>>> {
+        let res = Arc::new(Promise::new());
+        let res_clone = res.clone();
+        let weak_self = self.weak_self.clone();
+        Context::get().run_loop().spawn(async move {
+            let this = weak_self.upgrade();
+            if let Some(this) = this {
+                match this
+                    .get_additional_items_for_location(id, session_id, location)
                     .await
                     .ok_log_unexpected()
                     .flatten()
@@ -386,6 +451,12 @@ impl PlatformDragContextDelegate for DragManager {
         session_id: DragSessionId,
         screen_location: Point,
     ) {
+        #[derive(IntoValue)]
+        #[nativeshell(rename_all = "camelCase")]
+        struct DragMoveRequest {
+            session_id: DragSessionId,
+            screen_location: Point,
+        }
         self.invoker.call_method_sync(
             id,
             "dragSessionDidMove",
@@ -405,6 +476,13 @@ impl PlatformDragContextDelegate for DragManager {
         session_id: DragSessionId,
         operation: DropOperation,
     ) {
+        #[derive(IntoValue)]
+        #[nativeshell(rename_all = "camelCase")]
+        struct DragEndRequest {
+            session_id: DragSessionId,
+            drop_operation: DropOperation,
+        }
+
         self.invoker.call_method_sync(
             id,
             "dragSessionDidEnd",

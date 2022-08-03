@@ -149,6 +149,13 @@ class _DragContextDelegate implements raw.DragContextDelegate {
   }
 
   @override
+  Future<List<raw.DragItem>?> getAdditionalItemsForLocation(
+      {required Offset location, required raw.DragSession session}) async {
+    print('Get Additonal items {$location}');
+    return null;
+  }
+
+  @override
   bool isLocationDraggable(Offset location) {
     final hitTest = HitTestResult();
     GestureBinding.instance.hitTest(hitTest, location);

@@ -13,7 +13,10 @@ use cocoa::{
     base::{id, nil, BOOL, NO, YES},
     foundation::NSArray,
 };
-use core_graphics::geometry::{CGPoint, CGRect};
+use core_graphics::{
+    base::CGFloat,
+    geometry::{CGPoint, CGRect},
+};
 
 use nativeshell_core::{util::Late, Context, Value};
 use objc::{
@@ -22,7 +25,7 @@ use objc::{
     msg_send,
     rc::{autoreleasepool, StrongPtr},
     runtime::{Class, Object, Protocol, Sel},
-    sel, sel_impl,
+    sel, sel_impl, Encode, Encoding,
 };
 use once_cell::sync::Lazy;
 
@@ -30,7 +33,8 @@ use crate::{
     api_model::{DataProviderId, DragConfiguration, DragRequest, DropOperation, Point},
     data_provider_manager::DataProviderHandle,
     drag_manager::{
-        DataProviderEntry, DragSessionId, GetDragConfigurationResult, PlatformDragContextDelegate,
+        DataProviderEntry, DragSessionId, GetAdditionalItemsResult, GetDragConfigurationResult,
+        PlatformDragContextDelegate,
     },
     error::{NativeExtensionsError, NativeExtensionsResult},
     platform_impl::platform::common::{superclass, to_nsstring},
@@ -67,7 +71,7 @@ struct Session {
     session_id: DragSessionId,
     weak_self: Late<Weak<Self>>,
     in_progress: Cell<bool>,
-    configuration: DragConfiguration,
+    configuration: RefCell<DragConfiguration>,
     data_providers: RefCell<Vec<Arc<DataProviderHandle>>>,
     views: RefCell<HashMap<(usize, ImageType), StrongPtr>>, // index -> view
 }
@@ -87,7 +91,7 @@ impl Session {
             weak_self: Late::new(),
             in_progress: Cell::new(false),
             session_id,
-            configuration,
+            configuration: RefCell::new(configuration),
             data_providers: RefCell::new(Vec::new()),
             views: RefCell::new(HashMap::new()),
         }
@@ -134,7 +138,14 @@ impl Session {
     ) -> id {
         let mut dragging_items = Vec::<id>::new();
 
-        for (index, item) in self.configuration.items.iter().enumerate().skip(from_index) {
+        for (index, item) in self
+            .configuration
+            .borrow()
+            .items
+            .iter()
+            .enumerate()
+            .skip(from_index)
+        {
             let provider_entry = providers
                 .remove(&item.data_provider_id)
                 .expect("Missing provider");
@@ -145,6 +156,37 @@ impl Session {
             ));
         }
         unsafe { NSArray::arrayWithObjects(nil, &dragging_items) }
+    }
+
+    fn process_additional_items(&self, mut items: GetAdditionalItemsResult) -> id {
+        let from_index = {
+            let mut configuration = self.configuration.borrow_mut();
+            let index = configuration.items.len();
+            configuration.items.append(&mut items.items);
+            index
+        };
+        self.create_items(from_index, items.providers)
+    }
+
+    fn get_additional_items_for_location(&self, location: Point) -> id {
+        if let Some(delegate) = self.context_delegate.upgrade() {
+            let items_promise = delegate.get_additional_items_for_location(
+                self.context_id,
+                self.session_id,
+                location,
+            );
+            loop {
+                if let Some(items) = items_promise.try_take() {
+                    match items {
+                        PromiseResult::Ok { value } => return self.process_additional_items(value),
+                        PromiseResult::Cancelled => return nil,
+                    }
+                }
+                Context::get().run_loop().platform_run_loop.poll_once();
+            }
+        } else {
+            nil
+        }
     }
 
     fn drag_will_begin(&self) {
@@ -163,7 +205,9 @@ impl Session {
                 // If lift image is specified now create preview provider for dragging.
                 // If this is done when creating items the whole session leaks...
                 if preview_provider.is_null()
-                    && self.configuration.items[i as usize].lift_image.is_some()
+                    && self.configuration.borrow().items[i as usize]
+                        .lift_image
+                        .is_some()
                 {
                     let (index, _) = PlatformDragContext::item_info(item);
                     let image = self.image_view_for_item(index, ImageType::Drag);
@@ -197,7 +241,8 @@ impl Session {
             .borrow_mut()
             .entry((index, ty))
             .or_insert_with(|| unsafe {
-                let item = &self.configuration.items[index];
+                let configuration = self.configuration.borrow();
+                let item = &configuration.items[index];
                 let drag_image = if ty == ImageType::Drag {
                     &item.image
                 } else {
@@ -220,7 +265,8 @@ impl Session {
     }
 
     fn preview_for_item(&self, index: usize) -> id {
-        let drag_image = &self.configuration.items[index].image;
+        let configuration = self.configuration.borrow();
+        let drag_image = &configuration.items[index].image;
         let image_view = self.image_view_for_item(index, ImageType::Lift);
         unsafe {
             let parameters: id = msg_send![class!(UIDragPreviewParameters), new];
@@ -377,6 +423,14 @@ impl PlatformDragContext {
         }
     }
 
+    fn items_for_adding(&self, _interaction: id, session: id, point: CGPoint) -> id {
+        if let Some(session) = self.get_session(session) {
+            session.get_additional_items_for_location(point.into())
+        } else {
+            nil
+        }
+    }
+
     fn get_session_id(session: id) -> Option<DragSessionId> {
         unsafe {
             let context: id = msg_send![session, localContext];
@@ -420,6 +474,7 @@ impl PlatformDragContext {
         if let Some(session) = self.get_session(session) {
             session
                 .configuration
+                .borrow()
                 .allowed_operations
                 .contains(&DropOperation::Move)
         } else {
@@ -440,7 +495,7 @@ impl PlatformDragContext {
 
     fn prefers_full_size_previews(&self, _interaction: id, session: id) -> BOOL {
         if let Some(session) = self.get_session(session) {
-            if session.configuration.prefers_full_size_previews {
+            if session.configuration.borrow().prefers_full_size_previews {
                 YES
             } else {
                 NO
@@ -465,6 +520,7 @@ impl PlatformDragContext {
         if let Some(session) = self.get_session(session) {
             session
                 .configuration
+                .borrow()
                 .items
                 .iter()
                 .map(|i| i.local_data.clone())
@@ -524,6 +580,20 @@ extern "C" fn items_for_beginning(
     with_state(
         this,
         |state| state.items_for_beginning(interaction, session),
+        || nil,
+    )
+}
+
+extern "C" fn items_for_adding(
+    this: &mut Object,
+    _sel: Sel,
+    interaction: id,
+    session: id,
+    point: _CGPoint,
+) -> id {
+    with_state(
+        this,
+        |state| state.items_for_adding(interaction, session, point.into()),
         || nil,
     )
 }
@@ -622,6 +692,26 @@ extern "C" fn prefers_full_size_previews(
     )
 }
 
+// CGPoint doesn't seem to have encoding defined so we do it ourselves
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Default)]
+pub struct _CGPoint {
+    pub x: CGFloat,
+    pub y: CGFloat,
+}
+
+impl From<_CGPoint> for CGPoint {
+    fn from(p: _CGPoint) -> Self {
+        CGPoint { x: p.x, y: p.y }
+    }
+}
+
+unsafe impl Encode for _CGPoint {
+    fn encode() -> Encoding {
+        unsafe { Encoding::from_str("{CGPoint=dd}") }
+    }
+}
+
 static DELEGATE_CLASS: Lazy<&'static Class> = Lazy::new(|| unsafe {
     let superclass = class!(NSObject);
     let mut decl = ClassDecl::new("SNEDragInteractionDelegate", superclass).unwrap();
@@ -631,6 +721,11 @@ static DELEGATE_CLASS: Lazy<&'static Class> = Lazy::new(|| unsafe {
     decl.add_method(
         sel!(dragInteraction:itemsForBeginningSession:),
         items_for_beginning as extern "C" fn(&mut Object, Sel, id, id) -> id,
+    );
+
+    decl.add_method(
+        sel!(dragInteraction:itemsForAddingToSession:withTouchAtPoint:),
+        items_for_adding as extern "C" fn(&mut Object, Sel, id, id, _CGPoint) -> id,
     );
     decl.add_method(
         sel!(dragInteraction:sessionWillBegin:),

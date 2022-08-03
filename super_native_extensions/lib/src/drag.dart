@@ -81,6 +81,11 @@ abstract class DragContextDelegate {
     required DragSession session,
   });
 
+  Future<List<DragItem>?> getAdditionalItemsForLocation({
+    required ui.Offset location,
+    required DragSession session,
+  });
+
   bool isLocationDraggable(ui.Offset location);
 }
 

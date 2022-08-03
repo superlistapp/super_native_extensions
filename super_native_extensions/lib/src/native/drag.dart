@@ -93,10 +93,6 @@ class DragContextImpl extends DragContext {
         session: session,
       );
       if (configuration != null) {
-        // TODO!
-        // configuration.dataSource.onDispose.addListener(() {
-        //   session._sessionIsDoneWithDataSource.notify();
-        // });
         _sessions[sessionId] = session;
         for (final item in configuration.items) {
           _dataProviders[item.dataProvider.id] = item.dataProvider;
@@ -105,6 +101,19 @@ class DragContextImpl extends DragContext {
       } else {
         return null;
       }
+    } else if (call.method == 'getAdditionalItemsForLocation') {
+      final arguments = call.arguments as Map;
+      final location = OffsetExt.deserialize(arguments['location']);
+      final sessionId = arguments['sessionId'];
+      final session = _sessions[sessionId];
+      List<DragItem>? items;
+      if (session != null) {
+        items = await delegate?.getAdditionalItemsForLocation(
+          location: location,
+          session: session,
+        );
+      }
+      return {'items': items?.map((e) => e.serialize())};
     } else if (call.method == 'isLocationDraggable') {
       final arguments = call.arguments as Map;
       final location = OffsetExt.deserialize(arguments['location']);
@@ -194,10 +203,6 @@ class DragContextImpl extends DragContext {
     );
     final sessionId =
         await _channel.invokeMethod("startDrag", request.serialize());
-    // TODO
-    // dataSource.onDispose.addListener(() {
-    //   session._sessionIsDoneWithDataSource.notify();
-    // });
     _sessions[sessionId] = session as DragSessionImpl;
     for (final item in request.configuration.items) {
       _dataProviders[item.dataProvider.id] = item.dataProvider;

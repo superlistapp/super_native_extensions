@@ -104,6 +104,12 @@ class _DragDelegate implements DragContextDelegate {
   }
 
   @override
+  Future<List<DragItem>?> getAdditionalItemsForLocation(
+      {required Offset location, required DragSession session}) async {
+    return null;
+  }
+
+  @override
   Future<DragConfiguration?> getConfigurationForDragRequest(
       {required Offset location, required DragSession session}) async {
     session.dragStarted.addListener(() {
