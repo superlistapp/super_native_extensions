@@ -100,8 +100,8 @@ class DropEventImpl extends DropEvent {
   final DataReader? reader;
 }
 
-class RawDropContextImpl extends RawDropContext {
-  RawDropContextImpl();
+class DropContextImpl extends DropContext {
+  DropContextImpl();
 
   static final _sessions = <int, Session>{};
 

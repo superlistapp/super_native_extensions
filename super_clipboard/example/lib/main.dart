@@ -13,7 +13,7 @@ class DragException implements Exception {
   DragException(this.message);
 }
 
-class _DropDelegate implements RawDropContextDelegate {
+class _DropDelegate implements DropContextDelegate {
   @override
   Future<void> onDropEnded(BaseDropEvent event) async {
     print('Drop ended $event');
@@ -94,7 +94,7 @@ class _DropDelegate implements RawDropContextDelegate {
   }
 }
 
-class _DragDelegate implements RawDragContextDelegate {
+class _DragDelegate implements DragContextDelegate {
   @override
   bool isLocationDraggable(Offset location) {
     final rect = dragContainer.currentState!.getGlobalRect();
@@ -218,7 +218,7 @@ final dragContainer = GlobalKey<DragContainerState>();
 void main() async {
   // myKey(20);
 
-  final dropContext = await RawDropContext.instance();
+  final dropContext = await DropContext.instance();
   await dropContext.registerDropTypes([
     'public.file-url',
     'NSFilenamesPboardType',
@@ -228,10 +228,10 @@ void main() async {
     'text/uri-list',
     'text/plain',
   ]);
-  await RawDragContext.instance();
-  await RawDropContext.instance();
-  (await RawDragContext.instance()).delegate = _DragDelegate();
-  (await RawDropContext.instance()).delegate = _DropDelegate();
+  await DragContext.instance();
+  await DropContext.instance();
+  (await DragContext.instance()).delegate = _DragDelegate();
+  (await DropContext.instance()).delegate = _DropDelegate();
   runApp(const MyApp());
 }
 
@@ -462,7 +462,7 @@ class _MyHomePageState extends State<MyHomePage> {
         ], suggestedName: 'File2.txt');
     final handle = await data.register();
 
-    final dragContext = await RawDragContext.instance();
+    final dragContext = await DragContext.instance();
     final session = await dragContext.startDrag(
       configuration: DragConfiguration(allowedOperations: [
         DropOperation.copy,

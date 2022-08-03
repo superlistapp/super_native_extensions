@@ -6,8 +6,8 @@ import 'native/reader_manager.dart'
 typedef DataReaderHandle = DataReaderHandleImpl;
 typedef DataReaderItemHandle = DataReaderItemHandleImpl;
 
-abstract class RawReaderManager {
-  static final RawReaderManager instance = RawReaderManagerImpl();
+abstract class ReaderManager {
+  static final ReaderManager instance = ReaderManagerImpl();
 
   Future<void> dispose(DataReaderHandle reader);
 

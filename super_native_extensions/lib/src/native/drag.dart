@@ -68,8 +68,8 @@ class DragSessionImpl extends DragSession {
 final _channel =
     NativeMethodChannel('DragManager', context: superNativeExtensionsContext);
 
-class RawDragContextImpl extends RawDragContext {
-  RawDragContextImpl();
+class DragContextImpl extends DragContext {
+  DragContextImpl();
 
   final _sessions = <int, DragSessionImpl>{};
   final _dataProviders = <int, DataProviderHandle>{};

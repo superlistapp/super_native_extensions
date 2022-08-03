@@ -126,7 +126,7 @@ class ItemPreviewRequest {
   final Duration fadeOutDuration;
 }
 
-abstract class RawDropContextDelegate {
+abstract class DropContextDelegate {
   Future<DropOperation> onDropUpdate(DropEvent event);
   Future<void> onPerformDrop(DropEvent event);
   Future<void> onDropLeave(BaseDropEvent event);
@@ -136,15 +136,15 @@ abstract class RawDropContextDelegate {
   Future<ItemPreview?> onGetItemPreview(ItemPreviewRequest request);
 }
 
-abstract class RawDropContext {
-  set delegate(RawDropContextDelegate? delegate) {
+abstract class DropContext {
+  set delegate(DropContextDelegate? delegate) {
     _delegate = delegate;
   }
 
-  static Future<RawDropContext> instance() {
+  static Future<DropContext> instance() {
     return _mutex.protect(() async {
       if (_instance == null) {
-        _instance = RawDropContextImpl();
+        _instance = DropContextImpl();
         await _instance!.initialize();
       }
       return _instance!;
@@ -157,10 +157,10 @@ abstract class RawDropContext {
   Future<void> registerDropTypes(List<String> types);
 
   @protected
-  RawDropContextDelegate? get delegate => _delegate;
+  DropContextDelegate? get delegate => _delegate;
 
-  RawDropContextDelegate? _delegate;
+  DropContextDelegate? _delegate;
 
-  static RawDropContext? _instance;
+  static DropContext? _instance;
   static final _mutex = Mutex();
 }

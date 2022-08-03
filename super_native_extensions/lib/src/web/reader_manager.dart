@@ -28,7 +28,7 @@ abstract class DataReaderItemHandleImpl {
   Future<Object?> getDataForFormat(String format);
 }
 
-class RawReaderManagerImpl extends RawReaderManager {
+class ReaderManagerImpl extends ReaderManager {
   @override
   Future<void> dispose(DataReaderHandle reader) async {
     // we don't register the items anywhere so there's nothing to undergister

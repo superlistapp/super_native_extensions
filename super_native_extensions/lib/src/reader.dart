@@ -8,7 +8,7 @@ import 'reader_manager.dart';
 class DataReader {
   Future<List<DataReaderItem>> getItems() {
     return _mutex.protect(() async {
-      _items ??= (await RawReaderManager.instance.getItems(_handle))
+      _items ??= (await ReaderManager.instance.getItems(_handle))
           .map((handle) => DataReaderItem(handle: handle))
           .toList(growable: false);
       return _items!;
@@ -19,7 +19,7 @@ class DataReader {
     required DataReaderHandle handle,
   }) : _handle = handle;
 
-  Future<void> dispose() => RawReaderManager.instance.dispose(_handle);
+  Future<void> dispose() => ReaderManager.instance.dispose(_handle);
 
   final _mutex = Mutex();
 
@@ -51,7 +51,7 @@ class DataReaderItem {
   Future<List<String>> getAvailableFormats() {
     return _mutex.protect(() async {
       _availableFormats ??=
-          await RawReaderManager.instance.getItemFormats(_handle);
+          await ReaderManager.instance.getItemFormats(_handle);
       return _availableFormats!;
     });
   }
@@ -59,12 +59,12 @@ class DataReaderItem {
   Pair<Future<Object?>, ReadProgress> getDataForFormat(
     String format,
   ) {
-    return RawReaderManager.instance.getItemData(_handle, format: format);
+    return ReaderManager.instance.getItemData(_handle, format: format);
   }
 
   Future<VirtualFileReceiver?> getVirtualFileReceiver(
       {required String format}) async {
-    if (await RawReaderManager.instance
+    if (await ReaderManager.instance
         .canGetVirtualFile(_handle, format: format)) {
       return VirtualFileReceiver._(item: _handle, format: format);
     } else {
@@ -92,7 +92,7 @@ class VirtualFileReceiver {
     /// Target folder must be same for all files received in one session.
     required String targetFolder,
   }) {
-    return RawReaderManager.instance
+    return ReaderManager.instance
         .getVirtualFile(item, format: format, targetFolder: targetFolder);
   }
 

@@ -39,8 +39,8 @@ class DataReaderItemHandleImpl {
   final int _readerHandle;
 }
 
-class RawReaderManagerImpl extends RawReaderManager {
-  RawReaderManagerImpl() {
+class ReaderManagerImpl extends ReaderManager {
+  ReaderManagerImpl() {
     _channel.setMethodCallHandler(_onMethodCall);
   }
 
@@ -167,7 +167,7 @@ class ReadProgressImpl extends ReadProgress {
     required this.readerManager,
   }) : id = _nextId++;
 
-  final RawReaderManagerImpl readerManager;
+  final ReaderManagerImpl readerManager;
 
   final int id;
 

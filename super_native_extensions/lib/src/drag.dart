@@ -73,7 +73,7 @@ abstract class DragSession {
   ValueNotifier<ui.Offset?> get lastScreenLocation;
 }
 
-abstract class RawDragContextDelegate {
+abstract class DragContextDelegate {
   Future<DragConfiguration?> getConfigurationForDragRequest({
     required ui.Offset location,
     // session will be unused if null handle is returned
@@ -83,27 +83,27 @@ abstract class RawDragContextDelegate {
   bool isLocationDraggable(ui.Offset location);
 }
 
-abstract class RawDragContext {
-  set delegate(RawDragContextDelegate? delegate) {
+abstract class DragContext {
+  set delegate(DragContextDelegate? delegate) {
     _delegate = delegate;
   }
 
   static final _mutex = Mutex();
 
-  static RawDragContext? _instance;
+  static DragContext? _instance;
 
   @protected
-  RawDragContextDelegate? get delegate => _delegate;
+  DragContextDelegate? get delegate => _delegate;
 
-  RawDragContextDelegate? _delegate;
+  DragContextDelegate? _delegate;
 
   @protected
   Future<void> initialize();
 
-  static Future<RawDragContext> instance() {
+  static Future<DragContext> instance() {
     return _mutex.protect(() async {
       if (_instance == null) {
-        _instance = RawDragContextImpl();
+        _instance = DragContextImpl();
         await _instance!.initialize();
       }
       return _instance!;
