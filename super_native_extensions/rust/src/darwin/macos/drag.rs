@@ -125,9 +125,10 @@ impl PlatformDragContext {
                 let provider = providers
                     .remove(&item.data_provider_id)
                     .expect("Provider missing");
-                let writer_item = provider
-                    .provider
-                    .create_writer(provider.handle.clone(), false);
+                let writer_item =
+                    provider
+                        .provider
+                        .create_writer(provider.handle.clone(), false, true);
                 data_provider_handles.push(provider.handle);
 
                 let dragging_item: id = msg_send![class!(NSDraggingItem), alloc];

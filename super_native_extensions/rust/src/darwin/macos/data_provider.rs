@@ -91,7 +91,12 @@ impl PlatformDataProvider {
 
     /// If retain_handle is false, writer will not retain the DataProviderHandle. This is useful
     /// for drag&drop where the item will live in dragging pasteboard after drag sessions is done.
-    pub fn create_writer(&self, handle: Arc<DataProviderHandle>, retain_handle: bool) -> StrongPtr {
+    pub fn create_writer(
+        &self,
+        handle: Arc<DataProviderHandle>,
+        retain_handle: bool,
+        is_for_dragging: bool,
+    ) -> StrongPtr {
         let state = Rc::new(ItemState {
             data_provider: self.weak_self.clone(),
             data_provider_handle: Arc::downgrade(&handle),
@@ -101,6 +106,7 @@ impl PlatformDataProvider {
                 None
             },
             virtual_files: RefCell::new(Vec::new()),
+            is_for_dragging,
         });
         state.create_item()
     }
@@ -111,7 +117,7 @@ impl PlatformDataProvider {
         autoreleasepool(|| unsafe {
             let items: Vec<_> = providers
                 .into_iter()
-                .map(|p| p.0.create_writer(p.1, true).autorelease())
+                .map(|p| p.0.create_writer(p.1, true, false).autorelease())
                 .collect();
             let array = NSArray::arrayWithObjects(nil, &items);
             let pasteboard = NSPasteboard::generalPasteboard(nil);
@@ -127,6 +133,7 @@ struct ItemState {
     data_provider_handle: std::sync::Weak<DataProviderHandle>,
     _retained_data_provider_handle: Option<Arc<DataProviderHandle>>,
     virtual_files: RefCell<Vec<Arc<VirtualSessionHandle>>>,
+    is_for_dragging: bool,
 }
 
 struct VirtualFileInfo {
@@ -192,7 +199,18 @@ impl ItemState {
                         _ => None,
                     })
                     .collect();
-                unsafe { NSArray::arrayWithObjects(nil, &types) }
+                // Dragging will fail with empty pasteboard. But it is a valid
+                // use case in case we have only local data
+                if types.is_empty() && self.is_for_dragging {
+                    unsafe {
+                        NSArray::arrayWithObject(
+                            nil,
+                            *to_nsstring("dev.nativeshell.placeholder-item"),
+                        )
+                    }
+                } else {
+                    unsafe { NSArray::arrayWithObjects(nil, &types) }
+                }
             }
             None => nil,
         }

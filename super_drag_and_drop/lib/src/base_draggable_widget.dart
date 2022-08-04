@@ -224,6 +224,18 @@ abstract class _DragDetector extends StatelessWidget {
   }
 }
 
+class _ImmediateMultiDragGestureRecognizer
+    extends ImmediateMultiDragGestureRecognizer {
+  @override
+  bool isPointerAllowed(PointerDownEvent event) {
+    if (event.kind == PointerDeviceKind.mouse &&
+        event.buttons != kPrimaryMouseButton) {
+      return false;
+    }
+    return super.isPointerAllowed(event);
+  }
+}
+
 class _DesktopDragDetector extends _DragDetector {
   const _DesktopDragDetector({
     required super.dragConfiguration,
@@ -235,10 +247,10 @@ class _DesktopDragDetector extends _DragDetector {
     final devicePixelRatio = MediaQuery.of(context).devicePixelRatio;
     return RawGestureDetector(
       gestures: {
-        ImmediateMultiDragGestureRecognizer:
+        _ImmediateMultiDragGestureRecognizer:
             GestureRecognizerFactoryWithHandlers<
-                    ImmediateMultiDragGestureRecognizer>(
-                () => ImmediateMultiDragGestureRecognizer(), (recognizer) {
+                    _ImmediateMultiDragGestureRecognizer>(
+                () => _ImmediateMultiDragGestureRecognizer(), (recognizer) {
           recognizer.onStart =
               (offset) => maybeStartDrag(offset, devicePixelRatio);
         })
