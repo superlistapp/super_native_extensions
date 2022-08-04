@@ -482,7 +482,6 @@ extern "C" fn session_did_update(
 }
 
 extern "C" fn perform_drop(this: &mut Object, _sel: Sel, _interaction: id, session: id) {
-    info!("Perform drop");
     with_state(
         this,
         |state| state.perform_drop(session).ok_log().unwrap_or(()),

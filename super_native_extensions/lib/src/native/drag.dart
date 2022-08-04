@@ -117,7 +117,7 @@ class DragContextImpl extends DragContext {
         }
         return {'configuration': await configuration.serialize()};
       } else {
-        return null;
+        return {'configuration': null};
       }
     } else if (call.method == 'getAdditionalItemsForLocation') {
       final arguments = call.arguments as Map;

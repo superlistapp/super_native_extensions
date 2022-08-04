@@ -5,13 +5,12 @@ use std::{
     os::raw::c_void,
     rc::{Rc, Weak},
     sync::Arc,
-    time::Duration,
 };
 
 use block::ConcreteBlock;
 use cocoa::{
     base::{id, nil, BOOL, NO, YES},
-    foundation::NSArray,
+    foundation::{NSArray, NSUInteger},
 };
 use core_graphics::{
     base::CGFloat,
@@ -67,7 +66,7 @@ enum ImageType {
 struct Session {
     context_id: i64,
     context_delegate: Weak<dyn PlatformDragContextDelegate>,
-    context_view: StrongPtr,
+    view_container: StrongPtr,
     session_id: DragSessionId,
     weak_self: Late<Weak<Self>>,
     in_progress: Cell<bool>,
@@ -84,9 +83,17 @@ impl Session {
         session_id: DragSessionId,
         configuration: DragConfiguration,
     ) -> Self {
+        let view_container = unsafe {
+            let bounds: CGRect = msg_send![*context_view, bounds];
+            let container: id = msg_send![class!(UIView), alloc];
+            let container = StrongPtr::new(msg_send![container, initWithFrame: bounds]);
+            let () = msg_send![*container, setUserInteractionEnabled: NO];
+            let () = msg_send![*context_view, addSubview: *container];
+            container
+        };
         Self {
             context_delegate,
-            context_view,
+            view_container,
             context_id: platform_drag_context_id,
             weak_self: Late::new(),
             in_progress: Cell::new(false),
@@ -250,7 +257,7 @@ impl Session {
                 };
                 let image_view = image_view_from_data(drag_image.image_data.clone());
 
-                let () = msg_send![*self.context_view, addSubview:*image_view];
+                let () = msg_send![*self.view_container, addSubview:*image_view];
 
                 let frame: CGRect = drag_image
                     .source_rect
@@ -274,7 +281,7 @@ impl Session {
 
             let target: id = msg_send![class!(UIPreviewTarget), alloc];
             let center: CGPoint = drag_image.source_rect.center().into();
-            let () = msg_send![target, initWithContainer:*self.context_view center:center];
+            let () = msg_send![target, initWithContainer:*self.view_container center:center];
             let () = msg_send![target, autorelease];
 
             let preview: id = msg_send![class!(UITargetedDragPreview), alloc];
@@ -283,6 +290,27 @@ impl Session {
             let () = msg_send![preview, autorelease];
             preview
         }
+    }
+
+    fn preview_for_canceling(&self, index: usize) -> id {
+        let view_container = self.view_container.clone();
+        // Fade the container view out. UIKit seems to keep the view
+        // visible for way too long after cancelation, which is obvious
+        // during scrolling. Ideally we would want updated position here
+        // but for now it seems like a bit of an overkill.
+        let animation_block = ConcreteBlock::new(move || {
+            let () = unsafe { msg_send![*view_container, setAlpha: 0.0] };
+        });
+        let animation_block = animation_block.copy();
+        unsafe {
+            let () = msg_send![class!(UIView),
+                         animateWithDuration: 0.3f64
+                         delay: 0.2f64
+                         options: 0 as NSUInteger
+                         animations:&*animation_block
+                         completion:nil];
+        };
+        self.preview_for_item(index)
     }
 }
 
@@ -299,17 +327,27 @@ impl Drop for Session {
                 );
             }
         }
-        // Delay removing view for a second in case the drop got cancelled before it
-        // even began
-        let views: Vec<_> = self.views.borrow_mut().drain().map(|a| a.1).collect();
-        Context::get()
-            .run_loop()
-            .schedule(Duration::from_secs(1), move || {
-                for view in views {
-                    let () = unsafe { msg_send![*view, removeFromSuperview] };
-                }
-            })
-            .detach();
+
+        let view_container = self.view_container.clone();
+        let animation_block = ConcreteBlock::new(move || {
+            let () = unsafe { msg_send![*view_container, setAlpha: 0.0] };
+        });
+        let animation_block = animation_block.copy();
+
+        let view_container = self.view_container.clone();
+        let completion_block = ConcreteBlock::new(move || {
+            let () = unsafe { msg_send![*view_container, removeFromSuperview] };
+        });
+        let completion_block = completion_block.copy();
+
+        unsafe {
+            let () = msg_send![class!(UIView),
+                         animateWithDuration: 0.5f64
+                         delay: 0.0f64
+                         options: 0 as NSUInteger
+                         animations:&*animation_block
+                         completion:&*completion_block];
+        };
     }
 }
 
@@ -488,6 +526,15 @@ impl PlatformDragContext {
         let info = Self::item_info(item);
         if let Some(session) = self.sessions.borrow().get(&info.1).cloned() {
             session.preview_for_item(info.0)
+        } else {
+            nil
+        }
+    }
+
+    fn preview_for_canceling(&self, _interaction: id, item: id) -> id {
+        let info = Self::item_info(item);
+        if let Some(session) = self.sessions.borrow().get(&info.1).cloned() {
+            session.preview_for_canceling(info.0)
         } else {
             nil
         }
@@ -682,7 +729,7 @@ extern "C" fn preview_for_cancelling_item(
 ) -> id {
     with_state(
         this,
-        |state| state.preview_for_item(interaction, item),
+        |state| state.preview_for_canceling(interaction, item),
         || nil,
     )
 }

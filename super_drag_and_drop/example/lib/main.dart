@@ -49,6 +49,46 @@ class MyHomePage extends StatefulWidget {
   State<MyHomePage> createState() => _MyHomePageState();
 }
 
+class DemoWidget extends StatelessWidget {
+  const DemoWidget({
+    super.key,
+    required this.name,
+    required this.color,
+    required this.payload,
+    required this.localData,
+  });
+
+  final String name;
+  final Color color;
+  final String payload;
+  final Object localData;
+
+  @override
+  Widget build(BuildContext context) {
+    return DragItemWidget(
+      allowedOperations: () => [DropOperation.copy],
+      canAddItemToExistingSession: true,
+      dragItem: (snapshot, session) async {
+        final sessionLocalData = await session.getLocalData() ?? [];
+        if (sessionLocalData.contains(localData)) {
+          return null;
+        }
+        final item = DragItem(image: await snapshot(), localData: localData);
+        item.addData(formatPlainText.encode(payload));
+        return item;
+      },
+      child: DraggableWidget(
+        child: Container(
+          color: color,
+          padding: const EdgeInsets.all(20),
+          alignment: Alignment.center,
+          child: Text(name, style: const TextStyle(fontSize: 25)),
+        ),
+      ),
+    );
+  }
+}
+
 class _MyHomePageState extends State<MyHomePage> {
   int _counter = 0;
 
@@ -110,68 +150,41 @@ class _MyHomePageState extends State<MyHomePage> {
             const SizedBox(
               height: 30,
             ),
-            DragItemWidget(
-              key: item1,
-              canAddItemToExistingSession: true,
-              dragItem: (image, session) async {
-                final currentData = await session.getLocalData() ?? [];
-                print("Current $currentData");
-                if (currentData.contains(1) == true) {
-                  return null;
-                }
-                final item = DragItem(image: await image(), localData: 1);
-                item.addData(formatPlainText.encode('Hello 1'));
-                return item;
-              },
-              allowedOperations: () => [DropOperation.copy],
-              child: DraggableWidget(
-                child: Container(
-                  color: Colors.blue,
-                  padding: const EdgeInsets.all(20),
-                  child: const Text('Drag item 1'),
-                ),
+            Padding(
+              padding: const EdgeInsets.all(40.0),
+              child: GridView.count(
+                mainAxisSpacing: 40,
+                crossAxisSpacing: 40,
+                crossAxisCount: 2,
+                shrinkWrap: true,
+                children: const [
+                  DemoWidget(
+                    name: 'Widget 1',
+                    color: Colors.red,
+                    payload: 'Payload 1',
+                    localData: 'D1',
+                  ),
+                  DemoWidget(
+                    name: 'Widget 2',
+                    color: Colors.yellow,
+                    payload: 'Payload 1',
+                    localData: 'D2',
+                  ),
+                  DemoWidget(
+                    name: 'Widget 3',
+                    color: Colors.green,
+                    payload: 'Payload 3',
+                    localData: 'D3',
+                  ),
+                  DemoWidget(
+                    name: 'Widget 4',
+                    color: Colors.blue,
+                    payload: 'Payload 4',
+                    localData: 'D4',
+                  ),
+                ],
               ),
-            ),
-            const SizedBox(
-              height: 13,
-            ),
-            DragItemWidget(
-              key: item2,
-              canAddItemToExistingSession: true,
-              dragItem: (image, session) async {
-                session.dragStarted.addListener(() async {
-                  print('Drag started ${await session.getLocalData()}');
-                });
-                session.dragCompleted.addListener(() async {
-                  print(
-                      'Session completed ${session.dragCompleted.value} ${await session.getLocalData()}');
-                });
-                final item = DragItem(
-                  image: await image(),
-                  localData: 'Hi',
-                );
-                item.onRegistered.addListener(() {
-                  print('Item registered');
-                });
-                item.onDisposed.addListener(() {
-                  print('Item disposed');
-                });
-                item.addData(formatPlainText.encode('Hello'));
-                return item;
-              },
-              allowedOperations: () => [DropOperation.copy],
-              child: DraggableWidget(
-                // dragItems: (_) => [
-                //   item1.currentState!,
-                //   item2.currentState!,
-                // ],
-                child: Container(
-                  color: Colors.blue,
-                  padding: const EdgeInsets.all(20),
-                  child: const Text('Drag me'),
-                ),
-              ),
-            ),
+            )
           ],
         ),
       ),

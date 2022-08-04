@@ -53,7 +53,11 @@ class BaseDraggableWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     var child = this.child;
     if (defaultTargetPlatform == TargetPlatform.iOS && !kIsWeb) {
-      // handled by delegate
+      // on iOS the drag detector is not used to start drag (dragging is driven
+      // from iOS UI interaction). The delayed recognizer is needed because
+      // otherwise the scroll activity disables user interaction too early
+      // and the hit test fails.
+      child = _DummyDragDetector(child: child);
     } else if (defaultTargetPlatform == TargetPlatform.android ||
         defaultTargetPlatform == TargetPlatform.iOS) {
       child = _MobileDragDetector(
@@ -235,6 +239,30 @@ class _DesktopDragDetector extends _DragDetector {
                 () => ImmediateMultiDragGestureRecognizer(), (recognizer) {
           recognizer.onStart =
               (offset) => maybeStartDrag(offset, devicePixelRatio);
+        })
+      },
+      child: child,
+    );
+  }
+}
+
+class _DummyDragDetector extends StatelessWidget {
+  const _DummyDragDetector({
+    required this.child,
+  });
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return RawGestureDetector(
+      gestures: {
+        DelayedMultiDragGestureRecognizer: GestureRecognizerFactoryWithHandlers<
+                DelayedMultiDragGestureRecognizer>(
+            () => DelayedMultiDragGestureRecognizer(), (recognizer) {
+          recognizer.onStart = (offset) {
+            return null;
+          };
         })
       },
       child: child,
