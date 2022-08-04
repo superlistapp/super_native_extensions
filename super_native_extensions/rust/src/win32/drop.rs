@@ -9,7 +9,7 @@ use nativeshell_core::{util::Late, Context, Value};
 use windows::{
     core::{implement, Interface, PCWSTR},
     Win32::{
-        Foundation::{HWND, POINT, POINTL, S_OK},
+        Foundation::{E_OUTOFMEMORY, HWND, POINT, POINTL, S_OK},
         Graphics::Gdi::ScreenToClient,
         System::{
             Com::IDataObject,
@@ -114,7 +114,17 @@ impl PlatformDropContext {
         self.weak_self.set(weak_self.clone());
         let target: IDropTarget = DropTarget::new(self.view, weak_self).into();
         unsafe {
-            RegisterDragDrop(self.view, target).ok_log();
+            if let Err(err) = RegisterDragDrop(self.view, target) {
+                if err.code() == E_OUTOFMEMORY {
+                    eprintln!("**");
+                    eprintln!("** RegisterDragDrop failed: ");
+                    eprintln!(
+                        "** Please use OleInitialize instead of CoInitializeEx to initialize COM."
+                    );
+                    eprintln!("**");
+                }
+                Result::<(), _>::Err(err).ok_log();
+            }
 
             // Unregistering in drop is too late as the HWND is already destroyed.
             // Instead we setup hook for OBJECT_DESTROY and revoke drop target there.
@@ -146,6 +156,14 @@ impl PlatformDropContext {
             self.drop_end()?;
         }
         Ok(())
+    }
+
+    pub fn get_local_drag_data(&self) -> NativeExtensionsResult<Option<Vec<Value>>> {
+        Ok(self
+            .local_session
+            .borrow()
+            .as_ref()
+            .map(|s| s.get_local_data()))
     }
 
     fn delegate(&self) -> NativeExtensionsResult<Rc<dyn PlatformDropContextDelegate>> {

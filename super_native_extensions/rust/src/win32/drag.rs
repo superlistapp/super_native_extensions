@@ -4,7 +4,7 @@ use std::{
     rc::{Rc, Weak},
 };
 
-use nativeshell_core::{util::Late, Context};
+use nativeshell_core::{util::Late, Context, Value};
 use windows::{
     core::implement,
     Win32::{
@@ -22,7 +22,9 @@ use windows::{
 
 use crate::{
     api_model::{DataProviderId, DragRequest, DropOperation, Point},
-    drag_manager::{DataProviderEntry, DragSessionId, PlatformDragContextDelegate, PlatformDragContextId},
+    drag_manager::{
+        DataProviderEntry, DragSessionId, PlatformDragContextDelegate, PlatformDragContextId,
+    },
     error::{NativeExtensionsError, NativeExtensionsResult},
     log::OkLog,
     platform_impl::platform::data_object::DataObject,
@@ -234,5 +236,19 @@ impl PlatformDragContext {
         }
 
         Ok(())
+    }
+
+    pub fn get_local_data_for_session_id(
+        &self,
+        _session_id: DragSessionId,
+    ) -> NativeExtensionsResult<Vec<Value>> {
+        let delegate = self
+            .delegate
+            .upgrade()
+            .ok_or_else(|| NativeExtensionsError::OtherError("missing context delegate".into()))?;
+        delegate
+            .get_platform_drop_context(self.id)?
+            .get_local_drag_data()?
+            .ok_or(NativeExtensionsError::DragSessionNotFound)
     }
 }
