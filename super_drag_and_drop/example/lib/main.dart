@@ -54,12 +54,14 @@ class DemoWidget extends StatelessWidget {
     super.key,
     required this.name,
     required this.color,
+    required this.fileName,
     required this.payload,
     required this.localData,
   });
 
   final String name;
   final Color color;
+  final String fileName;
   final String payload;
   final Object localData;
 
@@ -73,7 +75,11 @@ class DemoWidget extends StatelessWidget {
         if (sessionLocalData.contains(localData)) {
           return null;
         }
-        final item = DragItem(image: await snapshot(), localData: localData);
+        final item = DragItem(
+          image: await snapshot(),
+          localData: localData,
+          suggestedName: fileName,
+        );
         item.addData(formatPlainText.encode(payload));
         return item;
       },
@@ -163,24 +169,28 @@ class _MyHomePageState extends State<MyHomePage> {
                     color: Colors.red,
                     payload: 'Payload 1',
                     localData: 'D1',
+                    fileName: 'File1.txt',
                   ),
                   DemoWidget(
                     name: 'Widget 2',
                     color: Colors.yellow,
                     payload: 'Payload 1',
                     localData: 'D2',
+                    fileName: 'File2.txt',
                   ),
                   DemoWidget(
                     name: 'Widget 3',
                     color: Colors.green,
                     payload: 'Payload 3',
                     localData: 'D3',
+                    fileName: 'File3.txt',
                   ),
                   DemoWidget(
                     name: 'Widget 4',
                     color: Colors.blue,
                     payload: 'Payload 4',
                     localData: 'D4',
+                    fileName: 'File4.txt',
                   ),
                 ],
               ),

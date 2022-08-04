@@ -21,8 +21,19 @@ class DragItemWidget extends StatefulWidget {
   });
 
   final Widget child;
+
+  /// Callback that can provide drag item for this widget.
   final DragItemProvider dragItem;
+
+  /// Allowed drag operations for this item. If multiple items are being
+  /// dragged intersection of all allowed operations will be used.
   final ValueGetter<List<raw.DropOperation>> allowedOperations;
+
+  /// Whether on iOS this widget can contribute item to existing drag session.
+  /// If true the item provider should check local data of existing session
+  /// to determine if this item already exists in the session. Otherwise
+  /// tapping item repeatedly during dragging will result in item being added
+  /// multiple times.
   final bool canAddItemToExistingSession;
 
   @override

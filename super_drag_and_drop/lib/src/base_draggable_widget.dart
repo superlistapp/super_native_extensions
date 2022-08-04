@@ -39,7 +39,9 @@ class BaseDraggableWidget extends StatelessWidget {
   /// by the Widget.
   final LocationDraggableProvider isLocationDraggable;
 
-  ///
+  /// On iOS this method is called when user taps draggable widget
+  /// during existing drag sessions. It can be used to provide additional
+  /// dragging item for current session.
   final AdditionalItemsProvider additionalItems;
 
   static Future<List<DragItem>?> _defaultAdditionalItems(
