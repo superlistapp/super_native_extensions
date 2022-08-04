@@ -15,22 +15,22 @@ extension DragImageIntoRaw on DragImage {
   }
 }
 
-extension DragConfigurationIntoRaw on DragConfiguration {
-  Future<raw.DragConfiguration> intoRaw(double devicePixelRatio) async {
+extension DragItemsIntoRaw on List<DragItem> {
+  Future<List<raw.DragItem>> intoRaw(double devicePixelRatio) async {
     final providers = <raw.DataProvider>[];
-    for (final item in this.items) {
+    for (final item in this) {
       providers.add(await item.asDataProvider(
         suggestedName: item.suggestedName,
       ));
     }
     final handles = <raw.DataProviderHandle>[];
-    for (final item in this.items.indexed()) {
+    for (final item in indexed()) {
       final handle =
           await item.value.registerWithDataProvider(providers[item.index]);
       handles.add(handle);
     }
     final items = <raw.DragItem>[];
-    for (final item in this.items.indexed()) {
+    for (final item in indexed()) {
       items.add(raw.DragItem(
         dataProvider: handles[item.index],
         liftImage: await item.value.liftImage?.intoRaw(devicePixelRatio),
@@ -38,9 +38,15 @@ extension DragConfigurationIntoRaw on DragConfiguration {
         localData: item.value.localData,
       ));
     }
+    return items;
+  }
+}
+
+extension DragConfigurationIntoRaw on DragConfiguration {
+  Future<raw.DragConfiguration> intoRaw(double devicePixelRatio) async {
     return raw.DragConfiguration(
       allowedOperations: allowedOperations,
-      items: items,
+      items: await items.intoRaw(devicePixelRatio),
       animatesToStartingPositionOnCancelOrFail:
           options.animatesToStartingPositionOnCancelOrFail,
       prefersFullSizePreviews: options.prefersFullSizePreviews,

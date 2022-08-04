@@ -3,9 +3,9 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 import 'package:super_native_extensions/raw_drag_drop.dart' as raw;
-export 'package:super_native_extensions/raw_drag_drop.dart' show DropOperation;
+export 'package:super_native_extensions/raw_drag_drop.dart'
+    show DropOperation, DragSession;
 
-import 'drag_configuration.dart';
 import 'base_draggable_widget.dart';
 
 typedef DragItemProvider = Future<DragItem?> Function(
@@ -17,11 +17,13 @@ class DragItemWidget extends StatefulWidget {
     required this.child,
     required this.dragItem,
     required this.allowedOperations,
+    this.canAddItemToExistingSession = false,
   });
 
   final Widget child;
   final DragItemProvider dragItem;
   final ValueGetter<List<raw.DropOperation>> allowedOperations;
+  final bool canAddItemToExistingSession;
 
   @override
   State<StatefulWidget> createState() => DragItemWidgetState();
@@ -67,10 +69,12 @@ class DraggableWidget extends StatelessWidget {
     super.key,
     required this.child,
     this.dragItems = _defaultDragItemsProvider,
+    this.additionalDragItems = _defaultDragItemsProvider,
   });
 
   final Widget child;
   final DragItemsProvider dragItems;
+  final DragItemsProvider additionalDragItems;
 
   static List<DragItemWidgetState> _defaultDragItemsProvider(
       BuildContext context) {
@@ -111,13 +115,36 @@ class DraggableWidget extends StatelessWidget {
     return null;
   }
 
+  Future<List<DragItem>?> additionalItems(
+      List<DragItemWidgetState> items, DragSession session) async {
+    final dragItems = <DragItem>[];
+    for (final item in items) {
+      if (item.widget.canAddItemToExistingSession) {
+        final dragItem = await item.createItem(session);
+        if (dragItem != null) {
+          dragItems.add(dragItem);
+        }
+      }
+    }
+    if (dragItems.isNotEmpty) {
+      return dragItems;
+    } else {
+      return null;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return BaseDraggableWidget(
-        child: child,
-        dragConfiguration: (_, session) async {
-          final items = dragItems(context);
-          return dragConfigurationForItems(items, session);
-        });
+      child: child,
+      dragConfiguration: (_, session) async {
+        final items = dragItems(context);
+        return dragConfigurationForItems(items, session);
+      },
+      additionalItems: (_, session) async {
+        final items = additionalDragItems(context);
+        return additionalItems(items, session);
+      },
+    );
   }
 }

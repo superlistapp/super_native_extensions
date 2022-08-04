@@ -143,6 +143,12 @@ pub struct DragConfiguration {
     pub prefers_full_size_previews: bool,
 }
 
+impl DragConfiguration {
+    pub fn get_local_data(&self) -> Vec<Value> {
+        self.items.iter().map(|i| i.local_data.clone()).collect()
+    }
+}
+
 #[derive(TryFromValue)]
 #[nativeshell(rename_all = "camelCase")]
 pub struct DragRequest {

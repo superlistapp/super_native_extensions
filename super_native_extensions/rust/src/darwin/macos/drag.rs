@@ -12,7 +12,7 @@ use crate::{
     api_model::{DataProviderId, DragConfiguration, DragRequest, DropOperation},
     data_provider_manager::DataProviderHandle,
     drag_manager::{DataProviderEntry, DragSessionId, PlatformDragContextDelegate},
-    error::NativeExtensionsResult,
+    error::{NativeExtensionsError, NativeExtensionsResult},
     value_promise::PromiseResult,
 };
 
@@ -330,15 +330,28 @@ impl PlatformDragContext {
     pub fn get_local_data(&self, dragging_sequence_number: NSInteger) -> Vec<Value> {
         let sessions = self.sessions.borrow();
         if let Some(session) = sessions.get(&dragging_sequence_number) {
-            session
-                .configuration
-                .items
-                .iter()
-                .map(|i| i.local_data.clone())
-                .collect()
+            session.configuration.get_local_data()
         } else {
             Vec::new()
         }
+    }
+
+    pub fn get_local_data_for_session_id(
+        &self,
+        session_id: DragSessionId,
+    ) -> NativeExtensionsResult<Vec<Value>> {
+        let sessions = self.sessions.borrow();
+        let session = sessions
+            .iter()
+            .find_map(|s| {
+                if s.1.session_id == session_id {
+                    Some(s.1)
+                } else {
+                    None
+                }
+            })
+            .ok_or(NativeExtensionsError::DragSessionNotFound)?;
+        Ok(session.configuration.get_local_data())
     }
 }
 

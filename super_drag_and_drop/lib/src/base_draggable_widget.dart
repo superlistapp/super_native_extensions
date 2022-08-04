@@ -10,28 +10,10 @@ import 'draggable_widget.dart';
 import 'drag_configuration.dart';
 import 'into_raw.dart';
 
-class DragSession {
-  DragSession._(raw.DragSession session) : _session = session;
-
-  /// Fired when session dragging started.
-  Listenable get dragStarted => _session.dragStarted;
-
-  /// Fired on drag completion. The value will contain drop operation that the
-  /// drag finished with.
-  ValueListenable<raw.DropOperation?> get dragCompleted =>
-      _session.dragCompleted;
-
-  /// Updated when drag session moves. On mobile and web you will only
-  /// get notified when moving over application Window.
-  /// On desktop platforms the notification covers entire screen.
-  ValueListenable<Offset?> get lastScreenLocation =>
-      _session.lastScreenLocation;
-
-  final raw.DragSession _session;
-}
-
 typedef LocationDraggableProvider = bool Function(Offset position);
 typedef DragConfigurationProvider = Future<DragConfiguration?> Function(
+    Offset position, DragSession session);
+typedef AdditionalItemsProvider = Future<List<DragItem>?> Function(
     Offset position, DragSession session);
 
 /// This is the most basic draggable widget. It gives you complete control
@@ -44,6 +26,7 @@ class BaseDraggableWidget extends StatelessWidget {
     required this.child,
     required this.dragConfiguration,
     this.isLocationDraggable = _defaultIsLocationDraggable,
+    this.additionalItems = _defaultAdditionalItems,
   });
 
   final Widget child;
@@ -55,6 +38,14 @@ class BaseDraggableWidget extends StatelessWidget {
   /// The offset is in global coordinates but restricted to area covered
   /// by the Widget.
   final LocationDraggableProvider isLocationDraggable;
+
+  ///
+  final AdditionalItemsProvider additionalItems;
+
+  static Future<List<DragItem>?> _defaultAdditionalItems(
+      Offset position, DragSession session) async {
+    return null;
+  }
 
   static bool _defaultIsLocationDraggable(Offset position) => true;
 
@@ -72,8 +63,9 @@ class BaseDraggableWidget extends StatelessWidget {
           dragConfiguration: dragConfiguration, child: child);
     }
     return _BaseDragableRenderObject(
-      onGetDragConfiguration: dragConfiguration,
-      onIsLocationDraggable: isLocationDraggable,
+      getDragConfiguration: dragConfiguration,
+      isLocationDraggable: isLocationDraggable,
+      additionalItems: additionalItems,
       child: child,
     );
   }
@@ -86,20 +78,23 @@ class BaseDraggableWidget extends StatelessWidget {
 class _BaseDragableRenderObject extends SingleChildRenderObjectWidget {
   const _BaseDragableRenderObject({
     required super.child,
-    required this.onGetDragConfiguration,
-    required this.onIsLocationDraggable,
+    required this.getDragConfiguration,
+    required this.isLocationDraggable,
+    required this.additionalItems,
   });
 
-  final DragConfigurationProvider onGetDragConfiguration;
-  final LocationDraggableProvider onIsLocationDraggable;
+  final DragConfigurationProvider getDragConfiguration;
+  final LocationDraggableProvider isLocationDraggable;
+  final AdditionalItemsProvider additionalItems;
 
   @override
   RenderObject createRenderObject(BuildContext context) {
     _initializeIfNeeded();
     return _RenderBaseDraggable(
       devicePixelRatio: MediaQuery.of(context).devicePixelRatio,
-      onGetDragConfiguration: onGetDragConfiguration,
-      onIsLocationDraggable: onIsLocationDraggable,
+      getDragConfiguration: getDragConfiguration,
+      isLocationDraggable: isLocationDraggable,
+      additionalItems: additionalItems,
     );
   }
 
@@ -108,21 +103,24 @@ class _BaseDragableRenderObject extends SingleChildRenderObjectWidget {
       BuildContext context, covariant RenderObject renderObject_) {
     final renderObject = renderObject_ as _RenderBaseDraggable;
     renderObject.devicePixelRatio = MediaQuery.of(context).devicePixelRatio;
-    renderObject.onGetDragConfiguration = onGetDragConfiguration;
-    renderObject.onIsLocationDraggable = onIsLocationDraggable;
+    renderObject.getDragConfiguration = getDragConfiguration;
+    renderObject.isLocationDraggable = isLocationDraggable;
+    renderObject.additionalItems = additionalItems;
   }
 }
 
 class _RenderBaseDraggable extends RenderProxyBoxWithHitTestBehavior {
   _RenderBaseDraggable({
     required this.devicePixelRatio,
-    required this.onGetDragConfiguration,
-    required this.onIsLocationDraggable,
+    required this.getDragConfiguration,
+    required this.isLocationDraggable,
+    required this.additionalItems,
   });
 
   double devicePixelRatio;
-  DragConfigurationProvider onGetDragConfiguration;
-  LocationDraggableProvider onIsLocationDraggable;
+  DragConfigurationProvider getDragConfiguration;
+  LocationDraggableProvider isLocationDraggable;
+  AdditionalItemsProvider additionalItems;
 }
 
 //
@@ -138,9 +136,9 @@ class _DragContextDelegate implements raw.DragContextDelegate {
     for (final item in hitTest.path) {
       final target = item.target;
       if (target is _RenderBaseDraggable) {
-        final configuration = await target.onGetDragConfiguration(
+        final configuration = await target.getDragConfiguration(
           location,
-          DragSession._(session),
+          session,
         );
         return configuration?.intoRaw(target.devicePixelRatio);
       }
@@ -151,7 +149,18 @@ class _DragContextDelegate implements raw.DragContextDelegate {
   @override
   Future<List<raw.DragItem>?> getAdditionalItemsForLocation(
       {required Offset location, required raw.DragSession session}) async {
-    print('Get Additonal items {$location}');
+    final hitTest = HitTestResult();
+    GestureBinding.instance.hitTest(hitTest, location);
+    for (final item in hitTest.path) {
+      final target = item.target;
+      if (target is _RenderBaseDraggable) {
+        final additionalItems = await target.additionalItems(
+          location,
+          session,
+        );
+        return additionalItems?.intoRaw(target.devicePixelRatio);
+      }
+    }
     return null;
   }
 
@@ -162,7 +171,7 @@ class _DragContextDelegate implements raw.DragContextDelegate {
     for (final item in hitTest.path) {
       final target = item.target;
       if (target is _RenderBaseDraggable) {
-        return target.onIsLocationDraggable(location);
+        return target.isLocationDraggable(location);
       }
     }
     return false;
@@ -198,8 +207,7 @@ abstract class _DragDetector extends StatelessWidget {
     raw.DragSession session,
     double devicePixelRatio,
   ) async {
-    final dragConfiguration =
-        await this.dragConfiguration(position, DragSession._(session));
+    final dragConfiguration = await this.dragConfiguration(position, session);
     if (dragConfiguration != null) {
       context.startDrag(
           session: session,

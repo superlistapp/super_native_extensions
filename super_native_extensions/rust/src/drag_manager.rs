@@ -119,6 +119,12 @@ struct DragContextInitRequest {
     view_handle: i64,
 }
 
+#[derive(TryFromValue)]
+#[nativeshell(rename_all = "camelCase")]
+pub struct LocalDataRequest {
+    session_id: DragSessionId,
+}
+
 impl DragManager {
     pub fn new() -> RegisteredAsyncMethodHandler<Self> {
         Self {
@@ -305,6 +311,24 @@ impl DragManager {
         Ok(session_id)
     }
 
+    fn get_local_data(
+        &self,
+        isolate: IsolateId,
+        request: LocalDataRequest,
+    ) -> NativeExtensionsResult<Option<Vec<Value>>> {
+        let context = self
+            .contexts
+            .borrow()
+            .get(&isolate)
+            .cloned()
+            .ok_or(NativeExtensionsError::PlatformContextNotFound)?;
+        match context.get_local_data_for_session_id(request.session_id) {
+            Ok(value) => Ok(Some(value)),
+            Err(NativeExtensionsError::DragSessionNotFound) => Ok(None),
+            Err(error) => Err(error),
+        }
+    }
+
     fn release_data_provider(&self, isolate_id: IsolateId, provider_id: DataProviderId) {
         self.invoker
             .call_method_sync(isolate_id, "releaseDataProvider", provider_id, |r| {
@@ -337,6 +361,9 @@ impl AsyncMethodHandler for DragManager {
             "startDrag" => self
                 .start_drag(call.isolate, call.args.try_into()?)
                 .await
+                .into_platform_result(),
+            "getLocalData" => self
+                .get_local_data(call.isolate, call.args.try_into()?)
                 .into_platform_result(),
             _ => Ok(Value::Null),
         }

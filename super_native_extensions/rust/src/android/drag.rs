@@ -193,14 +193,20 @@ impl PlatformDragContext {
         let session = session_id.and_then(|id| sessions.get(&id));
 
         match session {
-            Some(session) => Ok(session
-                .configuration
-                .items
-                .iter()
-                .map(|i| i.local_data.clone())
-                .collect()),
+            Some(session) => Ok(session.configuration.get_local_data()),
             None => Ok(Vec::new()),
         }
+    }
+
+    pub fn get_local_data_for_session_id(
+        &self,
+        session_id: DragSessionId,
+    ) -> NativeExtensionsResult<Vec<Value>> {
+        let sessions = self.sessions.borrow();
+        let session = sessions
+            .get(&session_id)
+            .ok_or(NativeExtensionsError::DragSessionNotFound)?;
+        Ok(session.configuration.get_local_data())
     }
 
     pub fn get_data_provider_handles<'a>(

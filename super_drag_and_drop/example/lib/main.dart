@@ -113,33 +113,44 @@ class _MyHomePageState extends State<MyHomePage> {
               style: Theme.of(context).textTheme.headline4,
             ),
             const SizedBox(
-              height: 10,
+              height: 30,
             ),
             DragItemWidget(
               key: item1,
+              canAddItemToExistingSession: true,
               dragItem: (image, session) async {
-                final item = DragItem(image: await image());
+                final currentData = await session.getLocalData() ?? [];
+                print("Current $currentData");
+                if (currentData.contains(1) == true) {
+                  return null;
+                }
+                final item = DragItem(image: await image(), localData: 1);
                 item.addData(formatPlainText.encode('Hello 1'));
                 return item;
               },
               allowedOperations: () => [DropOperation.copy],
-              child: Container(
-                color: Colors.blue,
-                padding: const EdgeInsets.all(10),
-                child: const Text('Drag item 1'),
+              child: DraggableWidget(
+                child: Container(
+                  color: Colors.blue,
+                  padding: const EdgeInsets.all(20),
+                  child: const Text('Drag item 1'),
+                ),
               ),
             ),
             const SizedBox(
-              height: 10,
+              height: 13,
             ),
             DragItemWidget(
               key: item2,
+              canAddItemToExistingSession: true,
               dragItem: (image, session) async {
-                session.dragStarted.addListener(() {
-                  print('Drag started');
+                session.dragStarted.addListener(() async {
+                  print('Drag started ${await session.getLocalData()}');
                 });
-                session.dragCompleted.addListener(() {
-                  print('Session completed ${session.dragCompleted.value}');
+                session.dragCompleted.addListener(() async {
+                  print('X');
+                  print(
+                      'Session completed ${session.dragCompleted.value} ${await session.getLocalData()}');
                 });
                 final item = DragItem(
                   image: await image(),
@@ -156,13 +167,13 @@ class _MyHomePageState extends State<MyHomePage> {
               },
               allowedOperations: () => [DropOperation.copy],
               child: DraggableWidget(
-                dragItems: (_) => [
-                  item1.currentState!,
-                  item2.currentState!,
-                ],
+                // dragItems: (_) => [
+                //   item1.currentState!,
+                //   item2.currentState!,
+                // ],
                 child: Container(
                   color: Colors.blue,
-                  padding: const EdgeInsets.all(10),
+                  padding: const EdgeInsets.all(20),
                   child: const Text('Drag me'),
                 ),
               ),

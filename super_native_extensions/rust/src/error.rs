@@ -15,6 +15,7 @@ pub enum NativeExtensionsError {
     VirtualFileReceiveError(String),
     IOError(io::Error),
     InvalidData,
+    DragSessionNotFound,
 }
 
 pub type NativeExtensionsResult<T> = Result<T, NativeExtensionsError>;
@@ -41,18 +42,40 @@ impl Display for NativeExtensionsError {
             }
             NativeExtensionsError::IOError(e) => e.fmt(f),
             NativeExtensionsError::InvalidData => write!(f, "invalid data"),
+            NativeExtensionsError::DragSessionNotFound => write!(f, "drag session not found"),
         }
     }
 }
 
 impl std::error::Error for NativeExtensionsError {}
 
+impl NativeExtensionsError {
+    fn get_detail(&self) -> Value {
+        match self {
+            NativeExtensionsError::UnknownError => "unknownError".into(),
+            NativeExtensionsError::MethodCallError(_) => "methodCallError".into(),
+            NativeExtensionsError::OtherError(_) => "otherError".into(),
+            NativeExtensionsError::DataSourceNotFound => "dataSourceNotFound".into(),
+            NativeExtensionsError::ReaderNotFound => "readerNotFound".into(),
+            NativeExtensionsError::PlatformContextNotFound => "platformContextNotFound".into(),
+            NativeExtensionsError::UnsupportedOperation => "unsupportedOperation".into(),
+            NativeExtensionsError::VirtualFileSessionNotFound => {
+                "virtualFileSessionNotFound".into()
+            }
+            NativeExtensionsError::VirtualFileReceiveError(_) => "virtualFileReceiveError".into(),
+            NativeExtensionsError::IOError(_) => "ioError".into(),
+            NativeExtensionsError::InvalidData => "invalidData".into(),
+            NativeExtensionsError::DragSessionNotFound => "dragSessionNotFound".into(),
+        }
+    }
+}
+
 impl From<NativeExtensionsError> for PlatformError {
     fn from(err: NativeExtensionsError) -> Self {
         PlatformError {
             code: "super_native_extensions_error".into(),
             message: Some(err.to_string()),
-            detail: Value::Null,
+            detail: err.get_detail(),
         }
     }
 }

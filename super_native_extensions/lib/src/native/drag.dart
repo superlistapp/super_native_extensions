@@ -48,6 +48,12 @@ extension DragRequestExt on DragRequest {
 }
 
 class DragSessionImpl extends DragSession {
+  DragSessionImpl({
+    required this.dragContext,
+  });
+
+  final DragContextImpl dragContext;
+
   @override
   Listenable get dragStarted => _dragStarted;
   @override
@@ -56,6 +62,17 @@ class DragSessionImpl extends DragSession {
   ValueNotifier<ui.Offset?> get lastScreenLocation => _lastScreenLocation;
 
   Listenable get sessionIsDoneWithDataSource => _sessionIsDoneWithDataSource;
+
+  int? sessionId;
+
+  @override
+  Future<List<Object?>?> getLocalData() async {
+    if (sessionId != null) {
+      return dragContext.getLocalData(sessionId!);
+    } else {
+      return [];
+    }
+  }
 
   final _dragStarted = SimpleNotifier();
   final _dragCompleted = ValueNotifier<DropOperation?>(null);
@@ -87,12 +104,13 @@ class DragContextImpl extends DragContext {
       final arguments = call.arguments as Map;
       final location = OffsetExt.deserialize(arguments['location']);
       final sessionId = arguments['sessionId'];
-      final session = DragSessionImpl();
+      final session = DragSessionImpl(dragContext: this);
       final configuration = await delegate?.getConfigurationForDragRequest(
         location: location,
         session: session,
       );
       if (configuration != null) {
+        session.sessionId = sessionId;
         _sessions[sessionId] = session;
         for (final item in configuration.items) {
           _dataProviders[item.dataProvider.id] = item.dataProvider;
@@ -112,6 +130,11 @@ class DragContextImpl extends DragContext {
           location: location,
           session: session,
         );
+      }
+      if (items != null) {
+        for (final item in items) {
+          _dataProviders[item.dataProvider.id] = item.dataProvider;
+        }
       }
       return {'items': items?.map((e) => e.serialize())};
     } else if (call.method == 'isLocationDraggable') {
@@ -184,7 +207,13 @@ class DragContextImpl extends DragContext {
 
   @override
   DragSession newSession() {
-    return DragSessionImpl();
+    return DragSessionImpl(dragContext: this);
+  }
+
+  Future<List<Object?>?> getLocalData(int sessionId) async {
+    return _channel.invokeMethod('getLocalData', {
+      'sessionId': sessionId,
+    });
   }
 
   @override
@@ -203,7 +232,9 @@ class DragContextImpl extends DragContext {
     );
     final sessionId =
         await _channel.invokeMethod("startDrag", request.serialize());
-    _sessions[sessionId] = session as DragSessionImpl;
+    final sessionImpl = session as DragSessionImpl;
+    sessionImpl.sessionId = sessionId;
+    _sessions[sessionId] = sessionImpl;
     for (final item in request.configuration.items) {
       _dataProviders[item.dataProvider.id] = item.dataProvider;
     }

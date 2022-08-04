@@ -69,9 +69,22 @@ class DragRequest {
 }
 
 abstract class DragSession {
+  /// Fired when session dragging started.
   Listenable get dragStarted;
+
+  /// Fired on drag completion. The value will contain drop operation that the
+  /// drag finished with.
   ValueListenable<DropOperation?> get dragCompleted;
+
+  /// Updated when drag session moves. On mobile and web you will only
+  /// get notified when moving over application Window.
+  /// On desktop platforms the notification covers entire screen.
   ValueListenable<ui.Offset?> get lastScreenLocation;
+
+  /// Returns local data for each of the draggable items in current session.
+  /// Will return null if drag session is either not active yet or already
+  /// completed.
+  Future<List<Object?>?> getLocalData();
 }
 
 abstract class DragContextDelegate {
