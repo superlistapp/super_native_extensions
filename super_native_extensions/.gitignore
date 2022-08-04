@@ -30,3 +30,6 @@ migrate_working_dir/
 build/
 
 target
+
+.flutter-plugins
+.flutter-plugins-dependencies
