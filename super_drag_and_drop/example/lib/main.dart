@@ -31,11 +31,6 @@ class MyApp extends StatelessWidget {
   }
 }
 
-void x() {
-  final DropOperation d;
-  DropOperation.copy;
-}
-
 class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key, required this.title});
 
@@ -148,7 +143,6 @@ class _MyHomePageState extends State<MyHomePage> {
                   print('Drag started ${await session.getLocalData()}');
                 });
                 session.dragCompleted.addListener(() async {
-                  print('X');
                   print(
                       'Session completed ${session.dragCompleted.value} ${await session.getLocalData()}');
                 });
