@@ -1,7 +1,6 @@
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/gestures.dart';
 
 import 'api_model.dart';
 import 'data_provider.dart';
