@@ -1,0 +1,262 @@
+import 'package:flutter/gestures.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
+import 'package:super_native_extensions/raw_drag_drop.dart' as raw;
+
+import 'base_draggable_widget.dart';
+import 'into_raw.dart';
+
+class BaseDraggableRenderWidget extends SingleChildRenderObjectWidget {
+  const BaseDraggableRenderWidget({
+    super.key,
+    required super.child,
+    required this.hitTestBehavior,
+    required this.getDragConfiguration,
+    required this.isLocationDraggable,
+    required this.additionalItems,
+  });
+
+  final HitTestBehavior hitTestBehavior;
+  final DragConfigurationProvider getDragConfiguration;
+  final LocationIsDraggable isLocationDraggable;
+  final AdditionalItemsProvider additionalItems;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) {
+    _initializeIfNeeded();
+    return _RenderBaseDraggable(
+      behavior: hitTestBehavior,
+      devicePixelRatio: MediaQuery.of(context).devicePixelRatio,
+      getDragConfiguration: getDragConfiguration,
+      isLocationDraggable: isLocationDraggable,
+      additionalItems: additionalItems,
+    );
+  }
+
+  @override
+  void updateRenderObject(
+      BuildContext context, covariant RenderObject renderObject) {
+    final renderObject_ = renderObject as _RenderBaseDraggable;
+    renderObject_.behavior = hitTestBehavior;
+    renderObject_.devicePixelRatio = MediaQuery.of(context).devicePixelRatio;
+    renderObject_.getDragConfiguration = getDragConfiguration;
+    renderObject_.isLocationDraggable = isLocationDraggable;
+    renderObject_.additionalItems = additionalItems;
+  }
+}
+
+class _RenderBaseDraggable extends RenderProxyBoxWithHitTestBehavior {
+  _RenderBaseDraggable({
+    required super.behavior,
+    required this.devicePixelRatio,
+    required this.getDragConfiguration,
+    required this.isLocationDraggable,
+    required this.additionalItems,
+  });
+
+  double devicePixelRatio;
+  DragConfigurationProvider getDragConfiguration;
+  LocationIsDraggable isLocationDraggable;
+  AdditionalItemsProvider additionalItems;
+}
+
+//
+
+class _DragContextDelegate implements raw.DragContextDelegate {
+  @override
+  Future<raw.DragConfiguration?> getConfigurationForDragRequest({
+    required Offset location,
+    required raw.DragSession session,
+  }) async {
+    final hitTest = HitTestResult();
+    GestureBinding.instance.hitTest(hitTest, location);
+    for (final item in hitTest.path) {
+      final target = item.target;
+      if (target is _RenderBaseDraggable) {
+        final configuration = await target.getDragConfiguration(
+          location,
+          session,
+        );
+        return configuration?.intoRaw(target.devicePixelRatio);
+      }
+    }
+    return null;
+  }
+
+  @override
+  Future<List<raw.DragItem>?> getAdditionalItemsForLocation(
+      {required Offset location, required raw.DragSession session}) async {
+    final hitTest = HitTestResult();
+    GestureBinding.instance.hitTest(hitTest, location);
+    for (final item in hitTest.path) {
+      final target = item.target;
+      if (target is _RenderBaseDraggable) {
+        final additionalItems = await target.additionalItems(
+          location,
+          session,
+        );
+        return additionalItems?.intoRaw(target.devicePixelRatio);
+      }
+    }
+    return null;
+  }
+
+  @override
+  bool isLocationDraggable(Offset location) {
+    final hitTest = HitTestResult();
+    GestureBinding.instance.hitTest(hitTest, location);
+    for (final item in hitTest.path) {
+      final target = item.target;
+      if (target is _RenderBaseDraggable) {
+        return target.isLocationDraggable(location);
+      }
+    }
+    return false;
+  }
+}
+
+abstract class _DragDetector extends StatelessWidget {
+  final Widget child;
+  final DragConfigurationProvider dragConfiguration;
+
+  const _DragDetector({
+    super.key,
+    required this.dragConfiguration,
+    required this.child,
+  });
+
+  Drag? maybeStartDrag(Offset position, double devicePixelRatio) {
+    final dragContext = _dragContext;
+    if (dragContext != null) {
+      final session = dragContext.newSession();
+      _maybeStartDragWithSession(
+          dragContext, position, session, devicePixelRatio);
+      return session is Drag ? session as Drag : null;
+    } else {
+      return null;
+    }
+  }
+
+  void onDraggingStarted() {}
+
+  void _maybeStartDragWithSession(
+    raw.DragContext context,
+    Offset position,
+    raw.DragSession session,
+    double devicePixelRatio,
+  ) async {
+    final dragConfiguration = await this.dragConfiguration(position, session);
+    if (dragConfiguration != null) {
+      context.startDrag(
+          session: session,
+          configuration: await dragConfiguration.intoRaw(devicePixelRatio),
+          position: position);
+      onDraggingStarted();
+    }
+  }
+}
+
+class _ImmediateMultiDragGestureRecognizer
+    extends ImmediateMultiDragGestureRecognizer {
+  @override
+  bool isPointerAllowed(PointerDownEvent event) {
+    if (event.kind == PointerDeviceKind.mouse &&
+        event.buttons != kPrimaryMouseButton) {
+      return false;
+    }
+    return super.isPointerAllowed(event);
+  }
+}
+
+class DesktopDragDetector extends _DragDetector {
+  const DesktopDragDetector({
+    super.key,
+    required super.dragConfiguration,
+    required super.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final devicePixelRatio = MediaQuery.of(context).devicePixelRatio;
+    return RawGestureDetector(
+      gestures: {
+        _ImmediateMultiDragGestureRecognizer:
+            GestureRecognizerFactoryWithHandlers<
+                    _ImmediateMultiDragGestureRecognizer>(
+                () => _ImmediateMultiDragGestureRecognizer(), (recognizer) {
+          recognizer.onStart =
+              (offset) => maybeStartDrag(offset, devicePixelRatio);
+        })
+      },
+      child: child,
+    );
+  }
+}
+
+class DummyDragDetector extends StatelessWidget {
+  const DummyDragDetector({
+    super.key,
+    required this.child,
+  });
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return RawGestureDetector(
+      gestures: {
+        DelayedMultiDragGestureRecognizer: GestureRecognizerFactoryWithHandlers<
+                DelayedMultiDragGestureRecognizer>(
+            () => DelayedMultiDragGestureRecognizer(), (recognizer) {
+          recognizer.onStart = (offset) {
+            return null;
+          };
+        })
+      },
+      child: child,
+    );
+  }
+}
+
+class MobileDragDetector extends _DragDetector {
+  const MobileDragDetector({
+    super.key,
+    required super.dragConfiguration,
+    required super.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final devicePixelRatio = MediaQuery.of(context).devicePixelRatio;
+    return RawGestureDetector(
+      gestures: {
+        DelayedMultiDragGestureRecognizer: GestureRecognizerFactoryWithHandlers<
+                DelayedMultiDragGestureRecognizer>(
+            () => DelayedMultiDragGestureRecognizer(), (recognizer) {
+          recognizer.onStart =
+              (offset) => maybeStartDrag(offset, devicePixelRatio);
+        })
+      },
+      child: child,
+    );
+  }
+
+  @override
+  void onDraggingStarted() {
+    HapticFeedback.mediumImpact();
+  }
+}
+
+bool _initialized = false;
+raw.DragContext? _dragContext;
+
+Future<void> _initializeIfNeeded() async {
+  if (!_initialized) {
+    _initialized = true;
+    _dragContext = await raw.DragContext.instance();
+    _dragContext!.delegate = _DragContextDelegate();
+    // needed on some platforms (i.e. Android for drop end notifications)
+    await raw.DropContext.instance();
+  }
+}

@@ -269,6 +269,8 @@ impl PlatformDropContext {
             let all_types: id = msg_send![class!(NSMutableArray), array];
             let () = msg_send![all_types, addObjectsFromArray: our_types];
             let () = msg_send![all_types, addObjectsFromArray: promise_receiver_types];
+            let () =
+                msg_send![all_types, addObject: *to_nsstring("dev.nativeshell.placeholder-item")];
             let _: id = msg_send![*self.view, registerForDraggedTypes: all_types];
         });
         Ok(())

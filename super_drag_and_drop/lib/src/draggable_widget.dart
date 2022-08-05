@@ -1,15 +1,16 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
-import 'package:super_drag_and_drop/super_drag_and_drop.dart';
+
 import 'package:super_native_extensions/raw_drag_drop.dart' as raw;
 export 'package:super_native_extensions/raw_drag_drop.dart'
     show DropOperation, DragSession;
 
+import 'drag_configuration.dart';
 import 'base_draggable_widget.dart';
 
 typedef DragItemProvider = Future<DragItem?> Function(
-    AsyncValueGetter<DragImage> snapshot, DragSession session);
+    AsyncValueGetter<DragImage> snapshot, raw.DragSession session);
 
 class DragItemWidget extends StatefulWidget {
   const DragItemWidget({
@@ -55,7 +56,7 @@ class DragItemWidgetState extends State<DragItemWidget> {
     return DragImage(image, rect);
   }
 
-  Future<DragItem?> createItem(DragSession session) async {
+  Future<DragItem?> createItem(raw.DragSession session) async {
     return widget.dragItem(_getSnapshot, session);
   }
 
@@ -100,7 +101,7 @@ class DraggableWidget extends StatelessWidget {
   }
 
   Future<DragConfiguration?> dragConfigurationForItems(
-      List<DragItemWidgetState> items, DragSession session) async {
+      List<DragItemWidgetState> items, raw.DragSession session) async {
     List<raw.DropOperation>? allowedOperations;
     for (final item in items) {
       if (allowedOperations == null) {
@@ -129,7 +130,7 @@ class DraggableWidget extends StatelessWidget {
   }
 
   Future<List<DragItem>?> additionalItems(
-      List<DragItemWidgetState> items, DragSession session) async {
+      List<DragItemWidgetState> items, raw.DragSession session) async {
     final dragItems = <DragItem>[];
     for (final item in items) {
       if (item.widget.canAddItemToExistingSession) {
