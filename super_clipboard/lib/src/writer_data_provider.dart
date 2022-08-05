@@ -3,7 +3,7 @@ import 'package:super_native_extensions/raw_clipboard.dart' as raw;
 import 'encoded_data.dart';
 import 'writer.dart';
 
-extension ClipboardWriterItemDataProvider on ClipboardWriterItem {
+extension ClipboardWriterItemDataProvider on DataWriterItem {
   Future<raw.DataProvider> asDataProvider({
     String? suggestedName,
   }) async {

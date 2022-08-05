@@ -137,10 +137,6 @@ abstract class DropContextDelegate {
 }
 
 abstract class DropContext {
-  set delegate(DropContextDelegate? delegate) {
-    _delegate = delegate;
-  }
-
   static Future<DropContext> instance() {
     return _mutex.protect(() async {
       if (_instance == null) {
@@ -154,12 +150,9 @@ abstract class DropContext {
   @protected
   Future<void> initialize();
 
-  Future<void> registerDropTypes(List<String> types);
+  Future<void> registerDropFormats(List<String> formats);
 
-  @protected
-  DropContextDelegate? get delegate => _delegate;
-
-  DropContextDelegate? _delegate;
+  DropContextDelegate? delegate;
 
   static DropContext? _instance;
   static final _mutex = Mutex();

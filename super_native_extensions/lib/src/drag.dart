@@ -102,18 +102,11 @@ abstract class DragContextDelegate {
 }
 
 abstract class DragContext {
-  set delegate(DragContextDelegate? delegate) {
-    _delegate = delegate;
-  }
-
   static final _mutex = Mutex();
 
   static DragContext? _instance;
 
-  @protected
-  DragContextDelegate? get delegate => _delegate;
-
-  DragContextDelegate? _delegate;
+  DragContextDelegate? delegate;
 
   @protected
   Future<void> initialize();

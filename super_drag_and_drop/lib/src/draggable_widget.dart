@@ -79,11 +79,13 @@ class DraggableWidget extends StatelessWidget {
   const DraggableWidget({
     super.key,
     required this.child,
+    this.hitTestBehavior = HitTestBehavior.deferToChild,
     this.dragItems = _defaultDragItemsProvider,
     this.additionalDragItems = _defaultDragItemsProvider,
   });
 
   final Widget child;
+  final HitTestBehavior hitTestBehavior;
   final DragItemsProvider dragItems;
   final DragItemsProvider additionalDragItems;
 
@@ -147,6 +149,7 @@ class DraggableWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BaseDraggableWidget(
+      hitTestBehavior: hitTestBehavior,
       child: child,
       dragConfiguration: (_, session) async {
         final items = dragItems(context);

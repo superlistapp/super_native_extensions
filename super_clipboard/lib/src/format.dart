@@ -42,7 +42,7 @@ abstract class EncodableDataFormat<T> extends DataFormat {
   const EncodableDataFormat();
 
   /// Encodes the provided data to platform specific format. This encoded data
-  /// can be used to initialize [ClipboardWriterItem].
+  /// can be used to initialize [DataWriterItem].
   FutureOr<EncodedData> encode(T data) async {
     final encoder = codecForPlatform(_currentPlatform);
     final entries = <EncodedDataEntry>[];
@@ -71,8 +71,11 @@ abstract class EncodableDataFormat<T> extends DataFormat {
   }
 
   bool canDecode(PlatformFormat format) {
-    return codecForPlatform(_currentPlatform).decodableFormats.contains(format);
+    return decodableFormats.contains(format);
   }
+
+  List<String> get decodableFormats =>
+      codecForPlatform(_currentPlatform).decodableFormats;
 
   FutureOr<T> decode(PlatformFormat format, Object data) {
     return codecForPlatform(_currentPlatform).decode(data, format);

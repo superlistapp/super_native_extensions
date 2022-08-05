@@ -11,7 +11,7 @@ import 'writer_data_provider.dart';
 /// Represents a single item in the clipboard. The item can have multiple
 /// renditions (each represented as entries in [EncodedData]).
 /// To get encoded data for values use [EncodableDataFormat.encode];
-class ClipboardWriterItem {
+class DataWriterItem {
   void addData(FutureOr<EncodedData> data) {
     _data.add(data);
   }
@@ -43,8 +43,8 @@ class ClipboardWriter {
   ClipboardWriter._();
 
   /// Writes the provided items in system clipboard.
-  Future<void> write(Iterable<ClipboardWriterItem> items) async {
-    final providers = <Pair<raw.DataProvider, ClipboardWriterItem>>[];
+  Future<void> write(Iterable<DataWriterItem> items) async {
+    final providers = <Pair<raw.DataProvider, DataWriterItem>>[];
     for (final item in items) {
       final provider = await item.asDataProvider();
       if (provider.representations.isNotEmpty) {

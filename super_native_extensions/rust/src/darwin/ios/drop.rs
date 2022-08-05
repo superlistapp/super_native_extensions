@@ -346,7 +346,7 @@ impl PlatformDropContext {
         }
     }
 
-    pub fn register_drop_types(&self, _types: &[String]) -> NativeExtensionsResult<()> {
+    pub fn register_drop_formats(&self, _formats: &[String]) -> NativeExtensionsResult<()> {
         Ok(())
     }
 

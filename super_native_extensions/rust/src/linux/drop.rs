@@ -265,7 +265,7 @@ impl PlatformDropContext {
         Ok(())
     }
 
-    pub fn register_drop_types(&self, formats: &[String]) -> NativeExtensionsResult<()> {
+    pub fn register_drop_formats(&self, formats: &[String]) -> NativeExtensionsResult<()> {
         let list = TargetList::new(&[]);
         for format in formats {
             if format == TYPE_TEXT {

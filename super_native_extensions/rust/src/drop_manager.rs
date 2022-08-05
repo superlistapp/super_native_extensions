@@ -47,8 +47,8 @@ struct DropContextInitRequest {
 
 #[derive(TryFromValue)]
 #[nativeshell(rename_all = "camelCase")]
-struct RegisterDropTypesRequest {
-    types: Vec<String>,
+struct RegisterDropFormatsRequest {
+    formats: Vec<String>,
 }
 
 #[derive(Debug, TryFromValue, IntoValue, Clone, Copy, PartialEq, Hash, Eq)]
@@ -166,10 +166,10 @@ impl DropManager {
         .register("DropManager")
     }
 
-    fn register_drop_types(
+    fn register_drop_formats(
         &self,
         isolate: IsolateId,
-        request: RegisterDropTypesRequest,
+        request: RegisterDropFormatsRequest,
     ) -> NativeExtensionsResult<()> {
         let context = self
             .contexts
@@ -177,7 +177,7 @@ impl DropManager {
             .get(&isolate)
             .cloned()
             .ok_or(NativeExtensionsError::PlatformContextNotFound)?;
-        context.register_drop_types(&request.types)
+        context.register_drop_formats(&request.formats)
     }
 
     pub fn get_platform_drop_context(
@@ -235,8 +235,8 @@ impl AsyncMethodHandler for DropManager {
                 self.new_context(call.isolate, call.args.try_into()?)?;
                 Ok(Value::Null)
             }
-            "registerDropTypes" => self
-                .register_drop_types(call.isolate, call.args.try_into()?)
+            "registerDropFormats" => self
+                .register_drop_formats(call.isolate, call.args.try_into()?)
                 .into_platform_result(),
             _ => Ok(Value::Null),
         }

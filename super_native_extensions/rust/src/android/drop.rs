@@ -79,7 +79,7 @@ impl PlatformDropContext {
         self._assign_weak_self(weak_self).ok_log();
     }
 
-    pub fn register_drop_types(&self, _types: &[String]) -> NativeExtensionsResult<()> {
+    pub fn register_drop_formats(&self, _formats: &[String]) -> NativeExtensionsResult<()> {
         Ok(())
     }
 

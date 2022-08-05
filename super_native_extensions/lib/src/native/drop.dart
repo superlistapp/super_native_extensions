@@ -153,7 +153,7 @@ class DropContextImpl extends DropContext {
   }
 
   @override
-  Future<void> registerDropTypes(List<String> types) {
-    return _channel.invokeMethod("registerDropTypes", {'types': types});
+  Future<void> registerDropFormats(List<String> formats) {
+    return _channel.invokeMethod("registerDropFormats", {'formats': formats});
   }
 }

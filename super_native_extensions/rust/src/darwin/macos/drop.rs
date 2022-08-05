@@ -257,7 +257,7 @@ impl PlatformDropContext {
         self.weak_self.set(weak_self);
     }
 
-    pub fn register_drop_types(&self, types: &[String]) -> NativeExtensionsResult<()> {
+    pub fn register_drop_formats(&self, types: &[String]) -> NativeExtensionsResult<()> {
         autoreleasepool(|| unsafe {
             let types: Vec<id> = types
                 .iter()

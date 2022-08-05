@@ -10,7 +10,7 @@ import 'draggable_widget.dart';
 import 'drag_configuration.dart';
 import 'into_raw.dart';
 
-typedef LocationDraggableProvider = bool Function(Offset position);
+typedef LocationIsDraggable = bool Function(Offset position);
 typedef DragConfigurationProvider = Future<DragConfiguration?> Function(
     Offset position, DragSession session);
 typedef AdditionalItemsProvider = Future<List<DragItem>?> Function(
@@ -25,11 +25,14 @@ class BaseDraggableWidget extends StatelessWidget {
     super.key,
     required this.child,
     required this.dragConfiguration,
+    this.hitTestBehavior = HitTestBehavior.deferToChild,
     this.isLocationDraggable = _defaultIsLocationDraggable,
     this.additionalItems = _defaultAdditionalItems,
   });
 
   final Widget child;
+
+  final HitTestBehavior hitTestBehavior;
 
   /// Returns drag configuration for the given offset and session.
   final DragConfigurationProvider dragConfiguration;
@@ -37,7 +40,7 @@ class BaseDraggableWidget extends StatelessWidget {
   /// Should return true if the offset is considered draggable.
   /// The offset is in global coordinates but restricted to area covered
   /// by the Widget.
-  final LocationDraggableProvider isLocationDraggable;
+  final LocationIsDraggable isLocationDraggable;
 
   /// On iOS this method is called when user taps draggable widget
   /// during existing drag sessions. It can be used to provide additional
@@ -69,6 +72,7 @@ class BaseDraggableWidget extends StatelessWidget {
           dragConfiguration: dragConfiguration, child: child);
     }
     return _BaseDragableRenderObject(
+      hitTestBehavior: hitTestBehavior,
       getDragConfiguration: dragConfiguration,
       isLocationDraggable: isLocationDraggable,
       additionalItems: additionalItems,
@@ -84,19 +88,22 @@ class BaseDraggableWidget extends StatelessWidget {
 class _BaseDragableRenderObject extends SingleChildRenderObjectWidget {
   const _BaseDragableRenderObject({
     required super.child,
+    required this.hitTestBehavior,
     required this.getDragConfiguration,
     required this.isLocationDraggable,
     required this.additionalItems,
   });
 
+  final HitTestBehavior hitTestBehavior;
   final DragConfigurationProvider getDragConfiguration;
-  final LocationDraggableProvider isLocationDraggable;
+  final LocationIsDraggable isLocationDraggable;
   final AdditionalItemsProvider additionalItems;
 
   @override
   RenderObject createRenderObject(BuildContext context) {
     _initializeIfNeeded();
     return _RenderBaseDraggable(
+      behavior: hitTestBehavior,
       devicePixelRatio: MediaQuery.of(context).devicePixelRatio,
       getDragConfiguration: getDragConfiguration,
       isLocationDraggable: isLocationDraggable,
@@ -108,6 +115,7 @@ class _BaseDragableRenderObject extends SingleChildRenderObjectWidget {
   void updateRenderObject(
       BuildContext context, covariant RenderObject renderObject_) {
     final renderObject = renderObject_ as _RenderBaseDraggable;
+    renderObject.behavior = hitTestBehavior;
     renderObject.devicePixelRatio = MediaQuery.of(context).devicePixelRatio;
     renderObject.getDragConfiguration = getDragConfiguration;
     renderObject.isLocationDraggable = isLocationDraggable;
@@ -117,6 +125,7 @@ class _BaseDragableRenderObject extends SingleChildRenderObjectWidget {
 
 class _RenderBaseDraggable extends RenderProxyBoxWithHitTestBehavior {
   _RenderBaseDraggable({
+    required super.behavior,
     required this.devicePixelRatio,
     required this.getDragConfiguration,
     required this.isLocationDraggable,
@@ -125,7 +134,7 @@ class _RenderBaseDraggable extends RenderProxyBoxWithHitTestBehavior {
 
   double devicePixelRatio;
   DragConfigurationProvider getDragConfiguration;
-  LocationDraggableProvider isLocationDraggable;
+  LocationIsDraggable isLocationDraggable;
   AdditionalItemsProvider additionalItems;
 }
 

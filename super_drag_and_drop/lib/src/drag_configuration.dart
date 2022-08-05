@@ -10,7 +10,7 @@ class DragImage {
   final ui.Rect sourceRect;
 }
 
-class DragItem extends ClipboardWriterItem {
+class DragItem extends DataWriterItem {
   DragItem({
     this.suggestedName,
     this.liftImage,

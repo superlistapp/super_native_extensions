@@ -5,5 +5,5 @@ class DropContextImpl extends DropContext {
   Future<void> initialize() async {}
 
   @override
-  Future<void> registerDropTypes(List<String> types) async {}
+  Future<void> registerDropFormats(List<String> formats) async {}
 }

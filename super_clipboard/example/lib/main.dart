@@ -225,7 +225,7 @@ void main() async {
   // myKey(20);
 
   final dropContext = await DropContext.instance();
-  await dropContext.registerDropTypes([
+  await dropContext.registerDropFormats([
     'public.file-url',
     'NSFilenamesPboardType',
     'public.url',
@@ -290,7 +290,7 @@ final formatCustom =
 class _MyHomePageState extends State<MyHomePage> {
   void copy() async {
     // final transfer = DataTransfer();
-    final item = ClipboardWriterItem();
+    final item = DataWriterItem();
     item.addData(formatHtml.encode('<b><i>Html</i></b> Value'));
     item.addData(formatPlainText.encode('Plaintext value'));
     item.addData(formatCustom.encode(Uint8List.fromList([1, 2, 3, 4])));
@@ -315,7 +315,7 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   void copyLazy() async {
-    final item = ClipboardWriterItem();
+    final item = DataWriterItem();
     item.addData(formatHtml.encodeLazy(() => 'Lazy <b><i>Html</i></b> Value'));
     item.addData(formatPlainText.encodeLazy(() => 'Lazy Plaintext value'));
     item.addData(
