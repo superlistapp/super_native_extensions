@@ -1,7 +1,5 @@
 import 'dart:ui' as ui;
-import 'dart:ui';
 
-import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
@@ -9,6 +7,7 @@ import 'package:nativeshell_core/nativeshell_core.dart';
 
 import '../api_model.dart';
 import '../data_provider.dart';
+import '../drag_internal.dart';
 import '../drag.dart';
 import '../util.dart';
 import 'api_model.dart';
@@ -168,43 +167,6 @@ class DragContextImpl extends DragContext {
     }
   }
 
-  Future<DragImage> combineDragImage(DragConfiguration configuration) async {
-    var combinedRect = Rect.zero;
-    for (final item in configuration.items) {
-      if (combinedRect.isEmpty) {
-        combinedRect = item.image.sourceRect;
-      } else {
-        combinedRect = combinedRect.expandToInclude(item.image.sourceRect);
-      }
-    }
-    final scale =
-        configuration.items.firstOrNull?.image.imageData.devicePixelRatio ??
-            1.0;
-    final offset = combinedRect.topLeft;
-    final rect = combinedRect.translate(-offset.dx, -offset.dy);
-    final recorder = PictureRecorder();
-    final canvas = Canvas(recorder);
-    canvas.scale(scale, scale);
-    for (final item in configuration.items) {
-      final image = item.image.imageData.sourceImage;
-      final destinationRect =
-          item.image.sourceRect.translate(-offset.dx, -offset.dy);
-      canvas.drawImageRect(
-          image,
-          Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble()),
-          destinationRect,
-          Paint());
-    }
-    final picture = recorder.endRecording();
-    final image = await picture.toImage(
-        (rect.width * scale).ceil(), (rect.height * scale).ceil());
-
-    return DragImage(
-      imageData: await ImageData.fromImage(image, devicePixelRatio: scale),
-      sourceRect: combinedRect,
-    );
-  }
-
   @override
   DragSession newSession() {
     return DragSessionImpl(dragContext: this);
@@ -217,7 +179,7 @@ class DragContextImpl extends DragContext {
   }
 
   @override
-  Future<DragSession> startDrag({
+  Future<void> startDrag({
     required DragSession session,
     required DragConfiguration configuration,
     required Offset position,
@@ -238,6 +200,5 @@ class DragContextImpl extends DragContext {
     for (final item in request.configuration.items) {
       _dataProviders[item.dataProvider.id] = item.dataProvider;
     }
-    return session;
   }
 }

@@ -75,17 +75,25 @@ class DemoWidget extends StatelessWidget {
         if (sessionLocalData.contains(localData)) {
           return null;
         }
+        session.dragCompleted.addListener(() {
+          print('Drag res ${session.dragCompleted.value}');
+        });
         final item = DragItem(
           image: await snapshot(),
           localData: localData,
           suggestedName: fileName,
         );
-        item.addData(formatPlainText.encode(payload));
+        // item.addData(formatPlainText.encode(payload));
         return item;
       },
       child: DraggableWidget(
         child: Container(
-          color: color,
+          decoration: BoxDecoration(
+            color: color,
+            // border: Border.all(
+            //   color: Colors.black,
+            // )
+          ),
           padding: const EdgeInsets.all(20),
           alignment: Alignment.center,
           child: Text(name, style: const TextStyle(fontSize: 25)),
@@ -158,10 +166,7 @@ class _MyHomePageState extends State<MyHomePage> {
             ),
             Padding(
               padding: const EdgeInsets.all(40.0),
-              child: GridView.count(
-                mainAxisSpacing: 40,
-                crossAxisSpacing: 40,
-                crossAxisCount: 2,
+              child: ListView(
                 shrinkWrap: true,
                 children: const [
                   DemoWidget(
@@ -193,6 +198,29 @@ class _MyHomePageState extends State<MyHomePage> {
                     fileName: 'File4.txt',
                   ),
                 ],
+              ),
+            ),
+            BaseDropRegion(
+              formats: const [
+                // formatPlainText,
+              ],
+              onDropOver: (session, position) async {
+                print('OnDropOver $position');
+                return DropOperation.copy;
+              },
+              onDropLeave: (session) async {
+                print('Drop leave');
+              },
+              onPerformDrop: (session, position, acceptedOperation) {
+                print('Perform drop $acceptedOperation');
+              },
+              onDropEnded: (session) {
+                print('Drop ended');
+              },
+              child: Container(
+                width: 100,
+                height: 100,
+                color: Colors.amber,
               ),
             )
           ],

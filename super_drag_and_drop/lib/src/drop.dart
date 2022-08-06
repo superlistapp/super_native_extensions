@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui' as ui;
 import 'package:flutter/widgets.dart';
 import 'package:super_clipboard/super_clipboard.dart';
@@ -17,7 +18,7 @@ abstract class DropSession {
   Set<raw.DropOperation> get allowedOperations;
 }
 
-typedef OnDropOver = Future<raw.DropOperation> Function(
+typedef OnDropOver = FutureOr<raw.DropOperation> Function(
   DropSession session,
   Offset position,
 );
@@ -26,20 +27,20 @@ typedef OnDropLeave = void Function(DropSession session);
 
 typedef OnDropEnded = void Function(DropSession session);
 
-typedef OnPerformDrop = Future<void> Function(
+typedef OnPerformDrop = FutureOr<void> Function(
   DropSession session,
   Offset position,
   raw.DropOperation acceptedOperation,
 );
 
 /// Allows customizing drop animation on macOS and iOS.
-typedef OnGetDropItemPreview = Future<DropItemPreview?> Function(
+typedef OnGetDropItemPreview = FutureOr<DropItemPreview?> Function(
   DropSession session,
   DropItemPreviewRequest request,
 );
 
-class RawDropRegion extends SingleChildRenderObjectWidget {
-  const RawDropRegion({
+class BaseDropRegion extends SingleChildRenderObjectWidget {
+  const BaseDropRegion({
     super.key,
     required super.child,
     required this.formats,
@@ -69,7 +70,7 @@ class RawDropRegion extends SingleChildRenderObjectWidget {
 
   @override
   RenderObject createRenderObject(BuildContext context) {
-    return RenderRawDropRegion(
+    return RenderBaseDropRegion(
       behavior: hitTestBehavior,
       formats: formats,
       onDropOver: onDropOver,
@@ -84,7 +85,7 @@ class RawDropRegion extends SingleChildRenderObjectWidget {
   @override
   void updateRenderObject(
       BuildContext context, covariant RenderObject renderObject) {
-    final renderObject_ = renderObject as RenderRawDropRegion;
+    final renderObject_ = renderObject as RenderBaseDropRegion;
     renderObject_.behavior = hitTestBehavior;
     renderObject_.formatRegistration.dispose();
     renderObject_.formatRegistration =
@@ -141,7 +142,7 @@ class DropMonitor extends SingleChildRenderObjectWidget {
         DropFormatRegistry.instance.registerFormats(formats);
     renderObject_.onDropOver = onDropOver;
     renderObject_.onDropLeave = onDropLeave;
-    renderObject.onDropEnded = onDropEnded;
+    renderObject_.onDropEnded = onDropEnded;
   }
 }
 

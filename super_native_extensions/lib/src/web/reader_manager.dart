@@ -1,8 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:super_native_extensions/src/reader.dart';
-import 'package:super_native_extensions/src/reader_manager.dart';
+import 'package:super_native_extensions/raw_clipboard.dart';
+
+import '../reader_manager.dart';
 
 class SimpleProgress extends ReadProgress {
   @override
@@ -26,6 +27,35 @@ class DataReaderHandleImpl {
 abstract class DataReaderItemHandleImpl {
   Future<List<String>> getFormats();
   Future<Object?> getDataForFormat(String format);
+}
+
+class DataProviderReaderItem extends DataReaderItemHandleImpl {
+  DataProviderReaderItem(this.provider);
+
+  final DataProviderHandle provider;
+
+  @override
+  Future<Object?> getDataForFormat(String format) async {
+    for (final representation in provider.provider.representations) {
+      if (representation is DataRepresentationSimple) {
+        if (representation.format == format) {
+          return representation.data;
+        }
+      } else if (representation is DataRepresentationLazy) {
+        if (representation.format == format) {
+          return representation.dataProvider();
+        }
+      }
+    }
+    return null;
+  }
+
+  @override
+  Future<List<String>> getFormats() async {
+    return provider.provider.representations
+        .map((e) => e.format)
+        .toList(growable: false);
+  }
 }
 
 class ReaderManagerImpl extends ReaderManager {

@@ -1,4 +1,3 @@
-import 'dart:html';
 import 'dart:ui' as ui;
 import 'package:collection/collection.dart';
 import 'package:flutter/gestures.dart';
@@ -63,13 +62,13 @@ class _DropSession extends DropSession {
     GestureBinding.instance.hitTest(hitTest, position);
 
     final monitorsInHitTest = <RenderDropMonitor>{};
-    RenderRawDropRegion? dropRegion;
+    RenderBaseDropRegion? dropRegion;
 
     var res = raw.DropOperation.none;
 
     for (final item in hitTest.path) {
       final target = item.target;
-      if (target is RenderRawDropRegion && dropRegion == null) {
+      if (target is RenderBaseDropRegion && dropRegion == null) {
         res = await target.onDropOver(this, position);
         if (res != raw.DropOperation.none) {
           dropRegion = target;
@@ -84,6 +83,9 @@ class _DropSession extends DropSession {
       _currentDropRegion?.onDropLeave(this);
     }
     _currentDropRegion = dropRegion;
+    if (_currentDropRegion != null) {
+      _allRegions.add(_currentDropRegion!);
+    }
 
     for (final monitor in RenderDropMonitor.activeMonitors) {
       final inside = monitorsInHitTest.contains(monitor);
@@ -114,10 +116,15 @@ class _DropSession extends DropSession {
     if (_inside) {
       leave();
     }
-    _currentDropRegion?.onDropEnded(this);
+    for (final region in _allRegions) {
+      if (region.attached) {
+        region.onDropEnded(this);
+      }
+    }
     for (final monitor in RenderDropMonitor.activeMonitors) {
       monitor.onDropEnded(this);
     }
+
     _onDisposed.notify();
   }
 
@@ -150,7 +157,8 @@ class _DropSession extends DropSession {
     }
   }
 
-  RenderRawDropRegion? _currentDropRegion;
+  RenderBaseDropRegion? _currentDropRegion;
+  final _allRegions = <RenderBaseDropRegion>{};
 
   final _allowedOperations = <raw.DropOperation>{};
   bool _inside = false;
@@ -279,7 +287,7 @@ class DropFormatRegistration {
   final DropFormatRegistry _registry;
 }
 
-class RenderRawDropRegion extends RenderProxyBoxWithHitTestBehavior {
+class RenderBaseDropRegion extends RenderProxyBoxWithHitTestBehavior {
   DropFormatRegistration formatRegistration;
   OnDropOver onDropOver;
   OnDropLeave onDropLeave;
@@ -288,7 +296,7 @@ class RenderRawDropRegion extends RenderProxyBoxWithHitTestBehavior {
   OnGetDropItemPreview onGetDropItemPreview;
   double devicePixelRatio;
 
-  RenderRawDropRegion({
+  RenderBaseDropRegion({
     required super.behavior,
     required List<EncodableDataFormat> formats,
     required this.onDropOver,

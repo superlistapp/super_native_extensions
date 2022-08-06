@@ -53,6 +53,7 @@ abstract class DataRepresentation {
         storageSuggestion: storageSuggestion,
       );
 
+  String get format;
   dynamic serialize();
 }
 
@@ -71,6 +72,7 @@ class DataRepresentationSimple extends DataRepresentation {
       };
 
   /// List of platform-specific data formats.
+  @override
   final String format;
   final Object data;
 }
@@ -91,6 +93,7 @@ class DataRepresentationLazy extends DataRepresentation {
       };
 
   final int id;
+  @override
   final String format;
   final FutureOr<Object> Function() dataProvider;
 }
@@ -124,6 +127,7 @@ class DataRepresentationVirtualFile extends DataRepresentation {
       };
 
   final int id;
+  @override
   final String format;
   final VirtualFileProvider virtualFileProvider;
 
