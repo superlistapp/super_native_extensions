@@ -2,10 +2,11 @@ import 'dart:html' as html;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter_web_plugins/flutter_web_plugins.dart';
-import 'package:super_native_extensions/raw_drag_drop.dart';
-import 'package:super_native_extensions/src/util.dart';
 
+import '../api_model.dart';
+import '../drag.dart';
 import '../drag_internal.dart';
+import '../util.dart';
 import 'drop.dart';
 
 class DragSessionImpl extends DragSession implements Drag {

@@ -1,8 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:super_native_extensions/raw_clipboard.dart';
 
+import '../data_provider.dart';
+import '../reader.dart';
 import '../reader_manager.dart';
 
 class SimpleProgress extends ReadProgress {

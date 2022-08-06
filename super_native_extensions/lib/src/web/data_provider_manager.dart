@@ -1,5 +1,5 @@
-import 'package:super_native_extensions/src/data_provider.dart';
-import 'package:super_native_extensions/src/data_provider_manager.dart';
+import '../data_provider.dart';
+import '../data_provider_manager.dart';
 
 class DataProviderManagerImpl extends DataProviderManager {
   @override
