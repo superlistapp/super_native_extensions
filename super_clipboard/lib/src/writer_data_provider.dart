@@ -20,6 +20,11 @@ extension ClipboardWriterItemDataProvider on DataWriterItem {
             format: entry.format,
             dataProvider: entry.dataProvider,
           ));
+        } else if (entry is EncodedDataEntryVirtualFile) {
+          representations.add(raw.DataRepresentation.virtualFile(
+              format: entry.format,
+              virtualFileProvider: entry.virtualFileProvider,
+              storageSuggestion: entry.storageSuggestion));
         } else {
           throw StateError("Invalid data entry type ${entry.runtimeType}");
         }

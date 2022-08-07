@@ -28,6 +28,7 @@ class DataReaderHandleImpl {
 abstract class DataReaderItemHandleImpl {
   Future<List<String>> getFormats();
   Future<Object?> getDataForFormat(String format);
+  Object? getDataTransferItem();
 }
 
 class DataProviderReaderItem extends DataReaderItemHandleImpl {
@@ -56,6 +57,11 @@ class DataProviderReaderItem extends DataReaderItemHandleImpl {
     return provider.provider.representations
         .map((e) => e.format)
         .toList(growable: false);
+  }
+
+  @override
+  Object? getDataTransferItem() {
+    return null;
   }
 }
 
@@ -111,5 +117,11 @@ class ReaderManagerImpl extends ReaderManager {
     required String targetFolder,
   }) {
     throw UnsupportedError('Virtual files are not supported on web');
+  }
+
+  @override
+  Object? getDataTransferItem(DataReaderItemHandle handle) {
+    final impl = handle as DataReaderItemHandleImpl;
+    return impl.getDataTransferItem();
   }
 }

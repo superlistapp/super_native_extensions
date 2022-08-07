@@ -7,7 +7,7 @@ import 'package:super_native_extensions/raw_drag_drop.dart' as raw;
 import 'drop_internal.dart';
 
 abstract class DropItem {
-  List<String> get formats;
+  bool hasValue(EncodableDataFormat f);
   Object? get localData;
   DataReader? get dataReader;
 }

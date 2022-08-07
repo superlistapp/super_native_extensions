@@ -1,11 +1,17 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:super_clipboard/super_clipboard.dart';
 import 'package:super_native_extensions/raw_clipboard.dart' as raw;
+export 'package:super_native_extensions/raw_clipboard.dart'
+    show
+        VirtualFileProvider,
+        VirtualFileEventSinkProvider,
+        WriteProgress,
+        VirtualFileStorage;
 
 import 'encoded_data.dart';
 import 'util.dart';
-import 'format.dart';
 import 'writer_data_provider.dart';
 
 /// Represents a single item in the clipboard. The item can have multiple
@@ -14,6 +20,23 @@ import 'writer_data_provider.dart';
 class DataWriterItem {
   void addData(FutureOr<EncodedData> data) {
     _data.add(data);
+  }
+
+  bool get virtualFileSupported =>
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.windows ||
+          defaultTargetPlatform == TargetPlatform.iOS);
+
+  void addVirtualFile({
+    required DataFormat format,
+    required VirtualFileProvider provider,
+    VirtualFileStorage? storageSuggestion,
+  }) {
+    assert(virtualFileSupported);
+    _data.add(EncodedData([
+      EncodedDataEntryVirtualFile(
+          format.primaryFormat, provider, storageSuggestion)
+    ]));
   }
 
   /// Invoked when the item is sucessfully registered with native code.

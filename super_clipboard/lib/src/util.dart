@@ -5,10 +5,3 @@ class SimpleNotifier extends ChangeNotifier {
     super.notifyListeners();
   }
 }
-
-class Pair<T, U> {
-  const Pair(this.first, this.second);
-
-  final T first;
-  final U second;
-}

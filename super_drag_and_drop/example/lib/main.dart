@@ -1,8 +1,15 @@
+import 'dart:async';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:super_clipboard/super_clipboard.dart';
 import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 
-void main() {
+FutureOr<void> x() {
+  // return SynchronousFuture(null);
+}
+
+void main() async {
   runApp(const MyApp());
 }
 
@@ -102,6 +109,12 @@ class DemoWidget extends StatelessWidget {
     );
   }
 }
+
+final jpeg =
+    SimpleDataFormat<Uint8List>.passthrough(defaultFormat: 'image/jpeg');
+
+final uriList =
+    SimpleDataFormat<String>.passthrough(defaultFormat: 'text/uri-list');
 
 class _MyHomePageState extends State<MyHomePage> {
   int _counter = 0;
@@ -211,8 +224,18 @@ class _MyHomePageState extends State<MyHomePage> {
               onDropLeave: (session) async {
                 print('Drop leave');
               },
-              onPerformDrop: (session, position, acceptedOperation) {
+              onPerformDrop: (session, position, acceptedOperation) async {
                 print('Perform drop $acceptedOperation');
+                for (final item in session.items) {
+                  // final readerItem = item.readerItem;
+                  // print('Formats: ${item.formats}');
+                  // final j = await item.dataReader!.readValue(jpeg);
+                  final j = await item.dataReader!.readValue(uriList);
+                  print('J $j');
+                  // if (readerItem != null) {
+                  // print('Drop update ${await readerItem.getAvailableFormats()}');
+                  // }
+                }
               },
               onDropEnded: (session) {
                 print('Drop ended');

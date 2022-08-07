@@ -1,5 +1,6 @@
 import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart';
 import 'package:super_clipboard/super_clipboard.dart';
 import 'package:super_native_extensions/raw_drag_drop.dart' as raw;
 
@@ -17,6 +18,13 @@ class DragItem extends DataWriterItem {
     required this.image,
     this.localData,
   });
+
+  @override
+  bool get virtualFileSupported =>
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.macOS ||
+          defaultTargetPlatform == TargetPlatform.windows ||
+          defaultTargetPlatform == TargetPlatform.iOS);
 
   final String? suggestedName;
   final DragImage? liftImage;

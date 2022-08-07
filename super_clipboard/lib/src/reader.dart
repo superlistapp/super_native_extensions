@@ -1,10 +1,20 @@
+import 'package:super_clipboard/super_clipboard.dart';
 import 'package:super_native_extensions/raw_clipboard.dart' as raw;
-
-import 'format.dart';
+export 'package:super_native_extensions/raw_clipboard.dart'
+    show VirtualFileReceiver, Pair;
 
 abstract class DataReader {
   Future<bool> hasValue(EncodableDataFormat f);
+
   Future<T?> readValue<T>(EncodableDataFormat<T> format);
+
+  Future<VirtualFileReceiver?> getVirtualFileReceiver({
+    required DataFormat format,
+  });
+
+  /// Web drag&drop only: Will return DataTransferItem for this
+  /// reader if available.
+  Object? getWebDataTransferItem();
 
   static DataReader forItem(raw.DataReaderItem item) {
     return _ItemDataReader(item);
@@ -31,6 +41,17 @@ class _ItemDataReader implements DataReader {
         }
       }
     }
+    return null;
+  }
+
+  @override
+  Future<VirtualFileReceiver?> getVirtualFileReceiver(
+      {required DataFormat format}) {
+    return item.getVirtualFileReceiver(format: format.primaryFormat);
+  }
+
+  @override
+  Object? getWebDataTransferItem() {
     return null;
   }
 
@@ -65,6 +86,18 @@ class ClipboardReader implements DataReader {
         return value;
       }
     }
+    return null;
+  }
+
+  @override
+  Future<VirtualFileReceiver?> getVirtualFileReceiver({
+    required Object format,
+  }) async {
+    return null;
+  }
+
+  @override
+  Object? getWebDataTransferItem() {
     return null;
   }
 

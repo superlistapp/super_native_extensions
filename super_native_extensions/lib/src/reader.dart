@@ -62,8 +62,13 @@ class DataReaderItem {
     return ReaderManager.instance.getItemData(_handle, format: format);
   }
 
-  Future<VirtualFileReceiver?> getVirtualFileReceiver(
-      {required String format}) async {
+  Object? getDataTransferItem() {
+    return ReaderManager.instance.getDataTransferItem(_handle);
+  }
+
+  Future<VirtualFileReceiver?> getVirtualFileReceiver({
+    required String format,
+  }) async {
     if (await ReaderManager.instance
         .canGetVirtualFile(_handle, format: format)) {
       return VirtualFileReceiver._(item: _handle, format: format);

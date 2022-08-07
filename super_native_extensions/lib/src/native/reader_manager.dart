@@ -105,6 +105,11 @@ class ReaderManagerImpl extends ReaderManager {
   }
 
   @override
+  Object? getDataTransferItem(DataReaderItemHandle handle) {
+    return null;
+  }
+
+  @override
   Pair<Future<String?>, ReadProgress> getVirtualFile(
     DataReaderItemHandle handle, {
     required String format,

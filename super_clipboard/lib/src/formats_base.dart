@@ -62,6 +62,30 @@ class SimpleDataFormat<T> extends EncodableDataFormat<T> {
     this.web,
   });
 
+  SimpleDataFormat.passthrough({
+    PlatformFormat? android,
+    PlatformFormat? ios,
+    PlatformFormat? linux,
+    PlatformFormat? macos,
+    PlatformFormat? windows,
+    PlatformFormat? web,
+    PlatformFormat? defaultFormat,
+  })  : android = _passthroughCodec(android ?? defaultFormat),
+        ios = _passthroughCodec(ios ?? defaultFormat),
+        linux = _passthroughCodec(linux ?? defaultFormat),
+        macos = _passthroughCodec(macos ?? defaultFormat),
+        windows = _passthroughCodec(windows ?? defaultFormat),
+        web = _passthroughCodec(web ?? defaultFormat);
+
+  static PlatformCodec<T>? _passthroughCodec<T>(PlatformFormat? format) {
+    return format != null
+        ? SimplePlatformCodec<T>(
+            onDecode: (t, _) => t as T,
+            onEncode: (v, _) => v as Object,
+            formats: [format])
+        : null;
+  }
+
   final PlatformCodec<T>? android;
   final PlatformCodec<T>? ios;
   final PlatformCodec<T>? linux;

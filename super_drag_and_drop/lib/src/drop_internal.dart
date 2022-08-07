@@ -13,6 +13,10 @@ class _DropItem extends DropItem {
   _DropItem._(this._item);
 
   @override
+  bool hasValue(EncodableDataFormat f) {
+    return _item.formats.any(f.canDecode);
+  }
+
   List<String> get formats => _item.formats;
 
   @override
@@ -219,6 +223,7 @@ class _DropContextDelegate extends raw.DropContextDelegate {
   @override
   Future<void> onPerformDrop(raw.DropEvent event) async {
     final session = _sessions[event.sessionId];
+    session?.updateItems(event.items);
     session?.performDrop(
       location: event.locationInView,
       acceptedOperation: event.acceptedOperation!,
