@@ -87,13 +87,6 @@ class WebItemDataReaderHandle implements DataReaderItemHandleImpl {
     return Future.value(null);
   }
 
-  @override
-  Object? getDataTransferItem() {
-    // Try to find file data transfer item, otherwise first string one
-    return items.firstWhereOrNull((element) => element.isFile) ??
-        items.firstOrNull;
-  }
-
   List<String> getFormatsSync() {
     return items.map((e) => e.format).toList(growable: false);
   }

@@ -23,11 +23,6 @@ class ClipboardReaderHandle extends DataReaderItemHandleImpl {
       return (await data.arrayBuffer())?.asUint8List();
     }
   }
-
-  @override
-  Object? getDataTransferItem() {
-    return null;
-  }
 }
 
 class ClipboardReaderImpl extends ClipboardReader {

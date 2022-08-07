@@ -30,6 +30,4 @@ abstract class ReaderManager {
     required String format,
     required String targetFolder,
   });
-
-  Object? getDataTransferItem(DataReaderItemHandle handle);
 }
