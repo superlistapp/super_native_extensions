@@ -262,6 +262,15 @@ impl DataReaderManager {
             .await
     }
 
+    async fn get_item_suggested_name(
+        &self,
+        request: ItemSuggestedNameRequest,
+    ) -> NativeExtensionsResult<Option<String>> {
+        self.get_reader(request.reader_handle)?
+            .get_suggest_name_for_item(request.item_handle)
+            .await
+    }
+
     async fn get_item_data(
         &self,
         isolate_id: IsolateId,
@@ -333,6 +342,13 @@ struct ItemFormatsRequest {
 
 #[derive(TryFromValue)]
 #[nativeshell(rename_all = "camelCase")]
+struct ItemSuggestedNameRequest {
+    item_handle: i64,
+    reader_handle: DataReaderId,
+}
+
+#[derive(TryFromValue)]
+#[nativeshell(rename_all = "camelCase")]
 struct ItemDataRequest {
     item_handle: i64,
     reader_handle: DataReaderId,
@@ -379,6 +395,10 @@ impl AsyncMethodHandler for DataReaderManager {
                 .into_platform_result(),
             "getItemFormats" => self
                 .get_item_formats(call.args.try_into()?)
+                .await
+                .into_platform_result(),
+            "getItemSuggestedName" => self
+                .get_item_suggested_name(call.args.try_into()?)
                 .await
                 .into_platform_result(),
             "getItemData" => self

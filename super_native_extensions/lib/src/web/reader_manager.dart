@@ -28,6 +28,7 @@ class DataReaderHandleImpl {
 abstract class DataReaderItemHandleImpl {
   Future<List<String>> getFormats();
   Future<Object?> getDataForFormat(String format);
+  Future<String?> suggestedName();
 }
 
 class DataProviderReaderItem extends DataReaderItemHandleImpl {
@@ -56,6 +57,11 @@ class DataProviderReaderItem extends DataReaderItemHandleImpl {
     return provider.provider.representations
         .map((e) => e.format)
         .toList(growable: false);
+  }
+
+  @override
+  Future<String?> suggestedName() async {
+    return provider.provider.suggestedName;
   }
 }
 
@@ -88,6 +94,12 @@ class ReaderManagerImpl extends ReaderManager {
   Future<List<String>> getItemFormats(DataReaderItemHandle handle) {
     final impl = handle as DataReaderItemHandleImpl;
     return impl.getFormats();
+  }
+
+  @override
+  Future<String?> getItemSuggestedName(DataReaderItemHandle handle) {
+    final impl = handle as DataReaderItemHandleImpl;
+    return impl.suggestedName();
   }
 
   @override

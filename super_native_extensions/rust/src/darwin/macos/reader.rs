@@ -137,11 +137,34 @@ impl PlatformDataReader {
         self.get_formats_for_item_sync(item)
     }
 
-    pub async fn get_data_for_item(
+    pub async fn get_suggest_name_for_item(
+        &self,
+        item: i64,
+    ) -> NativeExtensionsResult<Option<String>> {
+        let receiver = self.get_promise_receiver_for_item(item)?;
+        if let Some(receiver) = receiver {
+            let names: id = unsafe { msg_send![*receiver, fileNames] };
+            let len = unsafe { NSArray::count(names) };
+            if len > 0 {
+                let name = unsafe { from_nsstring(NSArray::objectAtIndex(names, 0)) };
+                return Ok(Some(name));
+            }
+        }
+        let data = self
+            .do_get_data_for_item(item, "public.file-url".to_owned())
+            .await?;
+        if let Value::String(url) = data {
+            let url = unsafe { NSURL::URLWithString_(nil, *to_nsstring(&url)) };
+            let path = path_from_url(url);
+            return Ok(path.file_name().map(|f| f.to_string_lossy().to_string()));
+        }
+        Ok(None)
+    }
+
+    pub async fn do_get_data_for_item(
         &self,
         item: i64,
         data_type: String,
-        _progress: Arc<ReadProgress>,
     ) -> NativeExtensionsResult<Value> {
         let (future, completer) = FutureCompleter::new();
         let pasteboard = self.pasteboard.clone();
@@ -171,6 +194,15 @@ impl PlatformDataReader {
             })
             .detach();
         Ok(future.await)
+    }
+
+    pub async fn get_data_for_item(
+        &self,
+        item: i64,
+        data_type: String,
+        _progress: Arc<ReadProgress>,
+    ) -> NativeExtensionsResult<Value> {
+        self.do_get_data_for_item(item, data_type).await
     }
 
     pub fn new_clipboard_reader() -> NativeExtensionsResult<Rc<Self>> {

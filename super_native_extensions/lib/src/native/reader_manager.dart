@@ -70,6 +70,15 @@ class ReaderManagerImpl extends ReaderManager {
   }
 
   @override
+  Future<String?> getItemSuggestedName(DataReaderItemHandle handle) async {
+    final name = await _channel.invokeMethod("getItemSuggestedName", {
+      "itemHandle": handle._itemHandle,
+      "readerHandle": handle._readerHandle,
+    }) as String?;
+    return name;
+  }
+
+  @override
   Pair<Future<Object?>, ReadProgress> getItemData(
     DataReaderItemHandle handle, {
     required String format,

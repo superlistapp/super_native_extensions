@@ -62,6 +62,10 @@ class DataReaderItem {
     return ReaderManager.instance.getItemData(_handle, format: format);
   }
 
+  Future<String?> getsuggestedName() {
+    return ReaderManager.instance.getItemSuggestedName(_handle);
+  }
+
   Future<VirtualFileReceiver?> getVirtualFileReceiver({
     required String format,
   }) async {

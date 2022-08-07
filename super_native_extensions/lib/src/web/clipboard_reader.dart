@@ -23,6 +23,13 @@ class ClipboardReaderHandle extends DataReaderItemHandleImpl {
       return (await data.arrayBuffer())?.asUint8List();
     }
   }
+
+  @override
+  Future<String?> suggestedName() async {
+    // ClipboardItem can tell that it is an attachment but can not
+    // provide name. Go figure.
+    return null;
+  }
 }
 
 class ClipboardReaderImpl extends ClipboardReader {

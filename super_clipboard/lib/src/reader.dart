@@ -8,13 +8,11 @@ abstract class DataReader {
 
   Future<T?> readValue<T>(EncodableDataFormat<T> format);
 
+  Future<String?> suggestedName();
+
   Future<VirtualFileReceiver?> getVirtualFileReceiver({
     required DataFormat format,
   });
-
-  /// Web drag&drop only: Will return DataTransferItem for this
-  /// reader if available.
-  Object? getWebDataTransferItem();
 
   static DataReader forItem(raw.DataReaderItem item) {
     return _ItemDataReader(item);
@@ -45,14 +43,12 @@ class _ItemDataReader implements DataReader {
   }
 
   @override
+  Future<String?> suggestedName() => item.getsuggestedName();
+
+  @override
   Future<VirtualFileReceiver?> getVirtualFileReceiver(
       {required DataFormat format}) {
     return item.getVirtualFileReceiver(format: format.primaryFormat);
-  }
-
-  @override
-  Object? getWebDataTransferItem() {
-    return null;
   }
 
   final raw.DataReaderItem item;
@@ -97,9 +93,7 @@ class ClipboardReader implements DataReader {
   }
 
   @override
-  Object? getWebDataTransferItem() {
-    return null;
-  }
+  Future<String?> suggestedName() async => null;
 
   final raw.DataReader reader;
 }

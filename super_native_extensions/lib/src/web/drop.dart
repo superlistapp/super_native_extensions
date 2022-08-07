@@ -96,6 +96,11 @@ class WebItemDataReaderHandle implements DataReaderItemHandleImpl {
     return SynchronousFuture(getFormatsSync());
   }
 
+  @override
+  Future<String?> suggestedName() async {
+    return files.entries.firstOrNull?.value.name;
+  }
+
   final Map<String, html.File> files;
   final Map<String, Future<String>> strings;
   final List<html.DataTransferItem> items;

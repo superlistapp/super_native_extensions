@@ -48,6 +48,7 @@ class _DropSession extends DropSession {
           .firstWhereOrNull((element) => element._item.itemId == item.itemId);
       if (existing != null) {
         existing._item = item;
+        _items.add(existing);
       } else {
         _items.add(_DropItem._(item));
       }
@@ -224,7 +225,7 @@ class _DropContextDelegate extends raw.DropContextDelegate {
   Future<void> onPerformDrop(raw.DropEvent event) async {
     final session = _sessions[event.sessionId];
     session?.updateItems(event.items);
-    session?.performDrop(
+    await session?.performDrop(
       location: event.locationInView,
       acceptedOperation: event.acceptedOperation!,
     );
