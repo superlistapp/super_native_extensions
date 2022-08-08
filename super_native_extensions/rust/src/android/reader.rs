@@ -90,7 +90,9 @@ impl PlatformDataReader {
     ) -> NativeExtensionsResult<Option<String>> {
         let formats = self.get_formats_for_item_sync(item)?;
         if formats.iter().any(|s| s == MIME_TYPE_URI_LIST) {
-            let uri = self.do_get_data_for_item(item, MIME_TYPE_URI_LIST).await?;
+            let uri = self
+                .get_data_for_item(item, MIME_TYPE_URI_LIST.to_owned(), None)
+                .await?;
             if let Value::String(url) = uri {
                 if let Ok(url) = Url::parse(&url) {
                     if let Some(segments) = url.path_segments() {
@@ -145,7 +147,12 @@ impl PlatformDataReader {
         }
     }
 
-    async fn do_get_data_for_item(&self, item: i64, format: &str) -> NativeExtensionsResult<Value> {
+    pub async fn get_data_for_item(
+        &self,
+        item: i64,
+        format: String,
+        _progress: Option<Arc<ReadProgress>>,
+    ) -> NativeExtensionsResult<Value> {
         match &self.clip_data {
             Some(clip_data) => {
                 let (future, completer) = FutureCompleter::new();
@@ -175,15 +182,6 @@ impl PlatformDataReader {
             }
             None => Ok(Value::Null),
         }
-    }
-
-    pub async fn get_data_for_item(
-        &self,
-        item: i64,
-        format: String,
-        _progress: Arc<ReadProgress>,
-    ) -> NativeExtensionsResult<Value> {
-        self.do_get_data_for_item(item, &format).await
     }
 
     pub fn from_clip_data<'a>(

@@ -130,7 +130,7 @@ impl PlatformDataReader {
         &self,
         item: i64,
         format: String,
-        read_progress: Arc<ReadProgress>,
+        read_progress: Option<Arc<ReadProgress>>,
     ) -> NativeExtensionsResult<Value> {
         let (future, completer) = FutureCompleter::new();
         autoreleasepool(|| unsafe {
@@ -159,7 +159,9 @@ impl PlatformDataReader {
                 let block = block.copy();
                 let ns_progress: id = msg_send![provider, loadDataRepresentationForTypeIdentifier:*to_nsstring(&format)
                                       completionHandler:&*block];
-                bridge_progress(ns_progress, read_progress);
+                if let Some(read_progress) = read_progress {
+                    bridge_progress(ns_progress, read_progress);
+                }
             } else {
                 completer.complete(Ok(Value::Null));
             }

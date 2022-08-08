@@ -151,7 +151,7 @@ impl PlatformDataReader {
             }
         }
         let data = self
-            .do_get_data_for_item(item, "public.file-url".to_owned())
+            .get_data_for_item(item, "public.file-url".to_owned(), None)
             .await?;
         if let Value::String(url) = data {
             let url = unsafe { NSURL::URLWithString_(nil, *to_nsstring(&url)) };
@@ -161,10 +161,11 @@ impl PlatformDataReader {
         Ok(None)
     }
 
-    pub async fn do_get_data_for_item(
+    pub async fn get_data_for_item(
         &self,
         item: i64,
         data_type: String,
+        _progress: Option<Arc<ReadProgress>>,
     ) -> NativeExtensionsResult<Value> {
         let (future, completer) = FutureCompleter::new();
         let pasteboard = self.pasteboard.clone();
@@ -194,15 +195,6 @@ impl PlatformDataReader {
             })
             .detach();
         Ok(future.await)
-    }
-
-    pub async fn get_data_for_item(
-        &self,
-        item: i64,
-        data_type: String,
-        _progress: Arc<ReadProgress>,
-    ) -> NativeExtensionsResult<Value> {
-        self.do_get_data_for_item(item, data_type).await
     }
 
     pub fn new_clipboard_reader() -> NativeExtensionsResult<Rc<Self>> {
