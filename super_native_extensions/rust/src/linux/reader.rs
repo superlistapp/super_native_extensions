@@ -142,12 +142,11 @@ impl PlatformDataReader {
         item: i64,
     ) -> NativeExtensionsResult<Option<String>> {
         let item = item as usize;
-        if item < self.inner.uris.len() {
-            if let Ok(url) = Url::parse(&self.inner.uris[item]) {
-                if let Some(segments) = url.path_segments() {
-                    let last: Option<&str> = segments.last();
-                    return Ok(last.map(|f| f.to_owned()));
-                }
+        let uri = self.inner.uris.get(item).and_then(|u| Url::parse(u).ok());
+        if let Some(uri) = uri {
+            if let Some(segments) = uri.path_segments() {
+                let last: Option<&str> = segments.last();
+                return Ok(last.map(|f| f.to_owned()));
             }
         }
         Ok(None)
