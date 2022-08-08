@@ -130,11 +130,30 @@ impl PlatformDataReader {
         self.get_formats_for_item_sync(item)
     }
 
+    pub async fn get_suggest_name_for_item(
+        &self,
+        item: i64,
+    ) -> NativeExtensionsResult<Option<String>> {
+        let item = item as usize;
+        if let Some(descriptors) = self.get_file_descriptors()? {
+            if let Some(descriptor) = descriptors.get(item) {
+                return Ok(Some(descriptor.name.clone()));
+            }
+        }
+        if let Some(hdrop) = self.get_hdrop()? {
+            if let Some(hdrop) = hdrop.get(item) {
+                let path = Path::new(&hdrop);
+                return Ok(path.file_name().map(|f| f.to_string_lossy().to_string()));
+            }
+        }
+        Ok(None)
+    }
+
     pub async fn get_data_for_item(
         &self,
         item: i64,
         data_type: String,
-        _progress: Arc<ReadProgress>,
+        _progress: Option<Arc<ReadProgress>>,
     ) -> NativeExtensionsResult<Value> {
         let format = format_from_string(&data_type);
         if format == CF_HDROP.0 as u32 {

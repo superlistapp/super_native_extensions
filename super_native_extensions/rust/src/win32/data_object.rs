@@ -152,7 +152,7 @@ impl DataObject {
         }
     }
 
-    // Bundles slice of utf16 encoded string into CF_HDROP
+    /// Bundles slice of utf16 encoded string into CF_HDROP
     pub fn bundle_files(files: &[Vec<u8>]) -> Vec<u8> {
         let mut res = Vec::new();
 
