@@ -13,7 +13,6 @@ use cocoa::{
 };
 use core_graphics::geometry::{CGPoint, CGRect};
 
-use log::info;
 use nativeshell_core::{util::Late, Context, Value};
 use objc::{
     class,

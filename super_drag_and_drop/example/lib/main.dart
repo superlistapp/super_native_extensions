@@ -116,6 +116,9 @@ final jpeg =
 final uriList =
     SimpleDataFormat<String>.passthrough(defaultFormat: 'text/uri-list');
 
+final fileUrl =
+    SimpleDataFormat<String>.passthrough(defaultFormat: 'public.file-url');
+
 class _MyHomePageState extends State<MyHomePage> {
   int _counter = 0;
 
@@ -214,8 +217,9 @@ class _MyHomePageState extends State<MyHomePage> {
               ),
             ),
             BaseDropRegion(
-              formats: const [
+              formats: [
                 // formatPlainText,
+                fileUrl,
               ],
               onDropOver: (session, position) async {
                 print('OnDropOver $position');
@@ -226,12 +230,15 @@ class _MyHomePageState extends State<MyHomePage> {
               },
               onPerformDrop: (session, position, acceptedOperation) async {
                 print('Perform drop $acceptedOperation');
+
                 for (final item in session.items) {
                   // final readerItem = item.readerItem;
                   // print('Formats: ${item.formats}');
                   // final j = await item.dataReader!.readValue(jpeg);
-                  final j = await item.dataReader!.readValue(uriList);
-                  print('J $j');
+                  // final j = await item.dataReader!.readValue(uriList);
+                  final name = await item.dataReader!.suggestedName();
+                  print('__ $name');
+                  // print('J $j');
                   // if (readerItem != null) {
                   // print('Drop update ${await readerItem.getAvailableFormats()}');
                   // }

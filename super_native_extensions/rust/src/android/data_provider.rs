@@ -74,9 +74,9 @@ pub fn platform_stream_write(_handle: i32, _data: &[u8]) -> i32 {
 
 pub fn platform_stream_close(_handle: i32, _delete: bool) {}
 
-const MIME_TYPE_TEXT_PLAIN: &str = "text/plain";
-const MIME_TYPE_TEXT_HTML: &str = "text/html";
-const MIME_TYPE_URI_LIST: &str = "text/uri-list";
+pub const MIME_TYPE_TEXT_PLAIN: &str = "text/plain";
+pub const MIME_TYPE_TEXT_HTML: &str = "text/html";
+pub const MIME_TYPE_URI_LIST: &str = "text/uri-list";
 
 fn contains(l: &[String], s: &str) -> bool {
     l.iter().any(|v| v == s)

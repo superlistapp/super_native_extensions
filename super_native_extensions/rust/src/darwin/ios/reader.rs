@@ -88,6 +88,27 @@ impl PlatformDataReader {
         self.get_formats_for_item_sync(item)
     }
 
+    pub async fn get_suggest_name_for_item(
+        &self,
+        item: i64,
+    ) -> NativeExtensionsResult<Option<String>> {
+        let name = autoreleasepool(|| unsafe {
+            let providers = self.get_items_providers();
+            if item < providers.len() as i64 {
+                let provider = providers[item as usize];
+                let name: id = msg_send![provider, suggestedName];
+                if name.is_null() {
+                    None
+                } else {
+                    Some(from_nsstring(name))
+                }
+            } else {
+                None
+            }
+        });
+        Ok(name)
+    }
+
     unsafe fn maybe_decode_bplist(data: id) -> id {
         let bytes: *const u8 = msg_send![data, bytes];
         let length: usize = msg_send![data, length];

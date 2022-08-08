@@ -27,6 +27,12 @@ class _DropDelegate implements DropContextDelegate {
   @override
   Future<DropOperation> onDropUpdate(DropEvent event) async {
     print('Drop update $event, ${event.items.first.itemId}');
+    for (final item in event.items) {
+      final readerItem = item.readerItem;
+      if (readerItem != null) {
+        print('Drop update ${await readerItem.getAvailableFormats()}');
+      }
+    }
     return DropOperation.copy;
   }
 
@@ -222,8 +228,6 @@ class DragContainerState extends State<DragContainer> {
 final dragContainer = GlobalKey<DragContainerState>();
 
 void main() async {
-  // myKey(20);
-
   final dropContext = await DropContext.instance();
   await dropContext.registerDropFormats([
     'public.file-url',

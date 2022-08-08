@@ -7,7 +7,6 @@ import static android.content.ContentResolver.SCHEME_FILE;
 import android.content.ClipData;
 import android.content.ContentResolver;
 import android.content.Context;
-import android.content.Intent;
 import android.content.res.AssetFileDescriptor;
 import android.net.Uri;
 import android.os.Handler;
@@ -31,9 +30,9 @@ public final class ClipDataHelper {
     static final String typeTextHtml = "text/html";
     static final String typeUriList = "text/uri-list";
 
-    public String[] getTypes(ClipData data, int index, Context context) {
+    public String[] getFormats(ClipData data, int index, Context context) {
         if (index < data.getItemCount()) {
-            return getTypes(data.getItemAt(index), context);
+            return getFormats(data.getItemAt(index), context);
         } else {
             return null;
         }
@@ -66,7 +65,7 @@ public final class ClipDataHelper {
         }
     }
 
-    String[] getTypes(ClipData.Item item, Context context) {
+    String[] getFormats(ClipData.Item item, Context context) {
         ArrayList<String> res = new ArrayList<>();
         if (item.getHtmlText() != null) {
             res.add(typeTextHtml);

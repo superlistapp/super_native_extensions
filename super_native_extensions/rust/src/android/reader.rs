@@ -13,6 +13,7 @@ use jni::{
 };
 
 use nativeshell_core::{util::FutureCompleter, Value};
+use url::Url;
 
 use crate::{
     android::{CLIP_DATA_HELPER, CONTEXT, JAVA_VM},
@@ -20,6 +21,8 @@ use crate::{
     reader_manager::ReadProgress,
     util::DropNotifier,
 };
+
+use super::MIME_TYPE_URI_LIST;
 
 pub struct PlatformDataReader {
     clip_data: Option<GlobalRef>,
@@ -61,7 +64,7 @@ impl PlatformDataReader {
                 let formats = env
                     .call_method(
                         CLIP_DATA_HELPER.get().unwrap().as_obj(),
-                        "getTypes",
+                        "getFormats",
                         "(Landroid/content/ClipData;ILandroid/content/Context;)[Ljava/lang/String;",
                         &[clip_data.as_obj().into(), item.into(), context.into()],
                     )?
@@ -79,6 +82,25 @@ impl PlatformDataReader {
             }
             None => Ok(Vec::new()),
         }
+    }
+
+    pub async fn get_suggest_name_for_item(
+        &self,
+        item: i64,
+    ) -> NativeExtensionsResult<Option<String>> {
+        let formats = self.get_formats_for_item_sync(item)?;
+        if formats.iter().any(|s| s == MIME_TYPE_URI_LIST) {
+            let uri = self.do_get_data_for_item(item, MIME_TYPE_URI_LIST).await?;
+            if let Value::String(url) = uri {
+                if let Ok(url) = Url::parse(&url) {
+                    if let Some(segments) = url.path_segments() {
+                        let last: Option<&str> = segments.last();
+                        return Ok(last.map(|f| f.to_owned()));
+                    }
+                }
+            }
+        }
+        Ok(None)
     }
 
     pub async fn get_formats_for_item(&self, item: i64) -> NativeExtensionsResult<Vec<String>> {
@@ -123,12 +145,7 @@ impl PlatformDataReader {
         }
     }
 
-    pub async fn get_data_for_item(
-        &self,
-        item: i64,
-        format: String,
-        _progress: Arc<ReadProgress>,
-    ) -> NativeExtensionsResult<Value> {
+    async fn do_get_data_for_item(&self, item: i64, format: &str) -> NativeExtensionsResult<Value> {
         match &self.clip_data {
             Some(clip_data) => {
                 let (future, completer) = FutureCompleter::new();
@@ -158,6 +175,15 @@ impl PlatformDataReader {
             }
             None => Ok(Value::Null),
         }
+    }
+
+    pub async fn get_data_for_item(
+        &self,
+        item: i64,
+        format: String,
+        _progress: Arc<ReadProgress>,
+    ) -> NativeExtensionsResult<Value> {
+        self.do_get_data_for_item(item, &format).await
     }
 
     pub fn from_clip_data<'a>(
