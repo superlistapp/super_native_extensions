@@ -136,11 +136,18 @@ impl PlatformDataReader {
         }
     }
 
+    pub async fn get_suggest_name_for_item(
+        &self,
+        item: i64,
+    ) -> NativeExtensionsResult<Option<String>> {
+        Ok(None)
+    }
+
     pub async fn get_data_for_item(
         &self,
         item: i64,
         data_type: String,
-        _progress: Arc<ReadProgress>,
+        _progress: Option<Arc<ReadProgress>>,
     ) -> NativeExtensionsResult<Value> {
         let item = item as usize;
         if data_type == TYPE_URI && item < self.inner.uris.len() {

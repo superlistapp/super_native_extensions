@@ -279,7 +279,7 @@ impl DataReaderManager {
         let reader = self.get_reader(request.reader_handle)?;
         let progress = self.new_read_progress(isolate_id, request.progress_id);
         reader
-            .get_data_for_item(request.item_handle, request.format, progress)
+            .get_data_for_item(request.item_handle, request.format, Some(progress))
             .await
     }
 
