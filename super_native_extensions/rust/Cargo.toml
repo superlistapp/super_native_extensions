@@ -89,3 +89,4 @@ gtk-sys = "0.15.3"
 gobject-sys = "0.15.10"
 gdk = "0.15.4"
 gtk = { version = "0.15.5", features = ["v3_22"] }
+url = "2.2.2"
