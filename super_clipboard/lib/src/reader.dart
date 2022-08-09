@@ -1,10 +1,17 @@
+import 'package:collection/collection.dart';
 import 'package:super_clipboard/super_clipboard.dart';
 import 'package:super_native_extensions/raw_clipboard.dart' as raw;
 export 'package:super_native_extensions/raw_clipboard.dart'
     show VirtualFileReceiver, Pair;
 
 abstract class DataReader {
-  Future<bool> hasValue(DataFormat f);
+  Future<bool> hasValue(DataFormat f) async {
+    return (await getFormats([f])).isNotEmpty;
+  }
+
+  /// Returns subset of [allFormats] that this reader can provide,
+  /// sorted according to priority.
+  Future<List<DataFormat>> getFormats(List<DataFormat> allFormats);
 
   Future<T?> readValue<T extends Object>(DataFormat<T> format);
 
@@ -19,13 +26,23 @@ abstract class DataReader {
   }
 }
 
-class _ItemDataReader implements DataReader {
+class _ItemDataReader extends DataReader {
   _ItemDataReader(this.item);
 
   @override
-  Future<bool> hasValue(DataFormat f) async {
+  Future<List<DataFormat>> getFormats(List<DataFormat> allFormats_) async {
+    final allFormats = List<DataFormat>.of(allFormats_);
     final formats = await item.getAvailableFormats();
-    return formats.any(f.canDecode);
+    final res = <DataFormat>[];
+    for (final f in formats) {
+      final format =
+          allFormats.firstWhereOrNull((element) => element.canDecode(f));
+      if (format != null) {
+        res.add(format);
+        allFormats.remove(format);
+      }
+    }
+    return res;
   }
 
   @override
@@ -69,6 +86,20 @@ class ClipboardReader implements DataReader {
   Future<List<DataReader>> getItems() async => (await reader.getItems())
       .map((e) => _ItemDataReader(e))
       .toList(growable: false);
+
+  @override
+  Future<List<DataFormat>> getFormats(List<DataFormat> allFormats) async {
+    final res = <DataFormat>[];
+    for (final item in await getItems()) {
+      final itemFormats = await item.getFormats(allFormats);
+      for (final format in itemFormats) {
+        if (!res.contains(format)) {
+          res.add(format);
+        }
+      }
+    }
+    return res;
+  }
 
   @override
   Future<bool> hasValue(DataFormat format) async {

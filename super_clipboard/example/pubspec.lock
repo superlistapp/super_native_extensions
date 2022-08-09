@@ -37,7 +37,7 @@ packages:
     source: hosted
     version: "1.16.0"
   cupertino_icons:
-    dependency: "direct overridden"
+    dependency: "direct main"
     description:
       name: cupertino_icons
       url: "https://pub.dartlang.org"
@@ -56,7 +56,7 @@ packages:
       name: ffi
       url: "https://pub.dartlang.org"
     source: hosted
-    version: "2.0.1"
+    version: "1.2.1"
   flutter:
     dependency: "direct main"
     description: flutter
@@ -117,9 +117,11 @@ packages:
   nativeshell_core:
     dependency: transitive
     description:
-      path: "../../../rust/nativeshell_ng/core/dart"
-      relative: true
-    source: path
+      path: "core/dart"
+      ref: "379bef1fdc9231fb147cbf1a4161027d5ba4b969"
+      resolved-ref: "379bef1fdc9231fb147cbf1a4161027d5ba4b969"
+      url: "https://github.com/nativeshell/nativeshell_ng.git"
+    source: git
     version: "0.0.1"
   path:
     dependency: transitive
@@ -169,11 +171,13 @@ packages:
     source: path
     version: "0.0.1"
   super_native_extensions:
-    dependency: "direct main"
+    dependency: transitive
     description:
-      path: "../../super_native_extensions"
-      relative: true
-    source: path
+      path: super_native_extensions
+      ref: "4d062f06f9f420e3406a0f1a73bb5c8c671e44a6"
+      resolved-ref: "4d062f06f9f420e3406a0f1a73bb5c8c671e44a6"
+      url: "git@github.com:superlistapp/super_native_extensions.git"
+    source: git
     version: "0.0.1"
   term_glyph:
     dependency: transitive
