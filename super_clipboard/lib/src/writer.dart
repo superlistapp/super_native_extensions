@@ -10,7 +10,6 @@ export 'package:super_native_extensions/raw_clipboard.dart'
         WriteProgress,
         VirtualFileStorage;
 
-import 'encoded_data.dart';
 import 'util.dart';
 import 'writer_data_provider.dart';
 
@@ -33,9 +32,15 @@ class DataWriterItem {
     VirtualFileStorage? storageSuggestion,
   }) {
     assert(virtualFileSupported);
+    if (format.providerFormat == null) {
+      throw StateError('Virtual format doesn\'t support provider');
+    }
     _data.add(EncodedData([
-      EncodedDataEntryVirtualFile(
-          format.primaryFormat, provider, storageSuggestion)
+      raw.DataRepresentation.virtualFile(
+        format: format.providerFormat!,
+        virtualFileProvider: provider,
+        storageSuggestion: storageSuggestion,
+      )
     ]));
   }
 

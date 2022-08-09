@@ -1,7 +1,10 @@
 import 'dart:async';
 
-import 'encoded_data.dart';
+import 'package:super_native_extensions/raw_clipboard.dart' as raw;
+import 'package:collection/collection.dart';
+
 import 'platform.dart';
+import 'reader.dart';
 import 'writer.dart';
 
 /// Callback to obtain data lazily. See [EncodableDataFormat.encodeLazy];
@@ -13,42 +16,41 @@ typedef DataProvider<T> = FutureOr<T> Function();
 /// which maps to CF_UNICODETEXT (value of 13).
 typedef PlatformFormat = String;
 
-/// Base class for platform independent data format.
-abstract class DataFormat {
+/// Format for a virtual file. Provides platform formats for providing
+/// and receiving virtual files. However unlike [DataFormat] there is no
+/// codec as the files are received without modifications.
+///
+/// For convenience any [DataFormat] is also a [VirtualFileFormat], though
+/// the codec is only used to provide platform formats and not to encode
+/// and decode data.
+abstract class VirtualFileFormat {
+  const VirtualFileFormat();
+
+  /// Platform format used when providing the virtual file.
+  PlatformFormat? get providerFormat;
+
+  /// List of platform formats used when obtaining [VirtualFileReceiver]
+  /// from [DataReader].
+  /// First formats for the list that yields a receiver will be used.
+  List<PlatformFormat> get receiverFormats;
+}
+
+/// DataFormat encapsulates [PlatformFormat]s for specific data type
+/// as well as logic to encode and decode data to platform specific formats.
+abstract class DataFormat<T extends Object> extends VirtualFileFormat {
   const DataFormat();
 
-  /// Returns name of primary platform format for this data format.
-  /// This format will be used when writing / reading virtual files.
-  PlatformFormat get primaryFormat =>
-      primaryFormatForPlatform(_currentPlatform);
+  PlatformCodec<T> codecForPlatform(ClipboardPlatform platform);
 
-  ClipboardPlatform get _currentPlatform => clipboardPlatform;
-
-  PlatformFormat primaryFormatForPlatform(ClipboardPlatform platform);
-}
-
-/// Codec for encoding and decoding data from/to platform specific format.
-abstract class PlatformCodec<T> {
-  List<PlatformFormat> get encodableFormats;
-  FutureOr<Object> encode(T t, PlatformFormat format);
-
-  List<PlatformFormat> get decodableFormats;
-  FutureOr<T> decode(Object data, PlatformFormat format);
-}
-
-/// Data format that supports encoding / decoding values. Used when writing to
-/// and reading from clipboard.
-abstract class EncodableDataFormat<T> extends DataFormat {
-  const EncodableDataFormat();
-
-  /// Encodes the provided data to platform specific format. This encoded data
-  /// can be used to initialize [DataWriterItem].
+  /// Encodes the provided data to platform specific format.
+  /// The encoded data can be added to [DataWriterItem].
   FutureOr<EncodedData> encode(T data) async {
-    final encoder = codecForPlatform(_currentPlatform);
-    final entries = <EncodedDataEntry>[];
-    for (final format in encoder.encodableFormats) {
+    final encoder = codecForPlatform(currentPlatform);
+    final entries = <raw.DataRepresentation>[];
+    for (final format in encoder.encodingFormats) {
       entries.add(
-        EncodedDataEntrySimple(format, await encoder.encode(data, format)),
+        raw.DataRepresentation.simple(
+            format: format, data: await encoder.encode(data, format)),
       );
     }
     return EncodedData(entries);
@@ -59,32 +61,63 @@ abstract class EncodableDataFormat<T> extends DataFormat {
   /// the data is requested. On platforms that do not support this (iOS, web)
   /// the provider callback will be called eagerly.
   FutureOr<EncodedData> encodeLazy(DataProvider<T> provider) {
-    final encoder = codecForPlatform(_currentPlatform);
-    final entries = <EncodedDataEntry>[];
-    for (final format in encoder.encodableFormats) {
+    final encoder = codecForPlatform(currentPlatform);
+    final entries = <raw.DataRepresentation>[];
+    for (final format in encoder.encodingFormats) {
       entries.add(
-        EncodedDataEntryLazy(
-            format, () async => encoder.encode(await provider(), format)),
+        raw.DataRepresentation.lazy(
+            format: format,
+            dataProvider: () async => encoder.encode(await provider(), format)),
       );
     }
     return EncodedData(entries);
   }
 
   bool canDecode(PlatformFormat format) {
-    return decodableFormats.contains(format);
+    final decoder = codecForPlatform(currentPlatform);
+    return decoder.decodingFormats.contains(format);
   }
 
-  List<String> get decodableFormats =>
-      codecForPlatform(_currentPlatform).decodableFormats;
-
-  FutureOr<T> decode(PlatformFormat format, Object data) {
-    return codecForPlatform(_currentPlatform).decode(data, format);
+  FutureOr<T?> decode(PlatformFormat format, Object data) {
+    final decoder = codecForPlatform(currentPlatform);
+    return decoder.decode(data, format);
   }
 
   @override
-  String primaryFormatForPlatform(ClipboardPlatform platform) {
-    return codecForPlatform(platform).encodableFormats.first;
+  List<PlatformFormat> get receiverFormats =>
+      codecForPlatform(currentPlatform).decodingFormats;
+
+  @override
+  PlatformFormat? get providerFormat =>
+      codecForPlatform(currentPlatform).encodingFormats.firstOrNull;
+}
+
+/// Clipboard data in platform specific format. Do not use directly.
+class EncodedData {
+  EncodedData(this.representations);
+
+  final List<raw.DataRepresentation> representations;
+}
+
+/// Platform specific codec for a data format.
+abstract class PlatformCodec<T extends Object> {
+  const PlatformCodec();
+
+  List<PlatformFormat> get encodingFormats;
+
+  /// Encodes the data to platform representation. By default this
+  /// is a simple passthrough function.
+  FutureOr<Object> encode(T value, PlatformFormat format) {
+    return value;
   }
 
-  PlatformCodec<T> codecForPlatform(ClipboardPlatform platform);
+  List<PlatformFormat> get decodingFormats;
+
+  /// Decodes the data from platform representation.
+  /// Returns `null` if decoding failed.
+  //
+  /// Default implementation simply attempts to tast to target format.
+  FutureOr<T?> decode(Object value, PlatformFormat format) {
+    return value is T ? value : null;
+  }
 }

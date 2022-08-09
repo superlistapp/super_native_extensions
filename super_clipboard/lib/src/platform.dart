@@ -9,7 +9,7 @@ enum ClipboardPlatform {
   windows,
 }
 
-ClipboardPlatform get clipboardPlatform {
+ClipboardPlatform get currentPlatform {
   if (kIsWeb) {
     return ClipboardPlatform.web;
   } else {

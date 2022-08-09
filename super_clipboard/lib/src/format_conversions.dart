@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:super_clipboard/super_clipboard.dart';
+import 'format.dart';
 
 class FormatException implements Exception {
   final String message;
@@ -32,9 +32,6 @@ String fromSystemUtf16NullTerminated(Object value, PlatformFormat format) {
     throw FormatException('Unsupported value type: ${value.runtimeType}');
   }
 }
-
-// Platform plugin will try to coerce String to expected type
-Object passthrough(dynamic value, PlatformFormat format) => value;
 
 // https://docs.microsoft.com/en-us/windows/win32/dataxchg/html-clipboard-format
 // https://docs.microsoft.com/en-us/troubleshoot/developer/visualstudio/cpp/general/add-html-code-clipboard
@@ -123,5 +120,28 @@ String windowsHtmlFromSystem(Object value, PlatformFormat format) {
     throw FormatException('Unsupported value type: ${value.runtimeType}');
   } else {
     return fromSystemUtf16NullTerminated(value, format);
+  }
+}
+
+String fileUriToString(Uri uri, PlatformFormat format) => uri.toString();
+
+Uri? fileUriFromString(Object uri, PlatformFormat format) {
+  if (uri is String) {
+    final res = Uri.tryParse(uri);
+    if (res?.isScheme('file') == true) {
+      return res;
+    }
+  }
+  return null;
+}
+
+String fileUriToWindowsPath(Uri uri, PlatformFormat format) =>
+    uri.toFilePath(windows: true);
+
+Uri? fileUriFromWindowsPath(Object path, PlatformFormat format) {
+  if (path is String) {
+    return Uri.file(path, windows: true);
+  } else {
+    return null;
   }
 }

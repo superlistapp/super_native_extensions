@@ -288,15 +288,15 @@ class MyHomePage extends StatefulWidget {
   State<MyHomePage> createState() => _MyHomePageState();
 }
 
-final formatCustom =
-    CustomDataFormat<Uint8List>("com.superlist.clipboard.Example.CustomType");
+final formatCustom = CustomDataFormat<Uint8List>(
+    applicationId: "com.superlist.clipboard.Example.CustomType");
 
 class _MyHomePageState extends State<MyHomePage> {
   void copy() async {
     // final transfer = DataTransfer();
     final item = DataWriterItem();
-    item.addData(formatHtml.encode('<b><i>Html</i></b> Value'));
-    item.addData(formatPlainText.encode('Plaintext value'));
+    item.addData(Format.html.encode('<b><i>Html</i></b> Value'));
+    item.addData(Format.plainText.encode('Plaintext value'));
     item.addData(formatCustom.encode(Uint8List.fromList([1, 2, 3, 4])));
     item.onRegistered.addListener(() {
       print('Clipboard registered');
@@ -320,8 +320,8 @@ class _MyHomePageState extends State<MyHomePage> {
 
   void copyLazy() async {
     final item = DataWriterItem();
-    item.addData(formatHtml.encodeLazy(() => 'Lazy <b><i>Html</i></b> Value'));
-    item.addData(formatPlainText.encodeLazy(() => 'Lazy Plaintext value'));
+    item.addData(Format.html.encodeLazy(() => 'Lazy <b><i>Html</i></b> Value'));
+    item.addData(Format.plainText.encodeLazy(() => 'Lazy Plaintext value'));
     item.addData(
         formatCustom.encodeLazy(() => Uint8List.fromList([1, 2, 3, 4])));
     item.onRegistered.addListener(() {
@@ -356,8 +356,8 @@ class _MyHomePageState extends State<MyHomePage> {
 
   void paste() async {
     final reader = await ClipboardReader.readClipboard();
-    final plainText = await reader.readValue(formatPlainText);
-    final html = await reader.readValue(formatHtml);
+    final plainText = await reader.readValue(Format.plainText);
+    final html = await reader.readValue(Format.html);
     final custom = await reader.readValue(formatCustom);
     setState(() {
       _content =

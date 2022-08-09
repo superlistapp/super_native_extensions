@@ -4,14 +4,14 @@ export 'package:super_native_extensions/raw_clipboard.dart'
     show VirtualFileReceiver, Pair;
 
 abstract class DataReader {
-  Future<bool> hasValue(EncodableDataFormat f);
+  Future<bool> hasValue(DataFormat f);
 
-  Future<T?> readValue<T>(EncodableDataFormat<T> format);
+  Future<T?> readValue<T extends Object>(DataFormat<T> format);
 
   Future<String?> suggestedName();
 
   Future<VirtualFileReceiver?> getVirtualFileReceiver({
-    required DataFormat format,
+    required VirtualFileFormat format,
   });
 
   static DataReader forItem(raw.DataReaderItem item) {
@@ -23,13 +23,13 @@ class _ItemDataReader implements DataReader {
   _ItemDataReader(this.item);
 
   @override
-  Future<bool> hasValue(EncodableDataFormat f) async {
+  Future<bool> hasValue(DataFormat f) async {
     final formats = await item.getAvailableFormats();
     return formats.any(f.canDecode);
   }
 
   @override
-  Future<T?> readValue<T>(EncodableDataFormat<T> format) async {
+  Future<T?> readValue<T extends Object>(DataFormat<T> format) async {
     final formats = await item.getAvailableFormats();
     for (final f in formats) {
       if (format.canDecode(f)) {
@@ -47,8 +47,14 @@ class _ItemDataReader implements DataReader {
 
   @override
   Future<VirtualFileReceiver?> getVirtualFileReceiver(
-      {required DataFormat format}) {
-    return item.getVirtualFileReceiver(format: format.primaryFormat);
+      {required VirtualFileFormat format}) async {
+    for (final format in format.receiverFormats) {
+      final receiver = await item.getVirtualFileReceiver(format: format);
+      if (receiver != null) {
+        return receiver;
+      }
+    }
+    return null;
   }
 
   final raw.DataReaderItem item;
@@ -65,7 +71,7 @@ class ClipboardReader implements DataReader {
       .toList(growable: false);
 
   @override
-  Future<bool> hasValue(EncodableDataFormat format) async {
+  Future<bool> hasValue(DataFormat format) async {
     for (final item in await getItems()) {
       if (await item.hasValue(format)) {
         return true;
@@ -75,7 +81,7 @@ class ClipboardReader implements DataReader {
   }
 
   @override
-  Future<T?> readValue<T>(EncodableDataFormat<T> format) async {
+  Future<T?> readValue<T extends Object>(DataFormat<T> format) async {
     for (final item in await getItems()) {
       final value = await item.readValue(format);
       if (value != null) {

@@ -5,6 +5,8 @@ import 'package:meta/meta.dart';
 
 import 'data_provider_manager.dart';
 import 'util.dart';
+import 'clipboard_writer.dart';
+import 'drag.dart';
 
 class DataProvider {
   DataProvider({
@@ -149,7 +151,7 @@ class DataProviderHandle {
 
   /// Disposes the data source. This should not be called directly.
   /// DataSource is disposed automatically when no longer needed for clipboard
-  /// or drag&drop by [RawClipboardWriter] and [RawDragContext].
+  /// or drag&drop by [ClipboardWriter] and [DragContext].
   Future<void> dispose() async {
     if (!_disposed) {
       _disposed = true;

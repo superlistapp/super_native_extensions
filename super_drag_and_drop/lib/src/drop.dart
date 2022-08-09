@@ -1,18 +1,19 @@
 import 'dart:async';
 import 'dart:ui' as ui;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:super_clipboard/super_clipboard.dart';
 import 'package:super_native_extensions/raw_drag_drop.dart' as raw;
 
 import 'drop_internal.dart';
 
-abstract class DropItem {
-  bool hasValue(EncodableDataFormat f);
+abstract class DropItem with Diagnosticable {
+  bool hasValue(DataFormat f);
   Object? get localData;
   DataReader? get dataReader;
 }
 
-abstract class DropSession {
+abstract class DropSession with Diagnosticable {
   List<DropItem> get items;
   Listenable get onDisposed;
   Set<raw.DropOperation> get allowedOperations;
@@ -54,7 +55,7 @@ class BaseDropRegion extends SingleChildRenderObjectWidget {
 
   final HitTestBehavior hitTestBehavior;
 
-  final List<EncodableDataFormat> formats;
+  final List<DataFormat> formats;
   final OnDropOver onDropOver;
   final OnDropLeave onDropLeave;
   final OnPerformDrop onPerformDrop;
@@ -114,7 +115,7 @@ class DropMonitor extends SingleChildRenderObjectWidget {
   });
 
   final HitTestBehavior hitTestBehavior;
-  final List<EncodableDataFormat> formats;
+  final List<DataFormat> formats;
   final OnMonitorDropOver onDropOver;
   final OnDropLeave onDropLeave;
   final OnDropEnded onDropEnded;
@@ -174,16 +175,16 @@ class DropItemPreview {
     this.fadeOutDuration,
   });
 
-  /// Destination (in global cooridantes) to where the item should land.
+  /// Destination (in global coordintes) to where the item should land.
   final Rect destinationRect;
 
   /// Destination image to which the drag image will morph. If not provided,
   /// drag image will be used.
   final ui.Image? destinationImage;
 
-  /// Override fade out delay
+  /// Override fade out delay (iOS only)
   final Duration? fadeOutDelay;
 
-  /// Override fade out duration
+  /// Override fade out duration (iOS only)
   final Duration? fadeOutDuration;
 }

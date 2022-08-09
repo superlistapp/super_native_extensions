@@ -13,11 +13,17 @@ class _DropItem extends DropItem {
   _DropItem._(this._item);
 
   @override
-  bool hasValue(EncodableDataFormat f) {
+  bool hasValue(DataFormat f) {
     return _item.formats.any(f.canDecode);
   }
 
-  List<String> get formats => _item.formats;
+  @override
+  void debugFillProperties(DiagnosticPropertiesBuilder properties) {
+    super.debugFillProperties(properties);
+    properties.add(DiagnosticsProperty('formats', _item.formats));
+    properties.add(DiagnosticsProperty('localData', localData));
+    properties.add(DiagnosticsProperty('dataReader', dataReader));
+  }
 
   @override
   Object? get localData => _item.localData;
@@ -162,6 +168,15 @@ class _DropSession extends DropSession {
     }
   }
 
+  @override
+  void debugFillProperties(DiagnosticPropertiesBuilder properties) {
+    super.debugFillProperties(properties);
+    properties.add(DiagnosticsProperty('items', _items));
+    properties
+        .add(DiagnosticsProperty('allowedOperations', _allowedOperations));
+    properties.defaultDiagnosticsTreeStyle = DiagnosticsTreeStyle.sparse;
+  }
+
   RenderBaseDropRegion? _currentDropRegion;
   final _allRegions = <RenderBaseDropRegion>{};
 
@@ -237,11 +252,10 @@ class _DropContextDelegate extends raw.DropContextDelegate {
 class DropFormatRegistry {
   DropFormatRegistry._();
 
-  DropFormatRegistration registerFormats(
-      List<EncodableDataFormat> dataFormats) {
+  DropFormatRegistration registerFormats(List<DataFormat> dataFormats) {
     final platformFormats = <PlatformFormat>[];
     for (final dataFormat in dataFormats) {
-      for (final format in dataFormat.decodableFormats) {
+      for (final format in dataFormat.receiverFormats) {
         if (!platformFormats.contains(format)) {
           platformFormats.add(format);
         }
@@ -304,7 +318,7 @@ class RenderBaseDropRegion extends RenderProxyBoxWithHitTestBehavior {
 
   RenderBaseDropRegion({
     required super.behavior,
-    required List<EncodableDataFormat> formats,
+    required List<DataFormat> formats,
     required this.onDropOver,
     required this.onDropLeave,
     required this.onPerformDrop,
@@ -331,7 +345,7 @@ class RenderDropMonitor extends RenderProxyBoxWithHitTestBehavior {
 
   RenderDropMonitor({
     required super.behavior,
-    required List<EncodableDataFormat> formats,
+    required List<DataFormat> formats,
     required this.onDropOver,
     required this.onDropLeave,
     required this.onDropEnded,

@@ -1,6 +1,6 @@
 import 'package:super_clipboard/src/util.dart';
 import 'package:super_native_extensions/raw_clipboard.dart' as raw;
-import 'encoded_data.dart';
+
 import 'writer.dart';
 
 extension ClipboardWriterItemDataProvider on DataWriterItem {
@@ -9,25 +9,8 @@ extension ClipboardWriterItemDataProvider on DataWriterItem {
   }) async {
     final representations = <raw.DataRepresentation>[];
     for (final data in this.data) {
-      for (final entry in (await data).entries) {
-        if (entry is EncodedDataEntrySimple) {
-          representations.add(raw.DataRepresentation.simple(
-            format: entry.format,
-            data: entry.data,
-          ));
-        } else if (entry is EncodedDataEntryLazy) {
-          representations.add(raw.DataRepresentation.lazy(
-            format: entry.format,
-            dataProvider: entry.dataProvider,
-          ));
-        } else if (entry is EncodedDataEntryVirtualFile) {
-          representations.add(raw.DataRepresentation.virtualFile(
-              format: entry.format,
-              virtualFileProvider: entry.virtualFileProvider,
-              storageSuggestion: entry.storageSuggestion));
-        } else {
-          throw StateError("Invalid data entry type ${entry.runtimeType}");
-        }
+      for (final representation in (await data).representations) {
+        representations.add(representation);
       }
     }
     return raw.DataProvider(

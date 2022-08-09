@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:html' as html;
 
 import 'package:collection/collection.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:js/js.dart';
 
@@ -23,8 +22,9 @@ extension DataTransferItemExt on html.DataTransferItem {
   bool get isFile => kind == 'file';
 
   String get format {
-    if (type != null) {
-      return type!;
+    final type = this.type ?? '';
+    if (type.isNotEmpty) {
+      return type;
     } else if (isString) {
       return 'text/plain';
     } else {
@@ -39,17 +39,26 @@ extension DataTransferItemExt on html.DataTransferItem {
 
 class WebItemDataReaderHandle implements DataReaderItemHandleImpl {
   WebItemDataReaderHandle(this.items, {required bool canRead})
-      : files = canRead ? _getFiles(items) : {},
+      : file = canRead ? _getFile(items) : null,
+        entry = canRead ? _getEntry(items) : null,
         strings = canRead ? _getStrings(items) : {};
 
-  static Map<String, html.File> _getFiles(List<html.DataTransferItem> items) {
-    final res = <String, html.File>{};
+  static html.File? _getFile(List<html.DataTransferItem> items) {
     for (final item in items) {
       if (item.isFile) {
-        res[item.format] = item.getAsFile()!;
+        return item.getAsFile();
       }
     }
-    return res;
+    return null;
+  }
+
+  static html.Entry? _getEntry(List<html.DataTransferItem> items) {
+    for (final item in items) {
+      if (item.isFile) {
+        return item.getAsEntry();
+      }
+    }
+    return null;
   }
 
   static Map<String, Future<String>> _getStrings(
@@ -67,10 +76,17 @@ class WebItemDataReaderHandle implements DataReaderItemHandleImpl {
 
   @override
   Future<Object?> getDataForFormat(String format) async {
+    // meta-formats
+    if (format == 'web:file') {
+      return file;
+    }
+    if (format == 'web:entry') {
+      return entry;
+    }
     for (final item in items) {
       if (item.format == format) {
         if (item.isFile) {
-          final file = files[item.format];
+          final file = this.file;
           if (file != null) {
             final slice = file.slice();
             final buffer = await slice.arrayBuffer();
@@ -88,20 +104,29 @@ class WebItemDataReaderHandle implements DataReaderItemHandleImpl {
   }
 
   List<String> getFormatsSync() {
-    return items.map((e) => e.format).toList(growable: false);
+    final formats = items.map((e) => e.format).toList(growable: true);
+    // meta formats for file (html.File) and entry (html.Entry)
+    if (file != null) {
+      formats.add('web:file');
+    }
+    if (entry != null) {
+      formats.add('web:entry');
+    }
+    return formats;
   }
 
   @override
-  Future<List<String>> getFormats() {
-    return SynchronousFuture(getFormatsSync());
+  Future<List<String>> getFormats() async {
+    return getFormatsSync();
   }
 
   @override
   Future<String?> suggestedName() async {
-    return files.entries.firstOrNull?.value.name;
+    return file?.name;
   }
 
-  final Map<String, html.File> files;
+  final html.File? file;
+  final html.Entry? entry;
   final Map<String, Future<String>> strings;
   final List<html.DataTransferItem> items;
 }
