@@ -95,6 +95,7 @@ class Format {
   static const imagePng = SimpleDataFormat<Uint8List>(
     macos: SimplePlatformCodec(formats: ['public.png']),
     ios: SimplePlatformCodec(formats: ['public.png']),
+    windows: SimplePlatformCodec(formats: ['PNG']),
     fallback: SimplePlatformCodec(formats: ['image/png']),
   );
 
@@ -174,7 +175,7 @@ class CustomDataFormat<T extends Object> extends DataFormat<T> {
           onEncode: onEncode,
         );
       case ClipboardPlatform.web:
-        throw UnsupportedError('Custom values are not supported on web.');
+        return const SimplePlatformCodec(formats: []);
     }
   }
 }
