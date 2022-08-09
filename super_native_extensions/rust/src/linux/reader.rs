@@ -137,7 +137,7 @@ impl PlatformDataReader {
         }
     }
 
-    pub async fn get_suggest_name_for_item(
+    pub async fn get_suggested_name_for_item(
         &self,
         item: i64,
     ) -> NativeExtensionsResult<Option<String>> {

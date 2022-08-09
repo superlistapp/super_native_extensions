@@ -267,7 +267,7 @@ impl DataReaderManager {
         request: ItemSuggestedNameRequest,
     ) -> NativeExtensionsResult<Option<String>> {
         self.get_reader(request.reader_handle)?
-            .get_suggest_name_for_item(request.item_handle)
+            .get_suggested_name_for_item(request.item_handle)
             .await
     }
 
