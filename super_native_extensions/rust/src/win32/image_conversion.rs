@@ -4,8 +4,8 @@ use windows::{
     core::PWSTR,
     Win32::{
         Graphics::Imaging::{
-            CLSID_WICImagingFactory, GUID_ContainerFormatBmp, IWICBitmapFrameEncode,
-            IWICImagingFactory, WICBitmapEncoderNoCache,
+            CLSID_WICImagingFactory, GUID_ContainerFormatBmp, GUID_ContainerFormatPng,
+            IWICBitmapFrameEncode, IWICImagingFactory, WICBitmapEncoderNoCache,
         },
         System::{
             Com::{
@@ -22,6 +22,36 @@ use windows::{
 };
 
 use super::common::create_instance;
+
+/// Convert image from input_stream to PNG
+pub fn convert_to_png(input_stream: IStream) -> windows::core::Result<Vec<u8>> {
+    let factory: IWICImagingFactory = create_instance(&CLSID_WICImagingFactory)?;
+unsafe {
+        let decoder =
+            factory.CreateDecoderFromStream(input_stream, null_mut(), Default::default())?;
+        let encoder = factory.CreateEncoder(&GUID_ContainerFormatPng, null_mut())?;
+        let output_stream = CreateStreamOnHGlobal(0, true)?;
+        encoder.Initialize(output_stream.clone(), WICBitmapEncoderNoCache)?;
+        let frame = decoder.GetFrame(0)?;
+        let mut encoder_frame = Option::<IWICBitmapFrameEncode>::None;
+        encoder.CreateNewFrame(&mut encoder_frame as *mut _, null_mut())?;
+        let encoder_frame = encoder_frame.unwrap();
+        encoder_frame.Initialize(None)?;
+        encoder_frame.WriteSource(frame, std::ptr::null_mut())?;
+        encoder_frame.Commit()?;
+        encoder.Commit()?;
+        let hglobal = GetHGlobalFromStream(output_stream.clone())?;
+        let size = GlobalSize(hglobal);
+        let data = GlobalLock(hglobal);
+        let v = slice::from_raw_parts(data as *const u8, size);
+        let res: Vec<u8> = v.into();
+        GlobalUnlock(hglobal);
+        // prevent clippy from complaining. want the stream to outlive
+        // hglobal
+        let _output_stream = output_stream;
+        Ok(res)
+    }
+}
 
 /// Converts image from input stream to CF_DIB or CF_DIBV5 representation.
 pub fn convert_to_dib(input_stream: IStream, use_v5: bool) -> windows::core::Result<Vec<u8>> {

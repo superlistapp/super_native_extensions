@@ -50,7 +50,7 @@ use super::{
     add_stream_entry,
     common::{
         as_u8_slice, format_from_string, format_to_string, make_format_with_tymed,
-        make_format_with_tymed_index,
+        make_format_with_tymed_index, read_stream_fully,
     },
     image_conversion::convert_to_dib,
     virtual_file_stream::VirtualFileStream,
@@ -72,6 +72,10 @@ pub struct DataObject {
     virtual_stream_notifiers: RefCell<Vec<Arc<DropNotifier>>>,
 }
 
+/// These formats are not commonly supported on Windows. If they
+/// are present as payload, DataObject will provide on-demand
+/// DIB and DIBV5 representation (unless the payload already contains
+/// DIB or DIBV5)
 static FOREIGN_IMAGE_FORMATS: &[&str] = &["PNG", "GIF", "JFIF"];
 
 impl DataObject {
@@ -281,8 +285,10 @@ impl DataObject {
         // Extra data (set through SetData) last
         let extra_data = self.extra_data.borrow();
         for format in extra_data.keys() {
-            res.push(make_format_with_tymed(*format as u32, TYMED_HGLOBAL));
-            res.push(make_format_with_tymed(*format as u32, TYMED_ISTREAM));
+            res.push(make_format_with_tymed(
+                *format as u32,
+                TYMED((TYMED_HGLOBAL.0 | TYMED_ISTREAM.0) as i32),
+            ));
         }
         res
     }
@@ -583,28 +589,12 @@ impl IDataObject_Impl for DataObject {
             unsafe {
                 let medium = &*pmedium;
                 let stream = medium.Anonymous.pstm.as_ref().cloned();
-                let mut stream_data = Vec::<u8>::new();
-                let mut buf: [u8; 4096] = [0; 4096];
-                if let Some(stream) = stream {
-                    loop {
-                        let mut num_read: u32 = 0;
-                        if stream
-                            .Read(
-                                buf.as_mut_ptr() as *mut _,
-                                buf.len() as u32,
-                                &mut num_read as *mut _,
-                            )
-                            .is_err()
-                        {
-                            break;
-                        }
 
-                        if num_read == 0 {
-                            break;
-                        }
-                        stream_data.extend_from_slice(&buf[..num_read as usize]);
-                    }
-                }
+                let stream_data = if let Some(stream) = stream {
+                    read_stream_fully(stream)
+                } else {
+                    Vec::new()
+                };
 
                 self.extra_data
                     .borrow_mut()
@@ -691,22 +681,32 @@ pub trait GetData {
     unsafe fn do_query_get_data(&self, format: *const FORMATETC) -> HRESULT;
 
     fn get_data(&self, format: u32) -> windows::core::Result<Vec<u8>> {
-        let format = make_format_with_tymed(format, TYMED_HGLOBAL);
+        let format = make_format_with_tymed(format, TYMED(TYMED_ISTREAM.0 | TYMED_HGLOBAL.0));
 
         unsafe {
             let mut medium = self.do_get_data(&format as *const _)?;
+            let res = if medium.tymed == TYMED_ISTREAM.0 as u32 {
+                let stream = medium.Anonymous.pstm.as_ref().cloned();
+                if let Some(stream) = stream {
+                    Ok(read_stream_fully(stream))
+                } else {
+                    Ok(Vec::new())
+                }
+            } else if medium.tymed == TYMED_HGLOBAL.0 as u32 {
+                let size = GlobalSize(medium.Anonymous.hGlobal);
+                let data = GlobalLock(medium.Anonymous.hGlobal);
 
-            let size = GlobalSize(medium.Anonymous.hGlobal);
-            let data = GlobalLock(medium.Anonymous.hGlobal);
+                let v = slice::from_raw_parts(data as *const u8, size);
+                let res: Vec<u8> = v.into();
 
-            let v = slice::from_raw_parts(data as *const u8, size);
-            let res: Vec<u8> = v.into();
+                GlobalUnlock(medium.Anonymous.hGlobal);
 
-            GlobalUnlock(medium.Anonymous.hGlobal);
-
+                Ok(res)
+            } else {
+                Err(DATA_E_FORMATETC.into())
+            };
             ReleaseStgMedium(&mut medium as *mut STGMEDIUM);
-
-            Ok(res)
+            res
         }
     }
 

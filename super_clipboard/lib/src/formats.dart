@@ -89,6 +89,7 @@ class Format {
   static const imageJpeg = SimpleDataFormat<Uint8List>(
     macos: SimplePlatformCodec(formats: ['public.jpeg']),
     ios: SimplePlatformCodec(formats: ['public.jpeg']),
+    windows: SimplePlatformCodec(formats: ['JFIF']),
     fallback: SimplePlatformCodec(formats: ['image/jpeg']),
   );
 
@@ -102,6 +103,7 @@ class Format {
   static const imageGif = SimpleDataFormat<Uint8List>(
     macos: SimplePlatformCodec(formats: ['public.gif']),
     ios: SimplePlatformCodec(formats: ['public.gif']),
+    windows: SimplePlatformCodec(formats: ['GIF']),
     fallback: SimplePlatformCodec(formats: ['image/gif']),
   );
 
@@ -121,12 +123,6 @@ class Format {
     macos: SimplePlatformCodec(formats: ['public.svg-image']),
     ios: SimplePlatformCodec(formats: ['public.svg-image']),
     fallback: SimplePlatformCodec(formats: ['image/svg+xml']),
-  );
-
-  static const imageBmp = SimpleDataFormat<Uint8List>(
-    macos: SimplePlatformCodec(formats: ['com.microsoft.bmp']),
-    ios: SimplePlatformCodec(formats: ['com.microsoft.bmp']),
-    fallback: SimplePlatformCodec(formats: ['image/bmp']),
   );
 }
 

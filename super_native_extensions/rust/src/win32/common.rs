@@ -12,7 +12,7 @@ use windows::{
         },
         System::{
             Com::{
-                CoCreateInstance, IDataObject, CLSCTX_ALL, DATADIR_GET, DVASPECT_CONTENT,
+                CoCreateInstance, IDataObject, IStream, CLSCTX_ALL, DATADIR_GET, DVASPECT_CONTENT,
                 FORMATETC, TYMED,
             },
             DataExchange::{GetClipboardFormatNameW, RegisterClipboardFormatW},
@@ -223,4 +223,29 @@ pub fn get_dpi_for_window(hwnd: HWND) -> u32 {
         ReleaseDC(hwnd, hdc);
         dpi as u32
     }
+}
+
+pub fn read_stream_fully(stream: IStream) -> Vec<u8> {
+    let mut res = Vec::<u8>::new();
+    let mut buf: [u8; 4096] = [0; 4096];
+    loop {
+        let mut num_read: u32 = 0;
+        if unsafe {
+            stream.Read(
+                buf.as_mut_ptr() as *mut _,
+                buf.len() as u32,
+                &mut num_read as *mut _,
+            )
+        }
+        .is_err()
+        {
+            break;
+        }
+
+        if num_read == 0 {
+            break;
+        }
+        res.extend_from_slice(&buf[..num_read as usize]);
+    }
+    res
 }
