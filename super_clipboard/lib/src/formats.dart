@@ -93,6 +93,20 @@ class Format {
     fallback: SimplePlatformCodec(formats: ['image/jpeg']),
   );
 
+  /// PNG Image format
+  ///
+  /// Note that on Windows, native DIB and DIBV5 image formats will
+  /// be also exposed as PNG to the Flutter client (unless there is another
+  /// PNG present in the clipboard).
+  ///
+  /// It also works the other way around: When some other program requests
+  /// DIB or DIBV5 image and the clipboard content provided by flutter client
+  /// only contains PNG, GIF or JPEG image, the DIB/DIBV5 content will be
+  /// automatically generated.
+  ///
+  /// The conversion in both ways is done on-demand, only when needed.
+  /// The provided DIBV5 variant preserves transparency, though in general
+  /// support for DIBV5 in Windows applications varies.
   static const imagePng = SimpleDataFormat<Uint8List>(
     macos: SimplePlatformCodec(formats: ['public.png']),
     ios: SimplePlatformCodec(formats: ['public.png']),
