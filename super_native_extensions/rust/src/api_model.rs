@@ -97,6 +97,17 @@ impl DataRepresentation {
             }
         )
     }
+    pub fn format(&self) -> &str {
+        match self {
+            DataRepresentation::Simple { format, data: _ } => format,
+            DataRepresentation::Lazy { id: _, format } => format,
+            DataRepresentation::VirtualFile {
+                id: _,
+                format,
+                storage_suggestion: _,
+            } => format,
+        }
+    }
 }
 
 #[derive(Debug, TryFromValue, IntoValue, Clone, PartialEq)]

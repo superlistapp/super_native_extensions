@@ -18,14 +18,14 @@ use windows::{
         System::{
             Com::{
                 IBindCtx, IDataObject, IDataObject_Impl, IStream, DATADIR_GET, FORMATETC,
-                STGMEDIUM, STGMEDIUM_0, STREAM_SEEK_END, TYMED_HGLOBAL, TYMED_ISTREAM,
+                STGMEDIUM, STGMEDIUM_0, STREAM_SEEK_END, TYMED, TYMED_HGLOBAL, TYMED_ISTREAM,
             },
             DataExchange::RegisterClipboardFormatW,
             Memory::{
                 GlobalAlloc, GlobalFree, GlobalLock, GlobalSize, GlobalUnlock, GLOBAL_ALLOC_FLAGS,
             },
             Ole::ReleaseStgMedium,
-            SystemServices::CF_HDROP,
+            SystemServices::{CF_DIB, CF_DIBV5, CF_HDROP},
         },
         UI::Shell::{
             IDataObjectAsyncCapability, IDataObjectAsyncCapability_Impl, SHCreateMemStream,
@@ -39,6 +39,7 @@ use windows::{
 use crate::{
     api_model::{DataProviderValueId, DataRepresentation, VirtualFileStorage},
     data_provider_manager::{DataProviderHandle, VirtualFileResult},
+    log::OkLog,
     segmented_queue::{new_segmented_queue, QueueConfiguration},
     util::DropNotifier,
     value_coerce::{CoerceToData, StringFormat},
@@ -51,6 +52,7 @@ use super::{
         as_u8_slice, format_from_string, format_to_string, make_format_with_tymed,
         make_format_with_tymed_index,
     },
+    image_conversion::convert_to_dib,
     virtual_file_stream::VirtualFileStream,
     PlatformDataProvider,
 };
@@ -69,6 +71,8 @@ pub struct DataObject {
     in_operation: Cell<bool>, // async stream
     virtual_stream_notifiers: RefCell<Vec<Arc<DropNotifier>>>,
 }
+
+static FOREIGN_IMAGE_FORMATS: &[&str] = &["PNG", "GIF", "JFIF"];
 
 impl DataObject {
     pub fn create(
@@ -186,6 +190,49 @@ impl DataObject {
         }
     }
 
+    fn get_source_stream_for_generated_bitmap(&self) -> windows::core::Result<IStream> {
+        let foreign_formats = Self::foreign_formats();
+        let formats = self.get_formats();
+        for format in formats {
+            let format = format.cfFormat as u32;
+            if foreign_formats.contains(&format) {
+                return self.get_stream(format);
+            }
+        }
+        Err(windows::core::Error::new(
+            DATA_E_FORMATETC,
+            "Did not find original image stream".into(),
+        ))
+    }
+
+    fn generate_bitmap_data(&self, use_v5: bool) -> windows::core::Result<Vec<u8>> {
+        let input_stream = self.get_source_stream_for_generated_bitmap()?;
+        convert_to_dib(input_stream, use_v5)
+    }
+
+    fn foreign_formats() -> Vec<u32> {
+        FOREIGN_IMAGE_FORMATS
+            .iter()
+            .map(|f| unsafe { RegisterClipboardFormatW(*f) })
+            .collect()
+    }
+
+    /// If there are any image formats not supported by windows natively
+    /// and no DIB or DIBV5 we need to generate those.
+    fn needs_generate_bitmap(&self) -> bool {
+        let foreign_formats = Self::foreign_formats();
+        let mut has_bmp = false;
+        let mut has_foreign = false;
+        for provider in &self.providers {
+            for repr in &provider.provider.data.representations {
+                let repr_format = format_from_string(repr.format());
+                has_bmp |= repr_format == CF_DIBV5.0 || repr_format == CF_DIB.0;
+                has_foreign = foreign_formats.contains(&repr_format);
+            }
+        }
+        has_foreign && !has_bmp
+    }
+
     fn get_formats(&self) -> Vec<FORMATETC> {
         let mut res = Vec::<_>::new();
         let mut index = 0;
@@ -225,6 +272,12 @@ impl DataObject {
                 }
             }
         }
+
+        if self.needs_generate_bitmap() {
+            res.push(make_format_with_tymed(CF_DIB.0 as u32, TYMED_HGLOBAL));
+            res.push(make_format_with_tymed(CF_DIBV5.0 as u32, TYMED_HGLOBAL));
+        }
+
         // Extra data (set through SetData) last
         let extra_data = self.extra_data.borrow();
         for format in extra_data.keys() {
@@ -398,6 +451,8 @@ impl IDataObject_Impl for DataObject {
             });
         }
 
+        let needs_generate_bitmap = self.needs_generate_bitmap();
+
         let data = self
             .extra_data
             .borrow()
@@ -408,6 +463,10 @@ impl IDataObject_Impl for DataObject {
                     self.data_for_file_group_descritor()
                 } else if format.cfFormat as u32 == CF_HDROP.0 {
                     self.data_for_hdrop()
+                } else if needs_generate_bitmap && format.cfFormat as u32 == CF_DIB.0 {
+                    self.generate_bitmap_data(false).ok_log()
+                } else if needs_generate_bitmap && format.cfFormat as u32 == CF_DIBV5.0 {
+                    self.generate_bitmap_data(true).ok_log()
                 } else {
                     self.data_for_format(format.cfFormat as u32, 0)
                 }
@@ -624,21 +683,18 @@ impl IDataObjectAsyncCapability_Impl for DataObject {
 }
 
 pub trait GetData {
-    fn get_data(&self, format: u32) -> windows::core::Result<Vec<u8>>;
-    fn has_data_for_format(&self, format: &FORMATETC) -> bool;
-    fn has_data(&self, format: u32) -> bool;
-}
+    unsafe fn do_get_data(
+        &self,
+        pformatetcin: *const FORMATETC,
+    ) -> windows::core::Result<STGMEDIUM>;
 
-pub trait DataObjectExt {
-    fn performed_drop_effect(&self) -> Option<u32>;
-}
+    unsafe fn do_query_get_data(&self, format: *const FORMATETC) -> HRESULT;
 
-impl GetData for IDataObject {
     fn get_data(&self, format: u32) -> windows::core::Result<Vec<u8>> {
-        let mut format = make_format_with_tymed(format, TYMED_HGLOBAL);
+        let format = make_format_with_tymed(format, TYMED_HGLOBAL);
 
         unsafe {
-            let mut medium = self.GetData(&mut format as *mut _)?;
+            let mut medium = self.do_get_data(&format as *const _)?;
 
             let size = GlobalSize(medium.Anonymous.hGlobal);
             let data = GlobalLock(medium.Anonymous.hGlobal);
@@ -654,17 +710,29 @@ impl GetData for IDataObject {
         }
     }
 
-    fn has_data_for_format(&self, format: &FORMATETC) -> bool {
-        // TODO(knopp): Remove when https://github.com/microsoft/win32metadata/issues/1007
-        // unsafe { self.QueryGetData(&mut format as *mut _).is_ok() }
-        let mut format = *format;
-        let data = unsafe {
-            (::windows::core::Interface::vtable(self).QueryGetData)(
-                ::windows::core::Interface::as_raw(self),
-                ::core::mem::transmute(&mut format as *mut _),
-            )
+    fn get_stream(&self, format: u32) -> windows::core::Result<IStream> {
+        let format = make_format_with_tymed(format, TYMED(TYMED_ISTREAM.0 | TYMED_HGLOBAL.0));
+        let res = unsafe {
+            let mut medium = self.do_get_data(&format as *const _)?;
+            let res = if medium.tymed == TYMED_ISTREAM.0 as u32 {
+                medium.Anonymous.pstm.as_ref().cloned()
+            } else if medium.tymed == TYMED_HGLOBAL.0 as u32 {
+                let size = GlobalSize(medium.Anonymous.hGlobal);
+                let data = GlobalLock(medium.Anonymous.hGlobal);
+                let res = SHCreateMemStream(data as *const _, size as u32);
+                GlobalUnlock(medium.Anonymous.hGlobal);
+                res
+            } else {
+                None
+            };
+            ReleaseStgMedium(&mut medium as *mut STGMEDIUM);
+            res
         };
-        data == S_OK
+        res.ok_or_else(|| DATA_E_FORMATETC.into())
+    }
+
+    fn has_data_for_format(&self, format: &FORMATETC) -> bool {
+        unsafe { self.do_query_get_data(format as *const _) == S_OK }
     }
 
     fn has_data(&self, format: u32) -> bool {
@@ -673,18 +741,45 @@ impl GetData for IDataObject {
     }
 }
 
-impl GetData for DataObject {
-    fn get_data(&self, format: u32) -> windows::core::Result<Vec<u8>> {
-        let res = self.extra_data.borrow().get(&(format as u16)).cloned();
-        res.ok_or_else(|| DV_E_FORMATETC.into())
+pub trait DataObjectExt {
+    fn performed_drop_effect(&self) -> Option<u32>;
+}
+
+impl GetData for IDataObject {
+    unsafe fn do_get_data(
+        &self,
+        pformatetcin: *const FORMATETC,
+    ) -> windows::core::Result<STGMEDIUM> {
+        self.GetData(pformatetcin)
     }
+
+    unsafe fn do_query_get_data(&self, format: *const FORMATETC) -> HRESULT {
+        (::windows::core::Interface::vtable(self).QueryGetData)(
+            ::windows::core::Interface::as_raw(self),
+            format,
+        )
+    }
+}
+
+impl GetData for DataObject {
+    unsafe fn do_get_data(
+        &self,
+        pformatetcin: *const FORMATETC,
+    ) -> windows::core::Result<STGMEDIUM> {
+        self.GetData(pformatetcin)
+    }
+
+    unsafe fn do_query_get_data(&self, format: *const FORMATETC) -> HRESULT {
+        match self.GetData(format) {
+            Ok(_) => S_OK,
+            Err(e) => e.into(),
+        }
+    }
+
     fn has_data_for_format(&self, format: &FORMATETC) -> bool {
         format.tymed == TYMED_HGLOBAL.0 as u32
             && format.lindex == 0
             && self.has_data(format.cfFormat as u32)
-    }
-    fn has_data(&self, format: u32) -> bool {
-        self.extra_data.borrow().contains_key(&(format as u16))
     }
 }
 

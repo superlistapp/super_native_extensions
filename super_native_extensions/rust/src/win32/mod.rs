@@ -6,6 +6,7 @@ mod drag_common;
 mod drop;
 mod reader;
 mod virtual_file_stream;
+mod image_conversion;
 
 pub use data_provider::*;
 pub use drag::*;
