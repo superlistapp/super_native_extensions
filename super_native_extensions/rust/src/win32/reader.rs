@@ -191,9 +191,23 @@ impl PlatformDataReader {
         bmp.extend_from_slice(&[0, 0, 0, 0]); // data starting address; not required by decoder
         bmp.extend_from_slice(&data);
 
-        let stream = unsafe { SHCreateMemStream(bmp.as_ptr(), bmp.len() as u32) };
-        let stream = stream.unwrap();
-        Ok(convert_to_png(stream)?)
+        let (future, completer) = FutureCompleter::new();
+
+        let mut completer = Capsule::new(completer);
+        let sender = Context::get().run_loop().new_sender();
+
+        // Do the actual encoding on worker thread
+        thread::spawn(move || {
+            let stream = unsafe { SHCreateMemStream(bmp.as_ptr(), bmp.len() as u32) };
+            let stream = stream.unwrap();
+            let res = convert_to_png(stream).map_err(NativeExtensionsError::from);
+            sender.send(move || {
+                let completer = completer.take().unwrap();
+                completer.complete(res);
+            });
+        });
+
+        future.await
     }
 
     pub async fn get_data_for_item(
