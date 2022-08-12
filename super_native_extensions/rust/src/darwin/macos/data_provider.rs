@@ -11,6 +11,7 @@ use std::{
     path::PathBuf,
     rc::{Rc, Weak},
     sync::{Arc, Mutex},
+    time::Instant,
 };
 
 use block::{Block, ConcreteBlock, RcBlock};
@@ -20,7 +21,11 @@ use cocoa::{
     foundation::{NSArray, NSUInteger},
 };
 
-use nativeshell_core::{platform::value::ValueObjcConversion, util::Late, Context, IsolateId};
+use nativeshell_core::{
+    platform::{run_loop::PollSession, value::ValueObjcConversion},
+    util::Late,
+    Context, IsolateId,
+};
 use objc::{
     class,
     declare::ClassDecl,
@@ -217,6 +222,7 @@ impl ItemState {
     }
 
     fn object_for_type(&self, pasteboard_type: id) -> id {
+        let mut poll_session = PollSession::new();
         match self.data_provider.upgrade() {
             Some(data_provider) => {
                 let ty = unsafe { from_nsstring(pasteboard_type) };
@@ -252,7 +258,10 @@ impl ItemState {
                                                 }
                                             }
                                         }
-                                        Context::get().run_loop().platform_run_loop.poll_once();
+                                        Context::get()
+                                            .run_loop()
+                                            .platform_run_loop
+                                            .poll_once(&mut poll_session);
                                     }
                                 }
                             }

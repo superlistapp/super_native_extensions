@@ -11,7 +11,7 @@ use cocoa::{
     foundation::{NSArray, NSInteger, NSPoint, NSRect, NSUInteger},
 };
 
-use nativeshell_core::{util::Late, Context, Value};
+use nativeshell_core::{platform::run_loop::PollSession, util::Late, Context, Value};
 use objc::{
     class, msg_send,
     rc::{autoreleasepool, StrongPtr},
@@ -174,6 +174,7 @@ impl Session {
                         fade_out_duration: 0.0, // no animation
                     },
                 );
+                let mut poll_session = PollSession::new();
                 let preview = loop {
                     if let Some(result) = preview_promise.try_take() {
                         match result {
@@ -181,7 +182,10 @@ impl Session {
                             PromiseResult::Cancelled => break None,
                         }
                     }
-                    Context::get().run_loop().platform_run_loop.poll_once();
+                    Context::get()
+                        .run_loop()
+                        .platform_run_loop
+                        .poll_once(&mut poll_session);
                 };
                 if let Some(preview) = preview {
                     animates.set(YES);
@@ -221,8 +225,12 @@ impl Session {
                 done_clone.set(true);
             }),
         );
+        let mut poll_session = PollSession::new();
         while !done.get() {
-            Context::get().run_loop().platform_run_loop.poll_once();
+            Context::get()
+                .run_loop()
+                .platform_run_loop
+                .poll_once(&mut poll_session);
         }
         Ok(true)
     }

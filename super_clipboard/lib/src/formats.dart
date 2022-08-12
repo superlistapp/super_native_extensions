@@ -13,6 +13,8 @@ import 'format_conversions.dart';
 const cfInternalPrefix = 'NativeShell_InternalWindowsFormat_';
 
 class Format {
+  Format._();
+
   static const plainText = SimpleDataFormat<String>(
     ios: SimplePlatformCodec(
       formats: ['public.utf8-plain-text'],

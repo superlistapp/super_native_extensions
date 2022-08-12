@@ -32,7 +32,7 @@ use cocoa::{
 use core_foundation::base::CFRelease;
 use core_graphics::event::CGEventType;
 
-use nativeshell_core::{Context, Value};
+use nativeshell_core::{platform::run_loop::PollSession, Context, Value};
 use objc::{
     class, msg_send,
     rc::{autoreleasepool, StrongPtr},
@@ -290,6 +290,7 @@ impl PlatformDragContext {
                 unsafe { NSView::convertPoint_fromView_(*self.view, location, nil) };
             if let Some(delegate) = self.delegate.upgrade() {
                 let is_draggable_promise = delegate.is_location_draggable(self.id, location.into());
+                let mut poll_session = PollSession::new();
                 loop {
                     if let Some(result) = is_draggable_promise.try_take() {
                         match result {
@@ -297,7 +298,10 @@ impl PlatformDragContext {
                             PromiseResult::Cancelled => return false,
                         }
                     }
-                    Context::get().run_loop().platform_run_loop.poll_once();
+                    Context::get()
+                        .run_loop()
+                        .platform_run_loop
+                        .poll_once(&mut poll_session);
                 }
             } else {
                 false

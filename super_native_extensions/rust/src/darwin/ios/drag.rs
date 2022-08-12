@@ -17,7 +17,7 @@ use core_graphics::{
     geometry::{CGPoint, CGRect},
 };
 
-use nativeshell_core::{util::Late, Context, Value};
+use nativeshell_core::{platform::run_loop::PollSession, util::Late, Context, Value};
 use objc::{
     class,
     declare::ClassDecl,
@@ -182,6 +182,7 @@ impl Session {
                 self.session_id,
                 location,
             );
+            let mut poll_session = PollSession::new();
             loop {
                 if let Some(items) = items_promise.try_take() {
                     match items {
@@ -189,7 +190,10 @@ impl Session {
                         PromiseResult::Cancelled => return nil,
                     }
                 }
-                Context::get().run_loop().platform_run_loop.poll_once();
+                Context::get()
+                    .run_loop()
+                    .platform_run_loop
+                    .poll_once(&mut poll_session);
             }
         } else {
             nil
@@ -445,6 +449,7 @@ impl PlatformDragContext {
             let location: CGPoint = unsafe { msg_send![session, locationInView:*self.view] };
             let configuration_promise =
                 delegate.get_drag_configuration_for_location(self.id, location.into());
+            let mut poll_session = PollSession::new();
             loop {
                 if let Some(configuration) = configuration_promise.try_take() {
                     match configuration {
@@ -454,7 +459,10 @@ impl PlatformDragContext {
                         PromiseResult::Cancelled => return nil,
                     }
                 }
-                Context::get().run_loop().platform_run_loop.poll_once();
+                Context::get()
+                    .run_loop()
+                    .platform_run_loop
+                    .poll_once(&mut poll_session);
             }
         } else {
             nil
