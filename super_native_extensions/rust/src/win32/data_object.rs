@@ -7,7 +7,7 @@ use std::{
     sync::Arc,
 };
 
-use nativeshell_core::Context;
+use nativeshell_core::{platform::run_loop::PollSession, Context};
 use windows::{
     core::{implement, HRESULT},
     Win32::{
@@ -27,11 +27,14 @@ use windows::{
             Ole::ReleaseStgMedium,
             SystemServices::{CF_DIB, CF_DIBV5, CF_HDROP},
         },
-        UI::Shell::{
-            IDataObjectAsyncCapability, IDataObjectAsyncCapability_Impl, SHCreateMemStream,
-            SHCreateStdEnumFmtEtc, CFSTR_FILECONTENTS, CFSTR_FILEDESCRIPTOR,
-            CFSTR_LOGICALPERFORMEDDROPEFFECT, CFSTR_PERFORMEDDROPEFFECT, DROPFILES, FD_ATTRIBUTES,
-            FD_PROGRESSUI, FILEDESCRIPTORW,
+        UI::{
+            Shell::{
+                IDataObjectAsyncCapability, IDataObjectAsyncCapability_Impl, SHCreateMemStream,
+                SHCreateStdEnumFmtEtc, CFSTR_FILECONTENTS, CFSTR_FILEDESCRIPTOR,
+                CFSTR_LOGICALPERFORMEDDROPEFFECT, CFSTR_PERFORMEDDROPEFFECT, DROPFILES,
+                FD_ATTRIBUTES, FD_PROGRESSUI, FILEDESCRIPTORW,
+            },
+            WindowsAndMessaging::FindWindowExW,
         },
     },
 };
@@ -120,13 +123,17 @@ impl DataObject {
         let delegate = provider.delegate.upgrade();
         if let Some(delegate) = delegate {
             let data = delegate.get_lazy_data(provider.isolate_id, id, None);
+            let mut poll_session = PollSession::new();
             loop {
                 match data.try_take() {
                     Some(ValuePromiseResult::Ok { value }) => {
                         return value.coerce_to_data(StringFormat::Utf16NullTerminated)
                     }
                     Some(ValuePromiseResult::Cancelled) => return None,
-                    None => Context::get().run_loop().platform_run_loop.poll_once(),
+                    None => Context::get()
+                        .run_loop()
+                        .platform_run_loop
+                        .poll_once(&mut poll_session),
                 }
             }
         } else {

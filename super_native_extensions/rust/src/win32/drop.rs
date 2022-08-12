@@ -5,7 +5,7 @@ use std::{
     sync::Arc,
 };
 
-use nativeshell_core::{util::Late, Context, Value};
+use nativeshell_core::{platform::run_loop::PollSession, util::Late, Context, Value};
 use windows::{
     core::{implement, Interface, PCWSTR},
     Win32::{
@@ -402,8 +402,12 @@ impl PlatformDropContext {
                     }
                 }
             }
+            let mut poll_session = PollSession::new();
             while !done.get() {
-                Context::get().run_loop().platform_run_loop.poll_once();
+                Context::get()
+                    .run_loop()
+                    .platform_run_loop
+                    .poll_once(&mut poll_session);
             }
             self.drop_end()?;
         } else {
