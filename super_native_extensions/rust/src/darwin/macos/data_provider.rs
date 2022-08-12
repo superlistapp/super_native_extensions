@@ -222,7 +222,6 @@ impl ItemState {
     }
 
     fn object_for_type(&self, pasteboard_type: id) -> id {
-        let mut poll_session = PollSession::new();
         match self.data_provider.upgrade() {
             Some(data_provider) => {
                 let ty = unsafe { from_nsstring(pasteboard_type) };
@@ -243,6 +242,7 @@ impl ItemState {
                                 if let Some(delegate) = data_provider.delegate.upgrade() {
                                     let promise =
                                         delegate.get_lazy_data(data_provider.isolate_id, *id, None);
+                                    let mut poll_session = PollSession::new();
                                     loop {
                                         if let Some(result) = promise.try_take() {
                                             match result {
