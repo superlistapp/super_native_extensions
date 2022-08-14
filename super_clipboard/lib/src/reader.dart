@@ -18,8 +18,8 @@ abstract class DataReader {
   Future<T?> readValue<T extends Object>(DataFormat<T> format);
 
   /// Returns whether value for given format is being synthetized. On Windows
-  /// BMP images are accessible as PNG (transparently converted on demand),
-  /// same thing is done on macOS for TIFF images.
+  /// BMP images are accessible as PNG (converted on demand), same thing is
+  /// done on macOS for TIFF images.
   bool isSynthetized(DataFormat format);
 
   /// Returns suggested file name for the contents (if available).
