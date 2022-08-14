@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:collection/collection.dart';
 import 'package:super_clipboard/super_clipboard.dart';
 import 'package:super_clipboard_example/main.dart';
 
@@ -26,6 +27,13 @@ Future<Widget> buildWidgetForReader(DataReader reader, int index) async {
   children.retainWhere((element) => formats.add(element.format));
 
   List<String>? nativeFormats = await reader.rawReader?.getAvailableFormats();
+  if (nativeFormats != null) {
+    final virtual = await Future.wait(
+        nativeFormats.map((e) => reader.rawReader!.isVirtual(e)));
+    nativeFormats = nativeFormats.mapIndexed((i, e) {
+      return virtual[i] ? '$e (virtual)' : e;
+    }).toList(growable: false);
+  }
 
   return _ReaderWidget(
     itemName: 'Data item $index',

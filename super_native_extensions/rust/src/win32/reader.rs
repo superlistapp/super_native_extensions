@@ -103,7 +103,7 @@ impl PlatformDataReader {
         Ok(formats)
     }
 
-    fn need_to_provide_png(&self) -> NativeExtensionsResult<bool> {
+    fn need_to_synthetize_png(&self) -> NativeExtensionsResult<bool> {
         let png = unsafe { RegisterClipboardFormatW("PNG") };
         let formats = self.data_object_formats_raw()?;
         let has_dib = formats.contains(&CF_DIBV5.0) || formats.contains(&CF_DIB.0);
@@ -113,7 +113,7 @@ impl PlatformDataReader {
 
     fn data_object_formats(&self) -> NativeExtensionsResult<Vec<u32>> {
         let mut res = self.data_object_formats_raw()?;
-        if self.need_to_provide_png()? {
+        if self.need_to_synthetize_png()? {
             let png = unsafe { RegisterClipboardFormatW("PNG") };
             res.push(png);
         }
@@ -150,6 +150,24 @@ impl PlatformDataReader {
 
     pub async fn get_formats_for_item(&self, item: i64) -> NativeExtensionsResult<Vec<String>> {
         self.get_formats_for_item_sync(item)
+    }
+
+    pub fn item_format_is_synthetized(
+        &self,
+        _item: i64,
+        format: &str,
+    ) -> NativeExtensionsResult<bool> {
+        Ok(format == "PNG" && self.need_to_synthetize_png()?)
+    }
+
+    pub fn item_format_is_virtual(&self, item: i64, format: &str) -> NativeExtensionsResult<bool> {
+        let descriptors = self.get_file_descriptors()?;
+        if let Some(descriptors) = descriptors {
+            if let Some(descriptor) = descriptors.get(item as usize) {
+                return Ok(descriptor.format == format);
+            }
+        }
+        Ok(false)
     }
 
     pub async fn get_suggested_name_for_item(
@@ -226,12 +244,18 @@ impl PlatformDataReader {
             } else {
                 Ok(Value::Null)
             }
-        } else if format == png && self.need_to_provide_png()? {
+        } else if format == png && self.need_to_synthetize_png()? {
             let png_data = self.generate_png().await?;
             Ok(png_data.into())
         } else {
-            let data = self.data_object.get_data(format)?;
-            Ok(data.into())
+            let formats = self.data_object_formats()?;
+            if formats.contains(&format) {
+                let data = self.data_object.get_data(format)?;
+                Ok(data.into())
+            } else {
+                // possibly virtual
+                Ok(Value::Null)
+            }
         }
     }
 

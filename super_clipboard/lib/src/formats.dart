@@ -38,9 +38,8 @@ class Format {
       onDecode: fromSystemUtf8,
     ),
     windows: SimplePlatformCodec(
-      formats: [
-        '${cfInternalPrefix}13' // CF_UNICODETEXT
-      ],
+      formats: ['${cfInternalPrefix}13'], // CF_UNICODETEXT
+      receiverFormats: ['text/plain'], // used for virtual files
       onDecode: fromSystemUtf16NullTerminated,
     ),
     // other platforms
@@ -69,6 +68,7 @@ class Format {
         'text/html',
         cfHtml,
       ],
+      receiverFormats: ['text/html'],
     ),
     fallback: SimplePlatformCodec<String>(
       formats: ['text/html'],
@@ -117,6 +117,11 @@ class Format {
       onDecode: iosDecodeNamedUri,
       onEncode: iosEncodeNamedUri,
     ),
+    windows: SimplePlatformCodec(
+      formats: ['${cfInternalPrefix}13'], // CF_UNICODETEXT
+      onDecode: windowsDecodeNamedUri,
+      onEncode: defaultEncodeNamedUri,
+    ),
     fallback: SimplePlatformCodec(
       formats: ['text/uri-list', 'text/plain'],
       onDecode: defaultDecodeNamedUri,
@@ -127,7 +132,10 @@ class Format {
   static const imageJpeg = SimpleDataFormat<Uint8List>(
     macos: SimplePlatformCodec(formats: ['public.jpeg']),
     ios: SimplePlatformCodec(formats: ['public.jpeg']),
-    windows: SimplePlatformCodec(formats: ['JFIF']),
+    windows: SimplePlatformCodec(
+      formats: ['JFIF'],
+      receiverFormats: ['image/jpeg'],
+    ),
     fallback: SimplePlatformCodec(formats: ['image/jpeg']),
   );
 
@@ -151,14 +159,20 @@ class Format {
   static const imagePng = SimpleDataFormat<Uint8List>(
     macos: SimplePlatformCodec(formats: ['public.png']),
     ios: SimplePlatformCodec(formats: ['public.png']),
-    windows: SimplePlatformCodec(formats: ['PNG']),
+    windows: SimplePlatformCodec(
+      formats: ['PNG'],
+      receiverFormats: ['image/png'],
+    ),
     fallback: SimplePlatformCodec(formats: ['image/png']),
   );
 
   static const imageGif = SimpleDataFormat<Uint8List>(
     macos: SimplePlatformCodec(formats: ['public.gif']),
     ios: SimplePlatformCodec(formats: ['public.gif']),
-    windows: SimplePlatformCodec(formats: ['GIF']),
+    windows: SimplePlatformCodec(
+      formats: ['GIF'],
+      receiverFormats: ['image/gif'],
+    ),
     fallback: SimplePlatformCodec(formats: ['image/gif']),
   );
 

@@ -63,7 +63,12 @@ class DataReaderItem {
   }
 
   Future<bool> isSynthetized(String format) {
-    return ReaderManager.instance.isFormatSynthetized(_handle, format: format);
+    return ReaderManager.instance
+        .itemFormatIsSynthetized(_handle, format: format);
+  }
+
+  Future<bool> isVirtual(String format) {
+    return ReaderManager.instance.itemFormatIsVirtual(_handle, format: format);
   }
 
   Future<String?> getSuggestedName() {

@@ -70,11 +70,23 @@ class ReaderManagerImpl extends ReaderManager {
   }
 
   @override
-  Future<bool> isFormatSynthetized(
+  Future<bool> itemFormatIsSynthetized(
     DataReaderItemHandle handle, {
     required String format,
   }) {
     return _channel.invokeMethod("itemFormatIsSynthetized", {
+      "itemHandle": handle._itemHandle,
+      "readerHandle": handle._readerHandle,
+      "format": format,
+    });
+  }
+
+  @override
+  Future<bool> itemFormatIsVirtual(
+    DataReaderItemHandle handle, {
+    required String format,
+  }) {
+    return _channel.invokeMethod("itemFormatIsVirtual", {
       "itemHandle": handle._itemHandle,
       "readerHandle": handle._readerHandle,
       "format": format,

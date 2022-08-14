@@ -115,6 +115,8 @@ abstract class PlatformCodec<T extends Object> {
 
   List<PlatformFormat> get decodingFormats;
 
+  List<PlatformFormat> get receiverFormats => decodingFormats;
+
   /// Decodes the data from platform representation.
   /// Returns `null` if decoding failed.
   //

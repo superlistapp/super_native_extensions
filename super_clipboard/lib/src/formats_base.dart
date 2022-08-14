@@ -9,11 +9,14 @@ class SimplePlatformCodec<T extends Object> extends PlatformCodec<T> {
     List<PlatformFormat>? formats,
     List<PlatformFormat>? encodingFormats,
     List<PlatformFormat>? decodingFormats,
+    /// allow overriding formats used when receiving virtual files
+    List<PlatformFormat>? receiverFormats,
     this.onDecode,
     this.onEncode,
   })  : _formats = formats,
         _encodingFormats = encodingFormats,
-        _decodingFormats = decodingFormats;
+        _decodingFormats = decodingFormats,
+        _receiverFormats = receiverFormats;
 
   final FutureOr<T?> Function(
       PlatformDataProvider dataProvider, PlatformFormat format)? onDecode;
@@ -22,6 +25,7 @@ class SimplePlatformCodec<T extends Object> extends PlatformCodec<T> {
   final List<PlatformFormat>? _formats;
   final List<PlatformFormat>? _decodingFormats;
   final List<PlatformFormat>? _encodingFormats;
+  final List<PlatformFormat>? _receiverFormats;
 
   @override
   List<PlatformFormat> get encodingFormats =>
@@ -30,6 +34,10 @@ class SimplePlatformCodec<T extends Object> extends PlatformCodec<T> {
   @override
   List<PlatformFormat> get decodingFormats =>
       _decodingFormats ?? _formats ?? [];
+
+  @override
+  List<PlatformFormat> get receiverFormats =>
+      _receiverFormats ?? decodingFormats;
 
   @override
   FutureOr<T?> decode(

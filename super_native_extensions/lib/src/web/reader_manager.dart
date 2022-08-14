@@ -103,7 +103,15 @@ class ReaderManagerImpl extends ReaderManager {
   }
 
   @override
-  Future<bool> isFormatSynthetized(
+  Future<bool> itemFormatIsSynthetized(
+    DataReaderItemHandle handle, {
+    required String format,
+  }) async {
+    return false;
+  }
+
+  @override
+  Future<bool> itemFormatIsVirtual(
     DataReaderItemHandle handle, {
     required String format,
   }) async {

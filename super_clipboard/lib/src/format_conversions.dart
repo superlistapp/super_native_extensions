@@ -160,7 +160,9 @@ Future<Uri?> fileUriFromString(
 String fileUriToWindowsPath(Uri uri, PlatformFormat format) =>
     uri.toFilePath(windows: true);
 
-Uri? fileUriFromWindowsPath(Object path, PlatformFormat format) {
+Future<Uri?> fileUriFromWindowsPath(
+    PlatformDataProvider provider, PlatformFormat format) async {
+  final path = await fromSystemUtf16NullTerminated(provider, format);
   if (path is String) {
     return Uri.file(path, windows: true);
   } else {
@@ -242,9 +244,21 @@ Future<NamedUri?> iosDecodeNamedUri(
   return null;
 }
 
+Future<NamedUri?> windowsDecodeNamedUri(
+    PlatformDataProvider provider, PlatformFormat format) async {
+  final value = await fromSystemUtf16NullTerminated(provider, format);
+  if (value is String) {
+    final uri = Uri.tryParse(value);
+    if (uri != null && uri.hasScheme) {
+      return NamedUri(uri);
+    }
+  }
+  return null;
+}
+
 Future<NamedUri?> defaultDecodeNamedUri(
     PlatformDataProvider provider, PlatformFormat format) async {
-  Object? value = await fromSystemUtf8(provider, format);
+  final value = await fromSystemUtf8(provider, format);
   if (value is String) {
     final uri = Uri.tryParse(value);
     if (uri != null) {
