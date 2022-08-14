@@ -270,14 +270,6 @@ impl DataReaderManager {
             .item_format_is_synthetized(request.item_handle, &request.format)
     }
 
-    async fn item_format_is_virtual(
-        &self,
-        request: ItemFormatIsVirtualRequest,
-    ) -> NativeExtensionsResult<bool> {
-        self.get_reader(request.reader_handle)?
-            .item_format_is_virtual(request.item_handle, &request.format)
-    }
-
     async fn get_item_suggested_name(
         &self,
         request: ItemSuggestedNameRequest,
@@ -366,14 +358,6 @@ struct ItemFormatIsSynthetizedRequest {
 
 #[derive(TryFromValue)]
 #[nativeshell(rename_all = "camelCase")]
-struct ItemFormatIsVirtualRequest {
-    item_handle: i64,
-    reader_handle: DataReaderId,
-    format: String,
-}
-
-#[derive(TryFromValue)]
-#[nativeshell(rename_all = "camelCase")]
 struct ItemSuggestedNameRequest {
     item_handle: i64,
     reader_handle: DataReaderId,
@@ -431,10 +415,6 @@ impl AsyncMethodHandler for DataReaderManager {
                 .into_platform_result(),
             "itemFormatIsSynthetized" => self
                 .item_format_is_synthetized(call.args.try_into()?)
-                .await
-                .into_platform_result(),
-            "itemFormatIsVirtual" => self
-                .item_format_is_virtual(call.args.try_into()?)
                 .await
                 .into_platform_result(),
             "getItemSuggestedName" => self

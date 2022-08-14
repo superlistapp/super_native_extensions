@@ -68,7 +68,7 @@ class DataReaderItem {
   }
 
   Future<bool> isVirtual(String format) {
-    return ReaderManager.instance.itemFormatIsVirtual(_handle, format: format);
+    return ReaderManager.instance.canGetVirtualFile(_handle, format: format);
   }
 
   Future<String?> getSuggestedName() {

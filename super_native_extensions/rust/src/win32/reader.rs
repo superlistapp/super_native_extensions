@@ -404,21 +404,6 @@ impl PlatformDataReader {
         Ok(res)
     }
 
-    pub async fn can_get_virtual_file_for_item(
-        &self,
-        item: i64,
-        format: &str,
-    ) -> NativeExtensionsResult<bool> {
-        let descriptors = self.get_file_descriptors()?;
-        if let Some(descriptors) = descriptors {
-            if let Some(descriptor) = descriptors.get(item as usize) {
-                return Ok(format == descriptor.format);
-            }
-        }
-
-        Ok(false)
-    }
-
     fn do_get_virtual_file(
         medium: &STGMEDIUM,
         file_name: &str,
