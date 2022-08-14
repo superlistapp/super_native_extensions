@@ -86,7 +86,7 @@ public class DataProvider extends ContentProvider {
 
     @Override
     public Cursor query(Uri uri, String[] projection, String selection, String[] selectionArgs, String sortOrder) {
-        throw new UnsupportedOperationException();
+        return null;
     }
 
     @Override

@@ -9,10 +9,11 @@ import android.content.ContentResolver;
 import android.content.Context;
 import android.content.res.AssetFileDescriptor;
 import android.net.Uri;
-import android.os.AsyncTask;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
+
+import androidx.annotation.Nullable;
 
 import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
@@ -47,17 +48,9 @@ public final class ClipDataHelper {
         ExecutorService executor = Executors.newSingleThreadExecutor();
         Handler handler = new Handler(Looper.getMainLooper());
 
-        executor.execute(new Runnable() {
-            @Override
-            public void run() {
-                Object res = _getData(data, index, type, context);
-                handler.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        onData(handle, res);
-                    }
-                });
-            }
+        executor.execute(() -> {
+            Object res = _getData(data, index, type, context);
+            handler.post(() -> onData(handle, res));
         });
     }
 
@@ -98,7 +91,12 @@ public final class ClipDataHelper {
                     }
                 }
             } else {
-                res.add(typeUriList);
+                String type = context.getContentResolver().getType(item.getUri());
+                if (type != null) {
+                    res.add(type);
+                } else {
+                    res.add(typeUriList);
+                }
             }
         }
         return res.toArray(new String[0]);
@@ -136,6 +134,9 @@ public final class ClipDataHelper {
     byte[] getData(ClipData.Item item, String type, Context context) {
         Uri uri = item.getUri();
         if (uri == null) {
+            return null;
+        }
+        if (!SCHEME_CONTENT.equals(uri.getScheme())) {
             return null;
         }
         AssetFileDescriptor descriptor;
@@ -206,13 +207,13 @@ public final class ClipDataHelper {
                         descr = resolver.openTypedAssetFileDescriptor(uri, "text/*", null);
                     } catch (SecurityException e_) {
                         Log.w("ClipData", "Failure opening stream", e);
-                    } catch (FileNotFoundException | RuntimeException e_) {
+                    } catch (FileNotFoundException | RuntimeException ignored) {
                     }
                 }
                 if (descr != null) {
                     try {
                         stream = descr.createInputStream();
-                        reader = new InputStreamReader(stream, "UTF-8");
+                        reader = new InputStreamReader(stream, StandardCharsets.UTF_8);
 
                         // Got it...  copy the stream into a local string and return it.
                         final StringBuilder builder = new StringBuilder(128);
@@ -249,10 +250,12 @@ public final class ClipDataHelper {
         return "";
     }
 
-    static void closeQuietly(Closeable closeable) {
+    static void closeQuietly(@Nullable Closeable closeable) {
         try {
-            closeable.close();
-        } catch (IOException e) {
+            if (closeable != null) {
+                closeable.close();
+            }
+        } catch (IOException ignored) {
         }
     }
 }
