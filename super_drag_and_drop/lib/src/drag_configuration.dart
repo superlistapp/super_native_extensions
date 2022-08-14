@@ -13,7 +13,7 @@ class DragImage {
 
 class DragItem extends DataWriterItem {
   DragItem({
-    this.suggestedName,
+    super.suggestedName,
     this.liftImage,
     required this.image,
     this.localData,
@@ -26,7 +26,6 @@ class DragItem extends DataWriterItem {
           defaultTargetPlatform == TargetPlatform.windows ||
           defaultTargetPlatform == TargetPlatform.iOS);
 
-  final String? suggestedName;
   final DragImage? liftImage;
   final DragImage image;
   final Object? localData;

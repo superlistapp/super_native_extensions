@@ -19,9 +19,7 @@ extension DragItemsIntoRaw on List<DragItem> {
   Future<List<raw.DragItem>> intoRaw(double devicePixelRatio) async {
     final providers = <raw.DataProvider>[];
     for (final item in this) {
-      providers.add(await item.asDataProvider(
-        suggestedName: item.suggestedName,
-      ));
+      providers.add(await item.asDataProvider());
     }
     final handles = <raw.DataProviderHandle>[];
     for (final item in indexed()) {

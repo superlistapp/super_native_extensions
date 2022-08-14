@@ -15,9 +15,12 @@ import 'writer_data_provider.dart';
 
 /// Represents a single item in the clipboard. The item can have multiple
 /// renditions (each represented as entries in [EncodedData]).
-/// To get encoded data for values use [EncodableDataFormat.encode];
+/// To get encoded data for values use [DataFormat.encode] or
+/// [DataFormat.encodeLazy];
 class DataWriterItem {
-  void addData(FutureOr<EncodedData> data) {
+  DataWriterItem({this.suggestedName});
+
+  void add(FutureOr<EncodedData> data) {
     _data.add(data);
   }
 
@@ -55,6 +58,7 @@ class DataWriterItem {
   final _onRegistered = SimpleNotifier();
   final _onDisposed = SimpleNotifier();
   final _data = <FutureOr<EncodedData>>[];
+  final String? suggestedName;
 
   List<FutureOr<EncodedData>> get data => _data;
 }

@@ -4,9 +4,7 @@ import 'package:super_native_extensions/raw_clipboard.dart' as raw;
 import 'writer.dart';
 
 extension ClipboardWriterItemDataProvider on DataWriterItem {
-  Future<raw.DataProvider> asDataProvider({
-    String? suggestedName,
-  }) async {
+  Future<raw.DataProvider> asDataProvider() async {
     final representations = <raw.DataRepresentation>[];
     for (final data in this.data) {
       for (final representation in (await data).representations) {

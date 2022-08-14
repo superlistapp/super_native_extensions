@@ -13,12 +13,11 @@ abstract class DataReader {
   /// sorted according to priority.
   List<DataFormat> getFormats(List<DataFormat> allFormats);
 
-  /// Attempts to read value for given format. The format will also be used
-  /// to convert value.
+  /// Attempts to read value for given format.
   Future<T?> readValue<T extends Object>(DataFormat<T> format);
 
   /// Returns whether value for given format is being synthetized. On Windows
-  /// BMP images are accessible as PNG (converted on demand), same thing is
+  /// DIB images are accessible as PNG (converted on demand), same thing is
   /// done on macOS for TIFF images.
   bool isSynthetized(DataFormat format);
 

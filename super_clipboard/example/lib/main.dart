@@ -88,19 +88,19 @@ Future<Uint8List> createImageData(Color color) async {
 class _CopySection extends StatelessWidget {
   void copyText() async {
     final item = DataWriterItem();
-    item.addData(Format.html.encode('<b>This is a <em>HTML</en> value</b>.'));
-    item.addData(Format.plainText.encode('This is a plaintext value.'));
+    item.add(Format.html.encode('<b>This is a <em>HTML</en> value</b>.'));
+    item.add(Format.plainText.encode('This is a plaintext value.'));
     await ClipboardWriter.instance.write([item]);
   }
 
   void copyTextLazy(BuildContext context) async {
     final item = DataWriterItem();
-    item.addData(Format.html.encodeLazy(() {
+    item.add(Format.html.encodeLazy(() {
       ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Lazy rich text requested.')));
       return '<b>This is a <em>HTML</en> value</b> generated <u>on demand</u>.';
     }));
-    item.addData(Format.plainText.encodeLazy(() {
+    item.add(Format.plainText.encodeLazy(() {
       ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Lazy plain text requested.')));
       return 'This is a plaintext value generated on demand.';
@@ -110,14 +110,14 @@ class _CopySection extends StatelessWidget {
 
   void copyImage() async {
     final image = await createImageData(Colors.red);
-    final item = DataWriterItem();
-    item.addData(Format.imagePng.encode(image));
+    final item = DataWriterItem(suggestedName: 'RedCircle.png');
+    item.add(Format.imagePng.encode(image));
     await ClipboardWriter.instance.write([item]);
   }
 
   void copyImageLazy(BuildContext context) async {
-    final item = DataWriterItem();
-    item.addData(Format.imagePng.encodeLazy(() {
+    final item = DataWriterItem(suggestedName: 'BlueCircle.png');
+    item.add(Format.imagePng.encodeLazy(() {
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('Lazy image requested.')));
       return createImageData(Colors.blue);
@@ -127,13 +127,13 @@ class _CopySection extends StatelessWidget {
 
   void copyCustomData() async {
     final item = DataWriterItem();
-    item.addData(formatCustom.encode(Uint8List.fromList([1, 2, 3, 4])));
+    item.add(formatCustom.encode(Uint8List.fromList([1, 2, 3, 4])));
     await ClipboardWriter.instance.write([item]);
   }
 
   void copyCustomDataLazy(BuildContext context) async {
     final item = DataWriterItem();
-    item.addData(formatCustom.encodeLazy(() {
+    item.add(formatCustom.encodeLazy(() {
       ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Lazy custom data requested.')));
       return Uint8List.fromList([1, 2, 3, 4, 5, 6]);
@@ -143,7 +143,7 @@ class _CopySection extends StatelessWidget {
 
   void copyUri() async {
     final item = DataWriterItem();
-    item.addData(Format.uri.encode(
+    item.add(Format.uri.encode(
         NamedUri(Uri.parse('https://google.com'), name: 'Google home page')));
     await ClipboardWriter.instance.write([item]);
   }
