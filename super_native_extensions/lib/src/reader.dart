@@ -67,6 +67,10 @@ class DataReaderItem {
         .itemFormatIsSynthetized(_handle, format: format);
   }
 
+  /// When `true` the content can be received through [getVirtualFileReceiver].
+  /// On macOS and Windows if [isVirtual] is `true` the content can only be
+  /// received through [getVirtualFileReceiver] - [getDataForFormat] will return
+  /// `null`.
   Future<bool> isVirtual(String format) {
     return ReaderManager.instance.canGetVirtualFile(_handle, format: format);
   }
