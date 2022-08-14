@@ -192,20 +192,28 @@ Future<NamedUri?> macosDecodeNamedUri(
   if (value is String) {
     final uri = Uri.tryParse(value);
     if (uri != null) {
-      return NamedUri(uri, name: name is String ? name.trim() : null);
+      if (format == 'public.utf8-plain-text' && !uri.hasScheme) {
+        return null;
+      } else {
+        return NamedUri(uri, name: name is String ? name.trim() : null);
+      }
     }
   }
   return null;
 }
 
 Object? iosEncodeNamedUri(NamedUri uri, PlatformFormat format) {
-  return [
-    uri.uri.toString(),
-    '',
-    {
-      if (uri.name != null) 'title': uri.name,
-    }
-  ];
+  if (format == 'public.utf8-plain-text') {
+    return uri.uri.toString();
+  } else {
+    return [
+      uri.uri.toString(),
+      '',
+      {
+        if (uri.name != null) 'title': uri.name,
+      }
+    ];
+  }
 }
 
 Future<NamedUri?> iosDecodeNamedUri(
@@ -213,16 +221,20 @@ Future<NamedUri?> iosDecodeNamedUri(
   final Object? value = await provider(format);
   if (value is Uint8List) {
     final uri = Uri.tryParse(utf8.decode(value));
-    return uri != null ? NamedUri(uri) : null;
-  } else if (value is String) {
-    final uri = Uri.tryParse(value);
-    return uri != null ? NamedUri(uri) : null;
-  } else if (value is List &&
-      value.length == 3 &&
-      value[0] is String &&
-      value[2] is Map) {
+    if (uri != null) {
+      if (format == 'public.utf8-plain-text' && !uri.hasScheme) {
+        return null;
+      }
+      return NamedUri(uri);
+    } else {
+      return null;
+    }
+  } else if (value is List && value.isNotEmpty && value[0] is String) {
     final uri = Uri.tryParse(value[0]);
-    final name = value[2]['title'];
+    String? name;
+    if (value.length >= 3 && value[2] is String) {
+      name = value[2]['title'];
+    }
     if (uri != null) {
       return NamedUri(uri, name: name is String ? name : null);
     }
@@ -235,7 +247,13 @@ Future<NamedUri?> defaultDecodeNamedUri(
   Object? value = await fromSystemUtf8(provider, format);
   if (value is String) {
     final uri = Uri.tryParse(value);
-    return uri != null ? NamedUri(uri) : null;
+    if (uri != null) {
+      if (format == 'text/plain' && !uri.hasScheme) {
+        return null;
+      }
+      return NamedUri(uri);
+    }
+    return null;
   } else {
     return null;
   }

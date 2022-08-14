@@ -103,7 +103,7 @@ class Format {
 
   static const uri = SimpleDataFormat<NamedUri>(
     macos: SimplePlatformCodec(
-      decodingFormats: ['public.url'],
+      decodingFormats: ['public.url', 'public.utf8-plain-text'],
       encodingFormats: [
         'public.url',
         'public.url-name',
@@ -113,12 +113,12 @@ class Format {
       onEncode: macosEncodeNamedUri,
     ),
     ios: SimplePlatformCodec(
-      formats: ['public.url'],
+      formats: ['public.url', 'public.utf8-plain-text'],
       onDecode: iosDecodeNamedUri,
       onEncode: iosEncodeNamedUri,
     ),
     fallback: SimplePlatformCodec(
-      formats: ['text/uri-list'],
+      formats: ['text/uri-list', 'text/plain'],
       onDecode: defaultDecodeNamedUri,
       onEncode: defaultEncodeNamedUri,
     ),

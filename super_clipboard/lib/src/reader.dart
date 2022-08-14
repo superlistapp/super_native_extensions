@@ -65,9 +65,10 @@ class _ItemDataReader extends DataReader {
     final allFormats = List<DataFormat>.of(allFormats_);
     final res = <DataFormat>[];
     for (final f in formats) {
-      final format =
-          allFormats.firstWhereOrNull((element) => element.canDecode(f));
-      if (format != null) {
+      final decodable = allFormats
+          .where((element) => element.canDecode(f))
+          .toList(growable: false);
+      for (final format in decodable) {
         res.add(format);
         allFormats.remove(format);
       }

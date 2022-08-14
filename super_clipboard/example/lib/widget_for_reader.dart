@@ -16,8 +16,14 @@ Future<Widget> buildWidgetForReader(DataReader reader, int index) async {
 
   // Now await all futures
   final widgets = await Future.wait(futures);
-  final children =
-      widgets.where((element) => element != null).cast<Widget>().toList();
+  final children = widgets
+      .where((element) => element != null)
+      .cast<_RepresentationWidget>()
+      .toList(growable: true);
+
+  // remove duplicate widgets
+  final formats = <DataFormat>{};
+  children.retainWhere((element) => formats.add(element.format));
 
   List<String>? nativeFormats = await reader.rawReader?.getAvailableFormats();
 
@@ -150,6 +156,7 @@ class _UriWidget extends StatelessWidget {
 
 class _RepresentationWidget extends StatelessWidget {
   const _RepresentationWidget({
+    required this.format,
     required this.name,
     required this.synthetized,
     required this.content,
@@ -183,18 +190,20 @@ class _RepresentationWidget extends StatelessWidget {
     );
   }
 
+  final DataFormat format;
   final String name;
   final bool synthetized;
   final Widget content;
 }
 
-Future<Widget?> _widgetForImage(
+Future<_RepresentationWidget?> _widgetForImage(
     DataFormat<Uint8List> format, String name, DataReader reader) async {
   final image = await reader.readValue(format);
   if (image == null) {
     return null;
   } else {
     return _RepresentationWidget(
+      format: format,
       name: 'Image ($name)',
       synthetized: reader.isSynthetized(format),
       content: Container(
@@ -206,7 +215,8 @@ Future<Widget?> _widgetForImage(
   }
 }
 
-Future<Widget?> _widgetForFormat(DataFormat format, DataReader reader) async {
+Future<_RepresentationWidget?> _widgetForFormat(
+    DataFormat format, DataReader reader) async {
   switch (format) {
     case Format.plainText:
       final text = await reader.readValue(Format.plainText);
@@ -216,6 +226,7 @@ Future<Widget?> _widgetForFormat(DataFormat format, DataReader reader) async {
         // Sometimes macOS uses CR for line break;
         final sanitized = text.replaceAll(RegExp('\r[\n]?'), '\n');
         return _RepresentationWidget(
+          format: format,
           name: 'Plain Text',
           synthetized: reader.isSynthetized(Format.plainText),
           content: Text(sanitized),
@@ -227,6 +238,7 @@ Future<Widget?> _widgetForFormat(DataFormat format, DataReader reader) async {
         return null;
       } else {
         return _RepresentationWidget(
+          format: format,
           name: 'HTML Text',
           synthetized: reader.isSynthetized(Format.html),
           content: Text(html),
@@ -253,6 +265,7 @@ Future<Widget?> _widgetForFormat(DataFormat format, DataReader reader) async {
       final fileUri = await fileUriFuture;
       if (fileUri != null) {
         return _RepresentationWidget(
+          format: Format.fileUri,
           name: 'File URI',
           synthetized: reader.isSynthetized(Format.fileUri),
           content: Text(fileUri.toString()),
@@ -261,6 +274,7 @@ Future<Widget?> _widgetForFormat(DataFormat format, DataReader reader) async {
       final uri = await uriFuture;
       if (uri != null) {
         return _RepresentationWidget(
+          format: Format.uri,
           name: 'URI',
           synthetized: reader.isSynthetized(Format.uri),
           content: _UriWidget(uri: uri),
@@ -273,6 +287,7 @@ Future<Widget?> _widgetForFormat(DataFormat format, DataReader reader) async {
         return null;
       } else {
         return _RepresentationWidget(
+          format: format,
           name: 'Custom Data',
           synthetized: reader.isSynthetized(formatCustom),
           content: Text(data.toString()),
