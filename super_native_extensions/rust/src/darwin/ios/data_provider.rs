@@ -33,14 +33,14 @@ use crate::{
     },
     error::NativeExtensionsResult,
     log::OkLog,
-    platform_impl::platform::common::{from_nsstring, to_nserror, to_nsstring},
+    platform_impl::platform::common::{from_nsstring, to_nsdata, to_nserror, to_nsstring},
     util::Movable,
     value_promise::ValuePromiseResult,
 };
 
 use super::util::{
-    register_data_representation, register_file_representation, to_nsdata,
-    value_promise_res_to_nsdata, value_to_nsdata,
+    register_data_representation, register_file_representation, value_promise_res_to_nsdata,
+    value_to_nsdata,
 };
 
 /// DataSource state that may be accessed from multiple threads

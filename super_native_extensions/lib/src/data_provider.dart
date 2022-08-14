@@ -28,7 +28,7 @@ class DataProvider {
 abstract class DataRepresentation {
   static DataRepresentationSimple simple({
     required String format,
-    required Object data,
+    required Object? data,
   }) =>
       DataRepresentationSimple._(
         format: format,
@@ -37,7 +37,7 @@ abstract class DataRepresentation {
 
   static DataRepresentationLazy lazy({
     required String format,
-    required FutureOr<Object> Function() dataProvider,
+    required FutureOr<Object?> Function() dataProvider,
   }) =>
       DataRepresentationLazy._(
         format: format,
@@ -76,7 +76,7 @@ class DataRepresentationSimple extends DataRepresentation {
   /// List of platform-specific data formats.
   @override
   final String format;
-  final Object data;
+  final Object? data;
 }
 
 /// Single reprsentation of data source item. Useful when data is generated
@@ -97,7 +97,7 @@ class DataRepresentationLazy extends DataRepresentation {
   final int id;
   @override
   final String format;
-  final FutureOr<Object> Function() dataProvider;
+  final FutureOr<Object?> Function() dataProvider;
 }
 
 abstract class WriteProgress {

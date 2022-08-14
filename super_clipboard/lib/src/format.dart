@@ -16,6 +16,8 @@ typedef DataProvider<T> = FutureOr<T> Function();
 /// which maps to CF_UNICODETEXT (value of 13).
 typedef PlatformFormat = String;
 
+typedef PlatformDataProvider = Future<Object?> Function(PlatformFormat);
+
 /// Format for a virtual file. Provides platform formats for providing
 /// and receiving virtual files. However unlike [DataFormat] there is no
 /// codec as the files are received without modifications.
@@ -78,9 +80,9 @@ abstract class DataFormat<T extends Object> extends VirtualFileFormat {
     return decoder.decodingFormats.contains(format);
   }
 
-  FutureOr<T?> decode(PlatformFormat format, Object data) {
+  FutureOr<T?> decode(PlatformFormat format, PlatformDataProvider provider) {
     final decoder = codecForPlatform(currentPlatform);
-    return decoder.decode(data, format);
+    return decoder.decode(provider, format);
   }
 
   @override
@@ -107,7 +109,7 @@ abstract class PlatformCodec<T extends Object> {
 
   /// Encodes the data to platform representation. By default this
   /// is a simple passthrough function.
-  FutureOr<Object> encode(T value, PlatformFormat format) {
+  FutureOr<Object?> encode(T value, PlatformFormat format) {
     return value;
   }
 
@@ -117,7 +119,9 @@ abstract class PlatformCodec<T extends Object> {
   /// Returns `null` if decoding failed.
   //
   /// Default implementation simply attempts to tast to target format.
-  FutureOr<T?> decode(Object value, PlatformFormat format) {
+  FutureOr<T?> decode(
+      PlatformDataProvider dataProvider, PlatformFormat format) async {
+    final value = await dataProvider(format);
     return value is T ? value : null;
   }
 }

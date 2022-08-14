@@ -11,7 +11,6 @@ use std::{
     path::PathBuf,
     rc::{Rc, Weak},
     sync::{Arc, Mutex},
-    time::Instant,
 };
 
 use block::{Block, ConcreteBlock, RcBlock};

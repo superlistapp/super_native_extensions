@@ -62,7 +62,11 @@ class DataReaderItem {
     return ReaderManager.instance.getItemData(_handle, format: format);
   }
 
-  Future<String?> getsuggestedName() {
+  Future<bool> isSynthetized(String format) {
+    return ReaderManager.instance.isFormatSynthetized(_handle, format: format);
+  }
+
+  Future<String?> getSuggestedName() {
     return ReaderManager.instance.getItemSuggestedName(_handle);
   }
 

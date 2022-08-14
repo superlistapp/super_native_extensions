@@ -197,6 +197,14 @@ impl PlatformDataReader {
         }))
     }
 
+    pub fn item_format_is_synthetized(
+        &self,
+        _item: i64,
+        _format: &str,
+    ) -> NativeExtensionsResult<bool> {
+        Ok(false)
+    }
+
     pub async fn can_get_virtual_file_for_item(
         &self,
         _item: i64,

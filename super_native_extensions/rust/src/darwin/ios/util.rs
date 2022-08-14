@@ -16,7 +16,9 @@ use objc::{class, msg_send, rc::StrongPtr, sel, sel_impl};
 use crate::{
     api_model::{ImageData, Point, Rect, Size},
     drag_manager::DragSessionId,
-    platform_impl::platform::common::{cg_image_from_image_data, to_nsstring},
+    platform_impl::platform::common::{
+        cg_image_from_image_data, from_nsstring, to_nsdata, to_nsstring,
+    },
     util::Movable,
     value_coerce::{CoerceToData, StringFormat},
     value_promise::ValuePromiseResult,
@@ -99,14 +101,6 @@ pub fn value_promise_res_to_nsdata(value: &ValuePromiseResult) -> StrongPtr {
     match value {
         ValuePromiseResult::Ok { value } => value_to_nsdata(value),
         ValuePromiseResult::Cancelled => unsafe { StrongPtr::new(std::ptr::null_mut()) },
-    }
-}
-
-pub fn to_nsdata(data: &[u8]) -> StrongPtr {
-    unsafe {
-        let d: id = msg_send![class!(NSData), alloc];
-        let d: id = msg_send![d, initWithBytes:data.as_ptr() length:data.len()];
-        StrongPtr::new(d)
     }
 }
 

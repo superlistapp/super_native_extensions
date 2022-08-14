@@ -29,10 +29,16 @@ class _DropItem extends DropItem {
   Object? get localData => _item.localData;
 
   @override
-  DataReader? get dataReader =>
-      _item.readerItem != null ? DataReader.forItem(_item.readerItem!) : null;
+  DataReader? get dataReader => _reader;
+
+  Future<void> _maybeInitReader() async {
+    if (_reader == null && _item.readerItem != null) {
+      _reader = await DataReader.forItem(_item.readerItem!);
+    }
+  }
 
   raw.DropItem _item;
+  DataReader? _reader;
 }
 
 class _DropSession extends DropSession {
@@ -45,7 +51,7 @@ class _DropSession extends DropSession {
   @override
   Set<raw.DropOperation> get allowedOperations => _allowedOperations;
 
-  void updateItems(List<raw.DropItem> items) {
+  Future<void> updateItems(List<raw.DropItem> items) async {
     final current = List<_DropItem>.from(_items);
     _items.clear();
 
@@ -58,6 +64,10 @@ class _DropSession extends DropSession {
       } else {
         _items.add(_DropItem._(item));
       }
+    }
+
+    for (final item in _items) {
+      await item._maybeInitReader();
     }
   }
 
@@ -219,10 +229,10 @@ class _DropContextDelegate extends raw.DropContextDelegate {
   }
 
   @override
-  Future<raw.DropOperation> onDropUpdate(raw.DropEvent event) {
+  Future<raw.DropOperation> onDropUpdate(raw.DropEvent event) async {
     final session =
         _sessions.putIfAbsent(event.sessionId, () => _DropSession());
-    session.updateItems(event.items);
+    await session.updateItems(event.items);
     return session.update(
       position: event.locationInView,
       allowedOperations: Set.from(event.allowedOperations),
@@ -239,7 +249,7 @@ class _DropContextDelegate extends raw.DropContextDelegate {
   @override
   Future<void> onPerformDrop(raw.DropEvent event) async {
     final session = _sessions[event.sessionId];
-    session?.updateItems(event.items);
+    await session?.updateItems(event.items);
     await session?.performDrop(
       location: event.locationInView,
       acceptedOperation: event.acceptedOperation!,

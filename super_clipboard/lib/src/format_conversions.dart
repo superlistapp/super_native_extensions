@@ -1,25 +1,34 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'format.dart';
+import 'package:super_clipboard/super_clipboard.dart';
 
 class FormatException implements Exception {
   final String message;
   FormatException(this.message);
 }
 
-String fromSystemUtf8(Object value, PlatformFormat format) {
-  if (value is String) {
+Future<String?> fromSystemUtf8(
+    PlatformDataProvider dataProvider, PlatformFormat format) async {
+  final value = await dataProvider(format);
+  if (value == null) {
+    return null;
+  } else if (value is String) {
     return value;
   } else if (value is List<int>) {
     return utf8.decode(value);
+  } else if (value is Map && value.isEmpty) {
+    // MS office weirdness when copying empty text with images
+    return '';
   } else {
     throw FormatException('Unsupported value type: ${value.runtimeType}');
   }
 }
 
-String fromSystemUtf16NullTerminated(Object value, PlatformFormat format) {
-  if (value is String) {
+String? _fromSystemUtf16NullTerminated(Object? value) {
+  if (value == null) {
+    return null;
+  } else if (value is String) {
     return value;
   } else if (value is TypedData) {
     var codeUnits = value.buffer
@@ -31,6 +40,12 @@ String fromSystemUtf16NullTerminated(Object value, PlatformFormat format) {
   } else {
     throw FormatException('Unsupported value type: ${value.runtimeType}');
   }
+}
+
+Future<String?> fromSystemUtf16NullTerminated(
+    PlatformDataProvider dataProvider, PlatformFormat format) async {
+  final value = await dataProvider(format);
+  return _fromSystemUtf16NullTerminated(value);
 }
 
 // https://docs.microsoft.com/en-us/windows/win32/dataxchg/html-clipboard-format
@@ -95,7 +110,12 @@ Object windowsHtmlToSystem(String text, PlatformFormat format) {
   }
 }
 
-String windowsHtmlFromSystem(Object value, PlatformFormat format) {
+Future<String?> windowsHtmlFromSystem(
+    PlatformDataProvider dataProvider, PlatformFormat format) async {
+  final value = await dataProvider(format);
+  if (value == null) {
+    return null;
+  }
   if (format == cfHtml) {
     if (value is List<int>) {
       String decoded = utf8.decode(value);
@@ -119,13 +139,15 @@ String windowsHtmlFromSystem(Object value, PlatformFormat format) {
     }
     throw FormatException('Unsupported value type: ${value.runtimeType}');
   } else {
-    return fromSystemUtf16NullTerminated(value, format);
+    return _fromSystemUtf16NullTerminated(value);
   }
 }
 
 String fileUriToString(Uri uri, PlatformFormat format) => uri.toString();
 
-Uri? fileUriFromString(Object uri, PlatformFormat format) {
+Future<Uri?> fileUriFromString(
+    PlatformDataProvider dataProvider, PlatformFormat format) async {
+  final uri = await fromSystemUtf8(dataProvider, format);
   if (uri is String) {
     final res = Uri.tryParse(uri);
     if (res?.isScheme('file') == true) {
@@ -144,4 +166,81 @@ Uri? fileUriFromWindowsPath(Object path, PlatformFormat format) {
   } else {
     return null;
   }
+}
+
+Object? macosEncodeNamedUri(NamedUri uri, PlatformFormat format) {
+  switch (format) {
+    case 'public.url':
+    case 'public.utf8-plain-text':
+      return uri.uri.toString();
+    case 'public.url-name':
+      return uri.name;
+    default:
+      return null;
+  }
+}
+
+Future<NamedUri?> macosDecodeNamedUri(
+    PlatformDataProvider provider, PlatformFormat format) async {
+  // request both futures at the same time
+  final futures = await Future.wait([
+    fromSystemUtf8(provider, 'public.url-name'),
+    fromSystemUtf8(provider, format)
+  ]);
+  Object? name = futures[0];
+  Object? value = futures[1];
+  if (value is String) {
+    final uri = Uri.tryParse(value);
+    if (uri != null) {
+      return NamedUri(uri, name: name is String ? name.trim() : null);
+    }
+  }
+  return null;
+}
+
+Object? iosEncodeNamedUri(NamedUri uri, PlatformFormat format) {
+  return [
+    uri.uri.toString(),
+    '',
+    {
+      if (uri.name != null) 'title': uri.name,
+    }
+  ];
+}
+
+Future<NamedUri?> iosDecodeNamedUri(
+    PlatformDataProvider provider, PlatformFormat format) async {
+  final Object? value = await provider(format);
+  if (value is Uint8List) {
+    final uri = Uri.tryParse(utf8.decode(value));
+    return uri != null ? NamedUri(uri) : null;
+  } else if (value is String) {
+    final uri = Uri.tryParse(value);
+    return uri != null ? NamedUri(uri) : null;
+  } else if (value is List &&
+      value.length == 3 &&
+      value[0] is String &&
+      value[2] is Map) {
+    final uri = Uri.tryParse(value[0]);
+    final name = value[2]['title'];
+    if (uri != null) {
+      return NamedUri(uri, name: name is String ? name : null);
+    }
+  }
+  return null;
+}
+
+Future<NamedUri?> defaultDecodeNamedUri(
+    PlatformDataProvider provider, PlatformFormat format) async {
+  Object? value = await fromSystemUtf8(provider, format);
+  if (value is String) {
+    final uri = Uri.tryParse(value);
+    return uri != null ? NamedUri(uri) : null;
+  } else {
+    return null;
+  }
+}
+
+Object defaultEncodeNamedUri(NamedUri uri, PlatformFormat format) {
+  return uri.uri.toString();
 }

@@ -70,6 +70,18 @@ class ReaderManagerImpl extends ReaderManager {
   }
 
   @override
+  Future<bool> isFormatSynthetized(
+    DataReaderItemHandle handle, {
+    required String format,
+  }) {
+    return _channel.invokeMethod("itemFormatIsSynthetized", {
+      "itemHandle": handle._itemHandle,
+      "readerHandle": handle._readerHandle,
+      "format": format,
+    });
+  }
+
+  @override
   Future<String?> getItemSuggestedName(DataReaderItemHandle handle) async {
     final name = await _channel.invokeMethod("getItemSuggestedName", {
       "itemHandle": handle._itemHandle,

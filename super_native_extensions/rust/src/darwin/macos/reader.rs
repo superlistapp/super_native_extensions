@@ -4,6 +4,7 @@ use std::{
     path::PathBuf,
     rc::{Rc, Weak},
     sync::Arc,
+    thread,
 };
 
 use block::ConcreteBlock;
@@ -13,7 +14,9 @@ use cocoa::{
     foundation::{NSArray, NSUInteger, NSURL},
 };
 use nativeshell_core::{
-    platform::value::ValueObjcConversion, util::FutureCompleter, Context, Value,
+    platform::value::ValueObjcConversion,
+    util::{Capsule, FutureCompleter},
+    Context, Value,
 };
 use objc::{
     class, msg_send,
@@ -25,7 +28,7 @@ use crate::{
     error::{NativeExtensionsError, NativeExtensionsResult},
     log::OkLog,
     platform_impl::platform::common::{
-        from_nsstring, nserror_description, path_from_url, to_nsstring,
+        from_nsstring, nserror_description, path_from_url, to_nsdata, to_nsstring,
     },
     reader_manager::ReadProgress,
 };
@@ -59,6 +62,7 @@ impl PlatformDataReader {
                         res.push(s);
                     }
                 }
+                // First virtual files
                 let receiver = self.get_promise_receiver_for_item(item)?;
                 if let Some(receiver) = receiver {
                     let receiver_types: id = msg_send![*receiver, fileTypes];
@@ -69,15 +73,47 @@ impl PlatformDataReader {
                         );
                     }
                 }
+                // Second regular items
                 let types = NSPasteboardItem::types(pasteboard_item);
                 for i in 0..NSArray::count(types) {
-                    push(&mut res, from_nsstring(NSArray::objectAtIndex(types, i)));
+                    let format = from_nsstring(NSArray::objectAtIndex(types, i));
+                    push(&mut res, format.clone());
+                    // Put synthetized PNG right after tiff
+                    if format == "public.tiff" && self.needs_to_synthetize_png(item) {
+                        res.push("public.png".to_string());
+                    }
                 }
                 Ok(res)
             } else {
                 Ok(Vec::new())
             }
         })
+    }
+
+    fn needs_to_synthetize_png(&self, item: i64) -> bool {
+        autoreleasepool(|| unsafe {
+            let items: id = msg_send![*self.pasteboard, pasteboardItems];
+            let mut has_tiff = false;
+            let mut has_png = false;
+            if item < NSArray::count(items) as i64 {
+                let item = NSArray::objectAtIndex(items, item as NSUInteger);
+                let types = NSPasteboardItem::types(item);
+                for i in 0..NSArray::count(types) {
+                    let format = from_nsstring(NSArray::objectAtIndex(types, i));
+                    has_tiff |= format == "public.tiff";
+                    has_png |= format == "public.png";
+                }
+            }
+            has_tiff && !has_png
+        })
+    }
+
+    pub fn item_format_is_synthetized(
+        &self,
+        item: i64,
+        format: &str,
+    ) -> NativeExtensionsResult<bool> {
+        Ok(format == "public.png" && self.needs_to_synthetize_png(item))
     }
 
     fn item_has_virtual_file(&self, item: i64) -> bool {
@@ -151,14 +187,35 @@ impl PlatformDataReader {
             }
         }
         let data = self
-            .get_data_for_item(item, "public.file-url".to_owned(), None)
+            .do_get_data_for_item(item, "public.file-url".to_owned())
             .await?;
         if let Value::String(url) = data {
             let url = unsafe { NSURL::URLWithString_(nil, *to_nsstring(&url)) };
             let path = path_from_url(url);
             return Ok(path.file_name().map(|f| f.to_string_lossy().to_string()));
         }
+
         Ok(None)
+    }
+
+    pub async fn convert_to_png(&self, data: Vec<u8>) -> NativeExtensionsResult<Value> {
+        let (future, completer) = FutureCompleter::new();
+        let mut completer = Capsule::new(completer);
+        let sender = Context::get().run_loop().new_sender();
+        thread::spawn(move || {
+            autoreleasepool(|| unsafe {
+                let data = to_nsdata(&data);
+                let rep: id = msg_send![class!(NSBitmapImageRep), imageRepWithData:*data];
+                let type_png: NSUInteger = 4;
+                let png: id = msg_send![rep, representationUsingType:type_png properties:nil];
+                let res = Value::from_objc(png).ok_log().unwrap_or_default();
+                sender.send(move || {
+                    let completer = completer.take().unwrap();
+                    completer.complete(Ok(res));
+                });
+            });
+        });
+        future.await
     }
 
     pub async fn get_data_for_item(
@@ -166,6 +223,24 @@ impl PlatformDataReader {
         item: i64,
         data_type: String,
         _progress: Option<Arc<ReadProgress>>,
+    ) -> NativeExtensionsResult<Value> {
+        if data_type == "public.png" && self.needs_to_synthetize_png(item) {
+            let tiff = self
+                .do_get_data_for_item(item, "public.tiff".to_owned())
+                .await?;
+            match tiff {
+                Value::U8List(data) => self.convert_to_png(data).await,
+                other => Ok(other),
+            }
+        } else {
+            self.do_get_data_for_item(item, data_type).await
+        }
+    }
+
+    async fn do_get_data_for_item(
+        &self,
+        item: i64,
+        data_type: String,
     ) -> NativeExtensionsResult<Value> {
         let (future, completer) = FutureCompleter::new();
         let pasteboard = self.pasteboard.clone();

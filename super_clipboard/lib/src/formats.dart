@@ -15,6 +15,19 @@ const cfInternalPrefix = 'NativeShell_InternalWindowsFormat_';
 class Format {
   Format._();
 
+  static const standardFormats = [
+    plainText,
+    html,
+    fileUri,
+    uri,
+    imageJpeg,
+    imagePng,
+    imageSvg,
+    imageGif,
+    imageWebP,
+    imageTiff,
+  ];
+
   static const plainText = SimpleDataFormat<String>(
     ios: SimplePlatformCodec(
       formats: ['public.utf8-plain-text'],
@@ -88,6 +101,29 @@ class Format {
     ),
   );
 
+  static const uri = SimpleDataFormat<NamedUri>(
+    macos: SimplePlatformCodec(
+      decodingFormats: ['public.url'],
+      encodingFormats: [
+        'public.url',
+        'public.url-name',
+        'public.utf8-plain-text'
+      ],
+      onDecode: macosDecodeNamedUri,
+      onEncode: macosEncodeNamedUri,
+    ),
+    ios: SimplePlatformCodec(
+      formats: ['public.url'],
+      onDecode: iosDecodeNamedUri,
+      onEncode: iosEncodeNamedUri,
+    ),
+    fallback: SimplePlatformCodec(
+      formats: ['text/uri-list'],
+      onDecode: defaultDecodeNamedUri,
+      onEncode: defaultEncodeNamedUri,
+    ),
+  );
+
   static const imageJpeg = SimpleDataFormat<Uint8List>(
     macos: SimplePlatformCodec(formats: ['public.jpeg']),
     ios: SimplePlatformCodec(formats: ['public.jpeg']),
@@ -109,6 +145,9 @@ class Format {
   /// The conversion in both ways is done on-demand, only when needed.
   /// The provided DIBV5 variant preserves transparency, though in general
   /// support for DIBV5 in Windows applications varies.
+  ///
+  /// On MacOS, TIFF image in pasteboard will be exposed as PNG unless there
+  /// is another PNG already present in the clipboard.
   static const imagePng = SimpleDataFormat<Uint8List>(
     macos: SimplePlatformCodec(formats: ['public.png']),
     ios: SimplePlatformCodec(formats: ['public.png']),
@@ -142,12 +181,21 @@ class Format {
   );
 }
 
+class NamedUri {
+  NamedUri(this.uri, {this.name});
+
+  final Uri uri;
+
+  /// Supported on macOS and iOS, ignored on other platforms.
+  String? name;
+}
+
 class CustomDataFormat<T extends Object> extends DataFormat<T> {
   final String applicationId;
   final FutureOr<T?> Function(Object value, String platformType)? onDecode;
   final FutureOr<Object> Function(T value, String platformType)? onEncode;
 
-  CustomDataFormat({
+  const CustomDataFormat({
     required this.applicationId,
     this.onDecode,
     this.onEncode,

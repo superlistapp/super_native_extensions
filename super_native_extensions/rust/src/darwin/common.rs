@@ -47,6 +47,14 @@ pub unsafe fn from_nsstring(ns_string: id) -> String {
     std::str::from_utf8(bytes).unwrap().into()
 }
 
+pub fn to_nsdata(data: &[u8]) -> StrongPtr {
+    unsafe {
+        let d: id = msg_send![class!(NSData), alloc];
+        let d: id = msg_send![d, initWithBytes:data.as_ptr() length:data.len()];
+        StrongPtr::new(d)
+    }
+}
+
 pub fn to_nserror(domain: &str, code: NSInteger, message: &str) -> StrongPtr {
     unsafe {
         let user_info = NSDictionary::dictionaryWithObject_forKey_(

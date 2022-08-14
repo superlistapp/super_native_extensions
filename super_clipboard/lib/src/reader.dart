@@ -5,34 +5,65 @@ export 'package:super_native_extensions/raw_clipboard.dart'
     show VirtualFileReceiver, Pair;
 
 abstract class DataReader {
-  Future<bool> hasValue(DataFormat f) async {
-    return (await getFormats([f])).isNotEmpty;
+  bool hasValue(DataFormat format) {
+    return getFormats([format]).isNotEmpty;
   }
 
   /// Returns subset of [allFormats] that this reader can provide,
   /// sorted according to priority.
-  Future<List<DataFormat>> getFormats(List<DataFormat> allFormats);
+  List<DataFormat> getFormats(List<DataFormat> allFormats);
 
+  /// Attempts to read value for given format. The format will also be used
+  /// to convert value.
   Future<T?> readValue<T extends Object>(DataFormat<T> format);
 
-  Future<String?> suggestedName();
+  /// Returns whether value for given format is being synthetized. On Windows
+  /// BMP images are accessible as PNG (transparently converted on demand),
+  /// same thing is done on macOS for TIFF images.
+  bool isSynthetized(DataFormat format);
+
+  /// Returns suggested file name for the contents (if available).
+  String? get suggestedName;
 
   Future<VirtualFileReceiver?> getVirtualFileReceiver({
     required VirtualFileFormat format,
   });
 
-  static DataReader forItem(raw.DataReaderItem item) {
-    return _ItemDataReader(item);
-  }
+  /// If this reader is backed by raw DataReaderItem returns it.
+  raw.DataReaderItem? get rawReader => null;
+
+  static Future<DataReader> forItem(raw.DataReaderItem item) async =>
+      _ItemDataReader.fromItem(item);
 }
 
 class _ItemDataReader extends DataReader {
-  _ItemDataReader(this.item);
+  _ItemDataReader._({
+    required this.item,
+    required this.formats,
+    required this.synthetizedFormats,
+    required this.suggestedName,
+  });
+
+  static Future<DataReader> fromItem(raw.DataReaderItem item) async {
+    final allFormats = await item.getAvailableFormats();
+    final isSynthetized =
+        await Future.wait(allFormats.map((f) => item.isSynthetized(f)));
+
+    final synthetizedFormats = allFormats
+        .whereIndexed((index, _) => isSynthetized[index])
+        .toList(growable: false);
+
+    return _ItemDataReader._(
+      item: item,
+      formats: allFormats,
+      synthetizedFormats: synthetizedFormats,
+      suggestedName: await item.getSuggestedName(),
+    );
+  }
 
   @override
-  Future<List<DataFormat>> getFormats(List<DataFormat> allFormats_) async {
+  List<DataFormat> getFormats(List<DataFormat> allFormats_) {
     final allFormats = List<DataFormat>.of(allFormats_);
-    final formats = await item.getAvailableFormats();
     final res = <DataFormat>[];
     for (final f in formats) {
       final format =
@@ -47,20 +78,25 @@ class _ItemDataReader extends DataReader {
 
   @override
   Future<T?> readValue<T extends Object>(DataFormat<T> format) async {
-    final formats = await item.getAvailableFormats();
     for (final f in formats) {
       if (format.canDecode(f)) {
-        final data = await item.getDataForFormat(f).first;
-        if (data != null) {
-          return format.decode(f, data);
+        Future<Object?> provider(PlatformFormat format) async {
+          return await item.getDataForFormat(format).first;
         }
+
+        return format.decode(f, provider);
       }
     }
     return null;
   }
 
   @override
-  Future<String?> suggestedName() => item.getsuggestedName();
+  bool isSynthetized(DataFormat format) {
+    return format.receiverFormats.any((f) => synthetizedFormats.contains(f));
+  }
+
+  @override
+  final String? suggestedName;
 
   @override
   Future<VirtualFileReceiver?> getVirtualFileReceiver(
@@ -74,24 +110,32 @@ class _ItemDataReader extends DataReader {
     return null;
   }
 
+  @override
+  raw.DataReaderItem? get rawReader => item;
+
   final raw.DataReaderItem item;
+  final List<PlatformFormat> formats;
+  final List<PlatformFormat> synthetizedFormats;
 }
 
-class ClipboardReader implements DataReader {
-  ClipboardReader._(this.reader);
+class ClipboardReader extends DataReader {
+  ClipboardReader._(this.items);
 
-  static Future<ClipboardReader> readClipboard() async => ClipboardReader._(
-      await raw.ClipboardReader.instance.newClipboardReader());
-
-  Future<List<DataReader>> getItems() async => (await reader.getItems())
-      .map((e) => _ItemDataReader(e))
-      .toList(growable: false);
+  static Future<ClipboardReader> readClipboard() async {
+    final reader = await raw.ClipboardReader.instance.newClipboardReader();
+    final readerItems = await reader.getItems();
+    final items = <DataReader>[];
+    for (final item in readerItems) {
+      items.add(await DataReader.forItem(item));
+    }
+    return ClipboardReader._(items);
+  }
 
   @override
-  Future<List<DataFormat>> getFormats(List<DataFormat> allFormats) async {
+  List<DataFormat> getFormats(List<DataFormat> allFormats) {
     final res = <DataFormat>[];
-    for (final item in await getItems()) {
-      final itemFormats = await item.getFormats(allFormats);
+    for (final item in items) {
+      final itemFormats = item.getFormats(allFormats);
       for (final format in itemFormats) {
         if (!res.contains(format)) {
           res.add(format);
@@ -102,9 +146,9 @@ class ClipboardReader implements DataReader {
   }
 
   @override
-  Future<bool> hasValue(DataFormat format) async {
-    for (final item in await getItems()) {
-      if (await item.hasValue(format)) {
+  bool hasValue(DataFormat format) {
+    for (final item in items) {
+      if (item.hasValue(format)) {
         return true;
       }
     }
@@ -113,13 +157,23 @@ class ClipboardReader implements DataReader {
 
   @override
   Future<T?> readValue<T extends Object>(DataFormat<T> format) async {
-    for (final item in await getItems()) {
+    for (final item in items) {
       final value = await item.readValue(format);
       if (value != null) {
         return value;
       }
     }
     return null;
+  }
+
+  @override
+  bool isSynthetized(DataFormat<Object> format) {
+    for (final item in items) {
+      if (item.isSynthetized(format)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   @override
@@ -130,7 +184,7 @@ class ClipboardReader implements DataReader {
   }
 
   @override
-  Future<String?> suggestedName() async => null;
+  String? get suggestedName => null;
 
-  final raw.DataReader reader;
+  final List<DataReader> items;
 }

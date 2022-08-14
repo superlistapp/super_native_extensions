@@ -103,6 +103,14 @@ class ReaderManagerImpl extends ReaderManager {
   }
 
   @override
+  Future<bool> isFormatSynthetized(
+    DataReaderItemHandle handle, {
+    required String format,
+  }) async {
+    return false;
+  }
+
+  @override
   Future<List<DataReaderItemHandle>> getItems(DataReaderHandle reader) async {
     final handle = reader as DataReaderHandleImpl;
     return handle.items.map((e) => e as DataReaderItemHandle).toList();
