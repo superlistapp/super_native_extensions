@@ -99,9 +99,11 @@ class _ItemDataReader extends DataReader {
   final String? suggestedName;
 
   @override
-  Future<VirtualFileReceiver?> getVirtualFileReceiver(
-      {required VirtualFileFormat format}) async {
-    for (final format in format.receiverFormats) {
+  Future<VirtualFileReceiver?> getVirtualFileReceiver({
+    VirtualFileFormat? format,
+  }) async {
+    final formats = format?.receiverFormats ?? await item.getAvailableFormats();
+    for (final format in formats) {
       final receiver = await item.getVirtualFileReceiver(format: format);
       if (receiver != null) {
         return receiver;
