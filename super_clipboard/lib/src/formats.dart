@@ -129,6 +129,14 @@ class Format {
       onDecode: windowsDecodeNamedUri,
       onEncode: defaultEncodeNamedUri,
     ),
+    web: SimplePlatformCodec(
+      encodingFormats: [
+        'text/plain' // writing uri-list is not supported on web
+      ],
+      decodingFormats: ['text/uri-list', 'text/plain'],
+      onDecode: defaultDecodeNamedUri,
+      onEncode: defaultEncodeNamedUri,
+    ),
     fallback: SimplePlatformCodec(
       formats: ['text/uri-list', 'text/plain'],
       onDecode: defaultDecodeNamedUri,
