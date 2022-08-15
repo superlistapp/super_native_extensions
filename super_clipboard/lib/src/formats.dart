@@ -13,6 +13,7 @@ import 'format_conversions.dart';
 const cfInternalPrefix = 'NativeShell_CF_';
 const cfUnicodeText = '${cfInternalPrefix}13';
 const cfHdrop = '${cfInternalPrefix}15';
+const cfTiff = '${cfInternalPrefix}6';
 
 class Format {
   Format._();
@@ -41,7 +42,6 @@ class Format {
     ),
     windows: SimplePlatformCodec(
       formats: [cfUnicodeText],
-      receiverFormats: ['text/plain'], // used for virtual files
       onDecode: fromSystemUtf16NullTerminated,
     ),
     // other platforms
@@ -70,7 +70,6 @@ class Format {
         'text/html',
         cfHtml,
       ],
-      receiverFormats: ['text/html'],
     ),
     fallback: SimplePlatformCodec<String>(
       formats: ['text/html'],
@@ -140,10 +139,7 @@ class Format {
   static const imageJpeg = SimpleDataFormat<Uint8List>(
     macos: SimplePlatformCodec(formats: ['public.jpeg']),
     ios: SimplePlatformCodec(formats: ['public.jpeg']),
-    windows: SimplePlatformCodec(
-      formats: ['JFIF'],
-      receiverFormats: ['image/jpeg'],
-    ),
+    windows: SimplePlatformCodec(formats: ['JFIF']),
     fallback: SimplePlatformCodec(formats: ['image/jpeg']),
   );
 
@@ -167,26 +163,21 @@ class Format {
   static const imagePng = SimpleDataFormat<Uint8List>(
     macos: SimplePlatformCodec(formats: ['public.png']),
     ios: SimplePlatformCodec(formats: ['public.png']),
-    windows: SimplePlatformCodec(
-      formats: ['PNG'],
-      receiverFormats: ['image/png'],
-    ),
+    windows: SimplePlatformCodec(formats: ['PNG']),
     fallback: SimplePlatformCodec(formats: ['image/png']),
   );
 
   static const imageGif = SimpleDataFormat<Uint8List>(
     macos: SimplePlatformCodec(formats: ['public.gif']),
     ios: SimplePlatformCodec(formats: ['public.gif']),
-    windows: SimplePlatformCodec(
-      formats: ['GIF'],
-      receiverFormats: ['image/gif'],
-    ),
+    windows: SimplePlatformCodec(formats: ['GIF']),
     fallback: SimplePlatformCodec(formats: ['image/gif']),
   );
 
   static const imageTiff = SimpleDataFormat<Uint8List>(
     macos: SimplePlatformCodec(formats: ['public.tiff']),
     ios: SimplePlatformCodec(formats: ['public.tiff']),
+    windows: SimplePlatformCodec(formats: [cfTiff]),
     fallback: SimplePlatformCodec(formats: ['image/tiff']),
   );
 

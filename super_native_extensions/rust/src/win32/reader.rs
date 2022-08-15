@@ -31,7 +31,7 @@ use windows::Win32::{
         DataExchange::RegisterClipboardFormatW,
         Memory::{GlobalLock, GlobalSize, GlobalUnlock},
         Ole::{OleGetClipboard, ReleaseStgMedium},
-        SystemServices::{CF_DIB, CF_DIBV5, CF_HDROP},
+        SystemServices::{CF_DIB, CF_DIBV5, CF_HDROP, CF_UNICODETEXT, CF_TIFF},
     },
     UI::Shell::{
         SHCreateMemStream, CFSTR_FILECONTENTS, CFSTR_FILEDESCRIPTOR, DROPFILES, FILEDESCRIPTORW,
@@ -328,6 +328,18 @@ impl PlatformDataReader {
             )
         };
 
+        // Map mime types to known windows clipboard format
+        fn mime_to_windows(fmt: String) -> String {
+            match fmt.as_str() {
+                "text/plain" => format_to_string(CF_UNICODETEXT.0),
+                "image/png" => "PNG".to_owned(),
+                "image/jpeg" => "JFIF".to_string(),
+                "image/gif" => "GIF".to_string(),
+                "iamge/tiff" => format_to_string(CF_TIFF.0),
+                _ => fmt,
+            }
+        }
+
         let res: Vec<_> = files
             .iter()
             .map(|f| {
@@ -347,6 +359,7 @@ impl PlatformDataReader {
                             ext.unwrap_or_default().to_string_lossy()
                         )
                     });
+                let format = mime_to_windows(format);
                 FileDescriptor { name, format }
             })
             .collect();
