@@ -22,19 +22,88 @@ class MyApp extends StatelessWidget {
         snackBarTheme: const SnackBarThemeData(
           behavior: SnackBarBehavior.floating,
         ),
-        // This is the theme of your application.
-        //
-        // Try running your application with "flutter run". You'll see the
-        // application has a blue toolbar. Then, without quitting the app, try
-        // changing the primarySwatch below to Colors.green and then invoke
-        // "hot reload" (press "r" in the console where you ran "flutter run",
-        // or simply save your changes to "hot reload" in a Flutter IDE).
-        // Notice that the counter didn't reset back to zero; the application
-        // is not restarted.
+        outlinedButtonTheme: OutlinedButtonThemeData(
+          style: OutlinedButton.styleFrom(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 20, vertical: 18)),
+        ),
         primarySwatch: Colors.blue,
-        useMaterial3: true,
+        useMaterial3: false,
       ),
       home: const MyHomePage(title: 'SuperClipboard Example'),
+    );
+  }
+}
+
+class TabLayout extends StatefulWidget {
+  const TabLayout({
+    super.key,
+    required this.copy,
+    required this.paste,
+    required this.tabController,
+  });
+
+  @override
+  State<TabLayout> createState() => _TabLayoutState();
+
+  final TabController tabController;
+  final Widget copy;
+  final Widget paste;
+}
+
+class _TabLayoutState extends State<TabLayout> {
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Container(
+          color: Colors.blueGrey.shade50,
+          child: TabBar(
+            controller: widget.tabController,
+            labelColor: Colors.black,
+            tabs: const [
+              Tab(text: 'Copy'),
+              Tab(text: 'Clipboard Viewer'),
+            ],
+          ),
+        ),
+        Expanded(
+          child: TabBarView(
+            controller: widget.tabController,
+            children: [
+              widget.copy,
+              widget.paste,
+            ],
+          ),
+        )
+      ],
+    );
+  }
+}
+
+class SideBySideLayout extends StatelessWidget {
+  const SideBySideLayout({
+    super.key,
+    required this.copy,
+    required this.paste,
+  });
+
+  final Widget copy;
+  final Widget paste;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        copy,
+        VerticalDivider(
+          color: Colors.blueGrey.shade100,
+          thickness: 1,
+          width: 1,
+        ),
+        Expanded(child: paste),
+      ],
     );
   }
 }
@@ -52,7 +121,25 @@ const formatCustom = CustomDataFormat<Uint8List>(
   applicationId: "com.superlist.clipboard.Example.CustomType",
 );
 
-class _MyHomePageState extends State<MyHomePage> {
+class _MyHomePageState extends State<MyHomePage>
+    with SingleTickerProviderStateMixin {
+  final _copyKey = GlobalKey();
+  final _pasteKey = GlobalKey<_PasteSectionState>();
+
+  late final TabController _tabController;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+    _tabController.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -61,13 +148,21 @@ class _MyHomePageState extends State<MyHomePage> {
       ),
       body: Center(
         child: LayoutBuilder(builder: (context, constraints) {
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _CopySection(),
-              Expanded(child: _PasteSection()),
-            ],
-          );
+          final copySection = _CopySection(key: _copyKey);
+          final pasteSection = _PasteSection(key: _pasteKey);
+          if (constraints.maxWidth < 450) {
+            return TabLayout(
+              copy: copySection,
+              paste: pasteSection,
+              tabController: _tabController,
+            );
+          } else {
+            _tabController.index = 1;
+            return SideBySideLayout(
+              copy: copySection,
+              paste: pasteSection,
+            );
+          }
         }),
       ),
     );
@@ -86,6 +181,8 @@ Future<Uint8List> createImageData(Color color) async {
 }
 
 class _CopySection extends StatefulWidget {
+  const _CopySection({Key? key}) : super(key: key);
+
   @override
   State<_CopySection> createState() => _CopySectionState();
 }
@@ -160,31 +257,49 @@ class _CopySectionState extends State<_CopySection> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        TextButton(onPressed: copyText, child: const Text('Copy Text')),
-        TextButton(
-            onPressed: copyTextLazy, child: const Text('Copy Text (Lazy)')),
-        TextButton(onPressed: copyImage, child: const Text('Copy Image')),
-        TextButton(
-            onPressed: copyImageLazy, child: const Text('Copy Image (Lazy)')),
-        TextButton(
-            onPressed: copyCustomData, child: const Text('Copy Custom Data')),
-        TextButton(
-            onPressed: copyCustomDataLazy,
-            child: const Text('Copy Custom (Lazy)')),
-        TextButton(onPressed: copyUri, child: const Text('Copy Uri')),
-      ],
+    return Center(
+      child: IntrinsicWidth(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              OutlinedButton(
+                onPressed: copyText,
+                child: const Text('Copy Text'),
+              ),
+              OutlinedButton(
+                  onPressed: copyTextLazy,
+                  child: const Text('Copy Text (Lazy)')),
+              OutlinedButton(
+                  onPressed: copyImage, child: const Text('Copy Image')),
+              OutlinedButton(
+                  onPressed: copyImageLazy,
+                  child: const Text('Copy Image (Lazy)')),
+              OutlinedButton(
+                  onPressed: copyCustomData,
+                  child: const Text('Copy Custom Data')),
+              OutlinedButton(
+                  onPressed: copyCustomDataLazy,
+                  child: const Text('Copy Custom (Lazy)')),
+              OutlinedButton(onPressed: copyUri, child: const Text('Copy URI')),
+            ].intersperse(const SizedBox(height: 10)).toList(growable: false),
+          ),
+        ),
+      ),
     );
   }
 }
 
 class _PasteSection extends StatefulWidget {
+  const _PasteSection({Key? key}) : super(key: key);
+
   @override
   State createState() => _PasteSectionState();
 }
 
-class _PasteSectionState extends State<_PasteSection> {
+class _PasteSectionState extends State<_PasteSection>
+    with AutomaticKeepAliveClientMixin {
   var contentWidgets = <Widget>[];
 
   void _paste() async {
@@ -206,16 +321,23 @@ class _PasteSectionState extends State<_PasteSection> {
   }
 
   @override
+  bool get wantKeepAlive => true;
+
+  @override
   Widget build(BuildContext context) {
+    super.build(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.max,
       children: [
-        TextButton(onPressed: _paste, child: const Text('Paste')),
+        Padding(
+          padding: const EdgeInsets.all(16).copyWith(bottom: 0),
+          child: OutlinedButton(onPressed: _paste, child: const Text('Paste')),
+        ),
         Expanded(
           child: SelectionArea(
             child: ListView(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(16),
               children: contentWidgets,
             ),
           ),
