@@ -26,12 +26,19 @@ Future<Widget> buildWidgetForReader(DataReader reader, int index) async {
   final formats = <DataFormat>{};
   children.retainWhere((element) => formats.add(element.format));
 
+  // build list of native formats with virtua/synthetized flags
   List<String>? nativeFormats = await reader.rawReader?.getAvailableFormats();
   if (nativeFormats != null) {
     final virtual = await Future.wait(
         nativeFormats.map((e) => reader.rawReader!.isVirtual(e)));
+    final synthetized = await Future.wait(
+        nativeFormats.map((e) => reader.rawReader!.isSynthetized(e)));
     nativeFormats = nativeFormats.mapIndexed((i, e) {
-      return virtual[i] ? '$e (virtual)' : e;
+      final attributes = [
+        if (virtual[i]) 'virtual',
+        if (synthetized[i]) 'synthetized',
+      ].join(', ');
+      return attributes.isNotEmpty ? '$e ($attributes)' : e;
     }).toList(growable: false);
   }
 

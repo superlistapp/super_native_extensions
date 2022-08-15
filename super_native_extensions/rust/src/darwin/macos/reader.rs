@@ -175,6 +175,14 @@ impl PlatformDataReader {
         self.get_formats_for_item_sync(item)
     }
 
+    fn value_to_string(value: Value) -> Option<String> {
+        match value {
+            Value::String(string) => Some(string),
+            Value::U8List(list) => Some(String::from_utf8_lossy(&list).to_string()),
+            _ => None,
+        }
+    }
+
     pub async fn get_suggested_name_for_item(
         &self,
         item: i64,
@@ -191,10 +199,22 @@ impl PlatformDataReader {
         let data = self
             .do_get_data_for_item(item, "public.file-url".to_owned())
             .await?;
-        if let Value::String(url) = data {
+        if let Some(url) = Self::value_to_string(data) {
             let url = unsafe { NSURL::URLWithString_(nil, *to_nsstring(&url)) };
             let path = path_from_url(url);
             return Ok(path.file_name().map(|f| f.to_string_lossy().to_string()));
+        }
+
+        let data = self
+            .do_get_data_for_item(item, "public.url".to_owned())
+            .await?;
+        if let Some(url) = Self::value_to_string(data) {
+            println!("{}", url);
+            let url = unsafe { NSURL::URLWithString_(nil, *to_nsstring(&url)) };
+            let name: id = unsafe { msg_send![url, lastPathComponent] };
+            if !name.is_null() {
+                return Ok(Some(unsafe { from_nsstring(name) }));
+            }
         }
 
         Ok(None)

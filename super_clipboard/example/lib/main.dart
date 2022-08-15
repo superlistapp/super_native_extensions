@@ -85,7 +85,21 @@ Future<Uint8List> createImageData(Color color) async {
   return data!.buffer.asUint8List();
 }
 
-class _CopySection extends StatelessWidget {
+class _CopySection extends StatefulWidget {
+  @override
+  State<_CopySection> createState() => _CopySectionState();
+}
+
+class _CopySectionState extends State<_CopySection> {
+  void showMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        duration: const Duration(milliseconds: 1500),
+      ),
+    );
+  }
+
   void copyText() async {
     final item = DataWriterItem();
     item.add(Format.html.encode('<b>This is a <em>HTML</en> value</b>.'));
@@ -93,16 +107,14 @@ class _CopySection extends StatelessWidget {
     await ClipboardWriter.instance.write([item]);
   }
 
-  void copyTextLazy(BuildContext context) async {
+  void copyTextLazy() async {
     final item = DataWriterItem();
     item.add(Format.html.encodeLazy(() {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Lazy rich text requested.')));
+      showMessage('Lazy rich text requested.');
       return '<b>This is a <em>HTML</en> value</b> generated <u>on demand</u>.';
     }));
     item.add(Format.plainText.encodeLazy(() {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Lazy plain text requested.')));
+      showMessage('Lazy plain text requested.');
       return 'This is a plaintext value generated on demand.';
     }));
     await ClipboardWriter.instance.write([item]);
@@ -115,11 +127,10 @@ class _CopySection extends StatelessWidget {
     await ClipboardWriter.instance.write([item]);
   }
 
-  void copyImageLazy(BuildContext context) async {
+  void copyImageLazy() async {
     final item = DataWriterItem(suggestedName: 'BlueCircle.png');
     item.add(Format.imagePng.encodeLazy(() {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Lazy image requested.')));
+      showMessage('Lazy image requested.');
       return createImageData(Colors.blue);
     }));
     await ClipboardWriter.instance.write([item]);
@@ -131,11 +142,10 @@ class _CopySection extends StatelessWidget {
     await ClipboardWriter.instance.write([item]);
   }
 
-  void copyCustomDataLazy(BuildContext context) async {
+  void copyCustomDataLazy() async {
     final item = DataWriterItem();
-    item.add(formatCustom.encodeLazy(() {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Lazy custom data requested.')));
+    item.add(formatCustom.encodeLazy(() async {
+      showMessage('Lazy custom data requested.');
       return Uint8List.fromList([1, 2, 3, 4, 5, 6]);
     }));
     await ClipboardWriter.instance.write([item]);
@@ -154,16 +164,14 @@ class _CopySection extends StatelessWidget {
       children: [
         TextButton(onPressed: copyText, child: const Text('Copy Text')),
         TextButton(
-            onPressed: () => copyTextLazy(context),
-            child: const Text('Copy Text (Lazy)')),
+            onPressed: copyTextLazy, child: const Text('Copy Text (Lazy)')),
         TextButton(onPressed: copyImage, child: const Text('Copy Image')),
         TextButton(
-            onPressed: () => copyImageLazy(context),
-            child: const Text('Copy Image (Lazy)')),
+            onPressed: copyImageLazy, child: const Text('Copy Image (Lazy)')),
         TextButton(
             onPressed: copyCustomData, child: const Text('Copy Custom Data')),
         TextButton(
-            onPressed: () => copyCustomDataLazy(context),
+            onPressed: copyCustomDataLazy,
             child: const Text('Copy Custom (Lazy)')),
         TextButton(onPressed: copyUri, child: const Text('Copy Uri')),
       ],
