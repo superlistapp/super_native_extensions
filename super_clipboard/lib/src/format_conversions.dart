@@ -1,7 +1,8 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:super_clipboard/super_clipboard.dart';
+import 'format.dart';
+import 'standard_formats.dart';
 
 class FormatException implements Exception {
   final String message;

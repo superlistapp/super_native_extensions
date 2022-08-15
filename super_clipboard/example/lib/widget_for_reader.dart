@@ -247,15 +247,15 @@ Future<_RepresentationWidget?> _widgetForFormat(
           content: Text(sanitized),
         );
       }
-    case Format.html:
-      final html = await reader.readValue(Format.html);
+    case Format.htmlText:
+      final html = await reader.readValue(Format.htmlText);
       if (html == null) {
         return null;
       } else {
         return _RepresentationWidget(
           format: format,
           name: 'HTML Text',
-          synthetized: reader.isSynthetized(Format.html),
+          synthetized: reader.isSynthetized(Format.htmlText),
           content: Text(html),
         );
       }

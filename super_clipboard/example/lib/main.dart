@@ -199,14 +199,14 @@ class _CopySectionState extends State<_CopySection> {
 
   void copyText() async {
     final item = DataWriterItem();
-    item.add(Format.html.encode('<b>This is a <em>HTML</en> value</b>.'));
+    item.add(Format.htmlText.encode('<b>This is a <em>HTML</en> value</b>.'));
     item.add(Format.plainText.encode('This is a plaintext value.'));
     await ClipboardWriter.instance.write([item]);
   }
 
   void copyTextLazy() async {
     final item = DataWriterItem();
-    item.add(Format.html.encodeLazy(() {
+    item.add(Format.htmlText.encodeLazy(() {
       showMessage('Lazy rich text requested.');
       return '<b>This is a <em>HTML</en> value</b> generated <u>on demand</u>.';
     }));

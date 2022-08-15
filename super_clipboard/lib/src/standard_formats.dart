@@ -1,15 +1,13 @@
-// These types will be converted to CF constants with number
-// appended to the prefix
-
 import 'dart:async';
 import 'dart:typed_data';
-
-import 'package:super_clipboard/src/platform.dart';
 
 import 'format.dart';
 import 'formats_base.dart';
 import 'format_conversions.dart';
+import 'platform.dart';
 
+// These types will be converted to CF constants with number
+// appended to the prefix
 const cfInternalPrefix = 'NativeShell_CF_';
 const cfUnicodeText = '${cfInternalPrefix}13';
 const cfHdrop = '${cfInternalPrefix}15';
@@ -20,7 +18,7 @@ class Format {
 
   static const standardFormats = [
     plainText,
-    html,
+    htmlText,
     fileUri,
     uri,
     imageJpeg,
@@ -54,7 +52,7 @@ class Format {
   /// Key for rich text in form of html snippet. Make sure to include `formatPlainText`
   /// version in clipboard as well, otherwise setting the content may fail on some
   /// platforms (i.e. Android).
-  static const html = SimpleDataFormat<String>(
+  static const htmlText = SimpleDataFormat<String>(
     ios: SimplePlatformCodec<String>(
       formats: ['public.html'],
       onDecode: fromSystemUtf8,

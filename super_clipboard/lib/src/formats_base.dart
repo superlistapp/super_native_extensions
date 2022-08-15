@@ -1,7 +1,6 @@
 import 'dart:async';
 
-import 'package:super_clipboard/src/platform.dart';
-
+import 'platform.dart';
 import 'format.dart';
 
 class SimplePlatformCodec<T extends Object> extends PlatformCodec<T> {
