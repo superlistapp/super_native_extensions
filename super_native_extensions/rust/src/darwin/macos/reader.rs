@@ -209,7 +209,6 @@ impl PlatformDataReader {
             .do_get_data_for_item(item, "public.url".to_owned())
             .await?;
         if let Some(url) = Self::value_to_string(data) {
-            println!("{}", url);
             let url = unsafe { NSURL::URLWithString_(nil, *to_nsstring(&url)) };
             let name: id = unsafe { msg_send![url, lastPathComponent] };
             if !name.is_null() {

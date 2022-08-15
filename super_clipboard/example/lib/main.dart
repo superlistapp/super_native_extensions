@@ -140,6 +140,15 @@ class _MyHomePageState extends State<MyHomePage>
     _tabController.dispose();
   }
 
+  void showMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        duration: const Duration(milliseconds: 1500),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -148,7 +157,10 @@ class _MyHomePageState extends State<MyHomePage>
       ),
       body: Center(
         child: LayoutBuilder(builder: (context, constraints) {
-          final copySection = _CopySection(key: _copyKey);
+          final copySection = _CopySection(
+            key: _copyKey,
+            onShowMessage: showMessage,
+          );
           final pasteSection = _PasteSection(key: _pasteKey);
           if (constraints.maxWidth < 450) {
             return TabLayout(
@@ -181,22 +193,18 @@ Future<Uint8List> createImageData(Color color) async {
 }
 
 class _CopySection extends StatefulWidget {
-  const _CopySection({Key? key}) : super(key: key);
+  const _CopySection({
+    Key? key,
+    required this.onShowMessage,
+  }) : super(key: key);
+
+  final void Function(String) onShowMessage;
 
   @override
   State<_CopySection> createState() => _CopySectionState();
 }
 
 class _CopySectionState extends State<_CopySection> {
-  void showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        duration: const Duration(milliseconds: 1500),
-      ),
-    );
-  }
-
   void copyText() async {
     final item = DataWriterItem();
     item.add(Format.htmlText.encode('<b>This is a <em>HTML</en> value</b>.'));
@@ -205,6 +213,7 @@ class _CopySectionState extends State<_CopySection> {
   }
 
   void copyTextLazy() async {
+    final showMessage = widget.onShowMessage;
     final item = DataWriterItem();
     item.add(Format.htmlText.encodeLazy(() {
       showMessage('Lazy rich text requested.');
@@ -225,6 +234,7 @@ class _CopySectionState extends State<_CopySection> {
   }
 
   void copyImageLazy() async {
+    final showMessage = widget.onShowMessage;
     final item = DataWriterItem(suggestedName: 'BlueCircle.png');
     item.add(Format.imagePng.encodeLazy(() {
       showMessage('Lazy image requested.');
@@ -240,6 +250,7 @@ class _CopySectionState extends State<_CopySection> {
   }
 
   void copyCustomDataLazy() async {
+    final showMessage = widget.onShowMessage;
     final item = DataWriterItem();
     item.add(formatCustom.encodeLazy(() async {
       showMessage('Lazy custom data requested.');
@@ -261,29 +272,32 @@ class _CopySectionState extends State<_CopySection> {
       child: IntrinsicWidth(
         child: Padding(
           padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[
-              OutlinedButton(
-                onPressed: copyText,
-                child: const Text('Copy Text'),
-              ),
-              OutlinedButton(
-                  onPressed: copyTextLazy,
-                  child: const Text('Copy Text (Lazy)')),
-              OutlinedButton(
-                  onPressed: copyImage, child: const Text('Copy Image')),
-              OutlinedButton(
-                  onPressed: copyImageLazy,
-                  child: const Text('Copy Image (Lazy)')),
-              OutlinedButton(
-                  onPressed: copyCustomData,
-                  child: const Text('Copy Custom Data')),
-              OutlinedButton(
-                  onPressed: copyCustomDataLazy,
-                  child: const Text('Copy Custom (Lazy)')),
-              OutlinedButton(onPressed: copyUri, child: const Text('Copy URI')),
-            ].intersperse(const SizedBox(height: 10)).toList(growable: false),
+          child: FocusTraversalGroup(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                OutlinedButton(
+                  onPressed: copyText,
+                  child: const Text('Copy Text'),
+                ),
+                OutlinedButton(
+                    onPressed: copyTextLazy,
+                    child: const Text('Copy Text (Lazy)')),
+                OutlinedButton(
+                    onPressed: copyImage, child: const Text('Copy Image')),
+                OutlinedButton(
+                    onPressed: copyImageLazy,
+                    child: const Text('Copy Image (Lazy)')),
+                OutlinedButton(
+                    onPressed: copyCustomData,
+                    child: const Text('Copy Custom Data')),
+                OutlinedButton(
+                    onPressed: copyCustomDataLazy,
+                    child: const Text('Copy Custom (Lazy)')),
+                OutlinedButton(
+                    onPressed: copyUri, child: const Text('Copy URI')),
+              ].intersperse(const SizedBox(height: 10)).toList(growable: false),
+            ),
           ),
         ),
       ),
@@ -336,6 +350,7 @@ class _PasteSectionState extends State<_PasteSection>
         ),
         Expanded(
           child: SelectionArea(
+            focusNode: FocusNode()..canRequestFocus = false,
             child: ListView(
               padding: const EdgeInsets.all(16),
               children: contentWidgets,
