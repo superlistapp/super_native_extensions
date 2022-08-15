@@ -16,9 +16,9 @@ Future<String?> fromSystemUtf8(
   } else if (value is String) {
     return value;
   } else if (value is List<int>) {
-    return utf8.decode(value);
+    return utf8.decode(value, allowMalformed: true);
   } else if (value is Map && value.isEmpty) {
-    // MS office weirdness when copying empty text with images
+    // MS office on macOS weirdness when copying empty text with images
     return '';
   } else {
     throw FormatException('Unsupported value type: ${value.runtimeType}');
@@ -118,7 +118,7 @@ Future<String?> windowsHtmlFromSystem(
   }
   if (format == cfHtml) {
     if (value is List<int>) {
-      String decoded = utf8.decode(value);
+      String decoded = utf8.decode(value, allowMalformed: true);
       final lines = const LineSplitter().convert(decoded);
       const startFragmentPrefix = 'StartFragment:';
       const endFragmentPrefix = 'EndFragment:';
@@ -132,7 +132,10 @@ Future<String?> windowsHtmlFromSystem(
           endFragment = int.parse(line.substring(endFragmentPrefix.length));
         }
         if (startFragment != -1 && endFragment != -1) {
-          return utf8.decode(value.sublist(startFragment, endFragment));
+          return utf8.decode(
+            value.sublist(startFragment, endFragment),
+            allowMalformed: true,
+          );
         }
       }
       throw FormatException('Malformed CFHTML');
@@ -222,7 +225,7 @@ Future<NamedUri?> iosDecodeNamedUri(
     PlatformDataProvider provider, PlatformFormat format) async {
   final Object? value = await provider(format);
   if (value is Uint8List) {
-    final uri = Uri.tryParse(utf8.decode(value));
+    final uri = Uri.tryParse(utf8.decode(value, allowMalformed: true));
     if (uri != null) {
       if (format == 'public.utf8-plain-text' && !uri.hasScheme) {
         return null;
@@ -246,10 +249,20 @@ Future<NamedUri?> iosDecodeNamedUri(
 
 Future<NamedUri?> windowsDecodeNamedUri(
     PlatformDataProvider provider, PlatformFormat format) async {
-  final value = await fromSystemUtf16NullTerminated(provider, format);
+  String? value;
+  if (format == 'UniformResourceLocator') {
+    // It is really ANSI but we try to decode as UTF8
+    value = await fromSystemUtf8(provider, format);
+  } else {
+    value = await fromSystemUtf16NullTerminated(provider, format);
+  }
   if (value is String) {
     final uri = Uri.tryParse(value);
-    if (uri != null && uri.hasScheme) {
+    if (uri != null) {
+      // If we're parsing plain text insist on URL with scheme
+      if (format == cfUnicodeText && !uri.hasScheme) {
+        return null;
+      }
       return NamedUri(uri);
     }
   }

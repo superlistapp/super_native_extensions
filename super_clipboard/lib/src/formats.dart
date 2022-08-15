@@ -10,7 +10,9 @@ import 'format.dart';
 import 'formats_base.dart';
 import 'format_conversions.dart';
 
-const cfInternalPrefix = 'NativeShell_InternalWindowsFormat_';
+const cfInternalPrefix = 'NativeShell_CF_';
+const cfUnicodeText = '${cfInternalPrefix}13';
+const cfHdrop = '${cfInternalPrefix}15';
 
 class Format {
   Format._();
@@ -38,7 +40,7 @@ class Format {
       onDecode: fromSystemUtf8,
     ),
     windows: SimplePlatformCodec(
-      formats: ['${cfInternalPrefix}13'], // CF_UNICODETEXT
+      formats: [cfUnicodeText],
       receiverFormats: ['text/plain'], // used for virtual files
       onDecode: fromSystemUtf16NullTerminated,
     ),
@@ -88,7 +90,7 @@ class Format {
       onEncode: fileUriToString,
     ),
     windows: SimplePlatformCodec<Uri>(
-      formats: ['${cfInternalPrefix}15'], // CF_HDROP
+      formats: [cfHdrop],
       onDecode: fileUriFromWindowsPath,
       onEncode: fileUriToWindowsPath,
     ),
@@ -116,7 +118,15 @@ class Format {
       onEncode: iosEncodeNamedUri,
     ),
     windows: SimplePlatformCodec(
-      formats: ['${cfInternalPrefix}13'], // CF_UNICODETEXT
+      decodingFormats: [
+        'UniformResourceLocatorW',
+        'UniformResourceLocator',
+        cfUnicodeText,
+      ],
+      encodingFormats: [
+        'UniformResourceLocatorW',
+        '${cfInternalPrefix}13'
+      ], // CF_UNICODETEXT
       onDecode: windowsDecodeNamedUri,
       onEncode: defaultEncodeNamedUri,
     ),

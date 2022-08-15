@@ -27,7 +27,7 @@ use crate::{
     error::{NativeExtensionsError, NativeExtensionsResult},
 };
 
-const INTERNAL_PREFIX: &str = "NativeShell_InternalWindowsFormat_";
+const INTERNAL_PREFIX: &str = "NativeShell_CF_";
 
 pub fn format_to_string(format: u32) -> String {
     let mut buf: [_; 1024] = [0u16; 1024];

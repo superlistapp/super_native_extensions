@@ -12,8 +12,8 @@ typedef DataProvider<T> = FutureOr<T> Function();
 
 /// Platform specific name for data format. For example value for plain text
 /// for macOS and iOS would be 'public.utf8-plain-text', for android, Linux
-/// and web 'text/plain' and for windows 'NativeShell_InternalWindowsFormat_13',
-/// which maps to CF_UNICODETEXT (value of 13).
+/// and web 'text/plain' and for windows 'NativeShell_CF_13',  which maps
+/// to CF_UNICODETEXT (value of 13).
 typedef PlatformFormat = String;
 
 typedef PlatformDataProvider = Future<Object?> Function(PlatformFormat);
