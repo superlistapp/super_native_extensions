@@ -175,6 +175,7 @@ impl PlatformDataReader {
     }
 
     pub fn new_clipboard_reader() -> NativeExtensionsResult<Rc<Self>> {
+        unsafe { gtk::set_initialized() };
         let display = Display::default()
             .ok_or_else(|| NativeExtensionsError::OtherError("Display not found".into()))?;
         let clipboard = Clipboard::default(&display)

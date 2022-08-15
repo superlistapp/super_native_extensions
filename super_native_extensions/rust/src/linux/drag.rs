@@ -129,6 +129,7 @@ impl PlatformDragContext {
         view_handle: i64,
         delegate: Weak<dyn PlatformDragContextDelegate>,
     ) -> Self {
+        unsafe { gtk::set_initialized() };
         let view: Widget = unsafe { from_glib_none(view_handle as *mut GtkWidget) };
 
         let weak = WeakRef::new();

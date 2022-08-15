@@ -1,4 +1,6 @@
 use std::{
+    cell::RefCell,
+    collections::HashMap,
     rc::{Rc, Weak},
     sync::Arc,
 };
@@ -9,7 +11,7 @@ use gtk::{Clipboard, SelectionData, TargetList};
 use nativeshell_core::{util::Late, Context, IsolateId};
 
 use crate::{
-    api_model::{DataProvider, DataRepresentation},
+    api_model::{DataProvider, DataProviderValueId, DataRepresentation},
     data_provider_manager::{DataProviderHandle, PlatformDataProviderDelegate},
     error::{NativeExtensionsError, NativeExtensionsResult},
     log::OkLog,
@@ -64,6 +66,7 @@ struct ProviderEntry {
 
 pub struct DataObject {
     providers: Vec<ProviderEntry>,
+    cache: RefCell<HashMap<DataProviderValueId, Option<Vec<u8>>>>,
 }
 
 impl DataObject {
@@ -76,6 +79,7 @@ impl DataObject {
                     _handle: p.1,
                 })
                 .collect(),
+            cache: RefCell::new(HashMap::new()),
         })
     }
 
@@ -102,13 +106,18 @@ impl DataObject {
                 }
                 DataRepresentation::Lazy { format, id } => {
                     if format == ty {
+                        if let Some(cached) = self.cache.borrow().get(id).cloned() {
+                            return cached;
+                        }
                         if let Some(delegate) = item.delegate.upgrade() {
                             let promise = delegate.get_lazy_data(item.isolate_id, *id, None);
                             loop {
                                 if let Some(result) = promise.try_take() {
                                     match result {
                                         crate::value_promise::ValuePromiseResult::Ok { value } => {
-                                            return value.coerce_to_data(StringFormat::Utf8);
+                                            let data = value.coerce_to_data(StringFormat::Utf8);
+                                            self.cache.borrow_mut().insert(*id, data.clone());
+                                            return data;
                                         }
                                         crate::value_promise::ValuePromiseResult::Cancelled => {
                                             return None;
@@ -155,6 +164,7 @@ impl DataObject {
     }
 
     pub fn write_to_clipboard(self: &Rc<Self>) -> NativeExtensionsResult<()> {
+        unsafe { gtk::set_initialized() };
         let list = self.create_target_list();
         let targets = list.get_target_entries();
         let display = Display::default()

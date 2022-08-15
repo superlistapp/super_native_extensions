@@ -214,7 +214,7 @@ class _RepresentationWidget extends StatelessWidget {
 Future<_RepresentationWidget?> _widgetForImage(
     DataFormat<Uint8List> format, String name, DataReader reader) async {
   final image = await reader.readValue(format);
-  if (image == null) {
+  if (image == null || image.isEmpty /* Tiff on Firefox/Linux */) {
     return null;
   } else {
     return _RepresentationWidget(
