@@ -1,5 +1,5 @@
 use std::{
-    cell::RefCell,
+    cell::{Cell, RefCell},
     collections::HashMap,
     fs::File,
     io::Write,
@@ -75,6 +75,10 @@ pub struct PlatformDataProvider {
     data: DataProvider,
 }
 
+thread_local! {
+    static WAITING_FOR_PASTEBOARD_DATA: Cell<bool> = Cell::new(false);
+}
+
 impl PlatformDataProvider {
     pub fn new(
         delegate: Weak<dyn PlatformDataProviderDelegate>,
@@ -87,6 +91,14 @@ impl PlatformDataProvider {
             isolate_id,
             weak_self: Late::new(),
         }
+    }
+
+    pub fn set_waiting_for_pasteboard_data(waiting: bool) {
+        WAITING_FOR_PASTEBOARD_DATA.with(|f| f.set(waiting));
+    }
+
+    pub fn is_waiting_for_pasteboard_data() -> bool {
+        WAITING_FOR_PASTEBOARD_DATA.with(|f| f.get())
     }
 
     pub fn assign_weak_self(&self, weak_self: Weak<Self>) {
@@ -257,10 +269,14 @@ impl ItemState {
                                                 }
                                             }
                                         }
+                                        PlatformDataProvider::set_waiting_for_pasteboard_data(true);
                                         Context::get()
                                             .run_loop()
                                             .platform_run_loop
                                             .poll_once(&mut poll_session);
+                                        PlatformDataProvider::set_waiting_for_pasteboard_data(
+                                            false,
+                                        );
                                     }
                                 }
                             }

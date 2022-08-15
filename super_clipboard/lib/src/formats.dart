@@ -88,9 +88,7 @@ class Format {
       onEncode: fileUriToString,
     ),
     windows: SimplePlatformCodec<Uri>(
-      formats: [
-        '${cfInternalPrefix}15' // CF_HDROP
-      ],
+      formats: ['${cfInternalPrefix}15'], // CF_HDROP
       onDecode: fileUriFromWindowsPath,
       onEncode: fileUriToWindowsPath,
     ),

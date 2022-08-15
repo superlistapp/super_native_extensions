@@ -31,12 +31,15 @@ class DataReaderHandleImpl {
 class DataReaderItemHandleImpl {
   DataReaderItemHandleImpl._({
     required int itemHandle,
-    required int readerHandle,
+    required DataReaderHandleImpl reader,
   })  : _itemHandle = itemHandle,
-        _readerHandle = readerHandle;
+        _reader = reader;
 
   final int _itemHandle;
-  final int _readerHandle;
+  int get _readerHandle => _reader._handle;
+
+  // keep reader alive otherwise finalizable handle may dispose it
+  final DataReaderHandleImpl _reader;
 }
 
 class ReaderManagerImpl extends ReaderManager {
@@ -56,7 +59,9 @@ class ReaderManagerImpl extends ReaderManager {
         await _channel.invokeMethod("getItems", reader._handle) as List<int>;
     return handles
         .map((handle) => DataReaderItemHandle._(
-            itemHandle: handle, readerHandle: reader._handle))
+              itemHandle: handle,
+              reader: reader,
+            ))
         .toList(growable: false);
   }
 
@@ -75,18 +80,6 @@ class ReaderManagerImpl extends ReaderManager {
     required String format,
   }) {
     return _channel.invokeMethod("itemFormatIsSynthetized", {
-      "itemHandle": handle._itemHandle,
-      "readerHandle": handle._readerHandle,
-      "format": format,
-    });
-  }
-
-  @override
-  Future<bool> itemFormatIsVirtual(
-    DataReaderItemHandle handle, {
-    required String format,
-  }) {
-    return _channel.invokeMethod("itemFormatIsVirtual", {
       "itemHandle": handle._itemHandle,
       "readerHandle": handle._readerHandle,
       "format": format,

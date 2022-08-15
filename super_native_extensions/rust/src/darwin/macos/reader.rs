@@ -33,6 +33,8 @@ use crate::{
     reader_manager::ReadProgress,
 };
 
+use super::PlatformDataProvider;
+
 pub struct PlatformDataReader {
     pasteboard: StrongPtr,
     promise_receivers: RefCell<Vec<Option<StrongPtr>>>,
@@ -237,18 +239,27 @@ impl PlatformDataReader {
         }
     }
 
-    async fn do_get_data_for_item(
-        &self,
+    fn schedule_do_get_data_for_item(
         item: i64,
+        pasteboard: StrongPtr,
         data_type: String,
-    ) -> NativeExtensionsResult<Value> {
-        let (future, completer) = FutureCompleter::new();
-        let pasteboard = self.pasteboard.clone();
-        // Retrieving data may require call back to Flutter and nested run loop so don't
-        // block current dispatch
+        completer: FutureCompleter<Value>,
+    ) {
         Context::get()
             .run_loop()
             .schedule_next(move || {
+                if PlatformDataProvider::is_waiting_for_pasteboard_data() {
+                    // We're currently running nested run loop in which pasteboard is waiting
+                    // for data. Trying to get data from pasteboard at this stage may lead to
+                    // deadlock.
+                    Self::schedule_do_get_data_for_item(
+                        item,
+                        pasteboard.clone(),
+                        data_type,
+                        completer,
+                    );
+                    return;
+                }
                 let data = autoreleasepool(|| unsafe {
                     let items: id = msg_send![*pasteboard, pasteboardItems];
                     if item < NSArray::count(items) as i64 {
@@ -269,6 +280,19 @@ impl PlatformDataReader {
                 completer.complete(data)
             })
             .detach();
+    }
+
+    async fn do_get_data_for_item(
+        &self,
+        item: i64,
+        data_type: String,
+    ) -> NativeExtensionsResult<Value> {
+        let (future, completer) = FutureCompleter::new();
+        let pasteboard = self.pasteboard.clone();
+        // Retrieving data may require call back to Flutter and nested run loop so don't
+        // block current dispatch
+        Self::schedule_do_get_data_for_item(item, pasteboard.clone(), data_type, completer);
+
         Ok(future.await)
     }
 
