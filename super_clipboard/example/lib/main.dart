@@ -1,6 +1,7 @@
 import 'dart:ui' as ui;
 import 'dart:typed_data';
 
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:super_clipboard/super_clipboard.dart';
 
@@ -319,18 +320,16 @@ class _PasteSectionState extends State<_PasteSection>
   void _paste() async {
     final reader = await ClipboardReader.readClipboard();
 
-    final widgets = <Widget>[];
-
-    int index = 0;
-    for (final readerItem in reader.items) {
-      if (widgets.isNotEmpty) {
-        widgets.add(const SizedBox(height: 10));
-      }
-      widgets.add(await buildWidgetForReader(readerItem, index++));
-    }
+    final widgets = await Future.wait(
+      reader.items.mapIndexed(
+        (index, element) => buildWidgetForReader(element, index),
+      ),
+    );
 
     setState(() {
-      contentWidgets = widgets;
+      contentWidgets = widgets
+          .intersperse(const SizedBox(height: 10))
+          .toList(growable: false);
     });
   }
 
