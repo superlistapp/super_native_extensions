@@ -66,10 +66,10 @@ class DataWriterItem {
 /// Example for using clipboard writer:
 /// ```dart
 /// final item = ClipboardWriterItem();
-/// item.addData(formatHtml.encode('<b><i>Html</i></b> Value'));
+/// item.addData(formatHtmlText.encode('<b><i>Html</i></b> Value'));
 /// item.addData(formatPlainText.encodeLazy(() =>
 ///                                   'Plaintext value resolved lazily'));
-/// ClipboardWriter.instance.write([item]);
+/// await ClipboardWriter.instance.write([item]);
 /// ```
 class ClipboardWriter {
   ClipboardWriter._();

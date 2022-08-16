@@ -6,14 +6,15 @@ import 'package:super_clipboard/super_clipboard.dart';
 import 'package:super_clipboard_example/main.dart';
 
 /// Builds widget containing information for data reader.
-Future<Widget> buildWidgetForReader(DataReader reader, int index) async {
+Future<Widget> buildWidgetForReader(
+    BuildContext context, DataReader reader, int index) async {
   final itemFormats = reader.getFormats([
     ...Format.standardFormats,
     formatCustom,
   ]);
 
   // Request all data before awaiting
-  final futures = itemFormats.map((e) => _widgetForFormat(e, reader));
+  final futures = itemFormats.map((e) => _widgetForFormat(context, e, reader));
 
   // Now await all futures
   final widgets = await Future.wait(futures);
@@ -212,7 +213,12 @@ class _RepresentationWidget extends StatelessWidget {
 }
 
 Future<_RepresentationWidget?> _widgetForImage(
-    DataFormat<Uint8List> format, String name, DataReader reader) async {
+  BuildContext context,
+  DataFormat<Uint8List> format,
+  String name,
+  DataReader reader,
+) async {
+  final scale = MediaQuery.of(context).devicePixelRatio;
   final image = await reader.readValue(format);
   if (image == null || image.isEmpty /* Tiff on Firefox/Linux */) {
     return null;
@@ -224,14 +230,17 @@ Future<_RepresentationWidget?> _widgetForImage(
       content: Container(
         padding: const EdgeInsets.only(top: 4),
         alignment: Alignment.centerLeft,
-        child: Image.memory(image),
+        child: Image.memory(
+          image,
+          scale: scale,
+        ),
       ),
     );
   }
 }
 
 Future<_RepresentationWidget?> _widgetForFormat(
-    DataFormat format, DataReader reader) async {
+    BuildContext context, DataFormat format, DataReader reader) async {
   switch (format) {
     case Format.plainText:
       final text = await reader.readValue(Format.plainText);
@@ -260,15 +269,15 @@ Future<_RepresentationWidget?> _widgetForFormat(
         );
       }
     case Format.imagePng:
-      return _widgetForImage(Format.imagePng, 'PNG', reader);
+      return _widgetForImage(context, Format.imagePng, 'PNG', reader);
     case Format.imageJpeg:
-      return _widgetForImage(Format.imageJpeg, 'JPEG', reader);
+      return _widgetForImage(context, Format.imageJpeg, 'JPEG', reader);
     case Format.imageGif:
-      return _widgetForImage(Format.imageGif, 'GIF', reader);
+      return _widgetForImage(context, Format.imageGif, 'GIF', reader);
     case Format.imageTiff:
-      return _widgetForImage(Format.imageTiff, 'TIFF', reader);
+      return _widgetForImage(context, Format.imageTiff, 'TIFF', reader);
     case Format.imageWebP:
-      return _widgetForImage(Format.imageWebP, 'WebP', reader);
+      return _widgetForImage(context, Format.imageWebP, 'WebP', reader);
     // regular and file uri may have same mime types on some platforms
     case Format.uri:
     case Format.fileUri:

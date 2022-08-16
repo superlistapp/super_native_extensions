@@ -186,9 +186,9 @@ Future<Uint8List> createImageData(Color color) async {
   final recorder = ui.PictureRecorder();
   final canvas = Canvas(recorder);
   final paint = Paint()..color = color;
-  canvas.drawOval(const Rect.fromLTWH(0, 0, 100, 100), paint);
+  canvas.drawOval(const Rect.fromLTWH(0, 0, 200, 200), paint);
   final picture = recorder.endRecording();
-  final image = await picture.toImage(100, 100);
+  final image = await picture.toImage(200, 200);
   final data = await image.toByteData(format: ui.ImageByteFormat.png);
   return data!.buffer.asUint8List();
 }
@@ -322,7 +322,7 @@ class _PasteSectionState extends State<_PasteSection>
 
     final widgets = await Future.wait(
       reader.items.mapIndexed(
-        (index, element) => buildWidgetForReader(element, index),
+        (index, element) => buildWidgetForReader(context, element, index),
       ),
     );
 
