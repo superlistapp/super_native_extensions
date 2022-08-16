@@ -30,7 +30,7 @@ class DataReader {
 abstract class ReadProgress {
   /// Range is 0.0 to 1.0.
   /// Starts with null (indeterminate progress).
-  /// Guaranteed to fire at least once on both completion or failure
+  /// Guaranteed to fire at least once on either completion or failure
   /// (with value of 1.0).
   ValueListenable<double?> get fraction;
 
