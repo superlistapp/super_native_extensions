@@ -26,7 +26,7 @@ abstract class DataReader {
   /// readily available and may need to be retrieved through
   /// [getVirtualFileReceiver] instead of [readValue]. This is the case on macOS
   /// and Windows. On iOS virtual data can be received through both [readValue]
-  /// and through [getVirtualFileReceiver].
+  /// and [getVirtualFileReceiver].
   bool isVirtual(DataFormat format);
 
   /// Returns suggested file name for the contents (if available).
