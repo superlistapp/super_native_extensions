@@ -269,7 +269,7 @@ class _CopySectionState extends State<_CopySection> {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
+    return SingleChildScrollView(
       child: IntrinsicWidth(
         child: Padding(
           padding: const EdgeInsets.all(16),
