@@ -2,7 +2,7 @@ import 'package:collection/collection.dart';
 import 'package:super_clipboard/super_clipboard.dart';
 import 'package:super_native_extensions/raw_clipboard.dart' as raw;
 export 'package:super_native_extensions/raw_clipboard.dart'
-    show VirtualFileReceiver, Pair;
+    show VirtualFileReceiver, Pair, ReadProgress;
 
 abstract class DataReader {
   bool hasValue(DataFormat format) {
@@ -13,7 +13,8 @@ abstract class DataReader {
   /// sorted according to priority.
   List<DataFormat> getFormats(List<DataFormat> allFormats);
 
-  /// Attempts to read value for given format.
+  /// Attempts to read value for given format. Will return `null` if the value
+  /// is not available or the data is virtual (macOS and Windows).
   Future<T?> readValue<T extends Object>(DataFormat<T> format);
 
   /// Returns whether value for given format is being synthetized. On Windows
@@ -21,11 +22,21 @@ abstract class DataReader {
   /// done on macOS for TIFF images.
   bool isSynthetized(DataFormat format);
 
+  /// When `true`, data in this format is virtual. It means it might not be
+  /// readily available and may need to be retrieved through
+  /// [getVirtualFileReceiver] instead of [readValue]. This is the case on macOS
+  /// and Windows. On iOS virtual data can be received through both [readValue]
+  /// and through [getVirtualFileReceiver].
+  bool isVirtual(DataFormat format);
+
   /// Returns suggested file name for the contents (if available).
   String? get suggestedName;
 
+  /// Returns virtual file receiver for given format or null if virtual data
+  /// for the format is not available. If format not specified returns receiver
+  /// for format with highest priority (if any).
   Future<VirtualFileReceiver?> getVirtualFileReceiver({
-    required VirtualFileFormat format,
+    VirtualFileFormat? format,
   });
 
   /// If this reader is backed by raw DataReaderItem returns it.
@@ -40,6 +51,7 @@ class _ItemDataReader extends DataReader {
     required this.item,
     required this.formats,
     required this.synthetizedFormats,
+    required this.virtualFormats,
     required this.suggestedName,
   });
 
@@ -47,15 +59,21 @@ class _ItemDataReader extends DataReader {
     final allFormats = await item.getAvailableFormats();
     final isSynthetized =
         await Future.wait(allFormats.map((f) => item.isSynthetized(f)));
+    final isVirtual =
+        await Future.wait(allFormats.map((f) => item.isVirtual(f)));
 
     final synthetizedFormats = allFormats
         .whereIndexed((index, _) => isSynthetized[index])
+        .toList(growable: false);
+    final virtualFormats = allFormats
+        .whereIndexed((index, _) => isVirtual[index])
         .toList(growable: false);
 
     return _ItemDataReader._(
       item: item,
       formats: allFormats,
       synthetizedFormats: synthetizedFormats,
+      virtualFormats: virtualFormats,
       suggestedName: await item.getSuggestedName(),
     );
   }
@@ -78,12 +96,12 @@ class _ItemDataReader extends DataReader {
 
   @override
   Future<T?> readValue<T extends Object>(DataFormat<T> format) async {
+    Future<Object?> provider(PlatformFormat format) async {
+      return await item.getDataForFormat(format).first;
+    }
+
     for (final f in formats) {
       if (format.canDecode(f)) {
-        Future<Object?> provider(PlatformFormat format) async {
-          return await item.getDataForFormat(format).first;
-        }
-
         return format.decode(f, provider);
       }
     }
@@ -93,6 +111,11 @@ class _ItemDataReader extends DataReader {
   @override
   bool isSynthetized(DataFormat format) {
     return format.receiverFormats.any((f) => synthetizedFormats.contains(f));
+  }
+
+  @override
+  bool isVirtual(DataFormat<Object> format) {
+    return format.receiverFormats.any((f) => virtualFormats.contains(f));
   }
 
   @override
@@ -118,10 +141,15 @@ class _ItemDataReader extends DataReader {
   final raw.DataReaderItem item;
   final List<PlatformFormat> formats;
   final List<PlatformFormat> synthetizedFormats;
+  final List<PlatformFormat> virtualFormats;
 }
 
+/// Clipboard reader exposes contents of the clipboard.
 class ClipboardReader extends DataReader {
   ClipboardReader._(this.items);
+
+  /// Individual items of this clipboard reader.
+  final List<DataReader> items;
 
   static Future<ClipboardReader> readClipboard() async {
     final reader = await raw.ClipboardReader.instance.newClipboardReader();
@@ -149,12 +177,7 @@ class ClipboardReader extends DataReader {
 
   @override
   bool hasValue(DataFormat format) {
-    for (final item in items) {
-      if (item.hasValue(format)) {
-        return true;
-      }
-    }
-    return false;
+    return items.any((item) => item.hasValue(format));
   }
 
   @override
@@ -170,23 +193,27 @@ class ClipboardReader extends DataReader {
 
   @override
   bool isSynthetized(DataFormat<Object> format) {
-    for (final item in items) {
-      if (item.isSynthetized(format)) {
-        return true;
-      }
-    }
-    return false;
+    return items.any((item) => item.isSynthetized(format));
+  }
+
+  @override
+  bool isVirtual(DataFormat<Object> format) {
+    return items.any((item) => item.isVirtual(format));
   }
 
   @override
   Future<VirtualFileReceiver?> getVirtualFileReceiver({
-    required Object format,
+    VirtualFileFormat? format,
   }) async {
+    for (final item in items) {
+      final receiver = await item.getVirtualFileReceiver(format: format);
+      if (receiver != null) {
+        return receiver;
+      }
+    }
     return null;
   }
 
   @override
   String? get suggestedName => null;
-
-  final List<DataReader> items;
 }
