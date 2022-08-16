@@ -163,7 +163,7 @@ class _MyHomePageState extends State<MyHomePage>
             onShowMessage: showMessage,
           );
           final pasteSection = _PasteSection(key: _pasteKey);
-          if (constraints.maxWidth < 450) {
+          if (constraints.maxWidth < 540) {
             return TabLayout(
               copy: copySection,
               paste: pasteSection,
