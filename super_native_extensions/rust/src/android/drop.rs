@@ -14,7 +14,7 @@ use jni::{
 use nativeshell_core::{Context, Value};
 
 use crate::{
-    android::{DRAG_DROP_HELPER, JAVA_VM},
+    android::{CONTEXT, DRAG_DROP_HELPER, JAVA_VM},
     api_model::{DropOperation, Point},
     drop_manager::{
         BaseDropEvent, DropEvent, DropItem, DropSessionId, PlatformDropContextDelegate,
@@ -83,6 +83,28 @@ impl PlatformDropContext {
         Ok(())
     }
 
+    fn get_display_density(env: &JNIEnv) -> NativeExtensionsResult<f64> {
+        let context = CONTEXT.get().unwrap().as_obj();
+        let resources = env
+            .call_method(
+                context,
+                "getResources",
+                "()Landroid/content/res/Resources;",
+                &[],
+            )?
+            .l()?;
+        let display_metrics = env
+            .call_method(
+                resources,
+                "getDisplayMetrics",
+                "()Landroid/util/DisplayMetrics;",
+                &[],
+            )?
+            .l()?;
+        let density = env.get_field(display_metrics, "density", "F")?.f()?;
+        Ok(density as f64)
+    }
+
     fn translate_drop_event<'a>(
         event: DragEvent<'a>,
         session_id: DropSessionId,
@@ -140,11 +162,12 @@ impl PlatformDropContext {
             }
         };
 
+        let density = Self::get_display_density(env)?;
         Ok(DropEvent {
             session_id,
             location_in_view: Point {
-                x: event.get_x(env)? as f64,
-                y: event.get_y(env)? as f64,
+                x: event.get_x(env)? as f64 / density,
+                y: event.get_y(env)? as f64 / density,
             },
             allowed_operations: vec![DropOperation::Copy],
             items,
