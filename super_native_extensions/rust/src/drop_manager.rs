@@ -272,7 +272,19 @@ impl PlatformDropContextDelegate for DropManager {
         res: Box<dyn FnOnce(Result<(), MethodCallError>)>,
     ) {
         self.invoker
-            .call_method_sync_cv(id, "onPerformDrop", event, res);
+            .call_method_sync_cv(id, "onPerformDrop", event, |r| {
+                // Delay result callback one run loop turn. This is necessary because
+                // AsyncMethodHandler::on_message executes messages using RunLoop::spawn,
+                // whcih means that calls such as PlatformReader::get_data_for_item are delayed
+                // one run loop turn. It is necessary for the result callback not to be invoked
+                // before dispatching any calls received during perform_drop.
+                // Not doing so would result in race condition on iOS where drop data
+                // must only be received during perform_drop.
+                Context::get()
+                    .run_loop()
+                    .schedule_next(move || res(r))
+                    .detach();
+            });
     }
 
     fn send_drop_leave(&self, id: PlatformDropContextId, event: BaseDropEvent) {

@@ -31,7 +31,7 @@ impl Display for NativeExtensionsError {
             }
             NativeExtensionsError::ReaderNotFound => write!(f, "platform reader not found"),
             NativeExtensionsError::PlatformContextNotFound => {
-                write!(f, "platform drag drop context not found")
+                write!(f, "platform drag and drop context not found")
             }
             NativeExtensionsError::UnsupportedOperation => write!(f, "unsupported operation"),
             NativeExtensionsError::VirtualFileSessionNotFound => {

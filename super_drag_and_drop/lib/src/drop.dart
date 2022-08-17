@@ -24,8 +24,8 @@ typedef OnDropOver = FutureOr<raw.DropOperation> Function(
   Offset position,
 );
 
+typedef OnDropEnter = void Function(DropSession session);
 typedef OnDropLeave = void Function(DropSession session);
-
 typedef OnDropEnded = void Function(DropSession session);
 
 typedef OnPerformDrop = FutureOr<void> Function(
@@ -40,16 +40,17 @@ typedef OnGetDropItemPreview = FutureOr<DropItemPreview?> Function(
   DropItemPreviewRequest request,
 );
 
-class BaseDropRegion extends SingleChildRenderObjectWidget {
-  const BaseDropRegion({
+class DropRegion extends SingleChildRenderObjectWidget {
+  const DropRegion({
     super.key,
     required super.child,
     required this.formats,
     required this.onDropOver,
-    required this.onDropLeave,
+    this.onDropEnter,
+    this.onDropLeave,
     required this.onPerformDrop,
-    this.onDropEnded = _defaultOnDropEnded,
-    this.onGetDropItemPreview = _defaultPreview,
+    this.onDropEnded,
+    this.onGetDropItemPreview,
     this.hitTestBehavior = HitTestBehavior.deferToChild,
   });
 
@@ -57,24 +58,19 @@ class BaseDropRegion extends SingleChildRenderObjectWidget {
 
   final List<DataFormat> formats;
   final OnDropOver onDropOver;
-  final OnDropLeave onDropLeave;
+  final OnDropEnter? onDropEnter;
+  final OnDropLeave? onDropLeave;
   final OnPerformDrop onPerformDrop;
-  final OnDropEnded onDropEnded;
-  final OnGetDropItemPreview onGetDropItemPreview;
-
-  static void _defaultOnDropEnded(DropSession sessions) {}
-
-  static Future<DropItemPreview?> _defaultPreview(
-      DropSession session, DropItemPreviewRequest req) async {
-    return null;
-  }
+  final OnDropEnded? onDropEnded;
+  final OnGetDropItemPreview? onGetDropItemPreview;
 
   @override
   RenderObject createRenderObject(BuildContext context) {
-    return RenderBaseDropRegion(
+    return RenderDropRegion(
       behavior: hitTestBehavior,
       formats: formats,
       onDropOver: onDropOver,
+      onDropEnter: onDropEnter,
       onDropLeave: onDropLeave,
       onPerformDrop: onPerformDrop,
       onDropEnded: onDropEnded,
@@ -86,7 +82,7 @@ class BaseDropRegion extends SingleChildRenderObjectWidget {
   @override
   void updateRenderObject(
       BuildContext context, covariant RenderObject renderObject) {
-    final renderObject_ = renderObject as RenderBaseDropRegion;
+    final renderObject_ = renderObject as RenderDropRegion;
     renderObject_.behavior = hitTestBehavior;
     renderObject_.formatRegistration.dispose();
     renderObject_.formatRegistration =

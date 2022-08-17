@@ -83,13 +83,13 @@ class _DropSession extends DropSession {
     GestureBinding.instance.hitTest(hitTest, position);
 
     final monitorsInHitTest = <RenderDropMonitor>{};
-    RenderBaseDropRegion? dropRegion;
+    RenderDropRegion? dropRegion;
 
     var res = raw.DropOperation.none;
 
     for (final item in hitTest.path) {
       final target = item.target;
-      if (target is RenderBaseDropRegion && dropRegion == null) {
+      if (target is RenderDropRegion && dropRegion == null) {
         res = await target.onDropOver(this, position);
         if (res != raw.DropOperation.none) {
           dropRegion = target;
@@ -101,7 +101,8 @@ class _DropSession extends DropSession {
     }
 
     if (_currentDropRegion != dropRegion) {
-      _currentDropRegion?.onDropLeave(this);
+      dropRegion?.onDropEnter?.call(this);
+      _currentDropRegion?.onDropLeave?.call(this);
     }
     _currentDropRegion = dropRegion;
     if (_currentDropRegion != null) {
@@ -124,7 +125,7 @@ class _DropSession extends DropSession {
   }
 
   void leave() {
-    _currentDropRegion?.onDropLeave(this);
+    _currentDropRegion?.onDropLeave?.call(this);
     _currentDropRegion = null;
     _inside = false;
     _allowedOperations.clear();
@@ -139,7 +140,7 @@ class _DropSession extends DropSession {
     }
     for (final region in _allRegions) {
       if (region.attached) {
-        region.onDropEnded(this);
+        region.onDropEnded?.call(this);
       }
     }
     for (final monitor in RenderDropMonitor.activeMonitors) {
@@ -156,7 +157,7 @@ class _DropSession extends DropSession {
     if (item != null && _currentDropRegion != null) {
       final req = _DropItemPreviewRequest(item: item, request: request);
       final response =
-          await _currentDropRegion?.onGetDropItemPreview(this, req);
+          await _currentDropRegion?.onGetDropItemPreview?.call(this, req);
       if (response != null) {
         final ratio = _currentDropRegion!.devicePixelRatio;
         return raw.ItemPreview(
@@ -187,8 +188,8 @@ class _DropSession extends DropSession {
     properties.defaultDiagnosticsTreeStyle = DiagnosticsTreeStyle.sparse;
   }
 
-  RenderBaseDropRegion? _currentDropRegion;
-  final _allRegions = <RenderBaseDropRegion>{};
+  RenderDropRegion? _currentDropRegion;
+  final _allRegions = <RenderDropRegion>{};
 
   final _allowedOperations = <raw.DropOperation>{};
   bool _inside = false;
@@ -294,11 +295,14 @@ class DropFormatRegistry {
     for (final registration in _registeredFormats.values) {
       formats.addAll(registration);
     }
-    if (formats != _lastRegisteredFormat) {
+    final eq = const SetEquality().equals;
+    if (!eq(formats, _lastRegisteredFormat)) {
       context.registerDropFormats(List.from(formats));
       _lastRegisteredFormat.clear();
       _lastRegisteredFormat.addAll(formats);
     }
+    // needed on some platforms (i.e. macOS)
+    await raw.DragContext.instance();
   }
 
   static DropFormatRegistry instance = DropFormatRegistry._();
@@ -317,19 +321,21 @@ class DropFormatRegistration {
   final DropFormatRegistry _registry;
 }
 
-class RenderBaseDropRegion extends RenderProxyBoxWithHitTestBehavior {
+class RenderDropRegion extends RenderProxyBoxWithHitTestBehavior {
   DropFormatRegistration formatRegistration;
   OnDropOver onDropOver;
-  OnDropLeave onDropLeave;
+  OnDropEnter? onDropEnter;
+  OnDropLeave? onDropLeave;
   OnPerformDrop onPerformDrop;
-  OnDropEnded onDropEnded;
-  OnGetDropItemPreview onGetDropItemPreview;
+  OnDropEnded? onDropEnded;
+  OnGetDropItemPreview? onGetDropItemPreview;
   double devicePixelRatio;
 
-  RenderBaseDropRegion({
+  RenderDropRegion({
     required super.behavior,
     required List<DataFormat> formats,
     required this.onDropOver,
+    required this.onDropEnter,
     required this.onDropLeave,
     required this.onPerformDrop,
     required this.onDropEnded,

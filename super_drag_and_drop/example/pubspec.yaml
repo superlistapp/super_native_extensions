@@ -31,6 +31,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  collection: ^1.16.0
   super_clipboard:
     path: ../../super_clipboard
   super_drag_and_drop:

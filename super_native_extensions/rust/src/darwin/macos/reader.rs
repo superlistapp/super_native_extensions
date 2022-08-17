@@ -283,6 +283,7 @@ impl PlatformDataReader {
                     let items: id = msg_send![*pasteboard, pasteboardItems];
                     if item < NSArray::count(items) as i64 {
                         let item = NSArray::objectAtIndex(items, item as NSUInteger);
+                        let is_file_url = data_type == "public.file-url";
                         let data_type = to_nsstring(&data_type);
                         // Try to get property list first, otherwise fallback to Data
                         let mut data = NSPasteboardItem::propertyListForType(item, *data_type);
@@ -291,7 +292,17 @@ impl PlatformDataReader {
                             // then trying to convert data to String.
                             data = NSPasteboardItem::dataForType(item, *data_type);
                         }
-                        Value::from_objc(data).ok_log().unwrap_or_default()
+                        let res = Value::from_objc(data).ok_log().unwrap_or_default();
+                        // Convert file:///.file/id=??? URLs to path URL
+                        if is_file_url {
+                            if let Value::String(url) = res {
+                                let url = NSURL::URLWithString_(nil, *to_nsstring(&url));
+                                let url: id = msg_send![url, filePathURL];
+                                let url_string: id = msg_send![url, absoluteString];
+                                return Value::String(from_nsstring(url_string));
+                            }
+                        }
+                        res
                     } else {
                         Value::Null
                     }

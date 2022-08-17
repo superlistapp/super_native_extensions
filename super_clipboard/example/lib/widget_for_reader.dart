@@ -3,7 +3,8 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:collection/collection.dart';
 import 'package:super_clipboard/super_clipboard.dart';
-import 'package:super_clipboard_example/main.dart';
+
+import 'main.dart';
 
 /// Builds widget containing information for data reader.
 Future<Widget> buildWidgetForReader(

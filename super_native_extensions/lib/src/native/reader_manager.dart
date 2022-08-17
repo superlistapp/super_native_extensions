@@ -23,6 +23,8 @@ class DataReaderHandleImpl {
     );
   }
 
+  bool _disposed = false;
+
   final int _handle;
   // ignore: unused_field
   final FinalizableHandle _finalizableHandle;
@@ -49,7 +51,10 @@ class ReaderManagerImpl extends ReaderManager {
 
   @override
   Future<void> dispose(DataReaderHandle reader) async {
-    await _channel.invokeMethod("disposeReader", reader._handle);
+    if (!reader._disposed) {
+      reader._disposed = true;
+      await _channel.invokeMethod("disposeReader", reader._handle);
+    }
   }
 
   @override
@@ -79,6 +84,9 @@ class ReaderManagerImpl extends ReaderManager {
     DataReaderItemHandle handle, {
     required String format,
   }) {
+    if (handle._reader._disposed) {
+      throw StateError("Attempting to query item status from disposed reader.");
+    }
     return _channel.invokeMethod("itemFormatIsSynthetized", {
       "itemHandle": handle._itemHandle,
       "readerHandle": handle._readerHandle,
@@ -88,6 +96,10 @@ class ReaderManagerImpl extends ReaderManager {
 
   @override
   Future<String?> getItemSuggestedName(DataReaderItemHandle handle) async {
+    if (handle._reader._disposed) {
+      throw StateError(
+          "Attempting to get suggested name from disposed reader.");
+    }
     final name = await _channel.invokeMethod("getItemSuggestedName", {
       "itemHandle": handle._itemHandle,
       "readerHandle": handle._readerHandle,
@@ -100,6 +112,9 @@ class ReaderManagerImpl extends ReaderManager {
     DataReaderItemHandle handle, {
     required String format,
   }) {
+    if (handle._reader._disposed) {
+      throw StateError("Attempting to get data from disposed reader.");
+    }
     final progress = ReadProgressImpl(readerManager: this);
     final completer = Completer<Object?>();
     _progressMap[progress.id] = progress;
@@ -123,6 +138,10 @@ class ReaderManagerImpl extends ReaderManager {
     DataReaderItemHandle handle, {
     required String format,
   }) async {
+    if (handle._reader._disposed) {
+      throw StateError(
+          "Attempting to query virtual file from disposed reader.");
+    }
     return await _channel.invokeMethod("canGetVirtualFile", {
       "itemHandle": handle._itemHandle,
       "readerHandle": handle._readerHandle,
@@ -136,6 +155,9 @@ class ReaderManagerImpl extends ReaderManager {
     required String format,
     required String targetFolder,
   }) {
+    if (handle._reader._disposed) {
+      throw StateError("Attempting to get virtual file from disposed reader.");
+    }
     final progress = ReadProgressImpl(readerManager: this);
     final completer = Completer<String?>();
     _progressMap[progress.id] = progress;
