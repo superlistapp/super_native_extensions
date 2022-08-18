@@ -4,10 +4,9 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:collection/collection.dart';
 import 'package:super_clipboard/super_clipboard.dart';
-
 import 'main.dart';
 
-extension ReadValue on DataReader {
+extension _ReadValue on DataReader {
   Future<T?> readValue<T extends Object>(DataFormat<T> format) async {
     final c = Completer<T?>();
     getValue<T>(format, (value) {
@@ -21,16 +20,65 @@ extension ReadValue on DataReader {
   }
 }
 
+class ReaderInfo {
+  ReaderInfo._({
+    required this.reader,
+    required this.suggestedName,
+    required List<_PlatformFormat> formats,
+  }) : _formats = formats;
+
+  static Future<ReaderInfo> fromReader(DataReader reader) async {
+    // build list of native formats with virtual/synthetized flags
+    List<String>? formats = await reader.rawReader!.getAvailableFormats();
+    final virtual =
+        await Future.wait(formats.map((e) => reader.rawReader!.isVirtual(e)));
+    final synthetized = await Future.wait(
+        formats.map((e) => reader.rawReader!.isSynthetized(e)));
+
+    return ReaderInfo._(
+      reader: reader,
+      suggestedName: await reader.getSuggestedName(),
+      formats: formats
+          .mapIndexed((index, element) => _PlatformFormat(
+                element,
+                virtual: virtual[index],
+                synthetized: synthetized[index],
+              ))
+          .toList(growable: false),
+    );
+  }
+
+  final DataReader reader;
+  final String? suggestedName;
+  final List<_PlatformFormat> _formats;
+}
+
+class _PlatformFormat {
+  final PlatformFormat format;
+  final bool virtual;
+  final bool synthetized;
+
+  _PlatformFormat(
+    this.format, {
+    required this.virtual,
+    required this.synthetized,
+  });
+}
+
 /// Builds widget containing information for data reader.
 Future<Widget> buildWidgetForReader(
-    BuildContext context, DataReader reader, int index) async {
-  final itemFormats = reader.getFormats([
+  BuildContext context,
+  ReaderInfo reader,
+  int index,
+) async {
+  final itemFormats = reader.reader.getFormats([
     ...Format.standardFormats,
     formatCustom,
   ]);
 
   // Request all data before awaiting
-  final futures = itemFormats.map((e) => _widgetForFormat(context, e, reader));
+  final futures =
+      itemFormats.map((e) => _widgetForFormat(context, e, reader.reader));
 
   // Now await all futures
   final widgets = await Future.wait(futures);
@@ -44,24 +92,17 @@ Future<Widget> buildWidgetForReader(
   children.retainWhere((element) => formats.add(element.format));
 
   // build list of native formats with virtua/synthetized flags
-  List<String>? nativeFormats = await reader.rawReader?.getAvailableFormats();
-  if (nativeFormats != null) {
-    final virtual = await Future.wait(
-        nativeFormats.map((e) => reader.rawReader!.isVirtual(e)));
-    final synthetized = await Future.wait(
-        nativeFormats.map((e) => reader.rawReader!.isSynthetized(e)));
-    nativeFormats = nativeFormats.mapIndexed((i, e) {
-      final attributes = [
-        if (virtual[i]) 'virtual',
-        if (synthetized[i]) 'synthetized',
-      ].join(', ');
-      return attributes.isNotEmpty ? '$e ($attributes)' : e;
-    }).toList(growable: false);
-  }
+  final nativeFormats = reader._formats.map((e) {
+    final attributes = [
+      if (e.virtual) 'virtual',
+      if (e.synthetized) 'synthetized',
+    ].join(', ');
+    return attributes.isNotEmpty ? '${e.format} ($attributes)' : e.format;
+  }).toList(growable: false);
 
   return _ReaderWidget(
     itemName: 'Data item $index',
-    suggestedFileName: await reader.getSuggestedName() ?? 'null',
+    suggestedFileName: reader.suggestedName ?? 'null',
     representations: children,
     nativeFormats: nativeFormats,
   );

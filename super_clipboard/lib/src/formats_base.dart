@@ -14,7 +14,7 @@ class SimplePlatformCodec<T extends Object> extends PlatformCodec<T> {
         _encodingFormats = encodingFormats,
         _decodingFormats = decodingFormats;
 
-  final FutureOr<T?> Function(
+  final Future<T?> Function(
       PlatformDataProvider dataProvider, PlatformFormat format)? onDecode;
   final FutureOr<Object?> Function(T value, PlatformFormat format)? onEncode;
 
@@ -31,7 +31,7 @@ class SimplePlatformCodec<T extends Object> extends PlatformCodec<T> {
       _decodingFormats ?? _formats ?? [];
 
   @override
-  FutureOr<T?> decode(
+  Future<T?> decode(
       PlatformDataProvider dataProvider, PlatformFormat format) async {
     return onDecode != null
         ? onDecode!(dataProvider, format)

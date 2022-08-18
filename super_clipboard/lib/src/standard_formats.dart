@@ -211,7 +211,7 @@ class NamedUri {
 
 class CustomDataFormat<T extends Object> extends DataFormat<T> {
   final String applicationId;
-  final FutureOr<T?> Function(Object value, String platformType)? onDecode;
+  final Future<T?> Function(Object value, String platformType)? onDecode;
   final FutureOr<Object> Function(T value, String platformType)? onEncode;
 
   const CustomDataFormat({

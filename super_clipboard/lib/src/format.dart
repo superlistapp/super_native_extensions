@@ -16,7 +16,15 @@ typedef DataProvider<T> = FutureOr<T> Function();
 /// to CF_UNICODETEXT (value of 13).
 typedef PlatformFormat = String;
 
-typedef PlatformDataProvider = Future<Object?> Function(PlatformFormat);
+abstract class PlatformDataProvider {
+  /// Returns data for the given [format] if available.
+  /// Note that decoder must request data for all formats it needs before
+  /// crossing async boundary.
+  Future<Object?> getData(PlatformFormat format);
+
+  /// Returns all formats available in this provider.
+  List<PlatformFormat> getAllFormats();
+}
 
 /// Format for a virtual file. Provides platform formats for providing
 /// and receiving virtual files. However unlike [DataFormat] there is no
@@ -80,7 +88,7 @@ abstract class DataFormat<T extends Object> extends VirtualFileFormat {
     return decoder.decodingFormats.contains(format);
   }
 
-  FutureOr<T?> decode(PlatformFormat format, PlatformDataProvider provider) {
+  Future<T?> decode(PlatformFormat format, PlatformDataProvider provider) {
     final decoder = codecForPlatform(currentPlatform);
     return decoder.decode(provider, format);
   }
@@ -117,11 +125,14 @@ abstract class PlatformCodec<T extends Object> {
 
   /// Decodes the data from platform representation.
   /// Returns `null` if decoding failed.
+  ///
+  /// Important: When implementing custom decoder it is necessary to request
+  /// all data from dataProvider before awaiting on anything.
   //
-  /// Default implementation simply attempts to tast to target format.
-  FutureOr<T?> decode(
+  /// Default implementation simply attempts to cast to target format.
+  Future<T?> decode(
       PlatformDataProvider dataProvider, PlatformFormat format) async {
-    final value = await dataProvider(format);
+    final value = await dataProvider.getData(format);
     return value is T ? value : null;
   }
 }

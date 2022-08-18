@@ -2,12 +2,19 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:collection/collection.dart';
 import 'package:super_clipboard/super_clipboard.dart';
 import 'package:super_drag_and_drop/super_drag_and_drop.dart';
+
+import 'widget_for_reader.dart';
 
 FutureOr<void> x() {
   // return SynchronousFuture(null);
 }
+
+const formatCustom = CustomDataFormat<Uint8List>(
+  applicationId: "com.superlist.clipboard.Example.CustomType",
+);
 
 void main() async {
   runApp(const MyApp());
@@ -40,15 +47,6 @@ class MyApp extends StatelessWidget {
 
 class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
 
   final String title;
 
@@ -123,21 +121,10 @@ const fileUrl = SimpleDataFormat<Uint8List>(
 );
 
 class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
-
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
-  }
-
   final item1 = GlobalKey<DragItemWidgetState>();
   final item2 = GlobalKey<DragItemWidgetState>();
+
+  var contents = <Widget>[];
 
   @override
   Widget build(BuildContext context) {
@@ -173,59 +160,60 @@ class _MyHomePageState extends State<MyHomePage> {
           // horizontal).
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
-            const Text(
-              'You have pushed the button this many times:',
-            ),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headline4,
-            ),
             const SizedBox(
               height: 30,
             ),
-            Padding(
-              padding: const EdgeInsets.all(40.0),
-              child: ListView(
-                shrinkWrap: true,
-                children: const [
-                  DemoWidget(
-                    name: 'Widget 1',
-                    color: Colors.red,
-                    payload: 'Payload 1',
-                    localData: 'D1',
-                    fileName: 'File1.txt',
-                  ),
-                  DemoWidget(
-                    name: 'Widget 2',
-                    color: Colors.yellow,
-                    payload: 'Payload 1',
-                    localData: 'D2',
-                    fileName: 'File2.txt',
-                  ),
-                  DemoWidget(
-                    name: 'Widget 3',
-                    color: Colors.green,
-                    payload: 'Payload 3',
-                    localData: 'D3',
-                    fileName: 'File3.txt',
-                  ),
-                  DemoWidget(
-                    name: 'Widget 4',
-                    color: Colors.blue,
-                    payload: 'Payload 4',
-                    localData: 'D4',
-                    fileName: 'File4.txt',
-                  ),
-                ],
-              ),
-            ),
-            BaseDropRegion(
-              formats: [
-                // formatPlainText,
-                fileUrl,
+            // DemoWidget(
+            //   name: 'Widget 1',
+            //   color: Colors.red,
+            //   payload: 'Payload 1',
+            //   localData: 'D1',
+            //   fileName: 'File1.txt',
+            // ),
+
+            // Padding(
+            //   padding: const EdgeInsets.all(40.0),
+            //   child: ListView(
+            //     shrinkWrap: true,
+            //     children: const [
+            //       DemoWidget(
+            //         name: 'Widget 1',
+            //         color: Colors.red,
+            //         payload: 'Payload 1',
+            //         localData: 'D1',
+            //         fileName: 'File1.txt',
+            //       ),
+            //       DemoWidget(
+            //         name: 'Widget 2',
+            //         color: Colors.yellow,
+            //         payload: 'Payload 1',
+            //         localData: 'D2',
+            //         fileName: 'File2.txt',
+            //       ),
+            //       DemoWidget(
+            //         name: 'Widget 3',
+            //         color: Colors.green,
+            //         payload: 'Payload 3',
+            //         localData: 'D3',
+            //         fileName: 'File3.txt',
+            //       ),
+            //       DemoWidget(
+            //         name: 'Widget 4',
+            //         color: Colors.blue,
+            //         payload: 'Payload 4',
+            //         localData: 'D4',
+            //         fileName: 'File4.txt',
+            //       ),
+            //     ],
+            //   ),
+            // ),
+            DropRegion(
+              formats: const [
+                ...Format.standardFormats,
+                formatCustom,
               ],
               onDropOver: (session, position) async {
-                print('OnDropOver $position, $session');
+                // print('OnDropOver $position, $session');
                 return DropOperation.copy;
               },
               onDropLeave: (session) async {
@@ -236,37 +224,79 @@ class _MyHomePageState extends State<MyHomePage> {
 
                 print(
                     'session ${session.toString(minLevel: DiagnosticLevel.fine)}');
+                // for (final item in session.items) {
+                // print('Item ${item.toString()}');
+                // final readerItem = item.readerItem;
+                // print('Formats: ${item.formats}');
+                // final j = await item.dataReader!.readValue(jpeg);
+                // final j = await item.dataReader!.readValue(uriList);
+                // final name = await item.dataReader!.suggestedName();
+                // print('__ $name');
+                // print('J $j');
+                // if (readerItem != null) {
+                // print('Drop update ${await readerItem.getAvailableFormats()}');
+                // }
+                // }
                 for (final item in session.items) {
-                  // print('Item ${item.toString()}');
-                  // final readerItem = item.readerItem;
-                  // print('Formats: ${item.formats}');
-                  // final j = await item.dataReader!.readValue(jpeg);
-                  // final j = await item.dataReader!.readValue(uriList);
-                  // final name = await item.dataReader!.suggestedName();
-                  // print('__ $name');
-                  // print('J $j');
-                  // if (readerItem != null) {
-                  // print('Drop update ${await readerItem.getAvailableFormats()}');
+                  final reader = item.dataReader!;
+                  final receiver = await reader.getVirtualFileReceiver(
+                      format: Format.imageJpeg);
+                  // if (receiver != null) {
+                  //   print('FORMAT ${receiver.format}');
+                  //   receiver
+                  //       .receiveVirtualFile(targetFolder: '/Users/Matej/_temp')
+                  //       .first
+                  //       .then((value) => print('REceived file at $value'),
+                  //           onError: (e) {
+                  //     print('Error $e');
+                  //   });
+                  //   print(
+                  //       'object ${await item.dataReader!.rawReader!.getSuggestedName()}');
                   // }
                 }
+
+                final readers = await Future.wait(session.items
+                    .map((e) => ReaderInfo.fromReader(e.dataReader!)));
+
+                final widgets = Future.wait(
+                  readers.mapIndexed(
+                    (index, element) =>
+                        buildWidgetForReader(context, element, index),
+                  ),
+                );
+                print('Built widgets');
+                widgets.then((value) {
+                  print('Have $value');
+                  setState(() {
+                    contents = value;
+                  });
+                }, onError: (e) {
+                  print('E $e');
+                });
               },
               onDropEnded: (session) {
                 print('Drop ended');
               },
               child: Container(
-                width: 100,
-                height: 100,
+                width: 400,
+                height: 400,
                 color: Colors.amber,
+                child: SelectionArea(
+                  focusNode: FocusNode()..canRequestFocus = false,
+                  child: ListView(
+                    padding: const EdgeInsets.all(16),
+                    children: contents
+                        .intersperse(const SizedBox(
+                          height: 10,
+                        ))
+                        .toList(growable: false),
+                  ),
+                ),
               ),
             )
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
     );
   }
 }

@@ -1,10 +1,32 @@
+import 'dart:async';
+
 import 'package:collection/collection.dart';
-import 'package:super_clipboard/super_clipboard.dart';
+import 'package:flutter/foundation.dart';
 import 'package:super_native_extensions/raw_clipboard.dart' as raw;
+
+import 'format.dart';
+import 'reader_internal.dart';
+import 'standard_formats.dart';
 export 'package:super_native_extensions/raw_clipboard.dart'
     show VirtualFileReceiver, Pair, ReadProgress;
 
+class DataReaderValue<T extends Object> {
+  DataReaderValue({this.value, this.error});
+
+  final T? value;
+  final Object? error;
+}
+
 abstract class DataReader {
+  /// Returns true value for data format is possibly available in this reader.
+  ///
+  /// Note that it is expected for [getValue] to return `null` even though
+  /// [hasValue] returns yes, because in some cases this can not be fully
+  /// determined from the format string, but only from the data itself.
+  ///
+  /// For example on some platforms file URI and regular URI have same type,
+  /// so when receiving [Format.fileUri] the decoder will have to fetch the value
+  /// and will return null if URI is not a file uri.
   bool hasValue(DataFormat format) {
     return getFormats([format]).isNotEmpty;
   }
@@ -13,9 +35,21 @@ abstract class DataReader {
   /// sorted according to priority.
   List<DataFormat> getFormats(List<DataFormat> allFormats);
 
-  /// Attempts to read value for given format. Will return `null` if the value
-  /// is not available or the data is virtual (macOS and Windows).
-  Future<T?> readValue<T extends Object>(DataFormat<T> format);
+  /// Loads the value for the given format.
+  ///
+  /// If no value for given format is available, `null` progress is returned and
+  /// [onValue] is caleld immediately with `null` result.
+  ///
+  /// Getting the value is intentionally not exposed as async operation in order
+  /// to prevent awaiting in contexts where it could block platform code (i.e.
+  /// drop handle during drag and drop).
+  ///
+  /// When reading value form clipboard you can use the async variant in
+  /// [ClipboardDataReader].
+  raw.ReadProgress? getValue<T extends Object>(
+    DataFormat<T> format,
+    ValueChanged<DataReaderValue<T>> onValue,
+  );
 
   /// Returns whether value for given format is being synthetized. On Windows
   /// DIB images are accessible as PNG (converted on demand), same thing is
@@ -32,10 +66,10 @@ abstract class DataReader {
   /// Returns suggested file name for the contents (if available).
   Future<String?> getSuggestedName();
 
-  /// Returns virtual file receiver for given format or null if virtual data
-  /// for the format is not available. If format not specified returns receiver
-  /// for format with highest priority (if any).
-  Future<VirtualFileReceiver?> getVirtualFileReceiver({
+  /// Returns virtual file receiver for given format or `null` if virtual data
+  /// for the format is not available. If format is not specified returns
+  /// receiver for format with highest priority (if any).
+  Future<raw.VirtualFileReceiver?> getVirtualFileReceiver({
     VirtualFileFormat? format,
   });
 
@@ -43,118 +77,33 @@ abstract class DataReader {
   raw.DataReaderItem? get rawReader => null;
 
   static Future<DataReader> forItem(raw.DataReaderItem item) async =>
-      _ItemDataReader.fromItem(item);
+      ItemDataReader.fromItem(item);
 }
 
-class _ItemDataReader extends DataReader {
-  _ItemDataReader._({
-    required this.item,
-    required this.formats,
-    required this.synthetizedFormats,
-    required this.virtualFormats,
-  });
+abstract class ClipboardDataReader extends DataReader {
+  /// Convenience method that exposes loading value as Future.
+  ///
+  /// Attempts to read value for given format. Will return `null` if the value
+  /// is not available or the data is virtual (macOS and Windows).
+  Future<T?> readValue<T extends Object>(DataFormat<T> format);
 
-  static Future<DataReader> fromItem(raw.DataReaderItem item) async {
-    final allFormats = await item.getAvailableFormats();
-    final isSynthetized =
-        await Future.wait(allFormats.map((f) => item.isSynthetized(f)));
-    final isVirtual =
-        await Future.wait(allFormats.map((f) => item.isVirtual(f)));
-
-    final synthetizedFormats = allFormats
-        .whereIndexed((index, _) => isSynthetized[index])
-        .toList(growable: false);
-    final virtualFormats = allFormats
-        .whereIndexed((index, _) => isVirtual[index])
-        .toList(growable: false);
-
-    return _ItemDataReader._(
-      item: item,
-      formats: allFormats,
-      synthetizedFormats: synthetizedFormats,
-      virtualFormats: virtualFormats,
-    );
-  }
-
-  @override
-  List<DataFormat> getFormats(List<DataFormat> allFormats_) {
-    final allFormats = List<DataFormat>.of(allFormats_);
-    final res = <DataFormat>[];
-    for (final f in formats) {
-      final decodable = allFormats
-          .where((element) => element.canDecode(f))
-          .toList(growable: false);
-      for (final format in decodable) {
-        res.add(format);
-        allFormats.remove(format);
-      }
-    }
-    return res;
-  }
-
-  @override
-  Future<T?> readValue<T extends Object>(DataFormat<T> format) async {
-    Future<Object?> provider(PlatformFormat format) async {
-      return await item.getDataForFormat(format).first;
-    }
-
-    for (final f in formats) {
-      if (format.canDecode(f)) {
-        return format.decode(f, provider);
-      }
-    }
-    return null;
-  }
-
-  @override
-  bool isSynthetized(DataFormat format) {
-    return format.receiverFormats.any((f) => synthetizedFormats.contains(f));
-  }
-
-  @override
-  bool isVirtual(DataFormat<Object> format) {
-    return format.receiverFormats.any((f) => virtualFormats.contains(f));
-  }
-
-  @override
-  Future<String?> getSuggestedName() => item.getSuggestedName();
-
-  @override
-  Future<VirtualFileReceiver?> getVirtualFileReceiver({
-    VirtualFileFormat? format,
-  }) async {
-    final formats = format?.receiverFormats ?? await item.getAvailableFormats();
-    for (final format in formats) {
-      final receiver = await item.getVirtualFileReceiver(format: format);
-      if (receiver != null) {
-        return receiver;
-      }
-    }
-    return null;
-  }
-
-  @override
-  raw.DataReaderItem? get rawReader => item;
-
-  final raw.DataReaderItem item;
-  final List<PlatformFormat> formats;
-  final List<PlatformFormat> synthetizedFormats;
-  final List<PlatformFormat> virtualFormats;
+  static Future<ClipboardDataReader> forItem(raw.DataReaderItem item) async =>
+      ItemDataReader.fromItem(item);
 }
 
 /// Clipboard reader exposes contents of the clipboard.
-class ClipboardReader extends DataReader {
+class ClipboardReader extends ClipboardDataReader {
   ClipboardReader._(this.items);
 
   /// Individual items of this clipboard reader.
-  final List<DataReader> items;
+  final List<ClipboardDataReader> items;
 
   static Future<ClipboardReader> readClipboard() async {
     final reader = await raw.ClipboardReader.instance.newClipboardReader();
     final readerItems = await reader.getItems();
-    final items = <DataReader>[];
+    final items = <ClipboardDataReader>[];
     for (final item in readerItems) {
-      items.add(await DataReader.forItem(item));
+      items.add(await ClipboardDataReader.forItem(item));
     }
     return ClipboardReader._(items);
   }
@@ -179,14 +128,21 @@ class ClipboardReader extends DataReader {
   }
 
   @override
-  Future<T?> readValue<T extends Object>(DataFormat<T> format) async {
-    for (final item in items) {
-      final value = await item.readValue(format);
-      if (value != null) {
-        return value;
-      }
+  raw.ReadProgress? getValue<T extends Object>(
+      DataFormat<T> format, ValueChanged<DataReaderValue<T>> onValue) {
+    final item = items.firstWhereOrNull((element) => element.hasValue(format));
+    if (item != null) {
+      return item.getValue(format, onValue);
+    } else {
+      onValue(DataReaderValue(value: null));
+      return null;
     }
-    return null;
+  }
+
+  @override
+  Future<T?> readValue<T extends Object>(DataFormat<T> format) async {
+    final item = items.firstWhereOrNull((element) => element.hasValue(format));
+    return item?.readValue(format);
   }
 
   @override
@@ -200,7 +156,7 @@ class ClipboardReader extends DataReader {
   }
 
   @override
-  Future<VirtualFileReceiver?> getVirtualFileReceiver({
+  Future<raw.VirtualFileReceiver?> getVirtualFileReceiver({
     VirtualFileFormat? format,
   }) async {
     for (final item in items) {

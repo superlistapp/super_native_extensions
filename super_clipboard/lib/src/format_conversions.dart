@@ -11,7 +11,7 @@ class FormatException implements Exception {
 
 Future<String?> fromSystemUtf8(
     PlatformDataProvider dataProvider, PlatformFormat format) async {
-  final value = await dataProvider(format);
+  final value = await dataProvider.getData(format);
   if (value == null) {
     return null;
   } else if (value is String) {
@@ -45,7 +45,7 @@ String? _fromSystemUtf16NullTerminated(Object? value) {
 
 Future<String?> fromSystemUtf16NullTerminated(
     PlatformDataProvider dataProvider, PlatformFormat format) async {
-  final value = await dataProvider(format);
+  final value = await dataProvider.getData(format);
   return _fromSystemUtf16NullTerminated(value);
 }
 
@@ -113,7 +113,7 @@ Object windowsHtmlToSystem(String text, PlatformFormat format) {
 
 Future<String?> windowsHtmlFromSystem(
     PlatformDataProvider dataProvider, PlatformFormat format) async {
-  final value = await dataProvider(format);
+  final value = await dataProvider.getData(format);
   if (value == null) {
     return null;
   }
@@ -224,7 +224,7 @@ Object? iosEncodeNamedUri(NamedUri uri, PlatformFormat format) {
 
 Future<NamedUri?> iosDecodeNamedUri(
     PlatformDataProvider provider, PlatformFormat format) async {
-  final Object? value = await provider(format);
+  final Object? value = await provider.getData(format);
   if (value is Uint8List) {
     final uri = Uri.tryParse(utf8.decode(value, allowMalformed: true));
     if (uri != null) {
