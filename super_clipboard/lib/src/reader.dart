@@ -30,7 +30,7 @@ abstract class DataReader {
   bool isVirtual(DataFormat format);
 
   /// Returns suggested file name for the contents (if available).
-  String? get suggestedName;
+  Future<String?> getSuggestedName();
 
   /// Returns virtual file receiver for given format or null if virtual data
   /// for the format is not available. If format not specified returns receiver
@@ -52,7 +52,6 @@ class _ItemDataReader extends DataReader {
     required this.formats,
     required this.synthetizedFormats,
     required this.virtualFormats,
-    required this.suggestedName,
   });
 
   static Future<DataReader> fromItem(raw.DataReaderItem item) async {
@@ -74,7 +73,6 @@ class _ItemDataReader extends DataReader {
       formats: allFormats,
       synthetizedFormats: synthetizedFormats,
       virtualFormats: virtualFormats,
-      suggestedName: await item.getSuggestedName(),
     );
   }
 
@@ -119,7 +117,7 @@ class _ItemDataReader extends DataReader {
   }
 
   @override
-  final String? suggestedName;
+  Future<String?> getSuggestedName() => item.getSuggestedName();
 
   @override
   Future<VirtualFileReceiver?> getVirtualFileReceiver({
@@ -215,5 +213,13 @@ class ClipboardReader extends DataReader {
   }
 
   @override
-  String? get suggestedName => null;
+  Future<String?> getSuggestedName() async {
+    for (final item in items) {
+      final name = await item.getSuggestedName();
+      if (name != null) {
+        return name;
+      }
+    }
+    return null;
+  }
 }
