@@ -440,7 +440,7 @@ extern "C" fn perpare_for_drag_operation(this: &mut Object, _: Sel, dragging_inf
             if state
                 .prepare_for_drag_operation(dragging_info)
                 .ok_log()
-                .unwrap_or(NO)
+                .unwrap_or(false)
             {
                 YES
             } else {
@@ -458,7 +458,7 @@ extern "C" fn perform_drag_operation(this: &mut Object, _: Sel, dragging_info: i
             if state
                 .perform_drag_operation(dragging_info)
                 .ok_log()
-                .unwrap_or(NO)
+                .unwrap_or(false)
             {
                 YES
             } else {

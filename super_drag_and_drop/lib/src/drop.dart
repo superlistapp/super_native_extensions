@@ -10,7 +10,10 @@ import 'drop_internal.dart';
 abstract class DropItem with Diagnosticable {
   bool hasValue(DataFormat f);
   Object? get localData;
+
   DataReader? get dataReader;
+
+  List<PlatformFormat> get platformFormats;
 }
 
 abstract class DropSession with Diagnosticable {

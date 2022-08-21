@@ -16,7 +16,7 @@ class DragItemWidget extends StatefulWidget {
   const DragItemWidget({
     super.key,
     required this.child,
-    required this.dragItem,
+    required this.dragItemProvider,
     required this.allowedOperations,
     this.canAddItemToExistingSession = false,
   });
@@ -24,7 +24,7 @@ class DragItemWidget extends StatefulWidget {
   final Widget child;
 
   /// Callback that can provide drag item for this widget.
-  final DragItemProvider dragItem;
+  final DragItemProvider dragItemProvider;
 
   /// Allowed drag operations for this item. If multiple items are being
   /// dragged intersection of all allowed operations will be used.
@@ -57,7 +57,7 @@ class DragItemWidgetState extends State<DragItemWidget> {
   }
 
   Future<DragItem?> createItem(raw.DragSession session) async {
-    return widget.dragItem(_getSnapshot, session);
+    return widget.dragItemProvider(_getSnapshot, session);
   }
 
   Future<List<raw.DropOperation>> getAllowedOperations() async {

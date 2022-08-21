@@ -1,16 +1,11 @@
-import 'dart:async';
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 
-import 'package:flutter/material.dart';
 import 'package:collection/collection.dart';
+import 'package:flutter/material.dart';
 import 'package:super_clipboard/super_clipboard.dart';
 import 'package:super_drag_and_drop/super_drag_and_drop.dart';
-
-import 'widget_for_reader.dart';
-
-FutureOr<void> x() {
-  // return SynchronousFuture(null);
-}
+import 'package:super_clipboard_example/widget_for_reader.dart';
 
 const formatCustom = CustomDataFormat<Uint8List>(
   applicationId: "com.superlist.clipboard.Example.CustomType",
@@ -29,18 +24,9 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Flutter Demo',
       theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // Try running your application with "flutter run". You'll see the
-        // application has a blue toolbar. Then, without quitting the app, try
-        // changing the primarySwatch below to Colors.green and then invoke
-        // "hot reload" (press "r" in the console where you ran "flutter run",
-        // or simply save your changes to "hot reload" in a Flutter IDE).
-        // Notice that the counter didn't reset back to zero; the application
-        // is not restarted.
         primarySwatch: Colors.blue,
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      home: const MyHomePage(title: 'SuperDragAndDrop Example'),
     );
   }
 }
@@ -59,45 +45,23 @@ class DemoWidget extends StatelessWidget {
     super.key,
     required this.name,
     required this.color,
-    required this.fileName,
-    required this.payload,
-    required this.localData,
+    required this.dragItemProvider,
   });
 
   final String name;
   final Color color;
-  final String fileName;
-  final String payload;
-  final Object localData;
+  final DragItemProvider dragItemProvider;
 
   @override
   Widget build(BuildContext context) {
     return DragItemWidget(
       allowedOperations: () => [DropOperation.copy],
       canAddItemToExistingSession: true,
-      dragItem: (snapshot, session) async {
-        final sessionLocalData = await session.getLocalData() ?? [];
-        if (sessionLocalData.contains(localData)) {
-          return null;
-        }
-        session.dragCompleted.addListener(() {
-          print('Drag res ${session.dragCompleted.value}');
-        });
-        final item = DragItem(
-          image: await snapshot(),
-          localData: localData,
-          suggestedName: fileName,
-        );
-        // item.addData(formatPlainText.encode(payload));
-        return item;
-      },
+      dragItemProvider: dragItemProvider,
       child: DraggableWidget(
         child: Container(
           decoration: BoxDecoration(
             color: color,
-            // border: Border.all(
-            //   color: Colors.black,
-            // )
           ),
           padding: const EdgeInsets.all(20),
           alignment: Alignment.center,
@@ -108,192 +72,217 @@ class DemoWidget extends StatelessWidget {
   }
 }
 
-const jpeg = SimpleDataFormat<Uint8List>(
-  fallback: SimplePlatformCodec(formats: ['image/jpeg']),
-);
-
-const uriList = SimpleDataFormat<Uint8List>(
-  fallback: SimplePlatformCodec(formats: ['uriList']),
-);
-
-const fileUrl = SimpleDataFormat<Uint8List>(
-  fallback: SimplePlatformCodec(formats: ['public.file-url']),
-);
+Future<Uint8List> createImageData(Color color) async {
+  final recorder = ui.PictureRecorder();
+  final canvas = Canvas(recorder);
+  final paint = Paint()..color = color;
+  canvas.drawOval(const Rect.fromLTWH(0, 0, 200, 200), paint);
+  final picture = recorder.endRecording();
+  final image = await picture.toImage(200, 200);
+  final data = await image.toByteData(format: ui.ImageByteFormat.png);
+  return data!.buffer.asUint8List();
+}
 
 class _MyHomePageState extends State<MyHomePage> {
-  final item1 = GlobalKey<DragItemWidgetState>();
-  final item2 = GlobalKey<DragItemWidgetState>();
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(widget.title),
+      ),
+      body: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          SizedBox(
+            width: 200,
+            child: ListView(
+              children: [
+                DemoWidget(
+                  name: "Red",
+                  color: Colors.red,
+                  dragItemProvider: (dragImage, session) async {
+                    final item = DragItem(
+                      image: await dragImage(),
+                      localData: 10,
+                    );
+                    item.add(Format.imagePng
+                        .encode(await createImageData(Colors.green)));
+                    item.add(Format.plainText.encode("Hello World"));
+                    item.add(Format.uri.encode(NamedUri(
+                        Uri.parse('https://flutter.dev'),
+                        name: 'Flutter')));
+                    return item;
+                  },
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Container(
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.blueGrey.shade200),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: _DropZone(),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
-  var contents = <Widget>[];
+class _DropZone extends StatefulWidget {
+  @override
+  State<StatefulWidget> createState() => _DropZoneState();
+}
+
+class _DropZoneState extends State<_DropZone> {
+  @override
+  Widget build(BuildContext context) {
+    return DropRegion(
+      formats: const [
+        ...Format.standardFormats,
+        formatCustom,
+      ],
+      hitTestBehavior: HitTestBehavior.opaque,
+      onDropOver: _onDropOver,
+      onPerformDrop: _onPerformDrop,
+      onDropLeave: _onDropLeave,
+      child: Stack(
+        children: [
+          Positioned.fill(child: _content),
+          Positioned.fill(
+            child: IgnorePointer(
+              child: AnimatedOpacity(
+                opacity: _isDragOver ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 200),
+                child: _preview,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  DropOperation _onDropOver(DropSession session, Offset _) {
+    setState(() {
+      _isDragOver = true;
+      _preview = Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(7),
+          color: Colors.black.withOpacity(0.2),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(50),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 400),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: ListView(
+                  shrinkWrap: true,
+                  children: session.items
+                      .map<Widget>((e) => _DropItemInfo(dropItem: e))
+                      .intersperse(Container(
+                        height: 2,
+                        color: Colors.white.withOpacity(0.7),
+                      ))
+                      .toList(growable: false),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    });
+    return session.allowedOperations.firstOrNull ?? DropOperation.none;
+  }
+
+  Future<void> _onPerformDrop(
+      DropSession session, Offset _, DropOperation operation) async {
+    // Obtain additional reader information first
+    final readers = await Future.wait(
+      session.items.map(
+        (e) => ReaderInfo.fromReader(
+          e.dataReader!,
+          localData: e.localData,
+        ),
+      ),
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    buildWidgetsForReaders(context, readers, (value) {
+      setState(() {
+        _content = SelectionArea(
+
+          focusNode: FocusNode()..canRequestFocus = false,
+          child: ListView(
+            padding: const EdgeInsets.all(10),
+            children: value
+                .intersperse(const SizedBox(height: 10))
+                .toList(growable: false),
+          ),
+        );
+      });
+    });
+  }
+
+  void _onDropLeave(DropSession session) {
+    setState(() {
+      _isDragOver = false;
+    });
+  }
+
+  bool _isDragOver = false;
+
+  Widget _preview = const SizedBox();
+  Widget _content = const SizedBox();
+}
+
+class _DropItemInfo extends StatelessWidget {
+  const _DropItemInfo({
+    super.key,
+    required this.dropItem,
+  });
+
+  final DropItem dropItem;
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
-    return Scaffold(
-      appBar: AppBar(
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
-      ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+      child: DefaultTextStyle.merge(
+        style: const TextStyle(fontSize: 11.0),
         child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Invoke "debug painting" (press "p" in the console, choose the
-          // "Toggle Debug Paint" action from the Flutter Inspector in Android
-          // Studio, or the "Toggle Debug Paint" command in Visual Studio Code)
-          // to see the wireframe for each widget.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const SizedBox(
-              height: 30,
-            ),
-            // DemoWidget(
-            //   name: 'Widget 1',
-            //   color: Colors.red,
-            //   payload: 'Payload 1',
-            //   localData: 'D1',
-            //   fileName: 'File1.txt',
-            // ),
-
-            // Padding(
-            //   padding: const EdgeInsets.all(40.0),
-            //   child: ListView(
-            //     shrinkWrap: true,
-            //     children: const [
-            //       DemoWidget(
-            //         name: 'Widget 1',
-            //         color: Colors.red,
-            //         payload: 'Payload 1',
-            //         localData: 'D1',
-            //         fileName: 'File1.txt',
-            //       ),
-            //       DemoWidget(
-            //         name: 'Widget 2',
-            //         color: Colors.yellow,
-            //         payload: 'Payload 1',
-            //         localData: 'D2',
-            //         fileName: 'File2.txt',
-            //       ),
-            //       DemoWidget(
-            //         name: 'Widget 3',
-            //         color: Colors.green,
-            //         payload: 'Payload 3',
-            //         localData: 'D3',
-            //         fileName: 'File3.txt',
-            //       ),
-            //       DemoWidget(
-            //         name: 'Widget 4',
-            //         color: Colors.blue,
-            //         payload: 'Payload 4',
-            //         localData: 'D4',
-            //         fileName: 'File4.txt',
-            //       ),
-            //     ],
-            //   ),
-            // ),
-            DropRegion(
-              formats: const [
-                ...Format.standardFormats,
-                formatCustom,
-              ],
-              onDropOver: (session, position) async {
-                // print('OnDropOver $position, $session');
-                return DropOperation.copy;
-              },
-              onDropLeave: (session) async {
-                print('Drop leave');
-              },
-              onPerformDrop: (session, position, acceptedOperation) async {
-                print('Perform drop $acceptedOperation');
-
-                print(
-                    'session ${session.toString(minLevel: DiagnosticLevel.fine)}');
-                // for (final item in session.items) {
-                // print('Item ${item.toString()}');
-                // final readerItem = item.readerItem;
-                // print('Formats: ${item.formats}');
-                // final j = await item.dataReader!.readValue(jpeg);
-                // final j = await item.dataReader!.readValue(uriList);
-                // final name = await item.dataReader!.suggestedName();
-                // print('__ $name');
-                // print('J $j');
-                // if (readerItem != null) {
-                // print('Drop update ${await readerItem.getAvailableFormats()}');
-                // }
-                // }
-                for (final item in session.items) {
-                  final reader = item.dataReader!;
-                  final receiver = await reader.getVirtualFileReceiver(
-                      format: Format.imageJpeg);
-                  // if (receiver != null) {
-                  //   print('FORMAT ${receiver.format}');
-                  //   receiver
-                  //       .receiveVirtualFile(targetFolder: '/Users/Matej/_temp')
-                  //       .first
-                  //       .then((value) => print('REceived file at $value'),
-                  //           onError: (e) {
-                  //     print('Error $e');
-                  //   });
-                  //   print(
-                  //       'object ${await item.dataReader!.rawReader!.getSuggestedName()}');
-                  // }
-                }
-
-                final readers = await Future.wait(session.items
-                    .map((e) => ReaderInfo.fromReader(e.dataReader!)));
-
-                final widgets = Future.wait(
-                  readers.mapIndexed(
-                    (index, element) =>
-                        buildWidgetForReader(context, element, index),
-                  ),
-                );
-                print('Built widgets');
-                widgets.then((value) {
-                  print('Have $value');
-                  setState(() {
-                    contents = value;
-                  });
-                }, onError: (e) {
-                  print('E $e');
-                });
-              },
-              onDropEnded: (session) {
-                print('Drop ended');
-              },
-              child: Container(
-                width: 400,
-                height: 400,
-                color: Colors.amber,
-                child: SelectionArea(
-                  focusNode: FocusNode()..canRequestFocus = false,
-                  child: ListView(
-                    padding: const EdgeInsets.all(16),
-                    children: contents
-                        .intersperse(const SizedBox(
-                          height: 10,
-                        ))
-                        .toList(growable: false),
-                  ),
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (dropItem.localData != null)
+              Text.rich(TextSpan(children: [
+                const TextSpan(
+                  text: 'Local data: ',
+                  style: TextStyle(fontWeight: FontWeight.bold),
                 ),
+                TextSpan(text: '${dropItem.localData}'),
+              ])),
+            const SizedBox(
+              height: 4,
+            ),
+            Text.rich(TextSpan(children: [
+              const TextSpan(
+                text: 'Native formats: ',
+                style: TextStyle(fontWeight: FontWeight.bold),
               ),
-            )
+              TextSpan(text: dropItem.platformFormats.join(', ')),
+            ])),
           ],
         ),
       ),

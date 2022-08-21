@@ -31,6 +31,9 @@ class _DropItem extends DropItem {
   @override
   DataReader? get dataReader => _reader;
 
+  @override
+  List<PlatformFormat> get platformFormats => _item.formats;
+
   Future<void> _maybeInitReader() async {
     if (_reader == null && _item.readerItem != null) {
       _reader = await DataReader.forItem(_item.readerItem!);
@@ -266,7 +269,7 @@ class DropFormatRegistry {
   DropFormatRegistration registerFormats(List<DataFormat> dataFormats) {
     final platformFormats = <PlatformFormat>[];
     for (final dataFormat in dataFormats) {
-      for (final format in dataFormat.receiverFormats) {
+      for (final format in dataFormat.decodingFormats) {
         if (!platformFormats.contains(format)) {
           platformFormats.add(format);
         }

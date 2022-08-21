@@ -93,13 +93,17 @@ abstract class DataFormat<T extends Object> extends VirtualFileFormat {
     return decoder.decode(provider, format);
   }
 
-  @override
-  List<PlatformFormat> get receiverFormats =>
+  List<PlatformFormat> get decodingFormats =>
       codecForPlatform(currentPlatform).decodingFormats;
 
+  List<PlatformFormat> get encodingFormats =>
+      codecForPlatform(currentPlatform).encodingFormats;
+
   @override
-  PlatformFormat? get providerFormat =>
-      codecForPlatform(currentPlatform).encodingFormats.firstOrNull;
+  List<PlatformFormat> get receiverFormats => decodingFormats;
+
+  @override
+  PlatformFormat? get providerFormat => encodingFormats.firstOrNull;
 }
 
 /// Clipboard data in platform specific format. Do not use directly.

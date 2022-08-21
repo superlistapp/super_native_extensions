@@ -36,6 +36,8 @@ dependencies:
     path: ../../super_clipboard
   super_drag_and_drop:
     path: ../
+  super_clipboard_example:
+    path: ../../super_clipboard/example
 
 dependency_overrides:
   super_clipboard:

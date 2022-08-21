@@ -57,7 +57,14 @@ class ItemDataReader extends ClipboardDataReader {
     for (final f in formats) {
       final decodable = allFormats
           .where((element) => element.canDecode(f))
-          .toList(growable: false);
+          .toList(growable: false)
+        // sort decoders that can handle this format by how
+        // far it is in their supported format lists
+        ..sort(
+          (a, b) => a.decodingFormats
+              .indexOf(f)
+              .compareTo(b.decodingFormats.indexOf(f)),
+        );
       for (final format in decodable) {
         res.add(format);
         allFormats.remove(format);
@@ -78,8 +85,11 @@ class ItemDataReader extends ClipboardDataReader {
 
     for (final f in formats) {
       if (format.canDecode(f)) {
-        format.decode(f, _PlatformDataProvider(formats, onGetData)).then(
-            (value) {
+        final primaryFormat = format.decodingFormats
+            .firstWhere((element) => formats.contains(element));
+        format
+            .decode(primaryFormat, _PlatformDataProvider(formats, onGetData))
+            .then((value) {
           onValue(DataReaderValue(value: value));
         }, onError: (e) {
           onValue(DataReaderValue(error: e));
@@ -111,12 +121,12 @@ class ItemDataReader extends ClipboardDataReader {
 
   @override
   bool isSynthetized(DataFormat format) {
-    return format.receiverFormats.any((f) => synthetizedFormats.contains(f));
+    return format.decodingFormats.any((f) => synthetizedFormats.contains(f));
   }
 
   @override
   bool isVirtual(DataFormat<Object> format) {
-    return format.receiverFormats.any((f) => virtualFormats.contains(f));
+    return format.decodingFormats.any((f) => virtualFormats.contains(f));
   }
 
   @override

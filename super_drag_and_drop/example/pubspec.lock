@@ -168,6 +168,13 @@ packages:
       relative: true
     source: path
     version: "0.0.1"
+  super_clipboard_example:
+    dependency: "direct main"
+    description:
+      path: "../../super_clipboard/example"
+      relative: true
+    source: path
+    version: "1.0.0+1"
   super_drag_and_drop:
     dependency: "direct main"
     description:

@@ -201,7 +201,9 @@ Future<NamedUri?> macosDecodeNamedUri(
       if (format == 'public.utf8-plain-text' && !uri.hasScheme) {
         return null;
       } else {
-        return NamedUri(uri, name: name is String ? name.trim() : null);
+        return NamedUri(uri,
+            name:
+                name is String && name.trim().isNotEmpty ? name.trim() : null);
       }
     }
   }

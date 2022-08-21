@@ -1,7 +1,6 @@
 import 'dart:ui' as ui;
 import 'dart:typed_data';
 
-import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:super_clipboard/super_clipboard.dart';
 
@@ -319,17 +318,16 @@ class _PasteSectionState extends State<_PasteSection>
 
   void _paste() async {
     final reader = await ClipboardReader.readClipboard();
-
-    final widgets = await Future.wait(
-      reader.items.mapIndexed(
-        (index, element) => buildWidgetForReader(context, element, index),
-      ),
+    final readers = await Future.wait(
+      reader.items.map((e) => ReaderInfo.fromReader(e)),
     );
-
-    setState(() {
-      contentWidgets = widgets
-          .intersperse(const SizedBox(height: 10))
-          .toList(growable: false);
+    if (!mounted) {
+      return;
+    }
+    buildWidgetsForReaders(context, readers, (widgets) {
+      setState(() {
+        contentWidgets = widgets;
+      });
     });
   }
 
@@ -352,7 +350,9 @@ class _PasteSectionState extends State<_PasteSection>
             focusNode: FocusNode()..canRequestFocus = false,
             child: ListView(
               padding: const EdgeInsets.all(16),
-              children: contentWidgets,
+              children: contentWidgets
+                  .intersperse(const SizedBox(height: 10))
+                  .toList(growable: false),
             ),
           ),
         )
