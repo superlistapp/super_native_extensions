@@ -18,6 +18,9 @@ class DragSessionImpl extends DragSession implements Drag {
   @override
   Listenable get dragStarted => _dragStarted;
 
+  @override
+  bool get dragging => _state != null;
+
   final _dragStarted = SimpleNotifier();
 
   @override

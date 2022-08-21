@@ -1,15 +1,13 @@
+import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:collection/collection.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:super_clipboard/super_clipboard.dart';
 import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 import 'package:super_clipboard_example/widget_for_reader.dart';
-
-const formatCustom = CustomDataFormat<Uint8List>(
-  applicationId: "com.superlist.clipboard.Example.CustomType",
-);
 
 void main() async {
   runApp(const MyApp());
@@ -24,6 +22,9 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Flutter Demo',
       theme: ThemeData(
+        snackBarTheme: const SnackBarThemeData(
+          behavior: SnackBarBehavior.floating,
+        ),
         primarySwatch: Colors.blue,
       ),
       home: const MyHomePage(title: 'SuperDragAndDrop Example'),
@@ -40,8 +41,8 @@ class MyHomePage extends StatefulWidget {
   State<MyHomePage> createState() => _MyHomePageState();
 }
 
-class DemoWidget extends StatelessWidget {
-  const DemoWidget({
+class DragableWidget extends StatefulWidget {
+  const DragableWidget({
     super.key,
     required this.name,
     required this.color,
@@ -53,19 +54,57 @@ class DemoWidget extends StatelessWidget {
   final DragItemProvider dragItemProvider;
 
   @override
+  State<DragableWidget> createState() => _DragableWidgetState();
+}
+
+class _DragableWidgetState extends State<DragableWidget> {
+  bool _dragging = false;
+
+  Future<DragItem?> provideDragItem(
+      AsyncValueGetter<DragImage> snapshot, DragSession session) async {
+    final item = await widget.dragItemProvider(snapshot, session);
+    if (item != null) {
+      setState(() {
+        _dragging = session.dragging;
+      });
+      session.dragStarted.addListener(() {
+        setState(() {
+          _dragging = true;
+        });
+      });
+      session.dragCompleted.addListener(() {
+        if (mounted) {
+          setState(() {
+            _dragging = false;
+          });
+        }
+      });
+    }
+    return item;
+  }
+
+  @override
   Widget build(BuildContext context) {
     return DragItemWidget(
       allowedOperations: () => [DropOperation.copy],
       canAddItemToExistingSession: true,
-      dragItemProvider: dragItemProvider,
+      dragItemProvider: provideDragItem,
       child: DraggableWidget(
-        child: Container(
-          decoration: BoxDecoration(
-            color: color,
+        child: AnimatedOpacity(
+          opacity: _dragging ? 0.5 : 1,
+          duration: const Duration(milliseconds: 200),
+          child: Container(
+            decoration: BoxDecoration(
+              color: widget.color,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+            child: Text(
+              widget.name,
+              style: const TextStyle(fontSize: 20, color: Colors.white),
+              textAlign: TextAlign.center,
+            ),
           ),
-          padding: const EdgeInsets.all(20),
-          alignment: Alignment.center,
-          child: Text(name, style: const TextStyle(fontSize: 25)),
         ),
       ),
     );
@@ -83,53 +122,234 @@ Future<Uint8List> createImageData(Color color) async {
   return data!.buffer.asUint8List();
 }
 
+class HomeLayout extends StatelessWidget {
+  const HomeLayout({
+    super.key,
+    required this.draggable,
+    required this.dropZone,
+  });
+
+  final List<Widget> draggable;
+  final Widget dropZone;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: LayoutBuilder(builder: (context, constraints) {
+        if (constraints.maxWidth < 500) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                child: Wrap(
+                  direction: Axis.horizontal,
+                  runSpacing: 8,
+                  spacing: 10,
+                  children: draggable,
+                ),
+              ),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0).copyWith(top: 0),
+                  child: dropZone,
+                ),
+              ),
+            ],
+          );
+        } else {
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: IntrinsicWidth(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: draggable
+                        .intersperse(
+                          const SizedBox(height: 10),
+                        )
+                        .toList(growable: false),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0).copyWith(left: 0),
+                  child: dropZone,
+                ),
+              ),
+            ],
+          );
+        }
+      }),
+    );
+  }
+}
+
+extension on DragSession {
+  Future<bool> hasLocalData(Object data) async {
+    final localData = await getLocalData() ?? [];
+    return localData.contains(data);
+  }
+}
+
 class _MyHomePageState extends State<MyHomePage> {
+  void showMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        duration: const Duration(milliseconds: 1500),
+      ),
+    );
+  }
+
+  Future<DragItem?> textDragItem(
+    AsyncValueGetter<DragImage> dragImage,
+    DragSession session,
+  ) async {
+    // For multi drag on iOS check if this item is already in the session
+    if (await session.hasLocalData('text-item')) {
+      return null;
+    }
+    final item = DragItem(
+        image: await dragImage(),
+        localData: 'text-item',
+        suggestedName: 'PlainText.txt');
+    item.add(Format.plainText.encode('Plain Text Value'));
+    return item;
+  }
+
+  Future<DragItem?> imageDragItem(
+    AsyncValueGetter<DragImage> dragImage,
+    DragSession session,
+  ) async {
+    // For multi drag on iOS check if this item is already in the session
+    if (await session.hasLocalData('image-item')) {
+      return null;
+    }
+    final item = DragItem(
+      image: await dragImage(),
+      localData: 'image-item',
+      suggestedName: 'Green.png',
+    );
+    item.add(Format.imagePng.encode(await createImageData(Colors.green)));
+    return item;
+  }
+
+  Future<DragItem?> lazyImageDragItem(
+    AsyncValueGetter<DragImage> dragImage,
+    DragSession session,
+  ) async {
+    // For multi drag on iOS check if this item is already in the session
+    if (await session.hasLocalData('lazy-image-item')) {
+      return null;
+    }
+    final item = DragItem(
+      image: await dragImage(),
+      localData: 'lazy-image-item',
+      suggestedName: 'LazyBlue.png',
+    );
+    item.add(Format.imagePng.encodeLazy(() async {
+      showMessage('Requested lazy image.');
+      return await createImageData(Colors.blue);
+    }));
+    return item;
+  }
+
+  Future<DragItem?> virtualFileDragItem(
+    AsyncValueGetter<DragImage> dragImage,
+    DragSession session,
+  ) async {
+    // For multi drag on iOS check if this item is already in the session
+    if (await session.hasLocalData('virtual-file-item')) {
+      return null;
+    }
+    final item = DragItem(
+      image: await dragImage(),
+      localData: 'virtual-file-item',
+      suggestedName: 'VirtualFile.txt',
+    );
+    if (!item.virtualFileSupported) {
+      return null;
+    }
+    item.addVirtualFile(
+      format: Format.plainText,
+      provider: (sinkProvider, progress) {
+        showMessage('Requesting virtual file content.');
+        final line = utf8.encode('Line in virtual file\n');
+        const lines = 10;
+        final sink = sinkProvider(fileSize: line.length * lines);
+        for (var i = 0; i < lines; ++i) {
+          sink.add(line);
+        }
+        sink.close();
+      },
+    );
+    return item;
+  }
+
+  Future<DragItem?> multipleRepresentationsDragItem(
+    AsyncValueGetter<DragImage> dragImage,
+    DragSession session,
+  ) async {
+    // For multi drag on iOS check if this item is already in the session
+    if (await session.hasLocalData('multiple-representations-item')) {
+      return null;
+    }
+    final item = DragItem(
+      image: await dragImage(),
+      localData: 'multiple-representations-item',
+    );
+    item.add(Format.imagePng.encode(await createImageData(Colors.pink)));
+    item.add(Format.plainText.encode("Hello World"));
+    item.add(Format.uri
+        .encode(NamedUri(Uri.parse('https://flutter.dev'), name: 'Flutter')));
+    return item;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.title),
       ),
-      body: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: <Widget>[
-          SizedBox(
-            width: 200,
-            child: ListView(
-              children: [
-                DemoWidget(
-                  name: "Red",
-                  color: Colors.red,
-                  dragItemProvider: (dragImage, session) async {
-                    final item = DragItem(
-                      image: await dragImage(),
-                      localData: 10,
-                    );
-                    item.add(Format.imagePng
-                        .encode(await createImageData(Colors.green)));
-                    item.add(Format.plainText.encode("Hello World"));
-                    item.add(Format.uri.encode(NamedUri(
-                        Uri.parse('https://flutter.dev'),
-                        name: 'Flutter')));
-                    return item;
-                  },
-                ),
-              ],
-            ),
+      body: HomeLayout(
+        draggable: [
+          DragableWidget(
+            name: 'Text',
+            color: Colors.red,
+            dragItemProvider: textDragItem,
           ),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Container(
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.blueGrey.shade200),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: _DropZone(),
-              ),
-            ),
+          DragableWidget(
+            name: 'Image',
+            color: Colors.green,
+            dragItemProvider: imageDragItem,
+          ),
+          DragableWidget(
+            name: 'Image 2',
+            color: Colors.blue,
+            dragItemProvider: lazyImageDragItem,
+          ),
+          DragableWidget(
+            name: 'Virtual',
+            color: Colors.amber.shade700,
+            dragItemProvider: virtualFileDragItem,
+          ),
+          DragableWidget(
+            name: 'Multiple',
+            color: Colors.pink,
+            dragItemProvider: multipleRepresentationsDragItem,
           ),
         ],
+        dropZone: Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.blueGrey.shade200),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: _DropZone(),
+        ),
       ),
     );
   }
@@ -174,7 +394,7 @@ class _DropZoneState extends State<_DropZone> {
       _isDragOver = true;
       _preview = Container(
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(7),
+          borderRadius: BorderRadius.circular(13),
           color: Colors.black.withOpacity(0.2),
         ),
         child: Padding(
@@ -222,7 +442,6 @@ class _DropZoneState extends State<_DropZone> {
     buildWidgetsForReaders(context, readers, (value) {
       setState(() {
         _content = SelectionArea(
-
           focusNode: FocusNode()..canRequestFocus = false,
           child: ListView(
             padding: const EdgeInsets.all(10),
@@ -244,12 +463,19 @@ class _DropZoneState extends State<_DropZone> {
   bool _isDragOver = false;
 
   Widget _preview = const SizedBox();
-  Widget _content = const SizedBox();
+  Widget _content = const Center(
+    child: Text(
+      'Drop here',
+      style: TextStyle(
+        color: Colors.grey,
+        fontSize: 16,
+      ),
+    ),
+  );
 }
 
 class _DropItemInfo extends StatelessWidget {
   const _DropItemInfo({
-    super.key,
     required this.dropItem,
   });
 

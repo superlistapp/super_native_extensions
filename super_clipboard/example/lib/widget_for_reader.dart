@@ -4,7 +4,10 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:collection/collection.dart';
 import 'package:super_clipboard/super_clipboard.dart';
-import 'main.dart';
+
+const formatCustom = CustomDataFormat<Uint8List>(
+  applicationId: "com.superlist.clipboard.Example.CustomType",
+);
 
 void buildWidgetsForReaders(
   BuildContext context,
@@ -285,6 +288,7 @@ class _RepresentationWidget extends StatelessWidget {
                 Text(synthetized ? ' (synthetized)' : ''),
               ],
             ),
+            const SizedBox(height: 2,),
             content,
           ],
         ),

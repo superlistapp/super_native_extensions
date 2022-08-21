@@ -5,6 +5,7 @@ use std::{
     os::raw::c_void,
     rc::{Rc, Weak},
     sync::Arc,
+    time::Duration,
 };
 
 use block::ConcreteBlock;
@@ -14,7 +15,7 @@ use cocoa::{
 };
 use core_graphics::{
     base::CGFloat,
-    geometry::{CGPoint, CGRect},
+    geometry::{CGPoint, CGRect, CGSize},
 };
 
 use nativeshell_core::{platform::run_loop::PollSession, util::Late, Context, Value};
@@ -70,6 +71,7 @@ struct Session {
     session_id: DragSessionId,
     weak_self: Late<Weak<Self>>,
     in_progress: Cell<bool>,
+    sent_did_end: Cell<bool>,
     configuration: RefCell<DragConfiguration>,
     data_providers: RefCell<Vec<Arc<DataProviderHandle>>>,
     views: RefCell<HashMap<(usize, ImageType), StrongPtr>>, // index -> view
@@ -97,6 +99,7 @@ impl Session {
             context_id: platform_drag_context_id,
             weak_self: Late::new(),
             in_progress: Cell::new(false),
+            sent_did_end: Cell::new(false),
             session_id,
             configuration: RefCell::new(configuration),
             data_providers: RefCell::new(Vec::new()),
@@ -238,6 +241,10 @@ impl Session {
     }
 
     fn did_end_with_operation(&self, operation: UIDropOperation) {
+        if self.sent_did_end.replace(true) {
+            // already cancelled
+            return;
+        }
         if let Some(delegate) = self.context_delegate.upgrade() {
             delegate.drag_session_did_end_with_operation(
                 self.context_id,
@@ -275,6 +282,19 @@ impl Session {
             .clone()
     }
 
+    fn cancelling(&self) {
+        if self.sent_did_end.replace(true) {
+            return; // already cancelled
+        }
+        if let Some(delegate) = self.context_delegate.upgrade() {
+            delegate.drag_session_did_end_with_operation(
+                self.context_id,
+                self.session_id,
+                DropOperation::None,
+            );
+        }
+    }
+
     fn preview_for_item(&self, index: usize) -> id {
         let configuration = self.configuration.borrow();
         let drag_image = &configuration.items[index].image;
@@ -282,6 +302,12 @@ impl Session {
         unsafe {
             let parameters: id = msg_send![class!(UIDragPreviewParameters), new];
             let () = msg_send![parameters, autorelease];
+            let clear_color: id = msg_send![class!(UIColor), clearColor];
+            let () = msg_send![parameters, setBackgroundColor: clear_color];
+
+            // TODO(knopp): Make this configurable
+            let shadow_path: id = msg_send![class!(UIBezierPath), bezierPathWithRect: CGRect{ origin: CGPoint { x: 0.0, y: 0.0 }, size: CGSize { width: 0.0, height: 0.0,} }];
+            let () = msg_send![parameters, setShadowPath: shadow_path];
 
             let target: id = msg_send![class!(UIPreviewTarget), alloc];
             let center: CGPoint = drag_image.source_rect.center().into();
@@ -306,6 +332,7 @@ impl Session {
             let () = unsafe { msg_send![*view_container, setAlpha: 0.0] };
         });
         let animation_block = animation_block.copy();
+
         unsafe {
             let () = msg_send![class!(UIView),
                          animateWithDuration: 0.3f64
@@ -314,6 +341,19 @@ impl Session {
                          animations:&*animation_block
                          completion:nil];
         };
+
+        // It takes eterninty to get the UIKit cancelled notification;
+        // So we do it manually slightly after the animation is done.
+        let weak_self = self.weak_self.clone();
+        Context::get()
+            .run_loop()
+            .schedule(Duration::from_millis(600), move || {
+                if let Some(this) = weak_self.upgrade() {
+                    this.cancelling();
+                }
+            })
+            .detach();
+
         self.preview_for_item(index)
     }
 }

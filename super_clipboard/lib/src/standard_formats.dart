@@ -31,7 +31,7 @@ class Format {
 
   static const plainText = SimpleDataFormat<String>(
     ios: SimplePlatformCodec(
-      formats: ['public.utf8-plain-text'],
+      formats: ['public.utf8-plain-text', 'public.plain-text'],
       onDecode: fromSystemUtf8,
     ),
     macos: SimplePlatformCodec(

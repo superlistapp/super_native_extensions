@@ -51,6 +51,9 @@ class DragSessionImpl extends DragSession {
     required this.dragContext,
   });
 
+  @override
+  bool get dragging => _started;
+
   final DragContextImpl dragContext;
 
   @override

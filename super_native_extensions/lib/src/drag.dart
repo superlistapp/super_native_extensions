@@ -71,6 +71,9 @@ abstract class DragSession {
   /// Fired when session dragging started.
   Listenable get dragStarted;
 
+  /// True when session is already dragging
+  bool get dragging;
+
   /// Fired on drag completion. The value will contain drop operation that the
   /// drag finished with.
   ValueListenable<DropOperation?> get dragCompleted;
