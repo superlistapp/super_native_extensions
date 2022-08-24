@@ -172,13 +172,13 @@ class _MyHomePageState extends State<MyHomePage>
   void copyImage() async {
     final image = await createImageData(Colors.red);
     final item = DataWriterItem(suggestedName: 'RedCircle.png');
-    item.add(Formats.imagePng(image));
+    item.add(Formats.png(image));
     await ClipboardWriter.instance.write([item]);
   }
 
   void copyImageLazy() async {
     final item = DataWriterItem(suggestedName: 'BlueCircle.png');
-    item.add(Formats.imagePng.lazy(() {
+    item.add(Formats.png.lazy(() {
       showMessage('Lazy image requested.');
       return createImageData(Colors.blue);
     }));

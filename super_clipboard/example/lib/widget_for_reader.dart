@@ -360,16 +360,16 @@ Future<_RepresentationWidget?> _widgetForFormat(
           content: Text(html),
         );
       }
-    case Formats.imagePng:
-      return _widgetForImage(context, Formats.imagePng, 'PNG', reader);
-    case Formats.imageJpeg:
-      return _widgetForImage(context, Formats.imageJpeg, 'JPEG', reader);
-    case Formats.imageGif:
-      return _widgetForImage(context, Formats.imageGif, 'GIF', reader);
-    case Formats.imageTiff:
-      return _widgetForImage(context, Formats.imageTiff, 'TIFF', reader);
-    case Formats.imageWebP:
-      return _widgetForImage(context, Formats.imageWebP, 'WebP', reader);
+    case Formats.png:
+      return _widgetForImage(context, Formats.png, 'PNG', reader);
+    case Formats.jpeg:
+      return _widgetForImage(context, Formats.jpeg, 'JPEG', reader);
+    case Formats.gif:
+      return _widgetForImage(context, Formats.gif, 'GIF', reader);
+    case Formats.tiff:
+      return _widgetForImage(context, Formats.tiff, 'TIFF', reader);
+    case Formats.webp:
+      return _widgetForImage(context, Formats.webp, 'WebP', reader);
     // regular and file uri may have same mime types on some platforms
     case Formats.uri:
     case Formats.fileUri:

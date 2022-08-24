@@ -21,12 +21,12 @@ class Formats {
     htmlText,
     fileUri,
     uri,
-    imageJpeg,
-    imagePng,
-    imageSvg,
-    imageGif,
-    imageWebP,
-    imageTiff,
+    jpeg,
+    png,
+    svg,
+    gif,
+    webp,
+    tiff,
   ];
 
   static const plainText = SimpleDataFormat<String>(
@@ -142,7 +142,7 @@ class Formats {
     ),
   );
 
-  static const imageJpeg = SimpleDataFormat<Uint8List>(
+  static const jpeg = SimpleDataFormat<Uint8List>(
     macos: SimplePlatformCodec(formats: ['public.jpeg']),
     ios: SimplePlatformCodec(formats: ['public.jpeg']),
     windows: SimplePlatformCodec(formats: ['JFIF']),
@@ -166,34 +166,34 @@ class Formats {
   ///
   /// On MacOS, TIFF image in pasteboard will be exposed as PNG unless there
   /// is another PNG already present in the clipboard.
-  static const imagePng = SimpleDataFormat<Uint8List>(
+  static const png = SimpleDataFormat<Uint8List>(
     macos: SimplePlatformCodec(formats: ['public.png']),
     ios: SimplePlatformCodec(formats: ['public.png']),
     windows: SimplePlatformCodec(formats: ['PNG']),
     fallback: SimplePlatformCodec(formats: ['image/png']),
   );
 
-  static const imageGif = SimpleDataFormat<Uint8List>(
+  static const gif = SimpleDataFormat<Uint8List>(
     macos: SimplePlatformCodec(formats: ['public.gif']),
     ios: SimplePlatformCodec(formats: ['public.gif']),
     windows: SimplePlatformCodec(formats: ['GIF']),
     fallback: SimplePlatformCodec(formats: ['image/gif']),
   );
 
-  static const imageTiff = SimpleDataFormat<Uint8List>(
+  static const tiff = SimpleDataFormat<Uint8List>(
     macos: SimplePlatformCodec(formats: ['public.tiff']),
     ios: SimplePlatformCodec(formats: ['public.tiff']),
     windows: SimplePlatformCodec(formats: [cfTiff]),
     fallback: SimplePlatformCodec(formats: ['image/tiff']),
   );
 
-  static const imageWebP = SimpleDataFormat<Uint8List>(
+  static const webp = SimpleDataFormat<Uint8List>(
     macos: SimplePlatformCodec(formats: ['org.webmproject.webp']),
     ios: SimplePlatformCodec(formats: ['org.webmproject.webp']),
     fallback: SimplePlatformCodec(formats: ['image/webp']),
   );
 
-  static const imageSvg = SimpleDataFormat<Uint8List>(
+  static const svg = SimpleDataFormat<Uint8List>(
     macos: SimplePlatformCodec(formats: ['public.svg-image']),
     ios: SimplePlatformCodec(formats: ['public.svg-image']),
     fallback: SimplePlatformCodec(formats: ['image/svg+xml']),

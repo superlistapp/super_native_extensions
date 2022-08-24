@@ -7,7 +7,7 @@ import 'platform.dart';
 import 'reader.dart';
 import 'writer.dart';
 
-/// Callback to obtain data lazily. See [EncodableDataFormat.encodeLazy];
+/// Callback to obtain data lazily. See [DataFormat.lazy];
 typedef DataProvider<T> = FutureOr<T> Function();
 
 /// Platform specific name for data format. For example value for plain text

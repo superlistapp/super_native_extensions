@@ -56,16 +56,16 @@ Be sure to replace `<your-package-name>` in the snippet with your actual package
 
 ```dart
     final reader = await ClipboardReader.readClipboard();
-    if (reader.hasValue(Format.htmlText)) {
-        final html = await reader.readValue(Format.htmlText);
+    if (reader.hasValue(Formats.htmlText)) {
+        final html = await reader.readValue(Formats.htmlText);
         // .. do something with the HTML text
     }
-    if (reader.hasValue(Format.plainText)) {
-        final text = await reader.readValue(Format.plainText);
+    if (reader.hasValue(Formats.plainText)) {
+        final text = await reader.readValue(Formats.plainText);
         // Do something with the plain text
     }
-    if (reader.hasValue(Format.imagePng)) {
-        final png = await reader.readValue(Format.imagePng);
+    if (reader.hasValue(Formats.png)) {
+        final png = await reader.readValue(Formats.png);
         // Do something with the PNG image
     }
 ```
@@ -74,7 +74,7 @@ For more formats supported out of box look at the [Format](lib/src/standard_form
 
 Note that on Windows clipboard images are usually stored in DIB or DIBv5 format, while on macOS TIFF is commonly used. `super_clipboard` will transparently expose these formats as PNG.
 
-You can query whether the PNG image in clipboard has been synthetized through `reader.isSynthetized(Format.png)`.
+You can query whether the PNG image in clipboard has been synthetized through `reader.isSynthetized(Formats.png)`.
 
 ### Writing to clipboard
 
@@ -82,7 +82,7 @@ You can query whether the PNG image in clipboard has been synthetized through `r
     final item = DataWriterItem();
     item.add(Formats.htmlText('<b>HTML text</b>'));
     item.add(Formats.plainText('plain text'));
-    item.add(Formats.imagePng(imageData));
+    item.add(Formats.png(imageData));
     await ClipboardWriter.instance.write([item]);
 ```
 
@@ -92,7 +92,7 @@ You can also provide representations on demand:
     final item = DataWriterItem();
     item.add(Formats.htmlText.lazy(() => '<b>HTML text</b>'));
     item.add(Formats.plainText.lazy(() => 'plain text'));
-    item.add(Formats.imagePng.lazy(() => imageData));
+    item.add(Formats.png.lazy(() => imageData));
     await ClipboardWriter.instance.write([item]);
 ```
 
@@ -102,7 +102,7 @@ On some platform the data may be requested eagerly when writing to clipboard. In
 
 When writing images preferred format is PNG. Most platform can handle PNG images in clipboard natively. On Windows PNGs are on-demand converted to DIB and DIBv5 formats, which is what native applications expect.
 
-While the Clipboard API supports writing multiple items, not all platforms support that fully. On Windows clipboard items past the first one only support `Format.fileUri` type (so it is possible to store multiple File Uris in clipboard) and on Linux only supported formats for additional items are `Format.uri` and `Format.fileUri`.
+While the Clipboard API supports writing multiple items, not all platforms support that fully. On Windows clipboard items past the first one only support `Formats.fileUri` type (so it is possible to store multiple File Uris in clipboard) and on Linux only supported formats for additional items are `Formats.uri` and `Formats.fileUri`.
 
 ## Running the example
 

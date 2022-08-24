@@ -234,7 +234,7 @@ class _MyHomePageState extends State<MyHomePage> {
       localData: 'image-item',
       suggestedName: 'Green.png',
     );
-    item.add(Formats.imagePng(await createImageData(Colors.green)));
+    item.add(Formats.png(await createImageData(Colors.green)));
     return item;
   }
 
@@ -251,7 +251,7 @@ class _MyHomePageState extends State<MyHomePage> {
       localData: 'lazy-image-item',
       suggestedName: 'LazyBlue.png',
     );
-    item.add(Formats.imagePng.lazy(() async {
+    item.add(Formats.png.lazy(() async {
       showMessage('Requested lazy image.');
       return await createImageData(Colors.blue);
     }));
@@ -302,7 +302,7 @@ class _MyHomePageState extends State<MyHomePage> {
       image: await dragImage(),
       localData: 'multiple-representations-item',
     );
-    item.add(Formats.imagePng(await createImageData(Colors.pink)));
+    item.add(Formats.png(await createImageData(Colors.pink)));
     item.add(Formats.plainText("Hello World"));
     item.add(Formats.uri(
         NamedUri(Uri.parse('https://flutter.dev'), name: 'Flutter')));
