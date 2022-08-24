@@ -6,8 +6,6 @@
 - Multiple representation for clipboard items.
 - Providing clipboard data on demand.
 
-See the example project at `super_clipboard/example`.
-
 <img src="https://matejknopp.com/super_native_extensions/super_clipboard.png"/>
 
 ## Getting started
@@ -89,5 +87,7 @@ While the Clipboard API supports writing multiple items, not all platforms suppo
 ## Additional information
 
 This plugin is in a very early stages of development and quite experimental.
+
+Example project is available at `super_clipboard/example`.
 
 PRs and bug reports are welcome!
