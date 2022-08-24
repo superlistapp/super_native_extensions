@@ -737,7 +737,7 @@ dependencies = [
 [[package]]
 name = "nativeshell_core"
 version = "0.1.0"
-source = "git+https://github.com/nativeshell/nativeshell_ng.git?rev=89f2038030bae2578e05f2a1f68d9470a7baeff0#89f2038030bae2578e05f2a1f68d9470a7baeff0"
+source = "git+https://github.com/nativeshell/nativeshell_ng.git?rev=be307a157d0771e28cc7dbe8459e3630da9ab421#be307a157d0771e28cc7dbe8459e3630da9ab421"
 dependencies = [
  "async-trait",
  "core-foundation",
@@ -750,7 +750,7 @@ dependencies = [
 [[package]]
 name = "nativeshell_derive"
 version = "0.1.1"
-source = "git+https://github.com/nativeshell/nativeshell_ng.git?rev=89f2038030bae2578e05f2a1f68d9470a7baeff0#89f2038030bae2578e05f2a1f68d9470a7baeff0"
+source = "git+https://github.com/nativeshell/nativeshell_ng.git?rev=be307a157d0771e28cc7dbe8459e3630da9ab421#be307a157d0771e28cc7dbe8459e3630da9ab421"
 dependencies = [
  "proc-macro-error",
  "proc-macro2",

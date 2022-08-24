@@ -16,7 +16,7 @@ dependencies:
     git:
       url: git@github.com:superlistapp/super_native_extensions.git
       path: super_native_extensions
-      ref: 4d062f06f9f420e3406a0f1a73bb5c8c671e44a6
+      ref: 326e3d5e5ec4bfc77880e34cfd4e43d8bbdd3442
 
 dev_dependencies:
   flutter_test:

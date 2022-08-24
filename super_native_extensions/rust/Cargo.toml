@@ -24,13 +24,13 @@ rand = "0.8.5"
 
 [dependencies.nativeshell_core]
 git = "https://github.com/nativeshell/nativeshell_ng.git"
-rev = "89f2038030bae2578e05f2a1f68d9470a7baeff0"
+rev = "be307a157d0771e28cc7dbe8459e3630da9ab421"
 # path = "../../../rust/nativeshell_ng/core/rust"
 features = ["derive"]
 
 [dev-dependencies.nativeshell_core]
 git = "https://github.com/nativeshell/nativeshell_ng.git"
-rev = "89f2038030bae2578e05f2a1f68d9470a7baeff0"
+rev = "be307a157d0771e28cc7dbe8459e3630da9ab421"
 # path = "../../../rust/nativeshell_ng/core/rust"
 features = ["derive", "mock"]
 
