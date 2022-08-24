@@ -12,6 +12,10 @@ import '../data_provider.dart';
 import '../data_provider_manager.dart';
 import '../util.dart';
 
+// Needed for older Flutter versions :-/
+// ignore: unnecessary_import
+import 'dart:typed_data';
+
 extension DataProviderExt on DataProvider {
   dynamic serialize() => {
         'representations': representations.map((e) => e.serialize()),
