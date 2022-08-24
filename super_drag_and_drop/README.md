@@ -1,4 +1,4 @@
-# Native Drag & Drop for Flutter
+# Native Drag&Drop for Flutter
 
 ## Features
 
