@@ -74,7 +74,7 @@ For more formats supported out of box look at the [Format](lib/src/standard_form
 
 Note that on Windows clipboard images are usually stored in DIB or DIBv5 format, while on macOS TIFF is commonly used. `super_clipboard` will transparently expose these formats as PNG.
 
-You can query whether the PNG image has been synthetized through `reader.isSynthetized(Format.png)`.
+You can query whether the PNG image in clipboard has been synthetized through `reader.isSynthetized(Format.png)`.
 
 ### Writing to Clipboard
 
