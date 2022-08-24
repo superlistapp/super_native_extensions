@@ -6,7 +6,7 @@
 - Multiple representation for clipboard items.
 - Providing clipboard data on demand.
 
-See the `super_clipboard/example` package for a demonstrations of `super_clipboard` functionality.
+See the `super_clipboard/example` package for a demonstration of `super_clipboard` functionality.
 
 <img src="https://matejknopp.com/super_native_extensions/super_clipboard.png"/>
 
