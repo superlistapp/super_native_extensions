@@ -247,7 +247,7 @@ impl DataProviderSession {
         let platform_source = self.platform_provider.lock().unwrap().clone();
         let session_delegate = self.delegate.lock().unwrap().clone();
         self.sender.send(move || {
-            // TODO(knopp) Simplify this if let_chain gets stabilized
+            // TODO(knopp): Simplify this if let_chain gets stabilized
             if let (Some(session_delegate), Some((source, source_delegate))) = (
                 session_delegate.get_ref().ok().and_then(|s| s.upgrade()),
                 platform_source

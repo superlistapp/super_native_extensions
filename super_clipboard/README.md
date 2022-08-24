@@ -29,7 +29,7 @@ rustup update
 
 That is it. The build integration will automatically install required Rust toolchains and other dependencies. This also means that first build might take a little bit longer.
 
-### Android Support
+### Android support
 
 To be able to write images and other custom data to Android clipboard you need
 to declare a content provider in `AndroidManifest.xml`:
@@ -52,7 +52,7 @@ Be sure to replace `<your-package-name>` in the snippet with your actual package
 
 ## Usage
 
-### Reading from Clipboard
+### Reading from clipboard
 
 ```dart
     final reader = await ClipboardReader.readClipboard();
@@ -76,7 +76,7 @@ Note that on Windows clipboard images are usually stored in DIB or DIBv5 format,
 
 You can query whether the PNG image in clipboard has been synthetized through `reader.isSynthetized(Format.png)`.
 
-### Writing to Clipboard
+### Writing to clipboard
 
 ```dart
     final item = DataWriterItem();

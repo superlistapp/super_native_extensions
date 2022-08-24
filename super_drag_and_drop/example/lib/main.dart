@@ -56,30 +56,6 @@ class DragableWidget extends StatefulWidget {
   State<DragableWidget> createState() => _DragableWidgetState();
 }
 
-class MyDraggableWidget extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return DragItemWidget(
-      dragItemProvider: (snapshot, session) async {
-        final item = DragItem(
-          // snapshot() will return Image of the DragItemWidget.
-          // You can use any other drag image if your wish
-          image: await snapshot(),
-          // This data is only accessible when dropping within same
-          // application
-          localData: {'x': 3, 'y': 4},
-        );
-        // Add data for this item that other applications can read
-        // on Drop (optional)
-        item.add(Formats.plainText('Plain Text Data'));
-        return item;
-      },
-      allowedOperations: () => [DropOperation.copy],
-      child: const Text('This widget is draggable'),
-    );
-  }
-}
-
 class _DragableWidgetState extends State<DragableWidget> {
   bool _dragging = false;
 
