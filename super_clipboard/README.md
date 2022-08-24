@@ -100,7 +100,7 @@ If you do this make sure that the callback can provide requested data without an
 
 On some platform the data may be requested eagerly when writing to clipboard. In this case the callback will be called immediately.
 
-When writing images preferred format is PNG. Most platform can handle PNG images in clipboard natively. On Windows PNGs are on-demand converted to DIB and DIBv5 formats, which is native applications expect.
+When writing images preferred format is PNG. Most platform can handle PNG images in clipboard natively. On Windows PNGs are on-demand converted to DIB and DIBv5 formats, which is what native applications expect.
 
 While the Clipboard API supports writing multiple items, not all platforms support that fully. On Windows clipboard items past the first one only support `Format.fileUri` type (so it is possible to store multiple File Uris in clipboard) and on Linux only supported formats for additional items are `Format.uri` and `Format.fileUri`.
 
