@@ -18,12 +18,12 @@ dependencies:
   collection: ^1.16.0
   js: ^0.6.4
   nativeshell_core:
-    path:
-      ../../rust/nativeshell_ng/core/dart
-    # git:
-    #   url: https://github.com/nativeshell/nativeshell_ng.git
-    #   ref: 379bef1fdc9231fb147cbf1a4161027d5ba4b969
-    #   path: core/dart
+    # path:
+    #   ../../rust/nativeshell_ng/core/dart
+    git:
+      url: https://github.com/nativeshell/nativeshell_ng.git
+      ref: 89f2038030bae2578e05f2a1f68d9470a7baeff0
+      path: core/dart
 
 dev_dependencies:
   flutter_test:
