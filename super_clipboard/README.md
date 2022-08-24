@@ -27,7 +27,7 @@ In case you have Rust already installed, make sure to update it to latest versio
 rustup update
 ```
 
-That is it. The build integration will automatically install required Rust toolchains and other dependencies. This also means that first build make take a little bit longer.
+That is it. The build integration will automatically install required Rust toolchains and other dependencies. This also means that first build might take a little bit longer.
 
 ### Android Support
 
