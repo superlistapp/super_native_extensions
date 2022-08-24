@@ -4,7 +4,7 @@
 
 - Native Drag&Drop functionality
 - Supports macOS, iOS, Android, Windows, Linux and Web (*)
-- Platform agnostic support for dragging and dropping common formats
+- Platform agnostic code for dragging and dropping common formats
 - Support for custom data formats
 - Multifinger drag on iOS (adding item to existing drag session, see video below)
 - Dragging and dropping virtual files (macOS, iOS and Windows)

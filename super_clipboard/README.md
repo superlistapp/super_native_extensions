@@ -2,7 +2,7 @@
 
 - Comprehensive clipboard functionality for Flutter.
 - Supports macOS, iOS, Android, Windows, Linux and Web.
-- Platform agnostic support for reading and writing common clipboard formats.
+- Platform agnostic code for reading and writing common clipboard formats.
 - Support for custom data formats.
 - Multiple representation for clipboard items.
 - Providing clipboard data on demand.
