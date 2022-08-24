@@ -26,7 +26,7 @@ use super::common::create_instance;
 /// Convert image from input_stream to PNG
 pub fn convert_to_png(input_stream: IStream) -> windows::core::Result<Vec<u8>> {
     let factory: IWICImagingFactory = create_instance(&CLSID_WICImagingFactory)?;
-unsafe {
+    unsafe {
         let decoder =
             factory.CreateDecoderFromStream(input_stream, null_mut(), Default::default())?;
         let encoder = factory.CreateEncoder(&GUID_ContainerFormatPng, null_mut())?;
