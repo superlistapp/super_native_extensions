@@ -15,7 +15,7 @@
 
 To use `super_clipboard`, you will need to install Rust:
 
-For macOS or Linux, execute the following in Terminal.
+For macOS or Linux, execute the following command in Terminal.
 ```bash
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 ```
