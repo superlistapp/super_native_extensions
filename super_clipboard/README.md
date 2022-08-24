@@ -48,7 +48,7 @@ to declare a content provider in `AndroidManifest.xml`:
     </application>
 </manifest>
 ```
-Be sure to replace `<your-package-name>` in the snipped with your actual package name.
+Be sure to replace `<your-package-name>` in the snippet with your actual package name.
 
 ## Usage
 
