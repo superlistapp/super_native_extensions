@@ -37,7 +37,7 @@ to declare a content provider in `AndroidManifest.xml`:
 ```xml
 <manifest>
     <application>
-    ...
+        ...
         <provider
             android:name="com.superlist.super_native_extensions.DataProvider"
             android:authorities="<your-package-name>.ClipboardDataProvider"
