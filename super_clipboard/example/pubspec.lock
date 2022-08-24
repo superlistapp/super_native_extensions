@@ -37,7 +37,7 @@ packages:
     source: hosted
     version: "1.16.0"
   cupertino_icons:
-    dependency: "direct overridden"
+    dependency: "direct main"
     description:
       name: cupertino_icons
       url: "https://pub.dartlang.org"
@@ -124,8 +124,8 @@ packages:
   nativeshell_core:
     dependency: transitive
     description:
-      path: "../../../rust/nativeshell_ng/core/dart"
-      relative: true
+      path: "/Users/Matej/Projects/super_native_extensions/super_native_extensions/../../rust/nativeshell_ng/core/dart"
+      relative: false
     source: path
     version: "0.0.1"
   path:
@@ -212,4 +212,4 @@ packages:
     version: "2.1.2"
 sdks:
   dart: ">=2.17.0 <3.0.0"
-  flutter: ">=3.0.0"
+  flutter: ">=2.2.1"

@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:collection/collection.dart';
@@ -160,6 +159,7 @@ class HomeLayout extends StatelessWidget {
         } else {
           return Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
+            textDirection: TextDirection.rtl,
             children: [
               SingleChildScrollView(
                 padding: const EdgeInsets.all(16),
@@ -176,7 +176,7 @@ class HomeLayout extends StatelessWidget {
               ),
               Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.all(16.0).copyWith(left: 0),
+                  padding: const EdgeInsets.all(16.0).copyWith(right: 0),
                   child: dropZone,
                 ),
               ),

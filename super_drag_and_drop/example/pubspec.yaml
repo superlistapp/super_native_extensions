@@ -39,14 +39,6 @@ dependencies:
   super_clipboard_example:
     path: ../../super_clipboard/example
 
-dependency_overrides:
-  super_clipboard:
-    path: ../../super_clipboard
-  super_drag_and_drop:
-    path: ../
-  super_native_extensions:
-    path: ../../super_native_extensions
-
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.2

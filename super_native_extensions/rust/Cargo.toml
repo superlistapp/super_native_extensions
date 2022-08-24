@@ -23,15 +23,15 @@ async-trait = "0.1"
 rand = "0.8.5"
 
 [dependencies.nativeshell_core]
-# git = "https://github.com/nativeshell/nativeshell_ng.git"
-# rev = "e58cf947f78c1e00ff66bedff6d5b42b3046577d"
-path = "../../../rust/nativeshell_ng/core/rust"
+git = "https://github.com/nativeshell/nativeshell_ng.git"
+rev = "89f2038030bae2578e05f2a1f68d9470a7baeff0"
+# path = "../../../rust/nativeshell_ng/core/rust"
 features = ["derive"]
 
 [dev-dependencies.nativeshell_core]
-# git = "https://github.com/nativeshell/nativeshell_ng.git"
-# rev = "e58cf947f78c1e00ff66bedff6d5b42b3046577d"
-path = "../../../rust/nativeshell_ng/core/rust"
+git = "https://github.com/nativeshell/nativeshell_ng.git"
+rev = "89f2038030bae2578e05f2a1f68d9470a7baeff0"
+# path = "../../../rust/nativeshell_ng/core/rust"
 features = ["derive", "mock"]
 
 [dev-dependencies]

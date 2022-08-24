@@ -288,7 +288,9 @@ class _RepresentationWidget extends StatelessWidget {
                 Text(synthetized ? ' (synthetized)' : ''),
               ],
             ),
-            const SizedBox(height: 2,),
+            const SizedBox(
+              height: 2,
+            ),
             content,
           ],
         ),

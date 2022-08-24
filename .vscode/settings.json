@@ -2,13 +2,15 @@
     "rust-analyzer.runnableEnv": {
         "RUST_TEST_THREADS": "1",
     },
-    // "rust-analyzer.cargo.target": "aarch64-apple-ios",
-    // "rust-analyzer.cargo.target": "aarch64-linux-android"
+    "rust-analyzer.cargo.target": "aarch64-apple-ios",
+    // "rust-analyzer.cargo.target": "aarch64-linux-android",
     "rust-analyzer.linkedProjects": [
         "super_native_extensions/rust/Cargo.toml"
     ],
     "rust-analyzer.cargo.unsetTest": [
         "core",
         "super_native_extensions"
-    ]
+    ],
+    "rust-analyzer.checkOnSave.allTargets": false,
+    "dart.runPubGetOnPubspecChanges": false,
 }
