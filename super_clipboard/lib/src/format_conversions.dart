@@ -174,7 +174,7 @@ Future<Uri?> fileUriFromWindowsPath(
   }
 }
 
-Object? macosEncodeNamedUri(NamedUri uri, PlatformFormat format) {
+Object? macosNamedUriToSystem(NamedUri uri, PlatformFormat format) {
   switch (format) {
     case 'public.url':
     case 'public.utf8-plain-text':
@@ -186,7 +186,7 @@ Object? macosEncodeNamedUri(NamedUri uri, PlatformFormat format) {
   }
 }
 
-Future<NamedUri?> macosDecodeNamedUri(
+Future<NamedUri?> macosNamedUriFromSystem(
     PlatformDataProvider provider, PlatformFormat format) async {
   // request both futures at the same time
   final futures = await Future.wait([
@@ -210,7 +210,7 @@ Future<NamedUri?> macosDecodeNamedUri(
   return null;
 }
 
-Object? iosEncodeNamedUri(NamedUri uri, PlatformFormat format) {
+Object? iosNamedUriToSystem(NamedUri uri, PlatformFormat format) {
   if (format == 'public.utf8-plain-text') {
     return uri.uri.toString();
   } else {
@@ -224,7 +224,7 @@ Object? iosEncodeNamedUri(NamedUri uri, PlatformFormat format) {
   }
 }
 
-Future<NamedUri?> iosDecodeNamedUri(
+Future<NamedUri?> iosNamedUriFromSystem(
     PlatformDataProvider provider, PlatformFormat format) async {
   final Object? value = await provider.getData(format);
   if (value is Uint8List) {
@@ -250,7 +250,7 @@ Future<NamedUri?> iosDecodeNamedUri(
   return null;
 }
 
-Future<NamedUri?> windowsDecodeNamedUri(
+Future<NamedUri?> windowsNamedUriFromSystem(
     PlatformDataProvider provider, PlatformFormat format) async {
   String? value;
   if (format == 'UniformResourceLocator') {
@@ -272,7 +272,7 @@ Future<NamedUri?> windowsDecodeNamedUri(
   return null;
 }
 
-Future<NamedUri?> defaultDecodeNamedUri(
+Future<NamedUri?> namedUriFromSystem(
     PlatformDataProvider provider, PlatformFormat format) async {
   final value = await fromSystemUtf8(provider, format);
   if (value is String) {
@@ -289,6 +289,6 @@ Future<NamedUri?> defaultDecodeNamedUri(
   }
 }
 
-Object defaultEncodeNamedUri(NamedUri uri, PlatformFormat format) {
+Object namedUriToSystem(NamedUri uri, PlatformFormat format) {
   return uri.uri.toString();
 }

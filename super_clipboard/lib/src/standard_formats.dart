@@ -106,13 +106,13 @@ class Format {
         'public.url-name',
         'public.utf8-plain-text'
       ],
-      onDecode: macosDecodeNamedUri,
-      onEncode: macosEncodeNamedUri,
+      onDecode: macosNamedUriFromSystem,
+      onEncode: macosNamedUriToSystem,
     ),
     ios: SimplePlatformCodec(
       formats: ['public.url', 'public.utf8-plain-text'],
-      onDecode: iosDecodeNamedUri,
-      onEncode: iosEncodeNamedUri,
+      onDecode: iosNamedUriFromSystem,
+      onEncode: iosNamedUriToSystem,
     ),
     windows: SimplePlatformCodec(
       decodingFormats: [
@@ -124,21 +124,21 @@ class Format {
         'UniformResourceLocatorW',
         '${cfInternalPrefix}13'
       ], // CF_UNICODETEXT
-      onDecode: windowsDecodeNamedUri,
-      onEncode: defaultEncodeNamedUri,
+      onDecode: windowsNamedUriFromSystem,
+      onEncode: namedUriToSystem,
     ),
     web: SimplePlatformCodec(
       encodingFormats: [
         'text/plain' // writing uri-list is not supported on web
       ],
       decodingFormats: ['text/uri-list', 'text/plain'],
-      onDecode: defaultDecodeNamedUri,
-      onEncode: defaultEncodeNamedUri,
+      onDecode: namedUriFromSystem,
+      onEncode: namedUriToSystem,
     ),
     fallback: SimplePlatformCodec(
       formats: ['text/uri-list', 'text/plain'],
-      onDecode: defaultDecodeNamedUri,
-      onEncode: defaultEncodeNamedUri,
+      onDecode: namedUriFromSystem,
+      onEncode: namedUriToSystem,
     ),
   );
 
