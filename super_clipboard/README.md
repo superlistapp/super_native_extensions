@@ -9,7 +9,7 @@
 
 <img src="https://matejknopp.com/super_native_extensions/super_clipboard.png" style="max-width: 831px;"/>
 
-![](https://matejknopp.com/super_native_extensions/super_clipboard.png | width=831)
+[](https://matejknopp.com/super_native_extensions/super_clipboard.png | width=831)
 
 ## Getting started
 
