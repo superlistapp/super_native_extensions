@@ -17,7 +17,7 @@ class Formats {
   Formats._();
 
   static const standardFormats = [
-  plainText,
+    plainText,
     htmlText,
     fileUri,
     uri,
