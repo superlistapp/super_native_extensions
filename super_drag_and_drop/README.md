@@ -73,8 +73,9 @@ class MyDraggableWidget extends StatelessWidget {
           localData: {'x': 3, 'y': 4},
         );
         // Add data for this item that other applications can read
-        // on Drop (optional)
+        // on drop (optional)
         item.add(Formats.plainText('Plain Text Data'));
+        item.add(Formats.htmlText.lazy(() => '<b>HTML generated on demand</b>'));
         return item;
       },
       allowedOperations: () => [DropOperation.copy],
