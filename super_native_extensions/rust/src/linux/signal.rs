@@ -5,9 +5,15 @@ use std::{
     slice,
 };
 
-use gdk::glib::{translate::{IntoGlib, from_glib_none}, Type, Value};
-use glib_sys::{gpointer, gboolean};
-use gobject_sys::{g_signal_lookup, GSignalInvocationHint, GValue, g_signal_add_emission_hook, g_signal_remove_emission_hook};
+use gdk::glib::{
+    translate::{from_glib_none, IntoGlib},
+    Type, Value,
+};
+use glib_sys::{gboolean, gpointer};
+use gobject_sys::{
+    g_signal_add_emission_hook, g_signal_lookup, g_signal_remove_emission_hook,
+    GSignalInvocationHint, GValue,
+};
 
 pub struct Signal(c_uint);
 

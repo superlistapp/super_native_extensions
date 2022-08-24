@@ -31,7 +31,7 @@ use windows::Win32::{
         DataExchange::RegisterClipboardFormatW,
         Memory::{GlobalLock, GlobalSize, GlobalUnlock},
         Ole::{OleGetClipboard, ReleaseStgMedium},
-        SystemServices::{CF_DIB, CF_DIBV5, CF_HDROP, CF_UNICODETEXT, CF_TIFF},
+        SystemServices::{CF_DIB, CF_DIBV5, CF_HDROP, CF_TIFF, CF_UNICODETEXT},
     },
     UI::Shell::{
         SHCreateMemStream, CFSTR_FILECONTENTS, CFSTR_FILEDESCRIPTOR, DROPFILES, FILEDESCRIPTORW,

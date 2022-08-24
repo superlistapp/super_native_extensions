@@ -1,4 +1,7 @@
-use jni::{JNIEnv, objects::{JString, JObject},};
+use jni::{
+    objects::{JObject, JString},
+    JNIEnv,
+};
 
 use crate::error::NativeExtensionsError;
 

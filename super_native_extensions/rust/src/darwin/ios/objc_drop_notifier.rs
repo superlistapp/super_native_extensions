@@ -11,7 +11,7 @@ use objc::{
 };
 use once_cell::sync::Lazy;
 
-use crate::{util::DropNotifier, platform_impl::platform::common::superclass};
+use crate::{platform_impl::platform::common::superclass, util::DropNotifier};
 
 use super::util::IntoObjc;
 
