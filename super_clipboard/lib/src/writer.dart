@@ -20,6 +20,10 @@ import 'writer_data_provider.dart';
 class DataWriterItem {
   DataWriterItem({this.suggestedName});
 
+  /// Adds representation to the data item. On item can contain multiple
+  /// representations, each in a different format. Representation should
+  /// be added by priority (highest fidelity content first), as some
+  /// platforms respect the order.
   void add(FutureOr<EncodedData> data) {
     _data.add(data);
   }
@@ -29,6 +33,14 @@ class DataWriterItem {
       (defaultTargetPlatform == TargetPlatform.windows ||
           defaultTargetPlatform == TargetPlatform.iOS);
 
+  /// Adds a virtual file to this data item. Virtual files are files generated
+  /// on demand, possibly taking long time to complete (i.e. downloading from
+  /// internet).
+  ///
+  /// Only one virtual file per data item is supported. For clipboard, virtual
+  /// files are supported on iOS and Windows. For Drag & Drop, virtual files are
+  /// also supported on macOS. You can use [virtualFileSupported] to check
+  /// whether current platform supports virtual files.
   void addVirtualFile({
     required DataFormat format,
     required VirtualFileProvider provider,
@@ -36,7 +48,7 @@ class DataWriterItem {
   }) {
     assert(virtualFileSupported);
     if (format.providerFormat == null) {
-      throw StateError('Virtual format doesn\'t support provider');
+      throw StateError('Virtual doesn\'t support virtual files.');
     }
     _data.add(EncodedData([
       raw.DataRepresentation.virtualFile(
