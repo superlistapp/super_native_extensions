@@ -29,7 +29,26 @@ rustup update
 
 That is it. The build integration will automatically install required Rust toolchains and other dependencies. This also means that first build make take a little bit longer.
 
+### Android Support
 
+To be able to write images other custom data to Android clipboard you need
+to declare a content provider in `AndroidManifest.xml`:
+
+```xml
+<manifest>
+    <application>
+      ...
+      <provider
+            android:name="com.superlist.super_native_extensions.DataProvider"
+            android:authorities="<your-package-name>.ClipboardDataProvider"
+            android:exported="true"
+            android:grantUriPermissions="true" >
+        </provider>
+        ...
+    </application>
+</manifest>
+```
+Be sure to replace `<your-package-name>` in the snipped with your actual package name.
 
 ## Usage
 
