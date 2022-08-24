@@ -7,7 +7,7 @@
 - Multiple representation for clipboard items.
 - Providing clipboard data on demand.
 
-<img src="https://matejknopp.com/super_native_extensions/super_clipboard.png" style="max-width: 831px"/>
+<img src="https://matejknopp.com/super_native_extensions/super_clipboard.png" style="max-width: 831px;"/>
 
 ## Getting started
 
