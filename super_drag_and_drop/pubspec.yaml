@@ -1,6 +1,6 @@
 name: super_drag_and_drop
 description: A new Flutter package project.
-version: 0.0.1
+version: 0.1.0
 publish_to: none
 homepage: https://github.com/superlistapp/super_native_extensions
 
@@ -11,20 +11,9 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-
   collection: ^1.16.0
-
-  super_native_extensions:
-    git:
-      url: git@github.com:superlistapp/super_native_extensions.git
-      path: super_native_extensions
-      ref: 326e3d5e5ec4bfc77880e34cfd4e43d8bbdd3442
-
-  super_clipboard:
-    git:
-      url: git@github.com:superlistapp/super_native_extensions.git
-      path: super_clipboard
-      ref: 326e3d5e5ec4bfc77880e34cfd4e43d8bbdd3442
+  super_native_extensions: ^0.1.0
+  super_clipboard: ^0.1.0
 
 dev_dependencies:
   flutter_test:

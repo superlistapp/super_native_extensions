@@ -124,10 +124,10 @@ packages:
   nativeshell_core:
     dependency: transitive
     description:
-      path: "/Users/Matej/Projects/super_native_extensions/super_native_extensions/../../rust/nativeshell_ng/core/dart"
-      relative: false
-    source: path
-    version: "0.0.1"
+      name: nativeshell_core
+      url: "https://pub.dartlang.org"
+    source: hosted
+    version: "0.1.0"
   path:
     dependency: transitive
     description:
@@ -181,7 +181,7 @@ packages:
       path: "../../super_clipboard"
       relative: true
     source: path
-    version: "0.0.1"
+    version: "0.1.0"
   super_clipboard_example:
     dependency: "direct main"
     description:
@@ -195,14 +195,14 @@ packages:
       path: ".."
       relative: true
     source: path
-    version: "0.0.1"
+    version: "0.1.0"
   super_native_extensions:
     dependency: "direct overridden"
     description:
       path: "../../super_native_extensions"
       relative: true
     source: path
-    version: "0.0.1"
+    version: "0.1.0"
   term_glyph:
     dependency: transitive
     description:
