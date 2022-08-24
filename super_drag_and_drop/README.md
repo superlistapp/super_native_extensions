@@ -15,6 +15,9 @@
   <source src="https://user-images.githubusercontent.com/96958/186482836-e14d5b43-eaf5-4458-b060-0664cc1fe29e.mov">
 </video>
 
+https://user-images.githubusercontent.com/96958/186482836-e14d5b43-eaf5-4458-b060-0664cc1fe29e.mov
+
+
 ## Getting started
 
 `super_drag_and_drop`
