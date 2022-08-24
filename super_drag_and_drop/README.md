@@ -161,7 +161,7 @@ might take a while to complete and `onPerformDrop` will block the platform threa
 
 ## Advanced usage
 
-### Draging virtual files
+### Dragging virtual files
 
 Virtual files are files that do not physically exist at the moment of drag. On drop the application gets notified and will start producing file content. This is useful when dragging content that is displayed in application but actually exist on a remote location (cloud).
 
