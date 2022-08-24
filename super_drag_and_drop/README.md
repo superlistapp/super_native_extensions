@@ -181,8 +181,23 @@ Virtual files are files that do not physically exist at the moment of drag. On d
 // TODO(knopp): Example
 ```
 
-This plugin is in a very early stages of development and quite experimental.
+## Running the example
 
 Example project is available at `super_drag_and_drop/example`.
+
+```bash
+flutter pub global activate melos # if you don't have melos already installed
+git clone https://github.com/superlistapp/super_native_extensions.git
+cd super_native_extensions
+melos bootstrap
+```
+
+After this you can open the workspace and run the `drag_and_drop_example` launcher configuration.
+
+TODO(knopp): Add Intellij launcher configuration
+
+## Additional information
+
+This plugin is in a very early stages of development and quite experimental.
 
 PRs and bug reports are welcome!

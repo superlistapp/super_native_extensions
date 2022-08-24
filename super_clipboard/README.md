@@ -104,10 +104,23 @@ When writing images preferred format is PNG. Most platform can handle PNG images
 
 While the Clipboard API supports writing multiple items, not all platforms support that fully. On Windows clipboard items past the first one only support `Format.fileUri` type (so it is possible to store multiple File Uris in clipboard) and on Linux only supported formats for additional items are `Format.uri` and `Format.fileUri`.
 
+## Running the example
+
+Example project is available at `super_clipboard/example`.
+
+```bash
+flutter pub global activate melos # if you don't have melos already installed
+git clone https://github.com/superlistapp/super_native_extensions.git
+cd super_native_extensions
+melos bootstrap
+```
+
+After this you can open the workspace and run the `clipboard_example` launcher configuration.
+
+TODO(knopp): Add Intellij launcher configuration
+
 ## Additional information
 
 This plugin is in a very early stages of development and quite experimental.
-
-Example project is available at `super_clipboard/example`.
 
 PRs and bug reports are welcome!
