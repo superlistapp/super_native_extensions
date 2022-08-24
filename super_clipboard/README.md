@@ -77,7 +77,7 @@ You can also provide representations on demand:
     await ClipboardWriter.instance.write([item]);
 ```
 
-If you do this make sure that the callback can provide requested data without any uncecessary delay. One some platforms main thread may be blocked while the data is being requested.
+If you do this make sure that the callback can provide requested data without any uncecessary delay. On some platforms main thread may be blocked while the data is being requested.
 
 On some platform the data may be requested eagerly when writing to clipboard. In this case the callback will be called immediately.
 
