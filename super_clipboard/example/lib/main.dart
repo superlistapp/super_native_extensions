@@ -202,8 +202,9 @@ class _MyHomePageState extends State<MyHomePage>
 
   void copyUri() async {
     final item = DataWriterItem();
-    item.add(Format.uri.encode(
-        NamedUri(Uri.parse('https://google.com'), name: 'Google home page')));
+    item.add(Format.uri.encode(NamedUri(
+        Uri.parse('https://github.com/superlistapp/super_native_extensions'),
+        name: 'Super Native Extensions')));
     await ClipboardWriter.instance.write([item]);
   }
 
