@@ -15,7 +15,7 @@
 
 ## Getting started
 
-`super_drag_and_drop` uses Rust internally to implement low-level platform functionality. Rather than shipping prebuilt binaries with the plugin, Rust build is seamlessly integrated into the Flutter build process.
+`super_drag_and_drop` uses Rust internally to implement low-level platform specific functionality. Rather than shipping prebuilt binaries with the plugin, Rust build is seamlessly integrated into the Flutter build process.
 
 To use `super_drag_and_drop`, you will need to install Rust:
 
