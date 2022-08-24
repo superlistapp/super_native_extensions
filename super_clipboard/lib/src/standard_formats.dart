@@ -122,8 +122,8 @@ class Format {
       ],
       encodingFormats: [
         'UniformResourceLocatorW',
-        '${cfInternalPrefix}13'
-      ], // CF_UNICODETEXT
+        cfUnicodeText,
+      ],
       onDecode: windowsNamedUriFromSystem,
       onEncode: namedUriToSystem,
     ),
