@@ -115,7 +115,7 @@ cd super_native_extensions
 melos bootstrap
 ```
 
-After this you can open the workspace and run the `clipboard_example` launcher configuration.
+After this you can open the folder in VSCode and run the `clipboard_example` launcher configuration.
 
 TODO(knopp): Add Intellij launcher configuration
 

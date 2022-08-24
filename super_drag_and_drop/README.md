@@ -192,7 +192,7 @@ cd super_native_extensions
 melos bootstrap
 ```
 
-After this you can open the workspace and run the `drag_and_drop_example` launcher configuration.
+After this you can open the folder in VSCode and run the `drag_and_drop_example` launcher configuration.
 
 TODO(knopp): Add Intellij launcher configuration
 
