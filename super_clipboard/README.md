@@ -31,7 +31,7 @@ That is it. The build integration will automatically install required Rust toolc
 
 ### Android Support
 
-To be able to write images other custom data to Android clipboard you need
+To be able to write images and other custom data to Android clipboard you need
 to declare a content provider in `AndroidManifest.xml`:
 
 ```xml
