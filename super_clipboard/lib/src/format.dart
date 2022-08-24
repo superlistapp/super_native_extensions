@@ -54,7 +54,12 @@ abstract class DataFormat<T extends Object> extends VirtualFileFormat {
 
   /// Encodes the provided data to platform specific format.
   /// The encoded data can be added to [DataWriterItem].
-  FutureOr<EncodedData> encode(T data) async {
+  ///
+  /// ```dart
+  /// final item = DataWriterItem();
+  /// item.add(Format.plainText('Hello World'));
+  /// ```
+  FutureOr<EncodedData> call(T data) async {
     final encoder = codecForPlatform(currentPlatform);
     final entries = <raw.DataRepresentation>[];
     for (final format in encoder.encodingFormats) {
@@ -70,7 +75,7 @@ abstract class DataFormat<T extends Object> extends VirtualFileFormat {
   /// on demand. In which case the DataProvider callback will be invoked when
   /// the data is requested. On platforms that do not support this (iOS, web)
   /// the provider callback will be called eagerly.
-  FutureOr<EncodedData> encodeLazy(DataProvider<T> provider) {
+  FutureOr<EncodedData> lazy(DataProvider<T> provider) {
     final encoder = codecForPlatform(currentPlatform);
     final entries = <raw.DataRepresentation>[];
     for (final format in encoder.encodingFormats) {

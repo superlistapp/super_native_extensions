@@ -96,7 +96,7 @@ Future<Widget> _buildWidgetForReader(
   int index,
 ) async {
   final itemFormats = reader.reader.getFormats([
-    ...Format.standardFormats,
+    ...Formats.standardFormats,
     formatCustom,
   ]);
 
@@ -334,8 +334,8 @@ Future<_RepresentationWidget?> _widgetForImage(
 Future<_RepresentationWidget?> _widgetForFormat(
     BuildContext context, DataFormat format, DataReader reader) async {
   switch (format) {
-    case Format.plainText:
-      final text = await reader.readValue(Format.plainText);
+    case Formats.plainText:
+      final text = await reader.readValue(Formats.plainText);
       if (text == null) {
         return null;
       } else {
@@ -344,55 +344,55 @@ Future<_RepresentationWidget?> _widgetForFormat(
         return _RepresentationWidget(
           format: format,
           name: 'Plain Text',
-          synthetized: reader.isSynthetized(Format.plainText),
+          synthetized: reader.isSynthetized(Formats.plainText),
           content: Text(sanitized),
         );
       }
-    case Format.htmlText:
-      final html = await reader.readValue(Format.htmlText);
+    case Formats.htmlText:
+      final html = await reader.readValue(Formats.htmlText);
       if (html == null) {
         return null;
       } else {
         return _RepresentationWidget(
           format: format,
           name: 'HTML Text',
-          synthetized: reader.isSynthetized(Format.htmlText),
+          synthetized: reader.isSynthetized(Formats.htmlText),
           content: Text(html),
         );
       }
-    case Format.imagePng:
-      return _widgetForImage(context, Format.imagePng, 'PNG', reader);
-    case Format.imageJpeg:
-      return _widgetForImage(context, Format.imageJpeg, 'JPEG', reader);
-    case Format.imageGif:
-      return _widgetForImage(context, Format.imageGif, 'GIF', reader);
-    case Format.imageTiff:
-      return _widgetForImage(context, Format.imageTiff, 'TIFF', reader);
-    case Format.imageWebP:
-      return _widgetForImage(context, Format.imageWebP, 'WebP', reader);
+    case Formats.imagePng:
+      return _widgetForImage(context, Formats.imagePng, 'PNG', reader);
+    case Formats.imageJpeg:
+      return _widgetForImage(context, Formats.imageJpeg, 'JPEG', reader);
+    case Formats.imageGif:
+      return _widgetForImage(context, Formats.imageGif, 'GIF', reader);
+    case Formats.imageTiff:
+      return _widgetForImage(context, Formats.imageTiff, 'TIFF', reader);
+    case Formats.imageWebP:
+      return _widgetForImage(context, Formats.imageWebP, 'WebP', reader);
     // regular and file uri may have same mime types on some platforms
-    case Format.uri:
-    case Format.fileUri:
+    case Formats.uri:
+    case Formats.fileUri:
       // Make sure to request both values before awaiting
-      final fileUriFuture = reader.readValue(Format.fileUri);
-      final uriFuture = reader.readValue(Format.uri);
+      final fileUriFuture = reader.readValue(Formats.fileUri);
+      final uriFuture = reader.readValue(Formats.uri);
 
       // try file first and if it fails try regular URI
       final fileUri = await fileUriFuture;
       if (fileUri != null) {
         return _RepresentationWidget(
-          format: Format.fileUri,
+          format: Formats.fileUri,
           name: 'File URI',
-          synthetized: reader.isSynthetized(Format.fileUri),
+          synthetized: reader.isSynthetized(Formats.fileUri),
           content: Text(fileUri.toString()),
         );
       }
       final uri = await uriFuture;
       if (uri != null) {
         return _RepresentationWidget(
-          format: Format.uri,
+          format: Formats.uri,
           name: 'URI',
-          synthetized: reader.isSynthetized(Format.uri),
+          synthetized: reader.isSynthetized(Formats.uri),
           content: _UriWidget(uri: uri),
         );
       }

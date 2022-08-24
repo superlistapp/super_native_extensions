@@ -151,18 +151,18 @@ class _MyHomePageState extends State<MyHomePage>
 
   void copyText() async {
     final item = DataWriterItem();
-    item.add(Format.htmlText.encode('<b>This is a <em>HTML</en> value</b>.'));
-    item.add(Format.plainText.encode('This is a plaintext value.'));
+    item.add(Formats.htmlText('<b>This is a <em>HTML</en> value</b>.'));
+    item.add(Formats.plainText('This is a plaintext value.'));
     await ClipboardWriter.instance.write([item]);
   }
 
   void copyTextLazy() async {
     final item = DataWriterItem();
-    item.add(Format.htmlText.encodeLazy(() {
+    item.add(Formats.htmlText.lazy(() {
       showMessage('Lazy rich text requested.');
       return '<b>This is a <em>HTML</en> value</b> generated <u>on demand</u>.';
     }));
-    item.add(Format.plainText.encodeLazy(() {
+    item.add(Formats.plainText.lazy(() {
       showMessage('Lazy plain text requested.');
       return 'This is a plaintext value generated on demand.';
     }));
@@ -172,13 +172,13 @@ class _MyHomePageState extends State<MyHomePage>
   void copyImage() async {
     final image = await createImageData(Colors.red);
     final item = DataWriterItem(suggestedName: 'RedCircle.png');
-    item.add(Format.imagePng.encode(image));
+    item.add(Formats.imagePng(image));
     await ClipboardWriter.instance.write([item]);
   }
 
   void copyImageLazy() async {
     final item = DataWriterItem(suggestedName: 'BlueCircle.png');
-    item.add(Format.imagePng.encodeLazy(() {
+    item.add(Formats.imagePng.lazy(() {
       showMessage('Lazy image requested.');
       return createImageData(Colors.blue);
     }));
@@ -187,13 +187,13 @@ class _MyHomePageState extends State<MyHomePage>
 
   void copyCustomData() async {
     final item = DataWriterItem();
-    item.add(formatCustom.encode(Uint8List.fromList([1, 2, 3, 4])));
+    item.add(formatCustom(Uint8List.fromList([1, 2, 3, 4])));
     await ClipboardWriter.instance.write([item]);
   }
 
   void copyCustomDataLazy() async {
     final item = DataWriterItem();
-    item.add(formatCustom.encodeLazy(() async {
+    item.add(formatCustom.lazy(() async {
       showMessage('Lazy custom data requested.');
       return Uint8List.fromList([1, 2, 3, 4, 5, 6]);
     }));
@@ -202,7 +202,7 @@ class _MyHomePageState extends State<MyHomePage>
 
   void copyUri() async {
     final item = DataWriterItem();
-    item.add(Format.uri.encode(NamedUri(
+    item.add(Formats.uri(NamedUri(
         Uri.parse('https://github.com/superlistapp/super_native_extensions'),
         name: 'Super Native Extensions')));
     await ClipboardWriter.instance.write([item]);

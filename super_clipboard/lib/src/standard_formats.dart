@@ -13,11 +13,11 @@ const cfUnicodeText = '${cfInternalPrefix}13';
 const cfHdrop = '${cfInternalPrefix}15';
 const cfTiff = '${cfInternalPrefix}6';
 
-class Format {
-  Format._();
+class Formats {
+  Formats._();
 
   static const standardFormats = [
-    plainText,
+  plainText,
     htmlText,
     fileUri,
     uri,

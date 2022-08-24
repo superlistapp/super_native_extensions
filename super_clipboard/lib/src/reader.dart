@@ -25,7 +25,7 @@ abstract class DataReader {
   /// determined from the format string, but only from the data itself.
   ///
   /// For example on some platforms file URI and regular URI have same type,
-  /// so when receiving [Format.fileUri] the decoder will have to fetch the value
+  /// so when receiving [Formats.fileUri] the decoder will have to fetch the value
   /// and will return null if URI is not a file uri.
   bool hasValue(DataFormat format) {
     return getFormats([format]).isNotEmpty;

@@ -56,6 +56,30 @@ class DragableWidget extends StatefulWidget {
   State<DragableWidget> createState() => _DragableWidgetState();
 }
 
+class MyDraggableWidget extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return DragItemWidget(
+      dragItemProvider: (snapshot, session) async {
+        final item = DragItem(
+          // snapshot() will return Image of the DragItemWidget.
+          // You can use any other drag image if your wish
+          image: await snapshot(),
+          // This data is only accessible when dropping within same
+          // application
+          localData: {'x': 3, 'y': 4},
+        );
+        // Add data for this item that other applications can read
+        // on Drop (optional)
+        item.add(Formats.plainText('Plain Text Data'));
+        return item;
+      },
+      allowedOperations: () => [DropOperation.copy],
+      child: const Text('This widget is draggable'),
+    );
+  }
+}
+
 class _DragableWidgetState extends State<DragableWidget> {
   bool _dragging = false;
 
@@ -217,7 +241,7 @@ class _MyHomePageState extends State<MyHomePage> {
         image: await dragImage(),
         localData: 'text-item',
         suggestedName: 'PlainText.txt');
-    item.add(Format.plainText.encode('Plain Text Value'));
+    item.add(Formats.plainText('Plain Text Value'));
     return item;
   }
 
@@ -234,7 +258,7 @@ class _MyHomePageState extends State<MyHomePage> {
       localData: 'image-item',
       suggestedName: 'Green.png',
     );
-    item.add(Format.imagePng.encode(await createImageData(Colors.green)));
+    item.add(Formats.imagePng(await createImageData(Colors.green)));
     return item;
   }
 
@@ -251,7 +275,7 @@ class _MyHomePageState extends State<MyHomePage> {
       localData: 'lazy-image-item',
       suggestedName: 'LazyBlue.png',
     );
-    item.add(Format.imagePng.encodeLazy(() async {
+    item.add(Formats.imagePng.lazy(() async {
       showMessage('Requested lazy image.');
       return await createImageData(Colors.blue);
     }));
@@ -275,7 +299,7 @@ class _MyHomePageState extends State<MyHomePage> {
       return null;
     }
     item.addVirtualFile(
-      format: Format.plainText,
+      format: Formats.plainText,
       provider: (sinkProvider, progress) {
         showMessage('Requesting virtual file content.');
         final line = utf8.encode('Line in virtual file\n');
@@ -302,10 +326,10 @@ class _MyHomePageState extends State<MyHomePage> {
       image: await dragImage(),
       localData: 'multiple-representations-item',
     );
-    item.add(Format.imagePng.encode(await createImageData(Colors.pink)));
-    item.add(Format.plainText.encode("Hello World"));
-    item.add(Format.uri
-        .encode(NamedUri(Uri.parse('https://flutter.dev'), name: 'Flutter')));
+    item.add(Formats.imagePng(await createImageData(Colors.pink)));
+    item.add(Formats.plainText("Hello World"));
+    item.add(Formats.uri(
+        NamedUri(Uri.parse('https://flutter.dev'), name: 'Flutter')));
     return item;
   }
 
@@ -365,7 +389,7 @@ class _DropZoneState extends State<_DropZone> {
   Widget build(BuildContext context) {
     return DropRegion(
       formats: const [
-        ...Format.standardFormats,
+        ...Formats.standardFormats,
         formatCustom,
       ],
       hitTestBehavior: HitTestBehavior.opaque,

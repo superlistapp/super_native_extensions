@@ -80,9 +80,9 @@ You can query whether the PNG image in clipboard has been synthetized through `r
 
 ```dart
     final item = DataWriterItem();
-    item.add(Format.htmlText.encode('<b>HTML text</b>'));
-    item.add(Format.plainText.encode('plain text'));
-    item.add(Format.imagePng.encode(imageData));
+    item.add(Formats.htmlText('<b>HTML text</b>'));
+    item.add(Formats.plainText('plain text'));
+    item.add(Formats.imagePng(imageData));
     await ClipboardWriter.instance.write([item]);
 ```
 
@@ -90,9 +90,9 @@ You can also provide representations on demand:
 
 ```dart
     final item = DataWriterItem();
-    item.add(Format.htmlText.encodeLazy(() => '<b>HTML text</b>'));
-    item.add(Format.plainText.encodeLazy(() => 'plain text'));
-    item.add(Format.imagePng.encodeLazy(() => imageData));
+    item.add(Formats.htmlText.lazy(() => '<b>HTML text</b>'));
+    item.add(Formats.plainText.lazy(() => 'plain text'));
+    item.add(Formats.imagePng.lazy(() => imageData));
     await ClipboardWriter.instance.write([item]);
 ```
 
