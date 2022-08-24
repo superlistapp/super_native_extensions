@@ -6,7 +6,7 @@ use crate::{
     error::{NativeExtensionsError, NativeExtensionsResult},
 };
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum DragAction {
     DragStarted,
     DragLocation,

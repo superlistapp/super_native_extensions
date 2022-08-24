@@ -16,9 +16,7 @@ use objc::{class, msg_send, rc::StrongPtr, sel, sel_impl};
 use crate::{
     api_model::{ImageData, Point, Rect, Size},
     drag_manager::DragSessionId,
-    platform_impl::platform::common::{
-        cg_image_from_image_data, from_nsstring, to_nsdata, to_nsstring,
-    },
+    platform_impl::platform::common::{cg_image_from_image_data, to_nsdata, to_nsstring},
     util::Movable,
     value_coerce::{CoerceToData, StringFormat},
     value_promise::ValuePromiseResult,

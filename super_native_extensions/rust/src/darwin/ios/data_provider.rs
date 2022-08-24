@@ -378,12 +378,11 @@ impl DataProviderSession {
             Some(StreamEntry::File { path, file }) => {
                 drop(file);
                 let path = path.to_string_lossy();
-                let url = unsafe {
+                unsafe {
                     let url = NSURL::fileURLWithPath_(nil, *to_nsstring(&path));
                     let () = msg_send![class!(SNEDeletingPresenter), deleteAfterRead: url];
                     url
-                };
-                url
+                }
             }
             Some(StreamEntry::Memory { buffer }) => to_nsdata(&buffer).autorelease(),
             None => nil,
