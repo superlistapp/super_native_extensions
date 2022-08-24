@@ -18,13 +18,13 @@ dependencies:
     git:
       url: git@github.com:superlistapp/super_native_extensions.git
       path: super_native_extensions
-      ref: 3e373695970acdd0b5638fedcf31f3e85c381129
+      ref: be307a157d0771e28cc7dbe8459e3630da9ab421
 
   super_clipboard:
     git:
       url: git@github.com:superlistapp/super_native_extensions.git
       path: super_clipboard
-      ref: 3e373695970acdd0b5638fedcf31f3e85c381129
+      ref: be307a157d0771e28cc7dbe8459e3630da9ab421
 
 dev_dependencies:
   flutter_test:

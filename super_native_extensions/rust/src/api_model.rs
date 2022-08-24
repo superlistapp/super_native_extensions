@@ -68,7 +68,7 @@ impl From<i64> for DataProviderId {
     }
 }
 
-#[derive(Debug, TryFromValue, IntoValue, Clone, PartialEq)]
+#[derive(Debug, TryFromValue, IntoValue, Clone, PartialEq, Eq)]
 #[nativeshell(tag = "type", rename_all = "camelCase")]
 pub enum DataRepresentation {
     #[nativeshell(rename_all = "camelCase")]
@@ -110,7 +110,7 @@ impl DataRepresentation {
     }
 }
 
-#[derive(Debug, TryFromValue, IntoValue, Clone, PartialEq)]
+#[derive(Debug, TryFromValue, IntoValue, Clone, PartialEq, Eq)]
 #[nativeshell(rename_all = "camelCase")]
 pub struct DataProvider {
     pub representations: Vec<DataRepresentation>,
@@ -119,7 +119,7 @@ pub struct DataProvider {
 
 //
 
-#[derive(Debug, TryFromValue, IntoValue, Copy, Clone, PartialEq)]
+#[derive(Debug, TryFromValue, IntoValue, Copy, Clone, PartialEq, Eq)]
 #[nativeshell(rename_all = "camelCase")]
 pub enum VirtualFileStorage {
     TemporaryFile,
@@ -168,7 +168,7 @@ pub struct DragRequest {
     pub position: Point,
 }
 
-#[derive(Debug, TryFromValue, IntoValue, Copy, Clone, PartialEq)]
+#[derive(Debug, TryFromValue, IntoValue, Copy, Clone, PartialEq, Eq)]
 #[nativeshell(rename_all = "camelCase")]
 pub enum DropOperation {
     None,

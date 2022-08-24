@@ -61,7 +61,7 @@ pub enum PromiseResult<T> {
     Cancelled,
 }
 
-#[derive(Debug, TryFromValue, PartialEq)]
+#[derive(Debug, TryFromValue, PartialEq, Eq)]
 #[nativeshell(tag = "type", rename_all = "camelCase")]
 pub enum ValuePromiseResult {
     Ok { value: Value },

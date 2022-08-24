@@ -2,7 +2,7 @@ name: super_native_extensions
 description: Low level interface to clipboard and DnD
 version: 0.0.1
 publish_to: none
-homepage:
+homepage: https://github.com/superlistapp/super_native_extensions
 
 environment:
   sdk: ">=2.17.0 <3.0.0"
@@ -22,7 +22,7 @@ dependencies:
     #   ../../rust/nativeshell_ng/core/dart
     git:
       url: https://github.com/nativeshell/nativeshell_ng.git
-      ref: 89f2038030bae2578e05f2a1f68d9470a7baeff0
+      ref: be307a157d0771e28cc7dbe8459e3630da9ab421
       path: core/dart
 
 dev_dependencies:
