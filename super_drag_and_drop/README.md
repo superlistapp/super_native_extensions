@@ -6,10 +6,14 @@
 - Supports macOS, iOS, Android, Windows, Linux and Web (*)
 - Platform agnostic support for dragging and dropping common formats
 - Support for custom data formats
-- Multifinger drag on iOS (adding item to existing drag session)
+- Multifinger drag on iOS (adding item to existing drag session, see video below)
 - Dragging and dropping virtual files (macOS, iOS and Windows)
 
 *) Web supports dropping from other applications, but dragging only works within the same browser tab.
+
+<video height="600" controls>
+  <source src="https://user-images.githubusercontent.com/96958/186482836-e14d5b43-eaf5-4458-b060-0664cc1fe29e.mov">
+</video>
 
 ## Getting started
 
