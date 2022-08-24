@@ -11,12 +11,7 @@
 
 *) Web supports dropping from other applications, but dragging only works within the same browser tab.
 
-<video height="600" controls>
-  <source src="https://user-images.githubusercontent.com/96958/186482836-e14d5b43-eaf5-4458-b060-0664cc1fe29e.mov">
-</video>
-
-https://user-images.githubusercontent.com/96958/186482836-e14d5b43-eaf5-4458-b060-0664cc1fe29e.mov
-
+![Drag Drop Example](https://user-images.githubusercontent.com/96958/186485530-3fa7e938-5805-4dcb-bcff-1da73f15ab63.gif)
 
 ## Getting started
 
