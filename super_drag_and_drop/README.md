@@ -65,15 +65,15 @@ class MyDraggableWidget extends StatelessWidget {
     return DragItemWidget(
       dragItemProvider: (snapshot, session) async {
         final item = DragItem(
-          // snapshot() will return image snapshot  of the DragItemWidget.
-          // You can use any other drag image if your wish
+          // snapshot() will return image snapshot of the DragItemWidget.
+          // You can use any other drag image if your wish.
           image: await snapshot(),
           // This data is only accessible when dropping within same
-          // application (optional)
+          // application. (optional)
           localData: {'x': 3, 'y': 4},
         );
         // Add data for this item that other applications can read
-        // on drop (optional)
+        // on drop. (optional)
         item.add(Formats.plainText('Plain Text Data'));
         item.add(Formats.htmlText.lazy(() => '<b>HTML generated on demand</b>'));
         return item;
@@ -96,7 +96,7 @@ class MyDropRegion extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DropRegion(
-      // Formats this region can accept
+      // Formats this region can accept.
       formats: Formats.standardFormats,
       hitTestBehavior: HitTestBehavior.opaque,
       onDropOver: (session, position) {
@@ -105,12 +105,12 @@ class MyDropRegion extends StatelessWidget {
         // only available when the drop is accepted.
         final item = session.items.first;
         if (item.localData is Map) {
-          // This is a drag within the app and has custom local data set
+          // This is a drag within the app and has custom local data set.
         }
         if (item.hasValue(Formats.plainText)) {
-          // this item contains plain text
+          // this item contains plain text.
         }
-        // This drop region only supports copy operation
+        // This drop region only supports copy operation.
         if (session.allowedOperations.contains(DropOperation.copy)) {
           return DropOperation.copy;
         } else {
