@@ -9,6 +9,8 @@
 
 <img src="https://matejknopp.com/super_native_extensions/super_clipboard.png" style="max-width: 831px;"/>
 
+![](https://matejknopp.com/super_native_extensions/super_clipboard.png | width=831)
+
 ## Getting started
 
 `super_clipboard` uses Rust internally to implement low-level platform functionality. Rather than shipping prebuilt binaries with the plugin, Rust build is seamlessly integrated into the Flutter build process.
