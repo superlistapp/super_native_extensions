@@ -35,6 +35,23 @@ That is it. The build integration will automatically install required Rust toolc
 
 ### Android support
 
+NDK is required to use `super_drag_and_drop`. You can use Android Studio SDK Manager to install the NDK (Preferences -> Android SDK -> SDK Tools -> NDK (Side by Side)).
+
+NDK version your project expects is specified in `build.gradle`.
+
+```groovy
+android {
+    // by default the project uses NDK version from flutter plugin.
+    ndkVersion flutter.ndkVersion
+```
+You can find the current value of `flutter.ndkVersion` in Flutter source code ([stable](https://github.com/flutter/flutter/blob/stable/packages/flutter_tools/gradle/flutter.gradle), [main](https://github.com/flutter/flutter/blob/main/packages/flutter_tools/gradle/flutter.gradle)).
+
+```java
+class FlutterExtension {
+    // ...
+    static String ndkVersion = ....
+```
+
 To be able to drag images and other custom data from your application you need
 to declare a content provider in `AndroidManifest.xml`:
 
