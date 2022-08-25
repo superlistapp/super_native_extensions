@@ -98,7 +98,7 @@ You can also provide representations on demand:
     await ClipboardWriter.instance.write([item]);
 ```
 
-If you do this make sure that the callback can provide requested data without any uncecessary delay. On some platforms main thread may be blocked while the data is being requested. This functionality is meant for providing alternative representations on demand. Do **not** start downloading a file from lazy callback or any other action that is not guaranteed to complete in short time. For copying or dragging files that are not currently available use `DataWriterItem.addVirtualFile` instead.
+If you do this make sure that the callback can provide requested data without any uncecessary delay. On some platforms main thread may be blocked while the data is being requested. This functionality is meant for providing alternative representations on demand. Do **not** start downloading a file from lazy callback or any other action that is not guaranteed to complete in short time. For copying or dragging files that are not readily available use `DataWriterItem.addVirtualFile` instead.
 
 On some platform the data may be requested eagerly when writing to clipboard. In this case the callback will be called immediately.
 
