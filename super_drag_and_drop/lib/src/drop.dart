@@ -22,9 +22,32 @@ abstract class DropSession with Diagnosticable {
   Set<raw.DropOperation> get allowedOperations;
 }
 
+class DropPosition {
+  DropPosition({
+    required this.position,
+    required this.globalPosition,
+  });
+
+  /// Drop position in local coordinates of DropRegion widget.
+  final Offset position;
+
+  /// Drop position in global coordinates.
+  final Offset globalPosition;
+
+  static DropPosition forRenderObject(
+      Offset globalPosition, RenderObject object) {
+    final transform = object.getTransformTo(null);
+    transform.invert();
+    return DropPosition(
+      position: MatrixUtils.transformPoint(transform, globalPosition),
+      globalPosition: globalPosition,
+    );
+  }
+}
+
 typedef OnDropOver = FutureOr<raw.DropOperation> Function(
   DropSession session,
-  Offset position,
+  DropPosition position,
 );
 
 typedef OnDropEnter = void Function(DropSession session);
@@ -33,7 +56,7 @@ typedef OnDropEnded = void Function(DropSession session);
 
 typedef OnPerformDrop = FutureOr<void> Function(
   DropSession session,
-  Offset position,
+  DropPosition position,
   raw.DropOperation acceptedOperation,
 );
 

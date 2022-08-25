@@ -93,7 +93,10 @@ class _DropSession extends DropSession {
     for (final item in hitTest.path) {
       final target = item.target;
       if (target is RenderDropRegion && dropRegion == null) {
-        res = await target.onDropOver(this, position);
+        res = await target.onDropOver(
+          this,
+          DropPosition.forRenderObject(position, target),
+        );
         if (res != raw.DropOperation.none) {
           dropRegion = target;
         }
@@ -124,7 +127,12 @@ class _DropSession extends DropSession {
     required ui.Offset location,
     required raw.DropOperation acceptedOperation,
   }) async {
-    await _currentDropRegion?.onPerformDrop(this, location, acceptedOperation);
+    if (_currentDropRegion != null) {
+      await _currentDropRegion?.onPerformDrop(
+          this,
+          DropPosition.forRenderObject(location, _currentDropRegion!),
+          acceptedOperation);
+    }
   }
 
   void leave() {

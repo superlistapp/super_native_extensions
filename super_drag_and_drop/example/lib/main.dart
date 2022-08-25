@@ -389,7 +389,7 @@ class _DropZoneState extends State<_DropZone> {
     );
   }
 
-  DropOperation _onDropOver(DropSession session, Offset _) {
+  DropOperation _onDropOver(DropSession session, DropPosition _) {
     setState(() {
       _isDragOver = true;
       _preview = Container(
@@ -424,7 +424,7 @@ class _DropZoneState extends State<_DropZone> {
   }
 
   Future<void> _onPerformDrop(
-      DropSession session, Offset _, DropOperation operation) async {
+      DropSession session, DropPosition _, DropOperation operation) async {
     // Obtain additional reader information first
     final readers = await Future.wait(
       session.items.map(
