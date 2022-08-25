@@ -180,7 +180,7 @@ might take a while to complete and `onPerformDrop` will block the platform threa
 
 ## Data Formats
 
-When it comes to providing and receiving drag data, `super_drag_and_drop` builds on top of `super_clipboard`. Please see `super_clipboard` [documentation](https://github.com/superlistapp/super_native_extensions/tree/main/super_clipboard) for more information about data formats.
+When it comes to providing and receiving drag data, `super_drag_and_drop` builds on top of `super_clipboard`. Please see `super_clipboard` [documentation](https://github.com/superlistapp/super_native_extensions/tree/main/super_clipboard#reading-from-clipboard) for more information about data formats.
 
 ## Advanced usage
 
