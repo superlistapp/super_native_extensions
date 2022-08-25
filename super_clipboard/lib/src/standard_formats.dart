@@ -128,10 +128,9 @@ class Formats {
       onEncode: namedUriToSystem,
     ),
     web: SimplePlatformCodec(
-      encodingFormats: [
-        'text/plain' // writing uri-list is not supported on web
-      ],
-      decodingFormats: ['text/uri-list', 'text/plain'],
+      // writing uri-list to clipboard is not supported on web
+      // and it will be silently skipped
+      formats: ['text/uri-list', 'text/plain'],
       onDecode: namedUriFromSystem,
       onEncode: namedUriToSystem,
     ),

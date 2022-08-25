@@ -12,6 +12,10 @@ class ClipboardWriterImpl extends ClipboardWriter {
   ClipboardItem translateProvider(DataProvider provider) {
     final representations = <String, Promise<Blob>>{};
     for (final repr in provider.representations) {
+      if (repr.format == 'text/uri-list') {
+        // Writing URI list to clipboard on web is not supported
+        continue;
+      }
       if (repr is DataRepresentationSimple) {
         representations[repr.format] =
             futureToPromise((() async => Blob([repr.data], repr.format))());

@@ -289,7 +289,12 @@ class DropContextImpl extends DropContext {
     DropOperation? acceptedOperation,
   }) {
     List<String> itemFormats(DataProviderHandle handle) {
-      return handle.provider.representations.map((e) => e.format).toList();
+      // filter duplicates
+      final have = <String>{};
+      return handle.provider.representations
+          .map((e) => e.format)
+          .toList(growable: true)
+        ..retainWhere((e) => have.add(e));
     }
 
     return DropEvent(

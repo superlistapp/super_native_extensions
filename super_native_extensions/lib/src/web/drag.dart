@@ -99,7 +99,9 @@ class _SessionState implements Drag {
     html.document.body?.children.add(canvas);
     canvas.style.position = 'fixed';
     canvas.style.pointerEvents = 'none';
-    canvas.style.boxShadow = '0px 0px 14px #00000080';
+    // TOOD(knopp): Disable box shadow for now; Need to be able to specify
+    // radius (same problem as on iOS)
+    // canvas.style.boxShadow = '0px 0px 14px #00000080';
     return _SessionState(
       configuration: configuration,
       image: image,
