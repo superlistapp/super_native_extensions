@@ -81,7 +81,7 @@ Be sure to replace `<your-package-name>` in the snippet with your actual package
 class MyDraggableWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    // Drag item widget provides the content for the drag (DragItem).
+    // DragItemWidget provides the content for the drag (DragItem).
     return DragItemWidget(
       dragItemProvider: (snapshot, session) async {
         // DragItem represents the content bein dragged.
