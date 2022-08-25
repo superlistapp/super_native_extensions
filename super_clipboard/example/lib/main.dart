@@ -69,63 +69,56 @@ class HomeLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SelectionArea(
-      focusNode: FocusNode()..canRequestFocus = false,
-      child: LayoutBuilder(builder: (context, constraints) {
-        if (constraints.maxWidth < 540) {
-          return ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              SelectionContainer.disabled(
-                child: LayoutGrid(
-                  autoPlacement: AutoPlacement.rowDense,
-                  columnSizes: [1.5.fr, 2.fr],
-                  rowSizes: const [auto, auto, auto, auto],
-                  gridFit: GridFit.expand,
-                  rowGap: 10,
-                  columnGap: 10,
-                  children: buttons.map((e) => Expand(child: e)).toList(),
-                ),
-              ),
-              const SizedBox(height: 16),
-              ...mainContent,
-            ],
-          );
-        } else {
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              SelectionContainer.disabled(
-                child: SingleChildScrollView(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: IntrinsicWidth(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: buttons
-                            .intersperse(const SizedBox(height: 10))
-                            .toList(growable: false),
-                      ),
-                    ),
+    return LayoutBuilder(builder: (context, constraints) {
+      if (constraints.maxWidth < 540) {
+        return ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            LayoutGrid(
+              autoPlacement: AutoPlacement.rowDense,
+              columnSizes: [1.5.fr, 2.fr],
+              rowSizes: const [auto, auto, auto, auto],
+              gridFit: GridFit.expand,
+              rowGap: 10,
+              columnGap: 10,
+              children: buttons.map((e) => Expand(child: e)).toList(),
+            ),
+            const SizedBox(height: 16),
+            ...mainContent,
+          ],
+        );
+      } else {
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: IntrinsicWidth(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: buttons
+                        .intersperse(const SizedBox(height: 10))
+                        .toList(growable: false),
                   ),
                 ),
               ),
-              VerticalDivider(
-                color: Colors.blueGrey.shade100,
-                thickness: 1,
-                width: 1,
+            ),
+            VerticalDivider(
+              color: Colors.blueGrey.shade100,
+              thickness: 1,
+              width: 1,
+            ),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.all(16),
+                children: mainContent,
               ),
-              Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.all(16),
-                  children: mainContent,
-                ),
-              )
-            ],
-          );
-        }
-      }),
-    );
+            )
+          ],
+        );
+      }
+    });
   }
 }
 
@@ -255,7 +248,9 @@ class _MyHomePageState extends State<MyHomePage>
               onPressed: _paste,
               style: OutlinedButton.styleFrom(
                 backgroundColor: Colors.blue.shade600,
-                foregroundColor: Colors.white,
+                // FIXME(knopp): Remove after 3.1.0 gets stable
+                // ignore: deprecated_member_use
+                primary: Colors.white,
               ),
               child: const Text('Paste')),
         ],
