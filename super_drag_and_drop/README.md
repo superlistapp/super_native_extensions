@@ -121,7 +121,7 @@ class MyDropRegion extends StatelessWidget {
       onDropOver: (session, position) {
         // You can inspect local data here, as well as formats of each item.
         // However on certain platforms (mobile / web) the actual data is
-        // only available when the drop is accepted.
+        // only available when the drop is accepted (in onPerformDrop).
         final item = session.items.first;
         if (item.localData is Map) {
           // This is a drag within the app and has custom local data set.
