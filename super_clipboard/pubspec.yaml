@@ -1,31 +1,23 @@
 name: super_clipboard
 description: A new Flutter package project.
-version: 0.0.1
+version: 0.1.0
 publish_to: none
-homepage:
+homepage: https://github.com/superlistapp/super_native_extensions
 
 environment:
-  sdk: ">=2.16.0 <3.0.0"
-  flutter: ">=1.17.0"
+  sdk: ">=2.17.0 <3.0.0"
+  flutter: ">=3.0.0"
 
 dependencies:
   flutter:
     sdk: flutter
-  super_native_extensions:
-    git:
-      url: git@github.com:superlistapp/super_native_extensions.git
-      path: super_native_extensions
-      ref: 4d062f06f9f420e3406a0f1a73bb5c8c671e44a6
+  collection: ^1.16.0
+  super_native_extensions: ^0.1.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^2.0.0
-
-dependency_overrides:
-  # Override to local path when testing extension
-  super_native_extensions:
-    path: ../super_native_extensions
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

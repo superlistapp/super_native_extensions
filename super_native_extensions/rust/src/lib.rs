@@ -1,31 +1,41 @@
-#![allow(clippy::single_match)]
 #![allow(clippy::comparison_chain)]
+#![allow(clippy::new_without_default)]
+#![allow(clippy::single_match)]
+#![allow(clippy::type_complexity)]
 
 use std::ffi::c_void;
 
 use ::log::debug;
+use clipboard_reader::GetClipboardReader;
+use clipboard_writer::GetClipboardWriter;
+use data_provider_manager::GetDataProviderManager;
+use drag_manager::GetDragManager;
+use drop_manager::GetDropManager;
+
 use nativeshell_core::{nativeshell_init_message_channel_context, Context, FunctionResult};
-use writer_manager::ClipboardWriterManager;
+use reader_manager::GetDataReaderManager;
 
-use reader_manager::ClipboardReaderManager;
-
+mod api_model;
+mod clipboard_reader;
+mod clipboard_writer;
+mod data_provider_manager;
+mod drag_manager;
+mod drop_manager;
 mod error;
 mod log;
 mod reader_manager;
+mod util;
 mod value_coerce;
 mod value_promise;
-mod writer_data;
-mod writer_manager;
 
-#[cfg(not(test))]
+#[allow(dead_code)]
+mod segmented_queue;
+
+// #[cfg(not(test))]
 #[path = "."]
 mod platform_impl {
-    #[cfg(target_os = "macos")]
-    #[path = "macos/mod.rs"]
-    pub mod platform;
-
-    #[cfg(target_os = "ios")]
-    #[path = "ios/mod.rs"]
+    #[cfg(any(target_os = "ios", target_os = "macos"))]
+    #[path = "darwin/mod.rs"]
     pub mod platform;
 
     #[cfg(target_os = "android")]
@@ -41,12 +51,12 @@ mod platform_impl {
     pub mod platform;
 }
 
-#[cfg(test)]
-#[path = "."]
-mod platform_impl {
-    #[path = "mock/mod.rs"]
-    pub mod platform;
-}
+// #[cfg(test)]
+// #[path = "."]
+// mod platform_impl {
+//     #[path = "mock/mod.rs"]
+//     pub mod platform;
+// }
 
 mod platform {
     pub(crate) use super::platform_impl::platform::*;
@@ -59,8 +69,13 @@ struct DataTransferPlugin {
 impl DataTransferPlugin {
     fn new() -> Self {
         let context = Context::new();
-        context.get_attachment(ClipboardWriterManager::new);
-        context.get_attachment(ClipboardReaderManager::new);
+        // eagerly initialize
+        context.data_provider_manager();
+        context.data_reader_manager();
+        context.clipboard_writer();
+        context.clipboard_reader();
+        context.drag_manager();
+        context.drop_manager();
         DataTransferPlugin { _context: context }
     }
 }
@@ -77,7 +92,7 @@ fn init(init_loger: bool) {
         }
         #[cfg(target_os = "ios")]
         {
-            oslog::OsLogger::new("dev.nativeshell.clipboard")
+            oslog::OsLogger::new("supernativeextensions")
                 .level_filter(::log::LevelFilter::Debug)
                 .init()
                 .ok();
@@ -103,7 +118,8 @@ mod android {
 
     // JNI class loader can't load our classes, so we store the data util instance;
     // If there were more classes to load we could store the class loader instead
-    pub static CLIP_DATA_UTIL: OnceCell<jni::objects::GlobalRef> = OnceCell::new();
+    pub static CLIP_DATA_HELPER: OnceCell<jni::objects::GlobalRef> = OnceCell::new();
+    pub static DRAG_DROP_HELPER: OnceCell<jni::objects::GlobalRef> = OnceCell::new();
 
     #[no_mangle]
     #[allow(non_snake_case)]
@@ -111,7 +127,8 @@ mod android {
         env: jni::JNIEnv,
         _class: jni::objects::JClass,
         context: jni::objects::JObject,
-        clip_data_util: jni::objects::JObject,
+        clip_data_helper: jni::objects::JObject,
+        drag_drop_helper: jni::objects::JObject,
     ) {
         use ::log::Level;
         use android_logger::Config;
@@ -129,9 +146,13 @@ mod android {
             env.new_global_ref(context)
                 .expect("Failed to create Context reference")
         });
-        CLIP_DATA_UTIL.get_or_init(|| {
-            env.new_global_ref(clip_data_util)
+        CLIP_DATA_HELPER.get_or_init(|| {
+            env.new_global_ref(clip_data_helper)
                 .expect("Failed to store clip data util")
+        });
+        DRAG_DROP_HELPER.get_or_init(|| {
+            env.new_global_ref(drag_drop_helper)
+                .expect("Failed to store drag drop util")
         });
         init(false);
     }

@@ -7,58 +7,43 @@ on:
 name: Check and Lint
 
 jobs:
-
   Flutter:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
       - uses: subosito/flutter-action@v1
         with:
-          channel: 'master'
+          channel: "master"
       - name: Install SSH key
         uses: webfactory/ssh-agent@v0.5.4
         with:
           ssh-private-key: |
             ${{ secrets.SSH_KEY }}
-      - name: flutter pub get (super_clipboard)
-        run: flutter pub get
-        working-directory: super_clipboard
-      - name: flutter format (super_clipboard)
-        run: flutter format --output=none --set-exit-if-changed .
-        working-directory: super_clipboard
-      - name: flutter analyzer (super_clipboard)
-        run: flutter analyze
-        working-directory: super_clipboard
-      - name: flutter test (super_clipboard)
-        run: flutter test
-        working-directory: super_clipboard
-      - name: flutter pub get (super_native_extensions)
-        run: flutter pub get
-        working-directory: super_native_extensions
-      - name: flutter format (super_native_extensions)
-        run: flutter format --output=none --set-exit-if-changed .
-        working-directory: super_native_extensions
-      - name: flutter analyze (super_native_extensions)
-        run: flutter analyze
-        working-directory: super_native_extensions
-      - name: flutter test (super_native_extensions)
-        run: flutter test
-        working-directory: super_native_extensions
+      - name: Install Melos
+        run: flutter pub global activate melos
+      - name: Melos Boostrap
+        run: melos bootstrap
+      - name: Flutter Format
+        run: melos exec -c 1 flutter format . --output=none --set-exit-if-changed
+      - name: Flutter Analyze
+        run: melos exec -c 1 flutter analyze
+      - name: Futter Test
+        run: melos exec -c 1 flutter test
 
   Rustfmt:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-    - uses: actions-rs/toolchain@v1
-      with:
-        profile: minimal
-        toolchain: stable
-        override: true
-    - run: rustup component add rustfmt
-    - uses: actions-rs/cargo@v1
-      with:
-        command: fmt
-        args: --all --manifest-path super_native_extensions/rust/Cargo.toml -- --check
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - run: rustup component add rustfmt
+      - uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all --manifest-path super_native_extensions/rust/Cargo.toml -- --check
 
   Rust:
     runs-on: ${{ matrix.os }}

@@ -9,24 +9,27 @@
 namespace super_native_extensions {
 
 class SuperNativeExtensionsPlugin : public flutter::Plugin {
- public:
+public:
   static void RegisterWithRegistrar(flutter::PluginRegistrarWindows *registrar);
 
-  SuperNativeExtensionsPlugin();
+  SuperNativeExtensionsPlugin(HWND hwnd);
 
   virtual ~SuperNativeExtensionsPlugin();
 
   // Disallow copy and assign.
-  SuperNativeExtensionsPlugin(const SuperNativeExtensionsPlugin&) = delete;
-  SuperNativeExtensionsPlugin& operator=(const SuperNativeExtensionsPlugin&) = delete;
+  SuperNativeExtensionsPlugin(const SuperNativeExtensionsPlugin &) = delete;
+  SuperNativeExtensionsPlugin &
+  operator=(const SuperNativeExtensionsPlugin &) = delete;
 
- private:
+private:
+  HWND _hwnd;
+
   // Called when a method is called on this plugin's channel from Dart.
   void HandleMethodCall(
       const flutter::MethodCall<flutter::EncodableValue> &method_call,
       std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result);
 };
 
-}  // namespace super_native_extensions
+} // namespace super_native_extensions
 
-#endif  // FLUTTER_PLUGIN_SUPER_NATIVE_EXTENSIONS_PLUGIN_H_
+#endif // FLUTTER_PLUGIN_SUPER_NATIVE_EXTENSIONS_PLUGIN_H_

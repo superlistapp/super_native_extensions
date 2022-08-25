@@ -1,5 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.example.example">
+    package="com.example.clipboard">
    <application
         android:label="example"
         android:name="${applicationName}"
@@ -33,7 +33,7 @@
 
         <provider
             android:name="com.superlist.super_native_extensions.DataProvider"
-            android:authorities="com.example.example.ClipboardDataProvider"
+            android:authorities="com.example.clipboard.SuperClipboardDataProvider"
             android:exported="true"
             android:grantUriPermissions="true" >
         </provider>

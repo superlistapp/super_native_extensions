@@ -2,7 +2,7 @@ use std::{cell::RefCell, rc::Weak};
 
 use nativeshell_core::{util::Late, Value};
 
-use crate::error::ClipboardResult;
+use crate::error::NativeExtensionsResult;
 
 thread_local! {
     pub static READERS: RefCell<Vec<Weak<PlatformClipboardReader>>> = RefCell::new(Vec::new());
@@ -13,11 +13,11 @@ pub struct PlatformClipboardReader {
 }
 
 impl PlatformClipboardReader {
-    pub async fn get_items(&self) -> ClipboardResult<Vec<i64>> {
+    pub async fn get_items(&self) -> NativeExtensionsResult<Vec<i64>> {
         Ok(vec![])
     }
 
-    pub async fn get_types_for_item(&self, _item: i64) -> ClipboardResult<Vec<String>> {
+    pub async fn get_types_for_item(&self, _item: i64) -> NativeExtensionsResult<Vec<String>> {
         Ok(vec![])
     }
 
@@ -25,11 +25,11 @@ impl PlatformClipboardReader {
         &self,
         _item: i64,
         _data_type: String,
-    ) -> ClipboardResult<Value> {
+    ) -> NativeExtensionsResult<Value> {
         Ok(Value::Null)
     }
 
-    pub fn new_default() -> ClipboardResult<Self> {
+    pub fn new_default() -> NativeExtensionsResult<Self> {
         Ok(Self {
             weak_self: Late::new(),
         })

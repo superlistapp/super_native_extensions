@@ -30,14 +30,14 @@ packages:
     source: hosted
     version: "1.1.1"
   collection:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: collection
       url: "https://pub.dartlang.org"
     source: hosted
     version: "1.16.0"
   cupertino_icons:
-    dependency: "direct overridden"
+    dependency: "direct main"
     description:
       name: cupertino_icons
       url: "https://pub.dartlang.org"
@@ -56,12 +56,19 @@ packages:
       name: ffi
       url: "https://pub.dartlang.org"
     source: hosted
-    version: "1.1.2"
+    version: "2.0.1"
   flutter:
     dependency: "direct main"
     description: flutter
     source: sdk
     version: "0.0.0"
+  flutter_layout_grid:
+    dependency: "direct main"
+    description:
+      name: flutter_layout_grid
+      url: "https://pub.dartlang.org"
+    source: hosted
+    version: "2.0.1"
   flutter_lints:
     dependency: "direct dev"
     description:
@@ -99,14 +106,14 @@ packages:
       name: matcher
       url: "https://pub.dartlang.org"
     source: hosted
-    version: "0.12.11"
+    version: "0.12.12"
   material_color_utilities:
     dependency: transitive
     description:
       name: material_color_utilities
       url: "https://pub.dartlang.org"
     source: hosted
-    version: "0.1.5"
+    version: "0.2.0"
   meta:
     dependency: transitive
     description:
@@ -117,12 +124,10 @@ packages:
   nativeshell_core:
     dependency: transitive
     description:
-      path: "core/dart"
-      ref: "379bef1fdc9231fb147cbf1a4161027d5ba4b969"
-      resolved-ref: "379bef1fdc9231fb147cbf1a4161027d5ba4b969"
-      url: "https://github.com/nativeshell/nativeshell_ng.git"
-    source: git
-    version: "0.0.1"
+      name: nativeshell_core
+      url: "https://pub.dartlang.org"
+    source: hosted
+    version: "0.1.0"
   path:
     dependency: transitive
     description:
@@ -130,6 +135,13 @@ packages:
       url: "https://pub.dartlang.org"
     source: hosted
     version: "1.8.2"
+  quiver:
+    dependency: transitive
+    description:
+      name: quiver
+      url: "https://pub.dartlang.org"
+    source: hosted
+    version: "3.1.0"
   sky_engine:
     dependency: transitive
     description: flutter
@@ -141,7 +153,7 @@ packages:
       name: source_span
       url: "https://pub.dartlang.org"
     source: hosted
-    version: "1.9.0"
+    version: "1.9.1"
   stack_trace:
     dependency: transitive
     description:
@@ -169,14 +181,14 @@ packages:
       path: ".."
       relative: true
     source: path
-    version: "0.0.1"
+    version: "0.1.0"
   super_native_extensions:
     dependency: "direct overridden"
     description:
       path: "../../super_native_extensions"
       relative: true
     source: path
-    version: "0.0.1"
+    version: "0.1.0"
   term_glyph:
     dependency: transitive
     description:
@@ -190,7 +202,7 @@ packages:
       name: test_api
       url: "https://pub.dartlang.org"
     source: hosted
-    version: "0.4.9"
+    version: "0.4.12"
   vector_math:
     dependency: transitive
     description:
@@ -199,5 +211,5 @@ packages:
     source: hosted
     version: "2.1.2"
 sdks:
-  dart: ">=2.17.0-206.0.dev <3.0.0"
+  dart: ">=2.17.0 <3.0.0"
   flutter: ">=2.2.1"

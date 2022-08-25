@@ -22,10 +22,21 @@ public class DataProvider extends ContentProvider {
         return true;
     }
 
-    static private class PipeDataWriter implements ContentProvider.PipeDataWriter<byte[]> {
+    private class PipeDataWriter implements ContentProvider.PipeDataWriter<byte[]> {
+        PipeDataWriter(Uri uri, String mimeType) {
+            this.uri = uri;
+            this.mimeType = mimeType;
+        }
+
+        private Uri uri;
+        private String mimeType;
+
         @Override
         public void writeDataToPipe(ParcelFileDescriptor output, Uri uri, String mimeType,
                                     Bundle opts, byte[] data) {
+            if (this.uri != null && this.mimeType != null && data == null) {
+                data = getDataForURI(this.uri.toString(), this.mimeType);
+            }
             try (OutputStream out = new FileOutputStream(output.getFileDescriptor())) {
                 out.write(data);
                 out.flush();
@@ -39,8 +50,17 @@ public class DataProvider extends ContentProvider {
     public AssetFileDescriptor openTypedAssetFile(Uri uri, String mimeTypeFilter, Bundle opts, CancellationSignal signal) throws FileNotFoundException {
         String uriString = uri.toString();
         String mimeType = getMimeTypeForURI(uriString, mimeTypeFilter);
-        byte[] data = getDataForURI(uri.toString(), mimeType);
-        ParcelFileDescriptor f = openPipeHelper(uri, getType(uri), opts, data, new PipeDataWriter());
+        // when requesting to open the file on main thread we assume that the stream
+        // will also be read on main thread (blocking) so we need the data upfront.
+        // this happens for example when ClipData.coerceToText is called by flutter
+        ParcelFileDescriptor f;
+        if (Looper.getMainLooper().isCurrentThread()) {
+            byte[] data = getDataForURI(uriString, mimeType);
+            f = openPipeHelper(uri, getType(uri), opts, data, new PipeDataWriter(uri, mimeType));
+        } else {
+            // resolve data in background thread
+            f = openPipeHelper(uri, getType(uri), opts, null, new PipeDataWriter(uri, mimeType));
+        }
         return new AssetFileDescriptor(f, 0, -1);
     }
 
@@ -64,16 +84,9 @@ public class DataProvider extends ContentProvider {
 
     private final Handler handler = new Handler(Looper.getMainLooper());
 
-    // used from JNI
-    @SuppressWarnings("UnusedDeclaration")
-    void wakeUp() {
-        handler.post(() -> {
-        });
-    }
-
     @Override
     public Cursor query(Uri uri, String[] projection, String selection, String[] selectionArgs, String sortOrder) {
-        throw new UnsupportedOperationException();
+        return null;
     }
 
     @Override
