@@ -145,7 +145,7 @@ impl PlatformDataReader {
         let uri = self.inner.uris.get(item).and_then(|u| Url::parse(u).ok());
         if let Some(uri) = uri {
             if let Some(segments) = uri.path_segments() {
-                let last: Option<&str> = segments.last();
+                let last: Option<&str> = segments.last().filter(|s| !s.is_empty());
                 return Ok(last.map(|f| f.to_owned()));
             }
         }
