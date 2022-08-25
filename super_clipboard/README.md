@@ -74,7 +74,7 @@ Be sure to replace `<your-package-name>` in the snippet with your actual package
 
 For more formats supported out of box look at the [Format](lib/src/standard_formats.dart) class.
 
-Note that on Windows clipboard images are usually stored in DIB or DIBv5 format, while on macOS TIFF is commonly used. `super_clipboard` will transparently expose these formats as PNG.
+Note that on Windows clipboard images are usually stored in DIB or DIBv5 format, while on macOS TIFF is commonly used. `super_clipboard` will transparently expose these images as PNG.
 
 You can query whether the PNG image in clipboard has been synthetized through `reader.isSynthetized(Formats.png)`.
 
