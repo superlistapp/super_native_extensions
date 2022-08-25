@@ -1,8 +1,8 @@
 import 'dart:ui' as ui;
 import 'package:collection/collection.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
-import 'package:flutter/widgets.dart';
 import 'package:super_clipboard/super_clipboard.dart';
 import 'package:super_native_extensions/raw_drag_drop.dart' as raw;
 

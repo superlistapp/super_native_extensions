@@ -1,4 +1,7 @@
 import 'dart:convert';
+// FIXME(knopp): Remove after 3.1.0 gets stable
+// ignore: unnecessary_import
+import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:collection/collection.dart';
@@ -441,14 +444,11 @@ class _DropZoneState extends State<_DropZone> {
 
     buildWidgetsForReaders(context, readers, (value) {
       setState(() {
-        _content = SelectionArea(
-          focusNode: FocusNode()..canRequestFocus = false,
-          child: ListView(
-            padding: const EdgeInsets.all(10),
-            children: value
-                .intersperse(const SizedBox(height: 10))
-                .toList(growable: false),
-          ),
+        _content = ListView(
+          padding: const EdgeInsets.all(10),
+          children: value
+              .intersperse(const SizedBox(height: 10))
+              .toList(growable: false),
         );
       });
     });
