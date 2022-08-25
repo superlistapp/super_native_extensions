@@ -123,7 +123,7 @@ impl PlatformDataProvider {
             .l()?;
         let package_name: String = env.get_string(package_name.into())?.into();
         let uri = format!(
-            "content://{}.ClipboardDataProvider/{}",
+            "content://{}.SuperClipboardDataProvider/{}",
             package_name, data_source_id,
         );
         Ok(uri_from_string(env, &uri)?)

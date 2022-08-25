@@ -33,7 +33,7 @@
 
         <provider
             android:name="com.superlist.super_native_extensions.DataProvider"
-            android:authorities="com.example.draganddrop.ClipboardDataProvider"
+            android:authorities="com.example.draganddrop.SuperClipboardDataProvider"
             android:exported="true"
             android:grantUriPermissions="true" >
         </provider>
