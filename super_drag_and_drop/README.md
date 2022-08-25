@@ -81,8 +81,10 @@ Be sure to replace `<your-package-name>` in the snippet with your actual package
 class MyDraggableWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    // Drag item widget provides the content for the drag (DragItem).
     return DragItemWidget(
       dragItemProvider: (snapshot, session) async {
+        // DragItem represents the content bein dragged.
         final item = DragItem(
           // snapshot() will return image snapshot of the DragItemWidget.
           // You can use any other drag image if your wish.
@@ -94,11 +96,16 @@ class MyDraggableWidget extends StatelessWidget {
         // Add data for this item that other applications can read
         // on drop. (optional)
         item.add(Formats.plainText('Plain Text Data'));
-        item.add(Formats.htmlText.lazy(() => '<b>HTML generated on demand</b>'));
+        item.add(
+            Formats.htmlText.lazy(() => '<b>HTML generated on demand</b>'));
         return item;
       },
       allowedOperations: () => [DropOperation.copy],
-      child: const Text('This widget is draggable'),
+      // DraggableWidget is the actual widget that is draggable. It looks
+      // for parent DragItemWidget in widget hierarchy to provide the DragItem.
+      child: const DraggableWidget(
+        child: Text('This widget is draggable'),
+      ),
     );
   }
 }
