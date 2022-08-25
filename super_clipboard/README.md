@@ -33,7 +33,9 @@ That is it. The build integration will automatically install required Rust toolc
 
 ### Android support
 
-NDK is required to use `super_clipboard`. You can use Android Studio SDK Manager to install the NDK (Preferences -> Android SDK -> SDK Tools -> NDK (Side by Side)).
+NDK is required to use `super_clipboard`. You can use Android Studio SDK Manager to install the NDK:
+
+    Preferences -> Android SDK -> SDK Tools -> NDK (Side by Side).
 
 NDK version your project expects is specified in `build.gradle`.
 
