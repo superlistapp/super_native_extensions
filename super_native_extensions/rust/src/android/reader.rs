@@ -12,7 +12,8 @@ use jni::{
     AttachGuard, JNIEnv,
 };
 
-use nativeshell_core::{util::FutureCompleter, Value};
+use nativeshell_core::{util::FutureCompleter, Context, RunLoopSender, Value};
+use once_cell::sync::OnceCell;
 use url::Url;
 
 use crate::{
@@ -29,6 +30,8 @@ pub struct PlatformDataReader {
     // If needed enhance life of local data source
     _source_drop_notifier: Option<Arc<DropNotifier>>,
 }
+
+static RUN_LOOP_SENDER: OnceCell<RunLoopSender> = OnceCell::new();
 
 impl PlatformDataReader {
     fn get_env_and_context() -> NativeExtensionsResult<(AttachGuard<'static>, JObject<'static>)> {
@@ -96,7 +99,7 @@ impl PlatformDataReader {
             if let Value::String(url) = uri {
                 if let Ok(url) = Url::parse(&url) {
                     if let Some(segments) = url.path_segments() {
-                        let last: Option<&str> = segments.last();
+                        let last: Option<&str> = segments.last().filter(|s| !s.is_empty());
                         return Ok(last.map(|f| f.to_owned()));
                     }
                 }
@@ -123,28 +126,33 @@ impl PlatformDataReader {
         handle: jint,
         data: jni::objects::JObject,
     ) {
+        let sender = RUN_LOOP_SENDER.get().unwrap();
         unsafe fn transform_slice_mut<T>(s: &mut [T]) -> &mut [jbyte] {
             std::slice::from_raw_parts_mut(
                 s.as_mut_ptr() as *mut jbyte,
                 s.len() * std::mem::size_of::<T>(),
             )
         }
-        let completer = Self::PENDING.with(|m| m.borrow_mut().remove(&(handle as i64)));
-        if let Some(completer) = completer {
-            let data = move || {
-                if data.is_null() {
-                    Ok(Value::Null)
-                } else if env.is_instance_of(data, "java/lang/CharSequence")? {
-                    Ok(Value::String(env.get_string(data.into())?.into()))
-                } else {
-                    let mut res = Vec::new();
-                    res.resize(env.get_array_length(*data)? as usize, 0);
-                    env.get_byte_array_region(*data, 0, unsafe { transform_slice_mut(&mut res) })?;
-                    Ok(Value::U8List(res))
-                }
-            };
-            completer.complete(data());
-        }
+        let data = move || {
+            if data.is_null() {
+                Ok(Value::Null)
+            } else if env.is_instance_of(data, "java/lang/CharSequence")? {
+                Ok(Value::String(env.get_string(data.into())?.into()))
+            } else {
+                let mut res = Vec::new();
+                res.resize(env.get_array_length(*data)? as usize, 0);
+                env.get_byte_array_region(*data, 0, unsafe { transform_slice_mut(&mut res) })?;
+                Ok(Value::U8List(res))
+            }
+        };
+        let result: Result<Value, NativeExtensionsError> = data();
+
+        sender.send(move || {
+            let completer = Self::PENDING.with(|m| m.borrow_mut().remove(&(handle as i64)));
+            if let Some(completer) = completer {
+                completer.complete(result);
+            }
+        });
     }
 
     pub async fn get_data_for_item(
@@ -153,6 +161,7 @@ impl PlatformDataReader {
         format: String,
         _progress: Option<Arc<ReadProgress>>,
     ) -> NativeExtensionsResult<Value> {
+        RUN_LOOP_SENDER.get_or_init(|| Context::get().run_loop().new_sender());
         match &self.clip_data {
             Some(clip_data) => {
                 let (future, completer) = FutureCompleter::new();

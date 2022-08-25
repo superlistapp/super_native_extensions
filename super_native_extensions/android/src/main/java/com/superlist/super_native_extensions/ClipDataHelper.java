@@ -46,11 +46,15 @@ public final class ClipDataHelper {
 
     public void getData(ClipData data, int index, String type, Context context, int handle) {
         ExecutorService executor = Executors.newSingleThreadExecutor();
-        Handler handler = new Handler(Looper.getMainLooper());
 
         executor.execute(() -> {
-            Object res = _getData(data, index, type, context);
-            handler.post(() -> onData(handle, res));
+            Object res = null;
+            try {
+                res = _getData(data, index, type, context);
+            } catch (Exception e) {
+                Log.w("ClipData", "getData failed", e);
+            }
+            onData(handle, res);
         });
     }
 
