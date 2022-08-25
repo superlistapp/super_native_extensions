@@ -35,6 +35,25 @@ That is it. The build integration will automatically install required Rust toolc
 
 ### Android support
 
+NDK is required to use `super_clipboard`. You can use Android Studio *SDK Manager* to install the NDK:
+
+    Preferences -> Android SDK -> SDK Tools -> NDK (Side by Side).
+
+NDK version your project expects is specified in `build.gradle`.
+
+```groovy
+android {
+    // by default the project uses NDK version from flutter plugin.
+    ndkVersion flutter.ndkVersion
+```
+You can find the current value of `flutter.ndkVersion` in Flutter source code ([stable](https://github.com/flutter/flutter/blob/stable/packages/flutter_tools/gradle/flutter.gradle), [main](https://github.com/flutter/flutter/blob/main/packages/flutter_tools/gradle/flutter.gradle)).
+
+```java
+class FlutterExtension {
+    // ...
+    static String ndkVersion = ....
+```
+
 To be able to drag images and other custom data from your application you need
 to declare a content provider in `AndroidManifest.xml`:
 
@@ -62,8 +81,10 @@ Be sure to replace `<your-package-name>` in the snippet with your actual package
 class MyDraggableWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    // DragItemWidget provides the content for the drag (DragItem).
     return DragItemWidget(
       dragItemProvider: (snapshot, session) async {
+        // DragItem represents the content bein dragged.
         final item = DragItem(
           // snapshot() will return image snapshot of the DragItemWidget.
           // You can use any other drag image if your wish.
@@ -75,11 +96,16 @@ class MyDraggableWidget extends StatelessWidget {
         // Add data for this item that other applications can read
         // on drop. (optional)
         item.add(Formats.plainText('Plain Text Data'));
-        item.add(Formats.htmlText.lazy(() => '<b>HTML generated on demand</b>'));
+        item.add(
+            Formats.htmlText.lazy(() => '<b>HTML generated on demand</b>'));
         return item;
       },
       allowedOperations: () => [DropOperation.copy],
-      child: const Text('This widget is draggable'),
+      // DraggableWidget represents the actual draggable area. It looks
+      // for parent DragItemWidget in widget hierarchy to provide the DragItem.
+      child: const DraggableWidget(
+        child: Text('This widget is draggable'),
+      ),
     );
   }
 }
@@ -102,7 +128,7 @@ class MyDropRegion extends StatelessWidget {
       onDropOver: (session, position) {
         // You can inspect local data here, as well as formats of each item.
         // However on certain platforms (mobile / web) the actual data is
-        // only available when the drop is accepted.
+        // only available when the drop is accepted (onPerformDrop).
         final item = session.items.first;
         if (item.localData is Map) {
           // This is a drag within the app and has custom local data set.
@@ -159,9 +185,9 @@ Local data is always available.
 Note that `getValue` does not return a promise, instead it uses callback. This is intentional to avoid accidentally blocking `onPerformDrop` by awaiting the `getValue` result. Getting the value
 might take a while to complete and `onPerformDrop` will block the platform thread so it must return quickly.
 
-## Data Formats
+## Data formats
 
-When it comes to providing and receiving drag data, `super_drag_and_drop` builds on top of `super_clipboard`. Please see `super_clipboard` [documentation](https://github.com/superlistapp/super_native_extensions/tree/main/super_clipboard) for more information about data formats.
+When it comes to providing and receiving drag data, `super_drag_and_drop` builds on top of `super_clipboard`. Please see `super_clipboard` [documentation](https://github.com/superlistapp/super_native_extensions/tree/main/super_clipboard#reading-from-clipboard) for more information about data formats.
 
 ## Advanced usage
 
