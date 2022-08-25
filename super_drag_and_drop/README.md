@@ -101,7 +101,7 @@ class MyDraggableWidget extends StatelessWidget {
         return item;
       },
       allowedOperations: () => [DropOperation.copy],
-      // DraggableWidget is the actual widget that is draggable. It looks
+      // DraggableWidget represents the actual draggable area. It looks
       // for parent DragItemWidget in widget hierarchy to provide the DragItem.
       child: const DraggableWidget(
         child: Text('This widget is draggable'),
