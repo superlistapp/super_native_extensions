@@ -611,12 +611,9 @@ impl PlatformDragContext {
         }
     }
 
-    pub fn get_local_data(&self, session: id) -> Vec<Value> {
-        if let Some(session) = self.get_session(session) {
-            session.configuration.borrow().get_local_data()
-        } else {
-            Vec::new()
-        }
+    pub fn get_local_data(&self, session: id) -> Option<Vec<Value>> {
+        self.get_session(session)
+            .map(|s| s.configuration.borrow().get_local_data())
     }
 
     pub fn get_local_data_for_session_id(

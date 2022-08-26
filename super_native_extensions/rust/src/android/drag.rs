@@ -11,6 +11,7 @@ use crate::{
         DataProviderEntry, DragSessionId, PlatformDragContextDelegate, PlatformDragContextId,
     },
     error::{NativeExtensionsError, NativeExtensionsResult},
+    log::OkLog,
 };
 
 use super::{
@@ -183,19 +184,12 @@ impl PlatformDragContext {
         Ok(())
     }
 
-    pub fn get_local_data<'a>(
-        &self,
-        env: &JNIEnv<'a>,
-        event: DragEvent<'a>,
-    ) -> NativeExtensionsResult<Vec<Value>> {
+    pub fn get_local_data<'a>(&self, env: &JNIEnv<'a>, event: DragEvent<'a>) -> Option<Vec<Value>> {
         let sessions = self.sessions.borrow();
-        let session_id = event.get_session_id(env)?;
+        let session_id = event.get_session_id(env).ok_log()?;
         let session = session_id.and_then(|id| sessions.get(&id));
 
-        match session {
-            Some(session) => Ok(session.configuration.get_local_data()),
-            None => Ok(Vec::new()),
-        }
+        session.map(|s| s.configuration.get_local_data())
     }
 
     pub fn get_local_data_for_session_id(
@@ -213,18 +207,15 @@ impl PlatformDragContext {
         &self,
         env: &JNIEnv<'a>,
         event: DragEvent<'a>,
-    ) -> NativeExtensionsResult<Vec<Arc<DataProviderHandle>>> {
-        let session_id = event.get_session_id(env)?;
+    ) -> Option<Vec<Arc<DataProviderHandle>>> {
+        let session_id = event.get_session_id(env).ok_log()?;
         match session_id {
             Some(session_id) => {
                 let sessions = self.sessions.borrow();
                 let session = sessions.get(&session_id);
-                match session {
-                    Some(session) => Ok(session.data_providers.clone()),
-                    None => Ok(Vec::new()),
-                }
+                session.map(|s| s.data_providers.clone())
             }
-            None => Ok(Vec::new()),
+            None => None,
         }
     }
 }

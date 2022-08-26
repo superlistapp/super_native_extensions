@@ -15,10 +15,9 @@ use nativeshell_core::{
 use crate::{
     api_model::{DataProviderId, DragConfiguration, DragItem, DragRequest, DropOperation, Point},
     data_provider_manager::{DataProviderHandle, GetDataProviderManager},
-    drop_manager::GetDropManager,
     error::{NativeExtensionsError, NativeExtensionsResult},
     log::{OkLog, OkLogUnexpected},
-    platform_impl::platform::{PlatformDataProvider, PlatformDragContext, PlatformDropContext},
+    platform_impl::platform::{PlatformDataProvider, PlatformDragContext},
     util::{DropNotifier, NextId},
     value_promise::{Promise, PromiseResult},
 };
@@ -42,11 +41,6 @@ pub struct GetAdditionalItemsResult {
 }
 
 pub trait PlatformDragContextDelegate {
-    fn get_platform_drop_context(
-        &self,
-        id: PlatformDragContextId,
-    ) -> NativeExtensionsResult<Rc<PlatformDropContext>>;
-
     fn get_drag_configuration_for_location(
         &self,
         id: PlatformDragContextId,
@@ -151,15 +145,8 @@ impl DragManager {
         Ok(())
     }
 
-    pub fn get_platform_drag_context(
-        &self,
-        id: PlatformDragContextId,
-    ) -> NativeExtensionsResult<Rc<PlatformDragContext>> {
-        self.contexts
-            .borrow()
-            .get(&id)
-            .cloned()
-            .ok_or(NativeExtensionsError::PlatformContextNotFound)
+    pub fn get_platform_drag_contexts(&self) -> Vec<Rc<PlatformDragContext>> {
+        self.contexts.borrow().values().cloned().collect()
     }
 
     fn build_data_provider_map(
@@ -375,13 +362,6 @@ impl AsyncMethodHandler for DragManager {
 }
 
 impl PlatformDragContextDelegate for DragManager {
-    fn get_platform_drop_context(
-        &self,
-        id: PlatformDragContextId,
-    ) -> NativeExtensionsResult<Rc<PlatformDropContext>> {
-        Context::get().drop_manager().get_platform_drop_context(id)
-    }
-
     fn get_drag_configuration_for_location(
         &self,
         id: PlatformDragContextId,

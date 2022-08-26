@@ -64,6 +64,16 @@
             "env": {
                 "DISPLAY": ":0"
             }
+        },
+        {
+            "name": "(Windows) Attach",
+            "type": "cppvsdbg",
+            "request": "attach",
+            "processId": "${command:pickProcess}",
+            "symbolOptions": {
+                "searchPaths": [],
+                "searchMicrosoftSymbolServer": false
+            },
         }
     ]
 }

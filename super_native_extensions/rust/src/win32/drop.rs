@@ -26,7 +26,7 @@ use windows::{
 };
 
 use crate::{
-    api_model::{DragConfiguration, DropOperation, Point},
+    api_model::{DropOperation, Point},
     drop_manager::{
         BaseDropEvent, DropEvent, DropItem, DropSessionId, PlatformDropContextDelegate,
         PlatformDropContextId,
@@ -49,7 +49,6 @@ pub struct PlatformDropContext {
     view: HWND,
     delegate: Weak<dyn PlatformDropContextDelegate>,
     hook: Late<HWINEVENTHOOK>,
-    local_session: RefCell<Option<DragConfiguration>>,
     next_session_id: Cell<i64>,
     current_session: RefCell<Option<Rc<Session>>>,
 }
@@ -80,7 +79,6 @@ impl PlatformDropContext {
             view: HWND(view_handle as isize),
             delegate,
             hook: Late::new(),
-            local_session: RefCell::new(None),
             next_session_id: Cell::new(0),
             current_session: RefCell::new(None),
         }
@@ -142,30 +140,6 @@ impl PlatformDropContext {
         }
     }
 
-    pub fn local_drag_will_start(
-        &self,
-        configuration: DragConfiguration,
-    ) -> NativeExtensionsResult<()> {
-        self.local_session.replace(Some(configuration));
-        Ok(())
-    }
-
-    pub fn local_drag_did_end(&self) -> NativeExtensionsResult<()> {
-        self.local_session.replace(None);
-        if self.current_session.borrow().is_some() {
-            self.drop_end()?;
-        }
-        Ok(())
-    }
-
-    pub fn get_local_drag_data(&self) -> NativeExtensionsResult<Option<Vec<Value>>> {
-        Ok(self
-            .local_session
-            .borrow()
-            .as_ref()
-            .map(|s| s.get_local_data()))
-    }
-
     fn delegate(&self) -> NativeExtensionsResult<Rc<dyn PlatformDropContextDelegate>> {
         self.delegate
             .upgrade()
@@ -196,6 +170,14 @@ impl PlatformDropContext {
         Ok(())
     }
 
+    fn local_dragging(&self) -> NativeExtensionsResult<bool> {
+        Ok(self
+            .delegate()?
+            .get_platform_drag_contexts()
+            .iter()
+            .any(|c| c.is_dragging_active()))
+    }
+
     fn event_for_session(
         &self,
         session: &Rc<Session>,
@@ -204,11 +186,13 @@ impl PlatformDropContext {
         mask: u32,
         accepted_operation: Option<DropOperation>,
     ) -> NativeExtensionsResult<DropEvent> {
-        let local_data: Vec<_> = self
-            .local_session
-            .borrow()
-            .as_ref()
-            .map(|a| a.items.iter().map(|i| i.local_data.clone()).collect())
+        let local_data = self
+            .delegate()?
+            .get_platform_drag_contexts()
+            .iter()
+            .map(|c| c.get_local_data())
+            .find(|c| c.is_some())
+            .flatten()
             .unwrap_or_default();
 
         let mut pt = POINT { x: pt.x, y: pt.y };
@@ -252,7 +236,7 @@ impl PlatformDropContext {
         pt: &POINTL,
         pdweffect: *mut u32,
     ) -> NativeExtensionsResult<()> {
-        if self.current_session.borrow().is_some() && self.local_session.borrow().is_none() {
+        if self.current_session.borrow().is_some() && !self.local_dragging()? {
             // shouldn't happen
             if self
                 .current_session
@@ -355,7 +339,8 @@ impl PlatformDropContext {
         if let Some(s) = self.current_session.borrow_mut().as_ref() {
             s.is_inside.set(false)
         }
-        if self.local_session.borrow().is_none() {
+        // Keep session alive for local dragging
+        if !self.local_dragging()? {
             self.drop_end()?;
         }
         Ok(())

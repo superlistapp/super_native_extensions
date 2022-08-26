@@ -269,11 +269,13 @@ impl PlatformDragContext {
         Ok(())
     }
 
-    pub fn local_data(&self) -> Vec<Value> {
-        match self.sessions.borrow().iter().next().map(|a| a.1.clone()) {
-            Some(session) => session.configuration.get_local_data(),
-            None => Vec::new(),
-        }
+    pub fn get_local_data(&self) -> Option<Vec<Value>> {
+        self.sessions
+            .borrow()
+            .iter()
+            .next()
+            .map(|a| a.1.clone())
+            .map(|s| s.configuration.get_local_data())
     }
 
     pub fn get_local_data_for_session_id(

@@ -225,12 +225,13 @@ impl PlatformDropContext {
             // We're conflating drag and drop context ids here. However it works
             // because at this point there are both IsolateId. In future with
             // flutter multiview they should probably be based in view handle
-            let drag_context = delegate
-                .get_platform_drag_context(self.id)
-                .expect("Missing drag context");
-            // forward the event to drag context. Necessary to know when current
-            // drag session ends for example.
-            drag_context.on_drop_event(env, event)?;
+            let drag_contexts = delegate.get_platform_drag_contexts();
+
+            for drag_context in &drag_contexts {
+                // forward the event to drag context. Necessary to know when current
+                // drag session ends for example.
+                drag_context.on_drop_event(env, event)?;
+            }
 
             let current_session = {
                 let mut session = self.current_session.borrow_mut();
@@ -245,15 +246,32 @@ impl PlatformDropContext {
                     .clone()
             };
 
+            let get_local_data = || {
+                drag_contexts
+                    .iter()
+                    .map(|c| c.get_local_data(env, event))
+                    .find(|c| c.is_some())
+                    .flatten()
+                    .unwrap_or_default()
+            };
+
+            let get_data_provider_handles = || {
+                drag_contexts
+                    .iter()
+                    .map(|c| c.get_data_provider_handles(env, event))
+                    .find(|c| c.is_some())
+                    .flatten()
+                    .unwrap_or_default()
+            };
+
             let action = event.get_action(env)?;
             match action {
                 DragAction::DragLocation => {
-                    let local_data = drag_context.get_local_data(env, event)?;
                     let event = Self::translate_drop_event(
                         event,
                         current_session.id,
                         env,
-                        local_data,
+                        get_local_data(),
                         None, // accepted operation
                         None, // reader
                     )?;
@@ -283,12 +301,11 @@ impl PlatformDropContext {
                         && accepted_operation != DropOperation::UserCancelled
                         && accepted_operation != DropOperation::Forbidden
                     {
-                        let local_data = drag_context.get_local_data(env, event)?;
+                        let local_data = get_local_data();
                         let clip_data = event.get_clip_data(env)?;
                         // If this is local data make sure to extend the lifetime
                         // with the reader.
-                        let data_provider_handles =
-                            drag_context.get_data_provider_handles(env, event)?;
+                        let data_provider_handles = get_data_provider_handles();
 
                         let permission_notifier =
                             self.request_drag_drop_permissions(env, event.0)?;
