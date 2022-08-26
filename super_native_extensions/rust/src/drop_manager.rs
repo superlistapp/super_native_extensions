@@ -21,6 +21,7 @@ use crate::{
     value_promise::{Promise, PromiseResult},
 };
 
+// Each isolate has its own DropContext.
 pub type PlatformDropContextId = IsolateId;
 
 pub struct DropManager {

@@ -22,6 +22,7 @@ use crate::{
     value_promise::{Promise, PromiseResult},
 };
 
+// Each isolate has its own DragContext.
 pub type PlatformDragContextId = IsolateId;
 
 pub struct DataProviderEntry {
@@ -163,7 +164,10 @@ impl DragManager {
             let weak_self = self.weak_self.clone();
             let handle: DataProviderHandle = DropNotifier::new(move || {
                 if let Some(this) = weak_self.upgrade() {
-                    this.release_data_provider(isolate, provider_id);
+                    // Isolate could have been destroyed in the meanwhile.
+                    if this.contexts.borrow().contains_key(&isolate) {
+                        this.release_data_provider(isolate, provider_id);
+                    }
                 }
             })
             .into();
