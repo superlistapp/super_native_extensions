@@ -81,8 +81,13 @@ impl Session {
 
         let dragging_sequence_number: NSInteger =
             unsafe { msg_send![dragging_info, draggingSequenceNumber] };
-        let drag_context = delegate.get_platform_drag_context(self.context_id)?;
-        let local_data = drag_context.get_local_data(dragging_sequence_number);
+        let drag_contexts = delegate.get_platform_drag_contexts();
+        let local_data = drag_contexts
+            .iter()
+            .map(|c| c.get_local_data(dragging_sequence_number))
+            .find(|c| c.is_some())
+            .flatten()
+            .unwrap_or_default();
 
         let location: NSPoint = unsafe { msg_send![dragging_info, draggingLocation] }; // window coordinates
         let location: NSPoint =

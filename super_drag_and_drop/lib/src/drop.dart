@@ -24,25 +24,28 @@ abstract class DropSession with Diagnosticable {
 
 class DropPosition {
   DropPosition({
-    required this.position,
-    required this.globalPosition,
+    required this.local,
+    required this.global,
   });
 
   /// Drop position in local coordinates of DropRegion widget.
-  final Offset position;
+  final Offset local;
 
   /// Drop position in global coordinates.
-  final Offset globalPosition;
+  final Offset global;
 
   static DropPosition forRenderObject(
       Offset globalPosition, RenderObject object) {
     final transform = object.getTransformTo(null);
     transform.invert();
     return DropPosition(
-      position: MatrixUtils.transformPoint(transform, globalPosition),
-      globalPosition: globalPosition,
+      local: MatrixUtils.transformPoint(transform, globalPosition),
+      global: globalPosition,
     );
   }
+
+  DropPosition transformedToRenderObject(RenderObject object) =>
+      DropPosition.forRenderObject(global, object);
 }
 
 typedef OnDropOver = FutureOr<raw.DropOperation> Function(
@@ -123,7 +126,7 @@ class DropRegion extends SingleChildRenderObjectWidget {
 }
 
 typedef OnMonitorDropOver = void Function(
-    DropSession session, Offset position, bool isInside);
+    DropSession session, DropPosition position, bool isInside);
 
 class DropMonitor extends SingleChildRenderObjectWidget {
   const DropMonitor({

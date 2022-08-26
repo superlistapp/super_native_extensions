@@ -120,10 +120,7 @@ pub struct ItemPreviewResponse {
 }
 
 pub trait PlatformDropContextDelegate {
-    fn get_platform_drag_context(
-        &self,
-        id: PlatformDropContextId,
-    ) -> NativeExtensionsResult<Rc<PlatformDragContext>>;
+    fn get_platform_drag_contexts(&self) -> Vec<Rc<PlatformDragContext>>;
 
     fn send_drop_update(
         &self,
@@ -178,17 +175,6 @@ impl DropManager {
             .cloned()
             .ok_or(NativeExtensionsError::PlatformContextNotFound)?;
         context.register_drop_formats(&request.formats)
-    }
-
-    pub fn get_platform_drop_context(
-        &self,
-        id: PlatformDropContextId,
-    ) -> NativeExtensionsResult<Rc<PlatformDropContext>> {
-        self.contexts
-            .borrow()
-            .get(&id)
-            .cloned()
-            .ok_or(NativeExtensionsError::PlatformContextNotFound)
     }
 
     fn new_context(
@@ -248,11 +234,8 @@ impl AsyncMethodHandler for DropManager {
 }
 
 impl PlatformDropContextDelegate for DropManager {
-    fn get_platform_drag_context(
-        &self,
-        id: PlatformDropContextId,
-    ) -> NativeExtensionsResult<Rc<PlatformDragContext>> {
-        Context::get().drag_manager().get_platform_drag_context(id)
+    fn get_platform_drag_contexts(&self) -> Vec<Rc<PlatformDragContext>> {
+        Context::get().drag_manager().get_platform_drag_contexts()
     }
 
     fn send_drop_update(

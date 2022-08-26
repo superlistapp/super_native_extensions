@@ -117,7 +117,8 @@ class _DropSession extends DropSession {
 
     for (final monitor in RenderDropMonitor.activeMonitors) {
       final inside = monitorsInHitTest.contains(monitor);
-      monitor.onDropOver(this, position, inside);
+      final dropPosition = DropPosition.forRenderObject(position, monitor);
+      monitor.onDropOver(this, dropPosition, inside);
     }
 
     return res;
@@ -307,10 +308,10 @@ class DropFormatRegistry {
       formats.addAll(registration);
     }
     final eq = const SetEquality().equals;
-    if (!eq(formats, _lastRegisteredFormat)) {
+    if (_lastRegisteredFormats == null ||
+        !eq(formats, _lastRegisteredFormats!)) {
       context.registerDropFormats(List.from(formats));
-      _lastRegisteredFormat.clear();
-      _lastRegisteredFormat.addAll(formats);
+      _lastRegisteredFormats = formats;
     }
     // needed on some platforms (i.e. macOS)
     await raw.DragContext.instance();
@@ -319,7 +320,7 @@ class DropFormatRegistry {
   static DropFormatRegistry instance = DropFormatRegistry._();
 
   final _registeredFormats = <DropFormatRegistration, List<PlatformFormat>>{};
-  final _lastRegisteredFormat = <PlatformFormat>{};
+  Set<PlatformFormat>? _lastRegisteredFormats;
 }
 
 class DropFormatRegistration {

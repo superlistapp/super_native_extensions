@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
@@ -48,4 +49,15 @@ extension DurationExt on Duration {
 
   static Duration fromSeconds(double seconds) =>
       Duration(microseconds: (seconds * 1000000.0).round());
+}
+
+// For cases where platform code doesn't really care about dart exceptions.
+// Instead pass it to default handler and return sane default.
+Future<T> handleError<T>(Future<T> Function() f, T Function() def) async {
+  try {
+    return await f();
+  } on Error catch (e, s) {
+    Zone.current.handleUncaughtError(e, s);
+    return def();
+  }
 }

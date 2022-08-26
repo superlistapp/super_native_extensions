@@ -91,9 +91,13 @@ impl Session {
 
         // local data
         let local_session: id = unsafe { msg_send![session, localDragSession] };
-        let local_data = delegate
-            .get_platform_drag_context(self.context_id)?
-            .get_local_data(local_session);
+        let drag_contexts = delegate.get_platform_drag_contexts();
+        let local_data = drag_contexts
+            .iter()
+            .map(|c| c.get_local_data(local_session))
+            .find(|c| c.is_some())
+            .flatten()
+            .unwrap_or_default();
 
         // formats
         let mut items = Vec::new();

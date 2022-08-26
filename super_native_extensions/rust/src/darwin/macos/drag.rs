@@ -284,6 +284,11 @@ impl PlatformDragContext {
     }
 
     pub fn should_delay_window_ordering(&self, event: id) -> bool {
+        if cfg!(debug_assertions) {
+            // FIXME(knopp): Remove once
+            // https://github.com/dart-lang/sdk/pull/49708 is resolved.
+            return false;
+        }
         if unsafe { NSEvent::eventType(event) == NSEventType::NSLeftMouseDown } {
             let location: NSPoint = unsafe { msg_send![event, locationInWindow] };
             let location: NSPoint =
@@ -332,13 +337,11 @@ impl PlatformDragContext {
         }
     }
 
-    pub fn get_local_data(&self, dragging_sequence_number: NSInteger) -> Vec<Value> {
+    pub fn get_local_data(&self, dragging_sequence_number: NSInteger) -> Option<Vec<Value>> {
         let sessions = self.sessions.borrow();
-        if let Some(session) = sessions.get(&dragging_sequence_number) {
-            session.configuration.get_local_data()
-        } else {
-            Vec::new()
-        }
+        sessions
+            .get(&dragging_sequence_number)
+            .map(|s| s.configuration.get_local_data())
     }
 
     pub fn get_local_data_for_session_id(

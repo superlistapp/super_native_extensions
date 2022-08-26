@@ -123,30 +123,41 @@ class DropContextImpl extends DropContext {
 
   Future<dynamic> _handleMethodCall(MethodCall call) async {
     if (call.method == 'onDropUpdate') {
-      final event =
-          await DropEventImpl.deserialize(call.arguments, _getReaderForSession);
-      _sessionForId(event.sessionId).reader = event.reader;
-      final operation = await delegate?.onDropUpdate(event);
-      return (operation ?? DropOperation.none).name;
+      return handleError(() async {
+        final event = await DropEventImpl.deserialize(
+            call.arguments, _getReaderForSession);
+        _sessionForId(event.sessionId).reader = event.reader;
+
+        final operation = await delegate?.onDropUpdate(event);
+        return (operation ?? DropOperation.none).name;
+      }, () => DropOperation.none.name);
     } else if (call.method == 'onPerformDrop') {
-      final event =
-          await DropEventImpl.deserialize(call.arguments, _getReaderForSession);
-      _sessionForId(event.sessionId).reader = event.reader;
-      return await delegate?.onPerformDrop(event);
+      return handleError(() async {
+        final event = await DropEventImpl.deserialize(
+            call.arguments, _getReaderForSession);
+        _sessionForId(event.sessionId).reader = event.reader;
+        return await delegate?.onPerformDrop(event);
+      }, () => null);
     } else if (call.method == 'onDropLeave') {
-      final event = BaseDropEventExt.deserialize(call.arguments);
-      return await delegate?.onDropLeave(event);
+      return handleError(() async {
+        final event = BaseDropEventExt.deserialize(call.arguments);
+        return await delegate?.onDropLeave(event);
+      }, () => null);
     } else if (call.method == 'onDropEnded') {
-      final event = BaseDropEventExt.deserialize(call.arguments);
-      final session = _sessions.remove(event.sessionId);
-      session?.reader?.dispose();
-      return await delegate?.onDropEnded(event);
+      return handleError(() async {
+        final event = BaseDropEventExt.deserialize(call.arguments);
+        final session = _sessions.remove(event.sessionId);
+        session?.reader?.dispose();
+        return await delegate?.onDropEnded(event);
+      }, () => null);
     } else if (call.method == 'getPreviewForItem') {
-      final request = ItemPreviewRequest.deserialize(call.arguments);
-      final preview = await delegate?.onGetItemPreview(request);
-      return {
-        'preview': preview?.serialize(),
-      };
+      return handleError(() async {
+        final request = ItemPreviewRequest.deserialize(call.arguments);
+        final preview = await delegate?.onGetItemPreview(request);
+        return {
+          'preview': preview?.serialize(),
+        };
+      }, () => {'preview': null});
     } else {
       return null;
     }
