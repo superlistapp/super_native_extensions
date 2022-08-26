@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
@@ -76,19 +78,34 @@ class DragItemWidgetState extends State<DragItemWidget> {
 typedef DragItemsProvider = List<DragItemWidgetState> Function(
     BuildContext context);
 
+typedef OnDragConfiguration = FutureOr<DragConfiguration?> Function(
+    DragConfiguration configuration, raw.DragSession session);
+
+typedef OnAdditonalItems = FutureOr<List<DragItem>?> Function(
+    List<DragItem> items, raw.DragSession session);
+
 class DraggableWidget extends StatelessWidget {
   const DraggableWidget({
     super.key,
     required this.child,
+    this.onDragConfiguration,
+    this.onAdditonalItems,
     this.hitTestBehavior = HitTestBehavior.deferToChild,
-    this.dragItems = _defaultDragItemsProvider,
-    this.additionalDragItems = _defaultDragItemsProvider,
+    this.dragItemsProvider = _defaultDragItemsProvider,
+    this.additionalDragItemsProvider = _defaultDragItemsProvider,
   });
 
   final Widget child;
   final HitTestBehavior hitTestBehavior;
-  final DragItemsProvider dragItems;
-  final DragItemsProvider additionalDragItems;
+
+  /// Allows overriding intiial drag configuration
+  final OnDragConfiguration? onDragConfiguration;
+
+  /// Allows overriding additional items
+  final OnAdditonalItems? onAdditonalItems;
+
+  final DragItemsProvider dragItemsProvider;
+  final DragItemsProvider additionalDragItemsProvider;
 
   static List<DragItemWidgetState> _defaultDragItemsProvider(
       BuildContext context) {
@@ -122,8 +139,13 @@ class DraggableWidget extends StatelessWidget {
         }
       }
       if (dragItems.isNotEmpty) {
-        return DragConfiguration(
+        final configuration = DragConfiguration(
             items: dragItems, allowedOperations: allowedOperations!);
+        if (onDragConfiguration != null) {
+          return onDragConfiguration!(configuration, session);
+        } else {
+          return configuration;
+        }
       }
     }
     return null;
@@ -141,7 +163,11 @@ class DraggableWidget extends StatelessWidget {
       }
     }
     if (dragItems.isNotEmpty) {
-      return dragItems;
+      if (onAdditonalItems != null) {
+        return onAdditonalItems!(dragItems, session);
+      } else {
+        return dragItems;
+      }
     } else {
       return null;
     }
@@ -153,11 +179,11 @@ class DraggableWidget extends StatelessWidget {
       hitTestBehavior: hitTestBehavior,
       child: child,
       dragConfiguration: (_, session) async {
-        final items = dragItems(context);
+        final items = dragItemsProvider(context);
         return dragConfigurationForItems(items, session);
       },
       additionalItems: (_, session) async {
-        final items = additionalDragItems(context);
+        final items = additionalDragItemsProvider(context);
         return additionalItems(items, session);
       },
     );
