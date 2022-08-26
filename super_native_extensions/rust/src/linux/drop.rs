@@ -143,12 +143,17 @@ impl PlatformDropContext {
         accepted_operation: Option<DropOperation>,
     ) -> Option<DropEvent> {
         let reader_info = session.platform_reader.reader_info()?;
+
         let local_data = self
             .delegate()
             .ok()?
-            .get_platform_drag_context(self.id)
-            .ok()?
-            .local_data();
+            .get_platform_drag_contexts()
+            .iter()
+            .map(|c| c.get_local_data())
+            .find(|c| c.is_some())
+            .flatten()
+            .unwrap_or_default();
+
         let number_of_items = local_data.len().max(reader_info.number_of_items);
         Some(DropEvent {
             session_id: session.id,
@@ -238,6 +243,12 @@ impl PlatformDropContext {
                 session.widget_reader.on_all_requests_resolved(move || {
                     context.drag_finish(ok, deleting, time);
                 });
+                self.delegate()?.send_drop_ended(
+                    self.id,
+                    BaseDropEvent {
+                        session_id: session.id,
+                    },
+                );
             } else {
                 context.drag_finish(false, false, time);
             }
