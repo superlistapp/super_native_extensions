@@ -125,11 +125,11 @@ class MyDropRegion extends StatelessWidget {
       // Formats this region can accept.
       formats: Formats.standardFormats,
       hitTestBehavior: HitTestBehavior.opaque,
-      onDropOver: (session, position) {
+      onDropOver: (event) {
         // You can inspect local data here, as well as formats of each item.
         // However on certain platforms (mobile / web) the actual data is
         // only available when the drop is accepted (onPerformDrop).
-        final item = session.items.first;
+        final item = event.session.items.first;
         if (item.localData is Map) {
           // This is a drag within the app and has custom local data set.
         }
@@ -137,26 +137,26 @@ class MyDropRegion extends StatelessWidget {
           // this item contains plain text.
         }
         // This drop region only supports copy operation.
-        if (session.allowedOperations.contains(DropOperation.copy)) {
+        if (event.session.allowedOperations.contains(DropOperation.copy)) {
           return DropOperation.copy;
         } else {
           return DropOperation.none;
         }
       },
-      onDropEnter: (session) {
+      onDropEnter: (event) {
         // This is called when region first accepts a drag. You can use this
         // to display a visual indicator that the drop is allowed.
       },
-      onDropLeave: (session) {
+      onDropLeave: (event) {
         // Called when drag leaves the region. Will also be called after
         // drag completion.
         // This is a good place to remove any visual indicators.
       },
-      onPerformDrop: (session, position, acceptedOperation) async {
+      onPerformDrop: (event) async {
         // Called when user dropped the item. You can now request the data.
         // Note that data must be requested before the performDrop callback
         // is over.
-        final item = session.items.first;
+        final item = event.session.items.first;
         // data reader is available now
         final reader = item.dataReader!;
         if (reader.hasValue(Formats.plainText)) {

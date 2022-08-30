@@ -3,35 +3,61 @@ import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:super_clipboard/super_clipboard.dart';
+import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 import 'package:super_native_extensions/raw_drag_drop.dart' as raw;
 
 import 'drop_internal.dart';
 
+/// Single item being dropped in a [DropSession].
 abstract class DropItem with Diagnosticable {
+  /// Returns whether the item contains data for given [DataFormat].
+  /// This is a best guess based on format identifier. It is still possible
+  /// that [dataReader] will fail to provide the data during drop.
   bool hasValue(DataFormat f);
+
+  /// Local data associated with this drop item that can be only read when
+  /// dropping within the same application.
   Object? get localData;
 
+  /// [DataReader] that can be used to access drag data for this item.
+  /// On some platforms (mobile, web) the reader is only available after
+  /// user actually performed the drop.
   DataReader? get dataReader;
 
+  /// Returns list of platform specific format identifier for this item.
   List<PlatformFormat> get platformFormats;
 }
 
+/// Allows quering the state of drop session such as the items being dropped
+/// and allowed drop operations.
 abstract class DropSession with Diagnosticable {
+  /// List of items being dropped. List content may change over time for single
+  /// session on some platforms, for example iOS allows adding drop items
+  /// to existing session.
+  ///
+  /// The items instances for single [DropSession] are guaranteed to be same
+  /// between individual drop events.
   List<DropItem> get items;
+
+  /// Invoked when this drop session is disposed (could be either after drop
+  /// is performed or cancelled).
   Listenable get onDisposed;
+
+  /// Drop operations that the drag source allows.
   Set<raw.DropOperation> get allowedOperations;
 }
 
+/// Position for drop event.
 class DropPosition {
   DropPosition({
     required this.local,
     required this.global,
   });
 
-  /// Drop position in local coordinates of DropRegion widget.
+  /// Drop position in local coordinates of [DropRegion] or [DropMonitor] widget.
   final Offset local;
 
-  /// Drop position in global coordinates.
+  /// Drop position in global coordinates (within the Flutter view).
   final Offset global;
 
   static DropPosition forRenderObject(
@@ -48,20 +74,48 @@ class DropPosition {
       DropPosition.forRenderObject(global, object);
 }
 
-typedef OnDropOver = FutureOr<raw.DropOperation> Function(
-  DropSession session,
-  DropPosition position,
-);
+/// Base drop event containing only [DropSession] with no additional
+/// information.
+class DropEvent {
+  /// Drop session associated with this event.
+  final DropSession session;
 
-typedef OnDropEnter = void Function(DropSession session);
-typedef OnDropLeave = void Function(DropSession session);
-typedef OnDropEnded = void Function(DropSession session);
+  DropEvent({
+    required this.session,
+  });
+}
 
-typedef OnPerformDrop = FutureOr<void> Function(
-  DropSession session,
-  DropPosition position,
-  raw.DropOperation acceptedOperation,
-);
+/// Drop event sent when dragging over [DropRegion] before the drop.
+class DropOverEvent {
+  /// Drop session associated with this event.
+  final DropSession session;
+
+  /// Position of the drop event.
+  final DropPosition position;
+
+  DropOverEvent({
+    required this.session,
+    required this.position,
+  });
+}
+
+/// Drop event sent when user performs drop.
+class PerformDropEvent {
+  /// Drop session associated with this event.
+  final DropSession session;
+
+  /// Position of the drop event.
+  final DropPosition position;
+
+  /// Accepted operation from last [DropOverEvent].
+  final raw.DropOperation acceptedOperation;
+
+  PerformDropEvent({
+    required this.session,
+    required this.position,
+    required this.acceptedOperation,
+  });
+}
 
 /// Allows customizing drop animation on macOS and iOS.
 typedef OnGetDropItemPreview = FutureOr<DropItemPreview?> Function(
@@ -69,15 +123,16 @@ typedef OnGetDropItemPreview = FutureOr<DropItemPreview?> Function(
   DropItemPreviewRequest request,
 );
 
+/// Widget to which data can be dropped.
 class DropRegion extends SingleChildRenderObjectWidget {
   const DropRegion({
     super.key,
     required super.child,
     required this.formats,
     required this.onDropOver,
+    required this.onPerformDrop,
     this.onDropEnter,
     this.onDropLeave,
-    required this.onPerformDrop,
     this.onDropEnded,
     this.onGetDropItemPreview,
     this.hitTestBehavior = HitTestBehavior.deferToChild,
@@ -85,12 +140,28 @@ class DropRegion extends SingleChildRenderObjectWidget {
 
   final HitTestBehavior hitTestBehavior;
 
+  /// List of [DataFormat]s this [DropRegion] is interested in. May be empty
+  /// if region only wants to accept local drag sessions.
   final List<DataFormat> formats;
-  final OnDropOver onDropOver;
-  final OnDropEnter? onDropEnter;
-  final OnDropLeave? onDropLeave;
-  final OnPerformDrop onPerformDrop;
-  final OnDropEnded? onDropEnded;
+
+  /// Invoked when dragging happens over this region. Implementation should
+  /// inspect the drag session from event and return a drop operation
+  /// that it can support (or [DropOperation.none]).
+  final FutureOr<raw.DropOperation> Function(DropOverEvent) onDropOver;
+
+  /// Invoked when user performs drop on this region.
+  final Future<void> Function(PerformDropEvent) onPerformDrop;
+
+  /// Invoked once after inactive region accepts the drop.
+  final void Function(DropEvent)? onDropEnter;
+
+  /// Invoked when dragging leaves the region.
+  final void Function(DropEvent)? onDropLeave;
+
+  /// Invoked when drop session has finished.
+  final void Function(DropEvent)? onDropEnded;
+
+  /// Allows customizing drop animation on macOS and iOS.
   final OnGetDropItemPreview? onGetDropItemPreview;
 
   @override
@@ -125,27 +196,47 @@ class DropRegion extends SingleChildRenderObjectWidget {
   }
 }
 
-typedef OnMonitorDropOver = void Function(
-    DropSession session, DropPosition position, bool isInside);
+/// Event sent to [DropMonitor]s when dragging anywhere over the application.
+class MonitorDropOverEvent extends DropOverEvent {
+  /// Whether dragging happens over the receiver [DropMonitor].
+  final bool isInside;
 
+  MonitorDropOverEvent({
+    required super.session,
+    required super.position,
+    required this.isInside,
+  });
+}
+
+/// Widget that can monitor drag events over the entire Flutter view.
+///
+/// Unlike [DropRegion] this widget can not accept drops, but it gets
+/// notification of all drop events, including those that are not happening
+/// immediately over the region.
 class DropMonitor extends SingleChildRenderObjectWidget {
   const DropMonitor({
     super.key,
     super.child,
     this.hitTestBehavior = HitTestBehavior.deferToChild,
     required this.formats,
-    required this.onDropOver,
-    required this.onDropLeave,
-    this.onDropEnded = _defaultOnDropEnded,
+    this.onDropOver,
+    this.onDropLeave,
+    this.onDropEnded,
   });
 
   final HitTestBehavior hitTestBehavior;
   final List<DataFormat> formats;
-  final OnMonitorDropOver onDropOver;
-  final OnDropLeave onDropLeave;
-  final OnDropEnded onDropEnded;
 
-  static void _defaultOnDropEnded(DropSession sessions) {}
+  /// Invoked when drop is happening anywhere over the Flutter view.
+  /// `isInside` field of the event will be `true` if drop is happening
+  /// over this [DropMonitor].
+  final void Function(MonitorDropOverEvent)? onDropOver;
+
+  /// Invoked when drop leaves the Flutter view (not just this monitor).
+  final void Function(DropEvent)? onDropLeave;
+
+  /// Invoked when drop session ends.
+  final void Function(DropEvent)? onDropEnded;
 
   @override
   RenderObject createRenderObject(BuildContext context) {
@@ -172,19 +263,18 @@ class DropMonitor extends SingleChildRenderObjectWidget {
   }
 }
 
-//
-
+/// Requests for providing target preview for item being dropped.
 abstract class DropItemPreviewRequest {
   /// Item for which the preview is requested.
   DropItem get item;
 
-  /// Size of dragging image;
+  /// Size of dragging image.
   Size get size;
 
-  /// Default delay before the item preview starts fading out
+  /// Default delay before the item preview starts fading out.
   Duration get fadeOutDelay;
 
-  /// Default duration of item fade out
+  /// Default duration of item fade out.
   Duration get fadeOutDuration;
 }
 

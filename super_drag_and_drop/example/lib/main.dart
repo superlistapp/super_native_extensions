@@ -392,7 +392,7 @@ class _DropZoneState extends State<_DropZone> {
     );
   }
 
-  DropOperation _onDropOver(DropSession session, DropPosition _) {
+  DropOperation _onDropOver(DropOverEvent event) {
     setState(() {
       _isDragOver = true;
       _preview = Container(
@@ -409,7 +409,7 @@ class _DropZoneState extends State<_DropZone> {
                 borderRadius: BorderRadius.circular(10),
                 child: ListView(
                   shrinkWrap: true,
-                  children: session.items
+                  children: event.session.items
                       .map<Widget>((e) => _DropItemInfo(dropItem: e))
                       .intersperse(Container(
                         height: 2,
@@ -423,14 +423,13 @@ class _DropZoneState extends State<_DropZone> {
         ),
       );
     });
-    return session.allowedOperations.firstOrNull ?? DropOperation.none;
+    return event.session.allowedOperations.firstOrNull ?? DropOperation.none;
   }
 
-  Future<void> _onPerformDrop(
-      DropSession session, DropPosition _, DropOperation operation) async {
+  Future<void> _onPerformDrop(PerformDropEvent event) async {
     // Obtain additional reader information first
     final readers = await Future.wait(
-      session.items.map(
+      event.session.items.map(
         (e) => ReaderInfo.fromReader(
           e.dataReader!,
           localData: e.localData,
@@ -454,7 +453,7 @@ class _DropZoneState extends State<_DropZone> {
     });
   }
 
-  void _onDropLeave(DropSession session) {
+  void _onDropLeave(DropEvent event) {
     setState(() {
       _isDragOver = false;
     });

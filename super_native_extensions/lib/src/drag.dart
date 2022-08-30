@@ -67,11 +67,13 @@ class DragRequest {
   final DragImage? combinedDragImage;
 }
 
+/// Represents a drag session. Allows inspecting local drag data and
+/// provides notifications about drag state changes.
 abstract class DragSession {
   /// Fired when session dragging started.
   Listenable get dragStarted;
 
-  /// True when session is already dragging
+  /// True when session is already in progress.
   bool get dragging;
 
   /// Fired on drag completion. The value will contain drop operation that the
@@ -84,7 +86,7 @@ abstract class DragSession {
   ValueListenable<ui.Offset?> get lastScreenLocation;
 
   /// Returns local data for each of the draggable items in current session.
-  /// Will return null if drag session is either not active yet or already
+  /// Will return `null` if drag session not local, not yet active or already
   /// completed.
   Future<List<Object?>?> getLocalData();
 }

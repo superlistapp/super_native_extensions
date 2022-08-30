@@ -14,7 +14,8 @@ typedef AdditionalItemsProvider = Future<List<DragItem>?> Function(
 /// This is the most basic draggable widget. It gives you complete control
 /// over creating of the drag session.
 ///
-/// In most cases you will want to use [DraggableWidget] instead.
+/// In most cases you will probably want to use [DraggableWidget] inside
+/// a [DragItemWidget] instead.
 class BaseDraggableWidget extends StatelessWidget {
   const BaseDraggableWidget({
     super.key,
