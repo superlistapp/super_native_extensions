@@ -100,17 +100,26 @@ class DataRepresentationLazy extends DataRepresentation {
   final FutureOr<Object?> Function() dataProvider;
 }
 
+/// Progress of a write opreration.
 abstract class WriteProgress {
+  /// Manually updates progress of a write operation. If not called,
+  /// progress is determined automatically based on total size and size written.
   void updateProgress(double fraction);
+
+  /// Listenable invoked when receiver cancels the write operation.
   Listenable get onCancel;
 }
 
+/// Returns stream sink for virtual file. File size must be provided before
+/// being able to write any content.
 typedef VirtualFileEventSinkProvider = EventSink Function(
     {required int fileSize});
 
+/// Callback invoked when receiver requests a virtual file.
 typedef VirtualFileProvider = void Function(
     VirtualFileEventSinkProvider sinkProvider, WriteProgress progress);
 
+/// Preferred storage used when writing virtual file.
 enum VirtualFileStorage { temporaryFile, memory }
 
 class DataRepresentationVirtualFile extends DataRepresentation {

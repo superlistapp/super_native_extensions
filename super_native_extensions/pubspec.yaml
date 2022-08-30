@@ -1,6 +1,6 @@
 name: super_native_extensions
-description: Low level interface to clipboard and DnD
-version: 0.1.0
+description: Low level interface various native APIs such as clipboard and Drag and Drop. Not meant to be used directly.
+version: 0.1.1
 homepage: https://github.com/superlistapp/super_native_extensions
 
 environment:

@@ -58,9 +58,16 @@ abstract class DataReader {
 
   /// When `true`, data in this format is virtual. It means it might not be
   /// readily available and may need to be retrieved through
-  /// [getVirtualFileReceiver] instead of [readValue]. This is the case on macOS
-  /// and Windows. On iOS virtual data can be received through both [readValue]
+  /// [getVirtualFileReceiver] instead of [getValue]. This is the case on macOS
+  /// and Windows. On iOS virtual data can be received through both [getValue]
   /// and [getVirtualFileReceiver].
+  ///
+  /// On some platforms (macOS) data might be available through both [getValue]
+  /// and [getVirtualFileReceiver], with the virtual receiver being able to
+  /// provide a higher quality rendition of the data. For example dragging a
+  /// photo stored on iCloud from the Photos app will have a low resolution
+  /// value available through [getValue] and high resolution version available
+  /// through virtual receiver.
   bool isVirtual(DataFormat format);
 
   /// Returns suggested file name for the contents (if available).
