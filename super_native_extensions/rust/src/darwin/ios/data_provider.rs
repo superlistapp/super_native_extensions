@@ -201,7 +201,7 @@ pub trait DataProviderSessionDelegate {
 
 // Make sure that DataSourceSession only has weak weak to
 // DataSource and DataSourceState. It may not get released because of iOS
-// drag&drop memory leak where the item provider never gets released.
+// drag and drop memory leak where the item provider never gets released.
 pub struct DataProviderSession {
     state: std::sync::Weak<Mutex<PlatformDataProviderState>>,
     _provider_handle: Option<Arc<DataProviderHandle>>,

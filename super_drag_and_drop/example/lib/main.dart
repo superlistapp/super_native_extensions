@@ -29,7 +29,7 @@ class MyApp extends StatelessWidget {
         ),
         primarySwatch: Colors.blue,
       ),
-      home: const MyHomePage(title: 'SuperDrag&Drop Example'),
+      home: const MyHomePage(title: 'SuperDrag and Drop Example'),
     );
   }
 }

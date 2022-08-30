@@ -144,4 +144,4 @@ TODO(knopp): Add Intellij launcher configuration
 
 This plugin is in a very early stages of development and quite experimental.
 
-PRs and bug reports are welcome!
+[PRs](https://github.com/superlistapp/super_native_extensions/pulls) and [bug reports](https://github.com/superlistapp/super_native_extensions/issues) are welcome!

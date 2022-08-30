@@ -9,3 +9,7 @@
 ## 0.1.2
 
 * Improve documentation.
+
+## 0.1.3
+
+* Improve documentation.

@@ -1,8 +1,8 @@
-# Native Drag&Drop for Flutter
+# Native Drag and Drop for Flutter
 
 ## Features
 
-- Native Drag&Drop functionality
+- Native Drag and Drop functionality
 - Supports macOS, iOS, Android, Windows, Linux and Web (*)
 - Platform agnostic code for dragging and dropping common formats
 - Support for custom data formats
@@ -230,4 +230,4 @@ TODO(knopp): Add Intellij launcher configuration
 
 This plugin is in a very early stages of development and quite experimental.
 
-PRs and bug reports are welcome!
+[PRs](https://github.com/superlistapp/super_native_extensions/pulls) and [bug reports](https://github.com/superlistapp/super_native_extensions/issues) are welcome!

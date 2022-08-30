@@ -10,3 +10,7 @@
 
 * Improve documentation.
 * Use event object in DropRegion and DropMonitor callbacks.
+
+## 0.1.3
+
+* Improve documentation.

@@ -106,7 +106,7 @@ impl PlatformDataProvider {
     }
 
     /// If retain_handle is false, writer will not retain the DataProviderHandle. This is useful
-    /// for drag&drop where the item will live in dragging pasteboard after drag sessions is done.
+    /// for drag and drop where the item will live in dragging pasteboard after drag sessions is done.
     pub fn create_writer(
         &self,
         handle: Arc<DataProviderHandle>,
