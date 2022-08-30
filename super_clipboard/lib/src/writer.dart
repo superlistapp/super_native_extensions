@@ -70,6 +70,8 @@ class DataWriterItem {
   final _onRegistered = SimpleNotifier();
   final _onDisposed = SimpleNotifier();
   final _data = <FutureOr<EncodedData>>[];
+
+  /// File name suggestion for the client receiving this data item.
   final String? suggestedName;
 
   List<FutureOr<EncodedData>> get data => _data;

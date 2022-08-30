@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui' as ui;
 import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
@@ -93,10 +94,10 @@ class _DropSession extends DropSession {
     for (final item in hitTest.path) {
       final target = item.target;
       if (target is RenderDropRegion && dropRegion == null) {
-        res = await target.onDropOver(
-          this,
-          DropPosition.forRenderObject(position, target),
-        );
+        res = await target.onDropOver(DropOverEvent(
+          session: this,
+          position: DropPosition.forRenderObject(position, target),
+        ));
         if (res != raw.DropOperation.none) {
           dropRegion = target;
         }
@@ -107,8 +108,8 @@ class _DropSession extends DropSession {
     }
 
     if (_currentDropRegion != dropRegion) {
-      dropRegion?.onDropEnter?.call(this);
-      _currentDropRegion?.onDropLeave?.call(this);
+      dropRegion?.onDropEnter?.call(DropEvent(session: this));
+      _currentDropRegion?.onDropLeave?.call(DropEvent(session: this));
     }
     _currentDropRegion = dropRegion;
     if (_currentDropRegion != null) {
@@ -118,7 +119,13 @@ class _DropSession extends DropSession {
     for (final monitor in RenderDropMonitor.activeMonitors) {
       final inside = monitorsInHitTest.contains(monitor);
       final dropPosition = DropPosition.forRenderObject(position, monitor);
-      monitor.onDropOver(this, dropPosition, inside);
+      monitor.onDropOver?.call(
+        MonitorDropOverEvent(
+          session: this,
+          position: dropPosition,
+          isInside: inside,
+        ),
+      );
     }
 
     return res;
@@ -129,20 +136,20 @@ class _DropSession extends DropSession {
     required raw.DropOperation acceptedOperation,
   }) async {
     if (_currentDropRegion != null) {
-      await _currentDropRegion?.onPerformDrop(
-          this,
-          DropPosition.forRenderObject(location, _currentDropRegion!),
-          acceptedOperation);
+      await _currentDropRegion?.onPerformDrop(PerformDropEvent(
+          session: this,
+          position: DropPosition.forRenderObject(location, _currentDropRegion!),
+          acceptedOperation: acceptedOperation));
     }
   }
 
   void leave() {
-    _currentDropRegion?.onDropLeave?.call(this);
+    _currentDropRegion?.onDropLeave?.call(DropEvent(session: this));
     _currentDropRegion = null;
     _inside = false;
     _allowedOperations.clear();
     for (final monitor in RenderDropMonitor.activeMonitors) {
-      monitor.onDropLeave(this);
+      monitor.onDropLeave?.call(DropEvent(session: this));
     }
   }
 
@@ -152,11 +159,11 @@ class _DropSession extends DropSession {
     }
     for (final region in _allRegions) {
       if (region.attached) {
-        region.onDropEnded?.call(this);
+        region.onDropEnded?.call(DropEvent(session: this));
       }
     }
     for (final monitor in RenderDropMonitor.activeMonitors) {
-      monitor.onDropEnded(this);
+      monitor.onDropEnded?.call(DropEvent(session: this));
     }
 
     _onDisposed.notify();
@@ -335,11 +342,11 @@ class DropFormatRegistration {
 
 class RenderDropRegion extends RenderProxyBoxWithHitTestBehavior {
   DropFormatRegistration formatRegistration;
-  OnDropOver onDropOver;
-  OnDropEnter? onDropEnter;
-  OnDropLeave? onDropLeave;
-  OnPerformDrop onPerformDrop;
-  OnDropEnded? onDropEnded;
+  FutureOr<raw.DropOperation> Function(DropOverEvent) onDropOver;
+  void Function(DropEvent)? onDropEnter;
+  void Function(DropEvent)? onDropLeave;
+  Future<void> Function(PerformDropEvent) onPerformDrop;
+  void Function(DropEvent)? onDropEnded;
   OnGetDropItemPreview? onGetDropItemPreview;
   double devicePixelRatio;
 
@@ -367,9 +374,9 @@ class RenderDropMonitor extends RenderProxyBoxWithHitTestBehavior {
   static final activeMonitors = <RenderDropMonitor>{};
 
   DropFormatRegistration formatRegistration;
-  OnMonitorDropOver onDropOver;
-  OnDropLeave onDropLeave;
-  OnDropEnded onDropEnded;
+  void Function(MonitorDropOverEvent)? onDropOver;
+  void Function(DropEvent)? onDropLeave;
+  void Function(DropEvent)? onDropEnded;
 
   RenderDropMonitor({
     required super.behavior,

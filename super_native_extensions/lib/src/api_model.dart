@@ -49,10 +49,10 @@ enum DropOperation {
 
   /// Drag operation is generally supported but forbidden in this instance.
   ///
-  /// Supported on: iOS; Maps to none on other platforms.
+  /// Supported on: iOS; Maps to [none] on other platforms.
   forbidden,
 
-  /// Supported on: macOS, Windows, Linux, Android, Web.
+  /// Supported on: macOS, iOS, Windows, Linux, Android, Web.
   copy,
 
   /// Supported on: macOS, iOS (only within same app), Windows, Linux.

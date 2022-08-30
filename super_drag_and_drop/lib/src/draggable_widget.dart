@@ -12,8 +12,43 @@ import 'drag_configuration.dart';
 import 'base_draggable_widget.dart';
 
 typedef DragItemProvider = Future<DragItem?> Function(
-    AsyncValueGetter<DragImage> snapshot, raw.DragSession session);
+  /// Provides snapshot image of the containing [DragItemWidget].
+  AsyncValueGetter<DragImage> snapshot,
 
+  /// Current drag session.
+  raw.DragSession session,
+);
+
+/// Widget that provides [DragItem] for a [DraggableWidget].
+///
+/// Example usage
+/// ```dart
+/// DragItemWidget(
+///   dragItemProvider: (snapshot, session) async {
+///     // DragItem represents the content bein dragged.
+///     final item = DragItem(
+///       // snapshot() will return image snapshot of the DragItemWidget.
+///       // You can use any other drag image if your wish.
+///       image: await snapshot(),
+///       // This data is only accessible when dropping within same
+///       // application. (optional)
+///       localData: {'x': 3, 'y': 4},
+///     );
+///     // Add data for this item that other applications can read
+///     // on drop. (optional)
+///     item.add(Formats.plainText('Plain Text Data'));
+///     item.add(
+///         Formats.htmlText.lazy(() => '<b>HTML generated on demand</b>'));
+///     return item;
+///   },
+///   allowedOperations: () => [DropOperation.copy],
+///   // DraggableWidget represents the actual user-draggable area. It looks
+///   // for parent DragItemWidget in widget hierarchy to provide the DragItem.
+///   child: const DraggableWidget(
+///     child: Text('This widget is draggable'),
+///   ),
+/// );
+/// ```
 class DragItemWidget extends StatefulWidget {
   const DragItemWidget({
     super.key,
@@ -25,7 +60,8 @@ class DragItemWidget extends StatefulWidget {
 
   final Widget child;
 
-  /// Callback that can provide drag item for this widget.
+  /// Callback that provides drag item for this widget. If `null` is returned
+  /// the drag will not start.
   final DragItemProvider dragItemProvider;
 
   /// Allowed drag operations for this item. If multiple items are being
@@ -33,7 +69,7 @@ class DragItemWidget extends StatefulWidget {
   final ValueGetter<List<raw.DropOperation>> allowedOperations;
 
   /// Whether on iOS this widget can contribute item to existing drag session.
-  /// If true the item provider should check local data of existing session
+  /// If true the item provider should check local data of drag session
   /// to determine if this item already exists in the session. Otherwise
   /// tapping item repeatedly during dragging will result in item being added
   /// multiple times.
@@ -84,6 +120,10 @@ typedef OnDragConfiguration = FutureOr<DragConfiguration?> Function(
 typedef OnAdditonalItems = FutureOr<List<DragItem>?> Function(
     List<DragItem> items, raw.DragSession session);
 
+/// Widget that represents user-draggable area.
+
+/// By default the widget will look for [DragItemWidget] in parent widget
+/// hierarchy in order to provide data for the drag session.
 class DraggableWidget extends StatelessWidget {
   const DraggableWidget({
     super.key,
@@ -98,10 +138,10 @@ class DraggableWidget extends StatelessWidget {
   final Widget child;
   final HitTestBehavior hitTestBehavior;
 
-  /// Allows overriding intiial drag configuration
+  /// Allows post-processing initial drag configuration.
   final OnDragConfiguration? onDragConfiguration;
 
-  /// Allows overriding additional items
+  /// Allows post-processing additional items added to drag session.
   final OnAdditonalItems? onAdditonalItems;
 
   final DragItemsProvider dragItemsProvider;
@@ -113,7 +153,7 @@ class DraggableWidget extends StatelessWidget {
     if (state != null) {
       return [state];
     } else {
-      throw Exception('SimpleDraggable must be placed inside a DragItemWidget');
+      throw Exception('DraggableWidget must be placed inside a DragItemWidget');
     }
   }
 

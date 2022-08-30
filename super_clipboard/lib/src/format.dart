@@ -72,9 +72,9 @@ abstract class DataFormat<T extends Object> extends VirtualFileFormat {
   }
 
   /// Encodes the provided lazy data. Some platforms support providing the data
-  /// on demand. In which case the DataProvider callback will be invoked when
+  /// on demand. In which case the [provider] callback will be invoked when
   /// the data is requested. On platforms that do not support this (iOS, web)
-  /// the provider callback will be called eagerly.
+  /// the [provider] callback will be called eagerly.
   FutureOr<EncodedData> lazy(DataProvider<T> provider) {
     final encoder = codecForPlatform(currentPlatform);
     final entries = <raw.DataRepresentation>[];
