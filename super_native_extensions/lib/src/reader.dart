@@ -27,6 +27,7 @@ class DataReader {
   List<DataReaderItem>? _items;
 }
 
+/// Progress of a read operation.
 abstract class ReadProgress {
   /// Range is 0.0 to 1.0.
   /// Starts with null (indeterminate progress).
@@ -37,9 +38,12 @@ abstract class ReadProgress {
   /// This may change over time, client must be prepared to handle that.
   ValueListenable<bool> get cancellable;
 
+  /// Cancels the read operation. Does nothing if alrady cancelled or not
+  /// cancellable.
   void cancel();
 }
 
+/// Pair of values.
 class Pair<T, U> {
   const Pair(this.first, this.second);
 

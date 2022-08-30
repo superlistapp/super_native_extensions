@@ -91,7 +91,7 @@ Be sure to replace `<your-package-name>` in the snippet with your actual package
     }
 ```
 
-For more formats supported out of box look at the [Format](lib/src/standard_formats.dart) class.
+For more formats supported out of box look at the [Formats](https://github.com/superlistapp/super_native_extensions/blob/main/super_clipboard/lib/src/standard_formats.dart) class.
 
 Note that on Windows clipboard images are usually stored in DIB or DIBv5 format, while on macOS TIFF is commonly used. `super_clipboard` will transparently expose these images as PNG.
 
