@@ -6,13 +6,6 @@ import 'formats_base.dart';
 import 'format_conversions.dart';
 import 'platform.dart';
 
-// These types will be converted to CF constants with number
-// appended to the prefix
-const cfInternalPrefix = 'NativeShell_CF_';
-const cfUnicodeText = '${cfInternalPrefix}13';
-const cfHdrop = '${cfInternalPrefix}15';
-const cfTiff = '${cfInternalPrefix}6';
-
 class Formats {
   Formats._();
 

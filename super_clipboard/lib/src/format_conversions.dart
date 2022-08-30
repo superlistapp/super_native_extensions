@@ -4,6 +4,13 @@ import 'dart:typed_data';
 import 'format.dart';
 import 'standard_formats.dart';
 
+// These types will be converted to CF constants with number
+// appended to the prefix
+const cfInternalPrefix = 'NativeShell_CF_';
+const cfUnicodeText = '${cfInternalPrefix}13';
+const cfHdrop = '${cfInternalPrefix}15';
+const cfTiff = '${cfInternalPrefix}6';
+
 class FormatException implements Exception {
   final String message;
   FormatException(this.message);
