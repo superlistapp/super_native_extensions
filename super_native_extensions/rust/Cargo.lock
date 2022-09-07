@@ -737,8 +737,6 @@ dependencies = [
 [[package]]
 name = "nativeshell_core"
 version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d88040cb9565671b147d5840c38f39347286a0a8e9a94659880c94c28fe6297a"
 dependencies = [
  "async-trait",
  "core-foundation",
@@ -751,8 +749,6 @@ dependencies = [
 [[package]]
 name = "nativeshell_derive"
 version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ff7db1761a0b8a77a95fe11182b85785757412b44fe923965127551c563c3d1a"
 dependencies = [
  "proc-macro-error",
  "proc-macro2",
@@ -991,6 +987,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "ryu"
+version = "1.0.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4501abdff3ae82a1c1b477a17252eb69cee9e66eb915c1abaa4f44d873df9f09"
+
+[[package]]
 name = "same-file"
 version = "1.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1028,6 +1030,31 @@ name = "serde"
 version = "1.0.136"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ce31e24b01e1e524df96f1c2fdd054405f8d7376249a5110886fb4b658484789"
+dependencies = [
+ "serde_derive",
+]
+
+[[package]]
+name = "serde_derive"
+version = "1.0.136"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "08597e7152fcd306f41838ed3e37be9eaeed2b61c42e2117266a554fab4662f9"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "serde_json"
+version = "1.0.85"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e55a28e3aaef9d5ce0506d0a14dbba8054ddc7e499ef522dd8b26859ec9d4a44"
+dependencies = [
+ "itoa",
+ "ryu",
+ "serde",
+]
 
 [[package]]
 name = "simple_logger"
@@ -1059,6 +1086,7 @@ name = "super_native_extensions"
 version = "0.1.0"
 dependencies = [
  "android_logger",
+ "anyhow",
  "async-trait",
  "block",
  "byte-slice-cast",
@@ -1079,6 +1107,8 @@ dependencies = [
  "once_cell",
  "oslog",
  "rand",
+ "serde",
+ "serde_json",
  "simple_logger",
  "url",
  "velcro",

@@ -4,6 +4,7 @@ See individual packages for details:
 
 - [super_clipboard](super_clipboard)
 - [super_drag_and_drop](super_drag_and_drop)
+- [super_keyboard_layout](super_keyboard_layout)
 
 ### Compiling locally
 
