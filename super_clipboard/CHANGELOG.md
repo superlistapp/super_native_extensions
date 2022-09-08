@@ -1,8 +1,4 @@
-## 0.1.0
-
-* Initial public release.
-
-## 0.1.1
+## 0.1.3
 
 * Improve documentation.
 
@@ -10,6 +6,10 @@
 
 * Improve documentation.
 
-## 0.1.3
+## 0.1.1
 
 * Improve documentation.
+
+## 0.1.0
+
+* Initial public release.
