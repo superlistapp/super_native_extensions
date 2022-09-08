@@ -184,7 +184,9 @@ class DragContextImpl extends DragContext {
   }
 
   @override
-  DragSession newSession() {
+  DragSession newSession({
+    int? pointer,
+  }) {
     return DragSessionImpl(dragContext: this);
   }
 

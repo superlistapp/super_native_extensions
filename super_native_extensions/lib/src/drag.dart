@@ -126,7 +126,7 @@ abstract class DragContext {
     });
   }
 
-  DragSession newSession();
+  DragSession newSession({int? pointer});
 
   Future<void> startDrag({
     required DragSession session,

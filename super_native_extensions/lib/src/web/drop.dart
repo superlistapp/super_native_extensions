@@ -4,6 +4,7 @@ import 'dart:html' as html;
 import 'package:collection/collection.dart';
 import 'package:flutter/widgets.dart';
 import 'package:js/js.dart';
+import 'package:super_native_extensions/src/mutex.dart';
 
 import '../api_model.dart';
 import '../data_provider.dart';
@@ -205,6 +206,8 @@ class DropContextImpl extends DropContext {
     instance = this;
   }
 
+  final _mutex = Mutex();
+
   int _nextSessionId = 1;
   int? _sessionId;
   var lastOperation = DropOperation.none;
@@ -214,7 +217,7 @@ class DropContextImpl extends DropContext {
     _onDragOver(transfer, event);
   }
 
-  void _onDragOver(html.DataTransfer transfer, html.MouseEvent event) {
+  void _onDragOver(html.DataTransfer transfer, html.MouseEvent event) async {
     if (_sessionId == null) {
       return;
     }
@@ -225,21 +228,27 @@ class DropContextImpl extends DropContext {
       items: _translateTransferItems(transfer.items, allowReader: false),
     );
     final currentSessionId = _sessionId;
-    delegate?.onDropUpdate(dropEvent).then((value) {
-      if (_sessionId == currentSessionId) {
-        lastOperation = value;
-      }
-    });
     transfer.dropEffect = lastOperation.toWeb();
+
+    final value = await _mutex.protect(() async {
+      return await delegate?.onDropUpdate(dropEvent);
+    });
+
+    if (_sessionId == currentSessionId && value != null) {
+      lastOperation = value;
+    }
   }
 
-  void _onDragLeave() {
-    if (_sessionId != null) {
-      delegate?.onDropLeave(BaseDropEvent(sessionId: _sessionId!));
-      delegate?.onDropEnded(BaseDropEvent(sessionId: _sessionId!));
-      _sessionId = null;
-    }
+  void _onDragLeave() async {
     lastOperation = DropOperation.none;
+    final sessionId = _sessionId;
+    _sessionId = null;
+    if (sessionId != null) {
+      await _mutex.protect(() async {
+        await delegate?.onDropLeave(BaseDropEvent(sessionId: sessionId));
+        await delegate?.onDropEnded(BaseDropEvent(sessionId: sessionId));
+      });
+    }
   }
 
   void _onDrop(html.DataTransfer transfer, html.MouseEvent event) async {
@@ -250,13 +259,15 @@ class DropContextImpl extends DropContext {
       items: _translateTransferItems(transfer.items, allowReader: true),
       acceptedOperation: lastOperation,
     );
-    await delegate?.onPerformDrop(dropEvent);
+    await _mutex.protect(() async {
+      await delegate?.onPerformDrop(dropEvent);
+    });
     _onDragLeave();
   }
 
   @override
   Future<void> initialize() async {
-    html.document.addEventListener('dragover', (event) {
+    html.document.addEventListener('dragenter', (event) {
       event.preventDefault();
       final dataTransfer =
           js_util.getProperty(event, 'dataTransfer') as html.DataTransfer;
@@ -322,13 +333,15 @@ class DropContextImpl extends DropContext {
     DragConfiguration configuration,
     Offset position,
   ) async {
-    return await delegate?.onDropUpdate(
-          _createLocalDropEvent(
-            configuration: configuration,
-            position: position,
-          ),
-        ) ??
-        DropOperation.none;
+    return _mutex.protect(() async {
+      return await delegate?.onDropUpdate(
+            _createLocalDropEvent(
+              configuration: configuration,
+              position: position,
+            ),
+          ) ??
+          DropOperation.none;
+    });
   }
 
   Future<void> localSessionDrop(
@@ -336,18 +349,22 @@ class DropContextImpl extends DropContext {
     Offset position,
     DropOperation acceptedOperation,
   ) async {
-    await delegate?.onPerformDrop(
-      _createLocalDropEvent(
-        configuration: configuration,
-        position: position,
-        acceptedOperation: acceptedOperation,
-      ),
-    );
+    return _mutex.protect(() async {
+      await delegate?.onPerformDrop(
+        _createLocalDropEvent(
+          configuration: configuration,
+          position: position,
+          acceptedOperation: acceptedOperation,
+        ),
+      );
+    });
   }
 
   void localSessionDidEnd(DragConfiguration configuration) {
-    final event = BaseDropEvent(sessionId: identityHashCode(configuration));
-    delegate?.onDropLeave(event);
-    delegate?.onDropEnded(event);
+    _mutex.protect(() async {
+      final event = BaseDropEvent(sessionId: identityHashCode(configuration));
+      await delegate?.onDropLeave(event);
+      await delegate?.onDropEnded(event);
+    });
   }
 }
