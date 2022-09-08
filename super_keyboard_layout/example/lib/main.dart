@@ -38,7 +38,7 @@ class _LayoutDemoWidgetState extends State<LayoutDemoWidget> {
   @override
   void initState() {
     super.initState();
-    _focusNode = FocusNode();
+    _focusNode = FocusNode(debugLabel: 'Example focus node');
     _focusNode.onKey = _onKey;
     _focusNode.requestFocus();
     _keyboardLayoutManager.onLayoutChanged.addListener(_layoutChanged);
@@ -46,7 +46,6 @@ class _LayoutDemoWidgetState extends State<LayoutDemoWidget> {
 
   KeyEventResult _onKey(FocusNode node, RawKeyEvent event) {
     if (event is RawKeyDownEvent) {
-      // print('Key down: ${event.logicalKey}');
       setState(() {
         _lastKey = event.physicalKey;
       });
@@ -78,54 +77,64 @@ class _LayoutDemoWidgetState extends State<LayoutDemoWidget> {
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.red, width: 2),
+        border: Border.all(
+            color: _focusNode.hasFocus ? Colors.red : Colors.grey, width: 2),
       ),
-      child: Focus(
+      child: FocusableActionDetector(
+        onFocusChange: (_) {
+          setState(() {});
+        },
         focusNode: _focusNode,
-        child: _lastKey == null
-            ? const Text('Press any key')
-            : Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text("Pressed physical key:",
-                      style: TextStyle(fontWeight: FontWeight.bold)),
-                  Text(_lastKey!.toString()),
-                  const SizedBox(
-                    height: 10,
-                  ),
-                  const Text('Logical key for current keyboard layout:',
-                      style: TextStyle(fontWeight: FontWeight.bold)),
-                  Text(_keyboardLayoutManager.currentLayout
-                          .getLogicalKeyForPhysicalKey(_lastKey!)
-                          ?.toString() ??
-                      'null'),
-                  const Text(
-                      'Logical key for current keyboard layout (with shift):',
-                      style: TextStyle(fontWeight: FontWeight.bold)),
-                  Text(_keyboardLayoutManager.currentLayout
-                          .getLogicalKeyForPhysicalKey(_lastKey!, shift: true)
-                          ?.toString() ??
-                      'null'),
-                  const Text(
-                      'Logical key for current keyboard layout (with alt):',
-                      style: TextStyle(fontWeight: FontWeight.bold)),
-                  Text(_keyboardLayoutManager.currentLayout
-                          .getLogicalKeyForPhysicalKey(_lastKey!, alt: true)
-                          ?.toString() ??
-                      'null'),
-                  const SizedBox(
-                    height: 20,
-                  ),
-                  const Text(
-                    'Because this functionality is meant for '
-                    'keyboard shortcuts, only ASCII capable keyboard '
-                    'layouts are supported.\nOn Linux switching between '
-                    'keyboards is only recognized after typing a key from'
-                    ' new layout.',
-                    style: TextStyle(fontSize: 11.5),
-                  ),
-                ],
-              ),
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTapDown: (details) {
+            _focusNode.requestFocus();
+          },
+          child: _lastKey == null
+              ? const Text('Press any key')
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text("Pressed physical key:",
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    Text(_lastKey!.toString()),
+                    const SizedBox(
+                      height: 10,
+                    ),
+                    const Text('Logical key for current keyboard layout:',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    Text(_keyboardLayoutManager.currentLayout
+                            .getLogicalKeyForPhysicalKey(_lastKey!)
+                            ?.toString() ??
+                        'null'),
+                    const Text(
+                        'Logical key for current keyboard layout (with shift):',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    Text(_keyboardLayoutManager.currentLayout
+                            .getLogicalKeyForPhysicalKey(_lastKey!, shift: true)
+                            ?.toString() ??
+                        'null'),
+                    const Text(
+                        'Logical key for current keyboard layout (with alt):',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    Text(_keyboardLayoutManager.currentLayout
+                            .getLogicalKeyForPhysicalKey(_lastKey!, alt: true)
+                            ?.toString() ??
+                        'null'),
+                    const SizedBox(
+                      height: 20,
+                    ),
+                    const Text(
+                      'Because this functionality is inteded for '
+                      'keyboard shortcuts, only ASCII capable keyboard '
+                      'layouts are supported.\nOn Linux switching between '
+                      'keyboards is only recognized after pressing a key from'
+                      ' new layout.',
+                      style: TextStyle(fontSize: 11.5),
+                    ),
+                  ],
+                ),
+        ),
       ),
     );
   }

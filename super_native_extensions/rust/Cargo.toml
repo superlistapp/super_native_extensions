@@ -28,13 +28,11 @@ serde_json = "1.0.59"
 anyhow = "1.0.41"
 
 [dependencies.nativeshell_core]
-path = "../../../rust/nativeshell_ng/core/rust"
-# version = "0.1.0"
+version = "0.1.1"
 features = ["derive"]
 
 [dev-dependencies.nativeshell_core]
-# version = "0.1.0"
-path = "../../../rust/nativeshell_ng/core/rust"
+version = "0.1.1"
 features = ["derive", "mock"]
 
 [dev-dependencies]

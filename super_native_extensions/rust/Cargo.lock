@@ -736,7 +736,9 @@ dependencies = [
 
 [[package]]
 name = "nativeshell_core"
-version = "0.1.0"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "45cf1194499c9791fbffb0376b113cf348f256ce022eacb23c9102ef3651dc39"
 dependencies = [
  "async-trait",
  "core-foundation",
@@ -749,6 +751,8 @@ dependencies = [
 [[package]]
 name = "nativeshell_derive"
 version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ff7db1761a0b8a77a95fe11182b85785757412b44fe923965127551c563c3d1a"
 dependencies = [
  "proc-macro-error",
  "proc-macro2",
