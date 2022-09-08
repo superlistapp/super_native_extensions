@@ -1,3 +1,7 @@
+## 0.1.3+1
+
+ - **FIX**: Improve Drag&Drop on Web (#19).
+
 ## 0.1.3
 
 * Improve documentation.
