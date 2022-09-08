@@ -40,6 +40,7 @@ pub type CFNotificationCallback = Option<
 >;
 
 pub type CFNotificationSuspensionBehavior = CFIndex;
+#[allow(non_upper_case_globals)]
 pub const CFNotificationSuspensionBehaviorCoalesce: CFIndex = 2;
 
 extern "C" {

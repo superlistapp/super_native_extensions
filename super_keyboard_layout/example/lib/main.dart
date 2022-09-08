@@ -142,20 +142,19 @@ class MyHomePage extends StatelessWidget {
       appBar: AppBar(
         title: Text(title),
       ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            if (!_keyboardLayoutManager.supported)
-              const Text(
-                'KeyboardLayoutManager is not supported on this platform.',
-              ),
-            if (_keyboardLayoutManager.supported)
-              const Padding(
-                padding: EdgeInsets.all(20.0),
-                child: LayoutDemoWidget(),
-              ),
-          ],
+      body: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: <Widget>[
+              if (!_keyboardLayoutManager.supported)
+                const Text(
+                  'KeyboardLayoutManager is not supported on this platform.',
+                ),
+              if (_keyboardLayoutManager.supported) const LayoutDemoWidget(),
+            ],
+          ),
         ),
       ),
     );

@@ -40,12 +40,12 @@ class KeyboardLayoutManagerImpl extends KeyboardLayoutManager {
     _update(layout);
   }
 
-  void _update(model.KeyboardLayout layout) {
+  void _update(model.KeyboardLayout? layout) {
     final platformToKey = <int, model.KeyboardKey>{};
     final physicalToKey = <int, model.KeyboardKey>{};
     final logicalToKey = <int, model.KeyboardKey>{};
 
-    for (final key in layout.keys) {
+    for (final key in layout?.keys ?? []) {
       platformToKey[key.platform] = key;
       physicalToKey[key.physical] = key;
       if (key.logicalAltShift != null) {
@@ -66,7 +66,7 @@ class KeyboardLayoutManagerImpl extends KeyboardLayoutManager {
     }
 
     _currentLayout = KeyboardLayout(platformToKey, physicalToKey, logicalToKey);
-    _supported = layout.keys.isNotEmpty;
+    _supported = layout != null;
   }
 
   @override

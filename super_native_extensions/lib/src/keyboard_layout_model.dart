@@ -37,7 +37,10 @@ class KeyboardLayout {
 
   final List<KeyboardKey> keys;
 
-  static KeyboardLayout deserialize(dynamic value) {
+  static KeyboardLayout? deserialize(dynamic value) {
+    if (value == null) {
+      return null;
+    }
     final map = value as Map;
     final keys = map['keys'] as List;
     return KeyboardLayout(keys: keys.map(KeyboardKey.deserialize).toList());
