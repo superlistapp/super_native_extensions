@@ -126,13 +126,13 @@ abstract class _DragDetector extends StatelessWidget {
     required this.child,
   });
 
-  Drag? maybeStartDrag(Offset position, double devicePixelRatio) {
+  Drag? maybeStartDrag(int? pointer, Offset position, double devicePixelRatio) {
     final dragContext = _dragContext;
     if (dragContext != null) {
-      final session = dragContext.newSession();
+      final session = dragContext.newSession(pointer: pointer);
       _maybeStartDragWithSession(
           dragContext, position, session, devicePixelRatio);
-      return session is Drag ? session as Drag : null;
+      return null;
     } else {
       return null;
     }
@@ -159,6 +159,14 @@ abstract class _DragDetector extends StatelessWidget {
 
 class _ImmediateMultiDragGestureRecognizer
     extends ImmediateMultiDragGestureRecognizer {
+  int? lastPointer;
+
+  @override
+  void acceptGesture(int pointer) {
+    lastPointer = pointer;
+    super.acceptGesture(pointer);
+  }
+
   @override
   bool isPointerAllowed(PointerDownEvent event) {
     if (event.kind == PointerDeviceKind.mouse &&
@@ -166,6 +174,16 @@ class _ImmediateMultiDragGestureRecognizer
       return false;
     }
     return super.isPointerAllowed(event);
+  }
+}
+
+class _DelayedMultiDragGestureRecognizer
+    extends DelayedMultiDragGestureRecognizer {
+  int? lastPointer;
+  @override
+  void acceptGesture(int pointer) {
+    lastPointer = pointer;
+    super.acceptGesture(pointer);
   }
 }
 
@@ -185,8 +203,8 @@ class DesktopDragDetector extends _DragDetector {
             GestureRecognizerFactoryWithHandlers<
                     _ImmediateMultiDragGestureRecognizer>(
                 () => _ImmediateMultiDragGestureRecognizer(), (recognizer) {
-          recognizer.onStart =
-              (offset) => maybeStartDrag(offset, devicePixelRatio);
+          recognizer.onStart = (offset) =>
+              maybeStartDrag(recognizer.lastPointer, offset, devicePixelRatio);
         })
       },
       child: child,
@@ -231,11 +249,12 @@ class MobileDragDetector extends _DragDetector {
     final devicePixelRatio = MediaQuery.of(context).devicePixelRatio;
     return RawGestureDetector(
       gestures: {
-        DelayedMultiDragGestureRecognizer: GestureRecognizerFactoryWithHandlers<
-                DelayedMultiDragGestureRecognizer>(
-            () => DelayedMultiDragGestureRecognizer(), (recognizer) {
-          recognizer.onStart =
-              (offset) => maybeStartDrag(offset, devicePixelRatio);
+        _DelayedMultiDragGestureRecognizer:
+            GestureRecognizerFactoryWithHandlers<
+                    _DelayedMultiDragGestureRecognizer>(
+                () => _DelayedMultiDragGestureRecognizer(), (recognizer) {
+          recognizer.onStart = (offset) =>
+              maybeStartDrag(recognizer.lastPointer, offset, devicePixelRatio);
         })
       },
       child: child,

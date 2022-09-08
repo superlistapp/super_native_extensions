@@ -1,7 +1,7 @@
 import 'dart:html' as html;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
-import 'package:flutter_web_plugins/flutter_web_plugins.dart';
+import 'package:super_native_extensions/src/web/drag_driver.dart';
 
 import '../api_model.dart';
 import '../drag.dart';
@@ -9,7 +9,11 @@ import '../drag_internal.dart';
 import '../util.dart';
 import 'drop.dart';
 
-class DragSessionImpl extends DragSession implements Drag {
+class DragSessionImpl extends DragSession implements DragDriverDelegate {
+  DragSessionImpl({required int pointer}) {
+    DragDriver(pointer, this);
+  }
+
   @override
   ValueListenable<DropOperation?> get dragCompleted => _dragCompleted;
 
@@ -40,14 +44,14 @@ class DragSessionImpl extends DragSession implements Drag {
   }
 
   @override
-  void end(DragEndDetails details) {
+  void end(Offset position) {
     _ended = true;
-    _state?.end(details);
+    _state?.end(position);
   }
 
   @override
-  void update(DragUpdateDetails details) {
-    _state?.update(details);
+  void update(Offset position) {
+    _state?.update(position);
   }
 
   bool _ended = false;
@@ -72,7 +76,7 @@ class DragSessionImpl extends DragSession implements Drag {
   _SessionState? _state;
 }
 
-class _SessionState implements Drag {
+class _SessionState implements DragDriverDelegate {
   final DragConfiguration configuration;
   final DragImage image;
   final Offset originalPosition;
@@ -121,10 +125,7 @@ class _SessionState implements Drag {
     required this.dragCompleted,
   }) {
     updatePosition(originalPosition);
-    html.document.addEventListener('keydown', onKeyDown = _onKeyDown, true);
   }
-
-  late EventListener onKeyDown;
 
   void _moveCanvas(Offset position) {
     canvas.style.left =
@@ -150,16 +151,8 @@ class _SessionState implements Drag {
     return configuration.items.map((e) => e.localData).toList(growable: false);
   }
 
-  dynamic _onKeyDown(Object event) {
-    final keyEvent = event as html.KeyboardEvent;
-    if (keyEvent.key?.toLowerCase() == 'escape') {
-      cancel();
-    }
-  }
-
   void _cleanup() {
     DropContextImpl.instance?.localSessionDidEnd(configuration);
-    html.document.removeEventListener('keydown', onKeyDown, true);
   }
 
   @override
@@ -170,7 +163,7 @@ class _SessionState implements Drag {
   }
 
   @override
-  void end(DragEndDetails details) async {
+  void end(Offset position) async {
     final location = lastScreenLocation.value;
     if (_lastOperation != DropOperation.none && location != null) {
       await DropContextImpl.instance
@@ -223,8 +216,8 @@ class _SessionState implements Drag {
   }
 
   @override
-  void update(DragUpdateDetails details) {
-    updatePosition(details.globalPosition);
+  void update(Offset position) {
+    updatePosition(position);
   }
 }
 
@@ -233,7 +226,8 @@ class DragContextImpl extends DragContext {
   Future<void> initialize() async {}
 
   @override
-  DragSession newSession() => DragSessionImpl();
+  DragSession newSession({int? pointer}) =>
+      DragSessionImpl(pointer: pointer ?? -1);
 
   @override
   Future<void> startDrag({
