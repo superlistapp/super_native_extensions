@@ -1,3 +1,7 @@
+## 0.1.4
+
+ - **FEAT**: add_super_keyboard_layout (#20).
+
 ## 0.1.3+1
 
  - **FIX**: Improve Drag&Drop on Web (#19).
