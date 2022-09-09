@@ -1,5 +1,5 @@
 name: super_keyboard_layout
-description: A new Flutter package project.
+description: Keyboard layout mapping for Flutter. Can map between physical and logical keys according to current keyboard layout and provide notification on layout changes. Supports macOS, Windows nad Linux.
 version: 0.1.1
 homepage: https://github.com/superlistapp/super_native_extensions
 
