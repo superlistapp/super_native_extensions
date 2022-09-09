@@ -45,6 +45,7 @@ void main() async {
     }
 
     final layout = manager.currentLayout;
+
     // Getting logical key for physical key 1 with shift for current layout
     final logicalKey = layout.getLogicalKeyForPhysicalKey(PhysicalKeyboardKey.digit1, shift: true);
 
