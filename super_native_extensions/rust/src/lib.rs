@@ -11,6 +11,7 @@ use clipboard_writer::GetClipboardWriter;
 use data_provider_manager::GetDataProviderManager;
 use drag_manager::GetDragManager;
 use drop_manager::GetDropManager;
+use keyboard_layout_manager::GetKeyboardLayoutDelegate;
 
 use nativeshell_core::{nativeshell_init_message_channel_context, Context, FunctionResult};
 use reader_manager::GetDataReaderManager;
@@ -22,6 +23,7 @@ mod data_provider_manager;
 mod drag_manager;
 mod drop_manager;
 mod error;
+mod keyboard_layout_manager;
 mod log;
 mod reader_manager;
 mod util;
@@ -76,6 +78,7 @@ impl DataTransferPlugin {
         context.clipboard_reader();
         context.drag_manager();
         context.drop_manager();
+        context.keyboard_map_manager();
         DataTransferPlugin { _context: context }
     }
 }

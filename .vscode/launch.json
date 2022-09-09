@@ -39,7 +39,7 @@
             "request": "launch",
             "type": "dart",
             "toolArgs": [
-            //  "--local-engine=host_debug_unopt"
+                //  "--local-engine=host_debug_unopt"
             ],
             "env": {
                 "DISPLAY": ":0"
@@ -66,14 +66,33 @@
             }
         },
         {
-            "name": "(Windows) Attach",
-            "type": "cppvsdbg",
-            "request": "attach",
-            "processId": "${command:pickProcess}",
-            "symbolOptions": {
-                "searchPaths": [],
-                "searchMicrosoftSymbolServer": false
-            },
-        }
+            "name": "keyboard layout example",
+            "cwd": "super_keyboard_layout/example",
+            "request": "launch",
+            "type": "dart",
+            "env": {
+                "DISPLAY": ":0"
+            }
+        },
+        {
+            "name": "keyboard layout example (profile mode)",
+            "cwd": "super_keyboard_layout/example",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "profile",
+            "env": {
+                "DISPLAY": ":0"
+            }
+        },
+        {
+            "name": "keyboard layout example (release mode)",
+            "cwd": "super_keyboard_layout/example",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "release",
+            "env": {
+                "DISPLAY": ":0"
+            }
+        },
     ]
 }
