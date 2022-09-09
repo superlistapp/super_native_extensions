@@ -6,7 +6,7 @@
 - Allows mapping between physical keys, logical keys and platform specific key codes according to current keyboard layout.
 - Notification for keyboard layout changes.
 
-<img src="https://user-images.githubusercontent.com/96958/189333008-04ac239e-07d9-49c1-90ef-6bfe4bd4c86d.png" width="986">
+<img src="https://user-images.githubusercontent.com/96958/189333008-04ac239e-07d9-49c1-90ef-6bfe4bd4c86d.png" width="762">
 
 ## Getting started
 
