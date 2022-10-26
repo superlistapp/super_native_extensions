@@ -1,3 +1,7 @@
+## 0.1.5
+
+- Fix compatibility with NDK 23+
+
 ## 0.1.1+1
 
  - **DOCS**: Improve documentation.

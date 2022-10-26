@@ -1,6 +1,6 @@
 name: super_clipboard
 description: Comprehensive clipboard access package for Flutter. Supports reading and writing of rich text, images and other formats.
-version: 0.1.4
+version: 0.1.5
 homepage: https://github.com/superlistapp/super_native_extensions
 
 environment:

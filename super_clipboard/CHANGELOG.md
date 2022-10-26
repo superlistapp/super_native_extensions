@@ -1,3 +1,7 @@
+## 0.1.5
+
+- Fix compatibility with NDK 23+
+
 ## 0.1.4
 
  - **FEAT**: add_super_keyboard_layout (#20).
