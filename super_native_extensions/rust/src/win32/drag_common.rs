@@ -1,26 +1,28 @@
-use windows::Win32::System::Ole::{DROPEFFECT_COPY, DROPEFFECT_LINK, DROPEFFECT_MOVE};
+use windows::Win32::System::Ole::{
+    DROPEFFECT, DROPEFFECT_COPY, DROPEFFECT_LINK, DROPEFFECT_MOVE, DROPEFFECT_NONE,
+};
 
 use crate::api_model::DropOperation;
 
 pub trait DropOperationExt {
-    fn to_platform(&self) -> u32;
-    fn from_platform(operation: u32) -> DropOperation;
-    fn from_platform_mask(operation_mask: u32) -> Vec<DropOperation>;
+    fn to_platform(&self) -> DROPEFFECT;
+    fn from_platform(operation: DROPEFFECT) -> DropOperation;
+    fn from_platform_mask(operation_mask: DROPEFFECT) -> Vec<DropOperation>;
 }
 
 impl DropOperationExt for DropOperation {
-    fn to_platform(&self) -> u32 {
+    fn to_platform(&self) -> DROPEFFECT {
         match self {
-            DropOperation::None => 0,
-            DropOperation::UserCancelled => 0,
-            DropOperation::Forbidden => 0,
+            DropOperation::None => DROPEFFECT_NONE,
+            DropOperation::UserCancelled => DROPEFFECT_NONE,
+            DropOperation::Forbidden => DROPEFFECT_NONE,
             DropOperation::Copy => DROPEFFECT_COPY,
             DropOperation::Move => DROPEFFECT_MOVE,
             DropOperation::Link => DROPEFFECT_LINK,
         }
     }
 
-    fn from_platform(operation: u32) -> DropOperation {
+    fn from_platform(operation: DROPEFFECT) -> DropOperation {
         match operation {
             DROPEFFECT_COPY => DropOperation::Copy,
             DROPEFFECT_LINK => DropOperation::Link,
@@ -29,7 +31,7 @@ impl DropOperationExt for DropOperation {
         }
     }
 
-    fn from_platform_mask(operation_mask: u32) -> Vec<DropOperation> {
+    fn from_platform_mask(operation_mask: DROPEFFECT) -> Vec<DropOperation> {
         let mut res = Vec::new();
         if operation_mask & DROPEFFECT_MOVE == DROPEFFECT_MOVE {
             res.push(DropOperation::Move);

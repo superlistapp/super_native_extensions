@@ -9,13 +9,16 @@ use windows::{
     core::implement,
     Win32::{
         Foundation::{
-            BOOL, DRAGDROP_S_CANCEL, DRAGDROP_S_DROP, DRAGDROP_S_USEDEFAULTCURSORS, HWND, POINT,
-            SIZE,
+            BOOL, COLORREF, DRAGDROP_S_CANCEL, DRAGDROP_S_DROP, DRAGDROP_S_USEDEFAULTCURSORS, HWND,
+            POINT, SIZE, S_OK,
         },
-        System::Ole::{DoDragDrop, IDropSource, IDropSource_Impl},
+        System::{
+            Ole::{DoDragDrop, IDropSource, IDropSource_Impl, DROPEFFECT, DROPEFFECT_NONE},
+            SystemServices::{MK_LBUTTON, MODIFIERKEYS_FLAGS},
+        },
         UI::{
             Shell::{CLSID_DragDropHelper, IDragSourceHelper, SHDRAGIMAGE},
-            WindowsAndMessaging::{GetCursorPos, MK_LBUTTON},
+            WindowsAndMessaging::GetCursorPos,
         },
     },
 };
@@ -78,13 +81,13 @@ impl IDropSource_Impl for DropSource {
     fn QueryContinueDrag(
         &self,
         fescapepressed: BOOL,
-        grfkeystate: u32,
-    ) -> windows::core::Result<()> {
+        grfkeystate: MODIFIERKEYS_FLAGS,
+    ) -> windows::core::HRESULT {
         if fescapepressed.as_bool() {
             self.cancelled.replace(true);
-            Err(DRAGDROP_S_CANCEL.into())
-        } else if grfkeystate & MK_LBUTTON as u32 == 0 {
-            Err(DRAGDROP_S_DROP.into())
+            DRAGDROP_S_CANCEL
+        } else if grfkeystate.0 & MK_LBUTTON.0 as u32 == 0 {
+            DRAGDROP_S_DROP
         } else {
             let mut cursor_pos = POINT::default();
             unsafe { GetCursorPos(&mut cursor_pos as *mut _) };
@@ -104,12 +107,12 @@ impl IDropSource_Impl for DropSource {
                     }
                 }
             }
-            Ok(())
+            S_OK
         }
     }
 
-    fn GiveFeedback(&self, _dweffect: u32) -> windows::core::Result<()> {
-        Err(DRAGDROP_S_USEDEFAULTCURSORS.into())
+    fn GiveFeedback(&self, _dweffect: DROPEFFECT) -> windows::core::HRESULT {
+        DRAGDROP_S_USEDEFAULTCURSORS
     }
 }
 
@@ -195,15 +198,15 @@ impl PlatformDragContext {
                 y: point_in_rect.y as i32,
             },
             hbmpDragImage: hbitmap,
-            crColorKey: 0xFFFFFFFF,
+            crColorKey: COLORREF(0xFFFFFFFF),
         };
         unsafe {
-            helper.InitializeFromBitmap(&mut image as *mut _, data_object.clone())?;
+            helper.InitializeFromBitmap(&mut image as *mut _, &data_object)?;
         }
 
         let mut allowed_effects: u32 = 0;
         for operation in &request.configuration.allowed_operations {
-            allowed_effects |= operation.to_platform();
+            allowed_effects |= operation.to_platform().0;
         }
 
         self.current_session.replace(Some(DragSession {
@@ -213,13 +216,13 @@ impl PlatformDragContext {
 
         let cancelled = Rc::new(Cell::new(false));
         let drop_source = DropSource::create(self.weak_self.clone(), session_id, cancelled.clone());
-        let mut effects_out: u32 = 0;
+        let mut effects_out = DROPEFFECT_NONE;
         unsafe {
             let _ = DoDragDrop(
-                data_object.clone(),
-                drop_source,
-                allowed_effects,
-                &mut effects_out as *mut u32,
+                &data_object,
+                &drop_source,
+                DROPEFFECT(allowed_effects),
+                &mut effects_out as *mut DROPEFFECT,
             );
         }
         // Data source might be still in use through IDataObjectAsyncCapability,

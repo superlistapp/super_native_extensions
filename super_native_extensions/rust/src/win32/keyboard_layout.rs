@@ -83,9 +83,9 @@ impl PlatformKeyboardLayout {
             return current;
         }
 
-        let cnt = GetKeyboardLayoutList(&mut []);
+        let cnt = GetKeyboardLayoutList(Some(&mut []));
         let mut vec: Vec<HKL> = vec![HKL(0); cnt as usize];
-        GetKeyboardLayoutList(&mut vec);
+        GetKeyboardLayoutList(Some(&mut vec));
 
         // if choosing from list, prefer layout that has actual numbers
         for l in &vec {
@@ -239,7 +239,7 @@ impl PlatformKeyboardLayout {
             let cookie = source
                 .AdviseSink(
                     &ITfLanguageProfileNotifySink::IID,
-                    Some(sink.cast::<IUnknown>().unwrap()),
+                    &sink.cast::<IUnknown>().unwrap(),
                 )
                 .ok_log()
                 .unwrap_or(0);

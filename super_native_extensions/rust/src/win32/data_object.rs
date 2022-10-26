@@ -9,7 +9,7 @@ use std::{
 
 use nativeshell_core::{platform::run_loop::PollSession, Context};
 use windows::{
-    core::{implement, HRESULT},
+    core::{implement, HRESULT, HSTRING},
     Win32::{
         Foundation::{
             BOOL, DATA_S_SAMEFORMATETC, DV_E_FORMATETC, E_NOTIMPL, E_OUTOFMEMORY,
@@ -24,7 +24,7 @@ use windows::{
             Memory::{
                 GlobalAlloc, GlobalFree, GlobalLock, GlobalSize, GlobalUnlock, GLOBAL_ALLOC_FLAGS,
             },
-            Ole::ReleaseStgMedium,
+            Ole::{ReleaseStgMedium, DROPEFFECT},
             SystemServices::{CF_DIB, CF_DIBV5, CF_HDROP},
         },
         UI::Shell::{
@@ -221,7 +221,7 @@ impl DataObject {
     fn foreign_formats() -> Vec<u32> {
         FOREIGN_IMAGE_FORMATS
             .iter()
-            .map(|f| unsafe { RegisterClipboardFormatW(*f) })
+            .map(|f| unsafe { RegisterClipboardFormatW(&HSTRING::from(*f)) })
             .collect()
     }
 
@@ -453,7 +453,7 @@ impl IDataObject_Impl for DataObject {
             let stream = self
                 .stream_for_virtual_file_index(format.lindex as usize, Self::is_local_request());
             return Ok(STGMEDIUM {
-                tymed: TYMED_ISTREAM.0 as u32,
+                tymed: TYMED_ISTREAM,
                 Anonymous: STGMEDIUM_0 {
                     pstm: ManuallyDrop::new(stream),
                 },
@@ -489,19 +489,19 @@ impl IDataObject_Impl for DataObject {
                 if (format.tymed & TYMED_HGLOBAL.0 as u32) != 0 {
                     let global = self.global_from_data(&data)?;
                     Ok(STGMEDIUM {
-                        tymed: TYMED_HGLOBAL.0 as u32,
+                        tymed: TYMED_HGLOBAL,
                         Anonymous: STGMEDIUM_0 { hGlobal: global },
                         pUnkForRelease: None,
                     })
                 } else if (format.tymed & TYMED_ISTREAM.0 as u32) != 0 {
-                    let stream = unsafe { SHCreateMemStream(data.as_ptr(), data.len() as u32) };
+                    let stream = unsafe { SHCreateMemStream(Some(&data)) };
                     let stream =
                         stream.ok_or_else(|| windows::core::Error::from(DV_E_FORMATETC))?;
                     unsafe {
                         stream.Seek(0, STREAM_SEEK_END)?;
                     }
                     Ok(STGMEDIUM {
-                        tymed: TYMED_ISTREAM.0 as u32,
+                        tymed: TYMED_ISTREAM,
                         Anonymous: STGMEDIUM_0 {
                             pstm: ManuallyDrop::new(Some(stream)),
                         },
@@ -526,7 +526,7 @@ impl IDataObject_Impl for DataObject {
     fn QueryGetData(
         &self,
         pformatetc: *const windows::Win32::System::Com::FORMATETC,
-    ) -> windows::core::Result<()> {
+    ) -> windows::core::HRESULT {
         let format = unsafe { &*pformatetc };
         let index = self.get_formats().iter().position(|e| {
             e.cfFormat == format.cfFormat
@@ -535,16 +535,16 @@ impl IDataObject_Impl for DataObject {
                 && e.lindex == format.lindex
         });
         match index {
-            Some(_) => Ok(()),
+            Some(_) => S_OK,
             None => {
                 // possibly extra data
                 if (format.tymed == TYMED_HGLOBAL.0 as u32
                     || format.tymed == TYMED_ISTREAM.0 as u32)
                     && self.extra_data.borrow().contains_key(&format.cfFormat)
                 {
-                    Ok(())
+                    S_OK
                 } else {
-                    Err(S_FALSE.into())
+                    S_FALSE
                 }
             }
         }
@@ -689,14 +689,14 @@ pub trait GetData {
 
         unsafe {
             let mut medium = self.do_get_data(&format as *const _)?;
-            let res = if medium.tymed == TYMED_ISTREAM.0 as u32 {
+            let res = if medium.tymed == TYMED_ISTREAM {
                 let stream = medium.Anonymous.pstm.as_ref().cloned();
                 if let Some(stream) = stream {
                     Ok(read_stream_fully(stream))
                 } else {
                     Ok(Vec::new())
                 }
-            } else if medium.tymed == TYMED_HGLOBAL.0 as u32 {
+            } else if medium.tymed == TYMED_HGLOBAL {
                 let size = GlobalSize(medium.Anonymous.hGlobal);
                 let data = GlobalLock(medium.Anonymous.hGlobal);
 
@@ -718,12 +718,13 @@ pub trait GetData {
         let format = make_format_with_tymed(format, TYMED(TYMED_ISTREAM.0 | TYMED_HGLOBAL.0));
         let res = unsafe {
             let mut medium = self.do_get_data(&format as *const _)?;
-            let res = if medium.tymed == TYMED_ISTREAM.0 as u32 {
+            let res = if medium.tymed == TYMED_ISTREAM {
                 medium.Anonymous.pstm.as_ref().cloned()
-            } else if medium.tymed == TYMED_HGLOBAL.0 as u32 {
+            } else if medium.tymed == TYMED_HGLOBAL {
                 let size = GlobalSize(medium.Anonymous.hGlobal);
                 let data = GlobalLock(medium.Anonymous.hGlobal);
-                let res = SHCreateMemStream(data as *const _, size as u32);
+                let data = slice::from_raw_parts(data as *const u8, size as usize);
+                let res = SHCreateMemStream(Some(data));
                 GlobalUnlock(medium.Anonymous.hGlobal);
                 res
             } else {
@@ -746,7 +747,7 @@ pub trait GetData {
 }
 
 pub trait DataObjectExt {
-    fn performed_drop_effect(&self) -> Option<u32>;
+    fn performed_drop_effect(&self) -> Option<DROPEFFECT>;
 }
 
 impl GetData for IDataObject {
@@ -758,10 +759,7 @@ impl GetData for IDataObject {
     }
 
     unsafe fn do_query_get_data(&self, format: *const FORMATETC) -> HRESULT {
-        (::windows::core::Interface::vtable(self).QueryGetData)(
-            ::windows::core::Interface::as_raw(self),
-            format,
-        )
+        self.QueryGetData(format)
     }
 }
 
@@ -791,7 +789,7 @@ impl<T> DataObjectExt for T
 where
     T: GetData,
 {
-    fn performed_drop_effect(&self) -> Option<u32> {
+    fn performed_drop_effect(&self) -> Option<DROPEFFECT> {
         let format = unsafe { RegisterClipboardFormatW(CFSTR_PERFORMEDDROPEFFECT) };
         let logical_format = unsafe { RegisterClipboardFormatW(CFSTR_LOGICALPERFORMEDDROPEFFECT) };
         let data = self
@@ -801,7 +799,7 @@ where
 
         if let Some(data) = data {
             if data.len() == 4 {
-                return Some(u32::from_ne_bytes(data.try_into().unwrap()));
+                return Some(DROPEFFECT(u32::from_ne_bytes(data.try_into().unwrap())));
             }
         }
 

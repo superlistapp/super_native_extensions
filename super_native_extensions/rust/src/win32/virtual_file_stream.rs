@@ -14,8 +14,8 @@ use windows::{
         System::Com::{
             CoInitialize, CoUninitialize, ISequentialStream_Impl, IStream, IStream_Impl,
             Marshal::CoMarshalInterThreadInterfaceInStream,
-            StructuredStorage::CoGetInterfaceAndReleaseStream, STREAM_SEEK, STREAM_SEEK_CUR,
-            STREAM_SEEK_SET,
+            StructuredStorage::CoGetInterfaceAndReleaseStream, LOCKTYPE, STATFLAG, STREAM_SEEK,
+            STREAM_SEEK_CUR, STREAM_SEEK_SET,
         },
     },
 };
@@ -104,7 +104,7 @@ impl Stream {
     fn stat(
         &self,
         pstatstg: *mut windows::Win32::System::Com::STATSTG,
-        _grfstatflag: u32,
+        _grfstatflag: STATFLAG,
     ) -> windows::core::Result<()> {
         let inner = self.inner.lock().unwrap();
         if let Some(inner) = inner.as_ref() {
@@ -171,7 +171,7 @@ impl VirtualFileStream {
         let promise = Arc::new(Promise::<(Movable<IStream>, Box<dyn FnOnce() + Send>)>::new());
         let promise_clone = promise.clone();
         thread::spawn(move || unsafe {
-            CoInitialize(std::ptr::null_mut()).ok();
+            CoInitialize(None).ok();
             let run_loop = Rc::new(RunLoop::new());
             let stream = Arc::new(Stream {
                 inner: Mutex::new(Some(StreamInner {
@@ -185,7 +185,7 @@ impl VirtualFileStream {
             });
             let stream_clone = stream.clone();
             let stream: IStream = VirtualFileStream { stream }.into();
-            let mashalled = CoMarshalInterThreadInterfaceInStream(&IStream::IID, stream).unwrap();
+            let mashalled = CoMarshalInterThreadInterfaceInStream(&IStream::IID, &stream).unwrap();
             // Ensure stream disposal when parent dataobject is disposed. This is
             // to ensure that when stream leaks it is at least destroyed (and thread
             // released)  when data object is destroyed.
@@ -200,7 +200,7 @@ impl VirtualFileStream {
 
         let res = promise.wait();
         let stream = res.0.take();
-        let stream: IStream = unsafe { CoGetInterfaceAndReleaseStream(stream) }.unwrap();
+        let stream: IStream = unsafe { CoGetInterfaceAndReleaseStream(&stream) }.unwrap();
         let drop_notifier = Arc::new(DropNotifier::new_with_boxed(res.1));
         (stream, drop_notifier)
     }
@@ -256,7 +256,12 @@ impl IStream_Impl for VirtualFileStream {
         Err(E_NOTIMPL.into())
     }
 
-    fn LockRegion(&self, _liboffset: u64, _cb: u64, _dwlocktype: u32) -> windows::core::Result<()> {
+    fn LockRegion(
+        &self,
+        _liboffset: u64,
+        _cb: u64,
+        _dwlocktype: LOCKTYPE,
+    ) -> windows::core::Result<()> {
         Err(E_NOTIMPL.into())
     }
 
@@ -272,7 +277,7 @@ impl IStream_Impl for VirtualFileStream {
     fn Stat(
         &self,
         pstatstg: *mut windows::Win32::System::Com::STATSTG,
-        grfstatflag: u32,
+        grfstatflag: STATFLAG,
     ) -> windows::core::Result<()> {
         self.stream.stat(pstatstg, grfstatflag)
     }

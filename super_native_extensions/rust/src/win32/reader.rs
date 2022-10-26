@@ -18,24 +18,29 @@ use nativeshell_core::{
     Context, RunLoopSender, Value,
 };
 use rand::{distributions::Alphanumeric, Rng};
-use windows::Win32::{
-    Foundation::S_OK,
-    Storage::FileSystem::{
-        SetFileAttributesW, FILE_ATTRIBUTE_ARCHIVE, FILE_ATTRIBUTE_HIDDEN, FILE_ATTRIBUTE_TEMPORARY,
-    },
-    System::{
-        Com::{
-            IDataObject, IStream, StructuredStorage::STATFLAG_NONAME, STATSTG, STGMEDIUM, TYMED,
-            TYMED_HGLOBAL, TYMED_ISTREAM,
+use windows::{
+    core::HSTRING,
+    w,
+    Win32::{
+        Foundation::S_OK,
+        Storage::FileSystem::{
+            SetFileAttributesW, FILE_ATTRIBUTE_ARCHIVE, FILE_ATTRIBUTE_HIDDEN,
+            FILE_ATTRIBUTE_TEMPORARY,
         },
-        DataExchange::RegisterClipboardFormatW,
-        Memory::{GlobalLock, GlobalSize, GlobalUnlock},
-        Ole::{OleGetClipboard, ReleaseStgMedium},
-        SystemServices::{CF_DIB, CF_DIBV5, CF_HDROP, CF_TIFF, CF_UNICODETEXT},
-    },
-    UI::Shell::{
-        SHCreateMemStream, CFSTR_FILECONTENTS, CFSTR_FILEDESCRIPTOR, DROPFILES, FILEDESCRIPTORW,
-        FILEGROUPDESCRIPTORW,
+        System::{
+            Com::{
+                IDataObject, IStream, STATFLAG_NONAME, STATSTG, STGMEDIUM, TYMED, TYMED_HGLOBAL,
+                TYMED_ISTREAM,
+            },
+            DataExchange::RegisterClipboardFormatW,
+            Memory::{GlobalLock, GlobalSize, GlobalUnlock},
+            Ole::{OleGetClipboard, ReleaseStgMedium},
+            SystemServices::{CF_DIB, CF_DIBV5, CF_HDROP, CF_TIFF, CF_UNICODETEXT},
+        },
+        UI::Shell::{
+            SHCreateMemStream, CFSTR_FILECONTENTS, CFSTR_FILEDESCRIPTOR, DROPFILES,
+            FILEDESCRIPTORW, FILEGROUPDESCRIPTORW,
+        },
     },
 };
 
@@ -104,7 +109,7 @@ impl PlatformDataReader {
     }
 
     fn need_to_synthetize_png(&self) -> NativeExtensionsResult<bool> {
-        let png = unsafe { RegisterClipboardFormatW("PNG") };
+        let png = unsafe { RegisterClipboardFormatW(w!("PNG")) };
         let formats = self.data_object_formats_raw()?;
         let has_dib = formats.contains(&CF_DIBV5.0) || formats.contains(&CF_DIB.0);
         let has_png = formats.contains(&png);
@@ -114,7 +119,7 @@ impl PlatformDataReader {
     fn data_object_formats(&self) -> NativeExtensionsResult<Vec<u32>> {
         let mut res = self.data_object_formats_raw()?;
         if self.need_to_synthetize_png()? {
-            let png = unsafe { RegisterClipboardFormatW("PNG") };
+            let png = unsafe { RegisterClipboardFormatW(w!("PNG")) };
             res.push(png);
         }
         Ok(res)
@@ -220,7 +225,7 @@ impl PlatformDataReader {
 
         // Do the actual encoding on worker thread
         thread::spawn(move || {
-            let stream = unsafe { SHCreateMemStream(bmp.as_ptr(), bmp.len() as u32) };
+            let stream = unsafe { SHCreateMemStream(Some(&bmp)) };
             let stream = stream.unwrap();
             let res = convert_to_png(stream).map_err(NativeExtensionsError::from);
             sender.send(move || {
@@ -239,7 +244,7 @@ impl PlatformDataReader {
         _progress: Option<Arc<ReadProgress>>,
     ) -> NativeExtensionsResult<Value> {
         let format = format_from_string(&data_type);
-        let png = unsafe { RegisterClipboardFormatW("PNG") };
+        let png = unsafe { RegisterClipboardFormatW(w!("PNG")) };
         if format == CF_HDROP.0 as u32 {
             let item = item as usize;
             let hdrop = self.get_hdrop()?.unwrap_or_default();
@@ -428,7 +433,7 @@ impl PlatformDataReader {
         progress: Arc<ReadProgress>,
         completer: FutureCompleter<NativeExtensionsResult<PathBuf>>,
     ) {
-        match TYMED(medium.tymed as i32) {
+        match medium.tymed {
             TYMED_HGLOBAL => {
                 let data = unsafe {
                     let size = GlobalSize(medium.Anonymous.hGlobal);
@@ -532,8 +537,7 @@ impl VirtualStreamReader {
     fn get_length(&self) -> NativeExtensionsResult<u64> {
         let mut stat = STATSTG::default();
         unsafe {
-            self.stream
-                .Stat(&mut stat as *mut _, STATFLAG_NONAME.0 as u32)?;
+            self.stream.Stat(&mut stat as *mut _, STATFLAG_NONAME)?;
         }
         Ok(stat.cbSize as u64)
     }
@@ -548,7 +552,8 @@ impl VirtualStreamReader {
         let file = File::create(&temp_path)?;
         unsafe {
             let path: String = temp_path.to_string_lossy().into();
-            SetFileAttributesW(path, FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_TEMPORARY);
+            let path = HSTRING::from(path);
+            SetFileAttributesW(&path, FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_TEMPORARY);
         }
         match self.read_and_write(file) {
             Ok(_) => {
@@ -556,7 +561,8 @@ impl VirtualStreamReader {
                 fs::rename(temp_path, &path)?;
                 unsafe {
                     let path: String = path.to_string_lossy().into();
-                    SetFileAttributesW(path, FILE_ATTRIBUTE_ARCHIVE);
+                    let path = HSTRING::from(path);
+                    SetFileAttributesW(&path, FILE_ATTRIBUTE_ARCHIVE);
                 }
                 Ok(path)
             }
@@ -591,8 +597,11 @@ impl VirtualStreamReader {
             }
             let mut did_read = 0u32;
             let res = unsafe {
-                self.stream
-                    .Read(buf.as_ptr() as *mut _, to_read, &mut did_read as *mut _)
+                self.stream.Read(
+                    buf.as_ptr() as *mut _,
+                    to_read,
+                    Some(&mut did_read as *mut _),
+                )
             };
             if res != S_OK {
                 return Err(windows::core::Error::from(res).into());

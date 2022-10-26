@@ -13,10 +13,10 @@ use windows::{
                 StructuredStorage::{
                     CreateStreamOnHGlobal, GetHGlobalFromStream, IPropertyBag2, PROPBAG2,
                 },
-                VARIANT,
+                VARIANT, VT_BOOL,
             },
             Memory::{GlobalLock, GlobalSize, GlobalUnlock},
-            Ole::{VariantInit, VT_BOOL},
+            Ole::VariantInit,
         },
     },
 };
@@ -28,19 +28,19 @@ pub fn convert_to_png(input_stream: IStream) -> windows::core::Result<Vec<u8>> {
     let factory: IWICImagingFactory = create_instance(&CLSID_WICImagingFactory)?;
     unsafe {
         let decoder =
-            factory.CreateDecoderFromStream(input_stream, null_mut(), Default::default())?;
+            factory.CreateDecoderFromStream(&input_stream, null_mut(), Default::default())?;
         let encoder = factory.CreateEncoder(&GUID_ContainerFormatPng, null_mut())?;
         let output_stream = CreateStreamOnHGlobal(0, true)?;
-        encoder.Initialize(output_stream.clone(), WICBitmapEncoderNoCache)?;
+        encoder.Initialize(&output_stream, WICBitmapEncoderNoCache)?;
         let frame = decoder.GetFrame(0)?;
         let mut encoder_frame = Option::<IWICBitmapFrameEncode>::None;
         encoder.CreateNewFrame(&mut encoder_frame as *mut _, null_mut())?;
         let encoder_frame = encoder_frame.unwrap();
         encoder_frame.Initialize(None)?;
-        encoder_frame.WriteSource(frame, std::ptr::null_mut())?;
+        encoder_frame.WriteSource(&frame, std::ptr::null_mut())?;
         encoder_frame.Commit()?;
         encoder.Commit()?;
-        let hglobal = GetHGlobalFromStream(output_stream.clone())?;
+        let hglobal = GetHGlobalFromStream(&output_stream)?;
         let size = GlobalSize(hglobal);
         let data = GlobalLock(hglobal);
         let v = slice::from_raw_parts(data as *const u8, size);
@@ -58,10 +58,10 @@ pub fn convert_to_dib(input_stream: IStream, use_v5: bool) -> windows::core::Res
     let factory: IWICImagingFactory = create_instance(&CLSID_WICImagingFactory)?;
     unsafe {
         let decoder =
-            factory.CreateDecoderFromStream(input_stream, null_mut(), Default::default())?;
+            factory.CreateDecoderFromStream(&input_stream, null_mut(), Default::default())?;
         let encoder = factory.CreateEncoder(&GUID_ContainerFormatBmp, null_mut())?;
         let output_stream = CreateStreamOnHGlobal(0, true)?;
-        encoder.Initialize(output_stream.clone(), WICBitmapEncoderNoCache)?;
+        encoder.Initialize(&output_stream, WICBitmapEncoderNoCache)?;
         let frame = decoder.GetFrame(0)?;
         let mut encoder_frame = Option::<IWICBitmapFrameEncode>::None;
         let mut property_bag = Option::<IPropertyBag2>::None;
@@ -75,17 +75,17 @@ pub fn convert_to_dib(input_stream: IStream, use_v5: bool) -> windows::core::Res
                 let mut variant = VARIANT::default();
                 VariantInit(&mut variant as *mut _);
                 let inside = &mut variant.Anonymous.Anonymous;
-                inside.vt = VT_BOOL.0 as u16;
+                inside.vt = VT_BOOL;
                 inside.Anonymous.boolVal = 0xFFFFu16 as i16;
                 property_bag.Write(1, &mut option as *mut _, &mut variant as *mut _)?;
             }
         }
         let encoder_frame = encoder_frame.unwrap();
-        encoder_frame.Initialize(property_bag)?;
-        encoder_frame.WriteSource(frame, std::ptr::null_mut())?;
+        encoder_frame.Initialize(&property_bag.unwrap())?;
+        encoder_frame.WriteSource(&frame, std::ptr::null_mut())?;
         encoder_frame.Commit()?;
         encoder.Commit()?;
-        let hglobal = GetHGlobalFromStream(output_stream.clone())?;
+        let hglobal = GetHGlobalFromStream(&output_stream)?;
         let size = GlobalSize(hglobal);
         let data = GlobalLock(hglobal);
         let v = slice::from_raw_parts(data as *const u8, size);

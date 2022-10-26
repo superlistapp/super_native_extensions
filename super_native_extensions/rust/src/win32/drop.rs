@@ -14,7 +14,11 @@ use windows::{
         System::{
             Com::IDataObject,
             LibraryLoader::GetModuleHandleW,
-            Ole::{IDropTarget, IDropTarget_Impl, RegisterDragDrop, RevokeDragDrop},
+            Ole::{
+                IDropTarget, IDropTarget_Impl, RegisterDragDrop, RevokeDragDrop, DROPEFFECT,
+                DROPEFFECT_NONE,
+            },
+            SystemServices::MODIFIERKEYS_FLAGS,
             Threading::{GetCurrentProcessId, GetCurrentThreadId},
         },
         UI::{
@@ -62,7 +66,7 @@ struct Session {
     is_inside: Cell<bool>,
     data_object: IDataObject,
     last_operation: Cell<DropOperation>,
-    async_result: Rc<Cell<Option<u32>>>,
+    async_result: Rc<Cell<Option<DROPEFFECT>>>,
     reader: Rc<PlatformDataReader>,
     registered_reader: RegisteredDataReader,
 }
@@ -112,7 +116,7 @@ impl PlatformDropContext {
         self.weak_self.set(weak_self.clone());
         let target: IDropTarget = DropTarget::new(self.view, weak_self).into();
         unsafe {
-            if let Err(err) = RegisterDragDrop(self.view, target) {
+            if let Err(err) = RegisterDragDrop(self.view, &target) {
                 if err.code() == E_OUTOFMEMORY {
                     eprintln!("**");
                     eprintln!("** RegisterDragDrop failed: ");
@@ -182,8 +186,8 @@ impl PlatformDropContext {
         &self,
         session: &Rc<Session>,
         pt: &POINTL,
-        _grfkeystate: u32,
-        mask: u32,
+        _grfkeystate: MODIFIERKEYS_FLAGS,
+        mask: DROPEFFECT,
         accepted_operation: Option<DropOperation>,
     ) -> NativeExtensionsResult<DropEvent> {
         let local_data = self
@@ -232,9 +236,9 @@ impl PlatformDropContext {
     fn on_drag_enter(
         &self,
         pdataobj: &Option<IDataObject>,
-        grfkeystate: u32,
+        grfkeystate: MODIFIERKEYS_FLAGS,
         pt: &POINTL,
-        pdweffect: *mut u32,
+        pdweffect: *mut DROPEFFECT,
     ) -> NativeExtensionsResult<()> {
         if self.current_session.borrow().is_some() && !self.local_dragging()? {
             // shouldn't happen
@@ -257,7 +261,7 @@ impl PlatformDropContext {
                 .current_session
                 .borrow_mut()
                 .get_or_insert_with(|| {
-                    let async_result = Rc::new(Cell::new(None));
+                    let async_result = Rc::new(Cell::new(Option::<DROPEFFECT>::None));
                     let data_object_clone = data_object.clone();
                     let async_result_clone = async_result.clone();
                     // Drop notifier invoked when reader gets destroyed. If we started
@@ -268,7 +272,7 @@ impl PlatformDropContext {
                                 data_object_clone.cast::<IDataObjectAsyncCapability>()
                             {
                                 unsafe {
-                                    data_object_async.EndOperation(S_OK, None, res).ok_log();
+                                    data_object_async.EndOperation(S_OK, None, res.0).ok_log();
                                 }
                             }
                         }
@@ -303,7 +307,7 @@ impl PlatformDropContext {
             );
             *effect = session.last_operation.get().to_platform();
         } else {
-            *effect = 0;
+            *effect = DROPEFFECT_NONE;
         }
 
         Ok(())
@@ -311,9 +315,9 @@ impl PlatformDropContext {
 
     fn on_drag_over(
         &self,
-        grfkeystate: u32,
+        grfkeystate: MODIFIERKEYS_FLAGS,
         pt: &POINTL,
-        pdweffect: *mut u32,
+        pdweffect: *mut DROPEFFECT,
     ) -> NativeExtensionsResult<()> {
         let effect = unsafe { &mut *pdweffect };
         if let Some(session) = self.current_session.borrow().as_ref().cloned() {
@@ -329,7 +333,7 @@ impl PlatformDropContext {
             );
             *effect = session.last_operation.get().to_platform();
         } else {
-            *effect = 0;
+            *effect = DROPEFFECT_NONE;
         }
         Ok(())
     }
@@ -349,9 +353,9 @@ impl PlatformDropContext {
     fn on_drop(
         &self,
         _pdataobj: &Option<IDataObject>,
-        grfkeystate: u32,
+        grfkeystate: MODIFIERKEYS_FLAGS,
         pt: &POINTL,
-        pdweffect: *mut u32,
+        pdweffect: *mut DROPEFFECT,
     ) -> NativeExtensionsResult<()> {
         let effect = unsafe { &mut *pdweffect };
         let session = self.current_session.borrow().as_ref().cloned();
@@ -396,7 +400,7 @@ impl PlatformDropContext {
             }
             self.drop_end()?;
         } else {
-            *effect = 0;
+            *effect = DROPEFFECT_NONE;
         }
         Ok(())
     }
@@ -433,16 +437,16 @@ impl IDropTarget_Impl for DropTarget {
     fn DragEnter(
         &self,
         pdataobj: &Option<IDataObject>,
-        grfkeystate: u32,
+        grfkeystate: MODIFIERKEYS_FLAGS,
         pt: &POINTL,
-        pdweffect: *mut u32,
+        pdweffect: *mut DROPEFFECT,
     ) -> windows::core::Result<()> {
         if let Some(drop_target_helper) = &self.drop_target_helper {
             unsafe {
                 drop_target_helper
                     .DragEnter(
                         self.hwnd,
-                        pdataobj,
+                        &pdataobj.clone().unwrap(),
                         pt as *const POINTL as *const _,
                         *pdweffect,
                     )
@@ -459,9 +463,9 @@ impl IDropTarget_Impl for DropTarget {
 
     fn DragOver(
         &self,
-        grfkeystate: u32,
+        grfkeystate: MODIFIERKEYS_FLAGS,
         pt: &POINTL,
-        pdweffect: *mut u32,
+        pdweffect: *mut DROPEFFECT,
     ) -> windows::core::Result<()> {
         if let Some(drop_target_helper) = &self.drop_target_helper {
             unsafe {
@@ -491,14 +495,18 @@ impl IDropTarget_Impl for DropTarget {
     fn Drop(
         &self,
         pdataobj: &Option<IDataObject>,
-        grfkeystate: u32,
+        grfkeystate: MODIFIERKEYS_FLAGS,
         pt: &POINTL,
-        pdweffect: *mut u32,
+        pdweffect: *mut DROPEFFECT,
     ) -> windows::core::Result<()> {
         if let Some(drop_target_helper) = &self.drop_target_helper {
             unsafe {
                 drop_target_helper
-                    .Drop(pdataobj, pt as *const POINTL as *const _, *pdweffect)
+                    .Drop(
+                        &pdataobj.clone().unwrap(),
+                        pt as *const POINTL as *const _,
+                        *pdweffect,
+                    )
                     .ok_log();
             }
         }

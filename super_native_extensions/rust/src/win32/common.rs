@@ -2,7 +2,8 @@ use std::{mem::size_of, os::raw::c_void, ptr::null_mut};
 
 use once_cell::sync::Lazy;
 use windows::{
-    core::{Interface, GUID, HRESULT},
+    core::{Interface, GUID, HRESULT, HSTRING},
+    s,
     Win32::{
         Foundation::{E_UNEXPECTED, HANDLE, HWND, S_OK},
         Graphics::Gdi::{
@@ -43,7 +44,7 @@ pub fn format_from_string(format: &str) -> u32 {
     if let Some(format) = format.strip_prefix(INTERNAL_PREFIX) {
         format.parse::<u32>().ok().unwrap_or(0)
     } else {
-        unsafe { RegisterClipboardFormatW(format) }
+        unsafe { RegisterClipboardFormatW(&HSTRING::from(format)) }
     }
 }
 
@@ -80,7 +81,7 @@ pub fn extract_formats(object: &IDataObject) -> windows::core::Result<Vec<FORMAT
     loop {
         let mut format = [FORMATETC::default()];
         let mut fetched = 0u32;
-        if unsafe { e.Next(&mut format, &mut fetched as *mut _) }.is_err() || fetched == 0 {
+        if unsafe { e.Next(&mut format, Some(&mut fetched as *mut _)) }.is_err() || fetched == 0 {
             break;
         }
         res.push(format[0]);
@@ -96,7 +97,7 @@ pub fn image_data_to_hbitmap(image: &ImageData) -> NativeExtensionsResult<HBITMA
             biHeight: image.height,
             biPlanes: 1,
             biBitCount: 32,
-            biCompression: BI_RGB as u32,
+            biCompression: BI_RGB,
             biSizeImage: (image.width * image.height * 4) as u32,
             biXPelsPerMeter: 0,
             biYPelsPerMeter: 0,
@@ -185,11 +186,17 @@ struct DpiFunctions {
 impl DpiFunctions {
     fn new() -> Self {
         unsafe {
-            let user_32 = LoadLibraryA("user32").unwrap();
-            let shlib = LoadLibraryA("Shcore.dll").unwrap();
+            let user_32 = LoadLibraryA(s!("user32")).unwrap();
+            let shlib = LoadLibraryA(s!("Shcore.dll")).unwrap();
             Self {
-                get_dpi_for_window: std::mem::transmute(GetProcAddress(user_32, "GetDpiForWindow")),
-                get_dpi_for_monitor: std::mem::transmute(GetProcAddress(shlib, "GetDpiForMonitor")),
+                get_dpi_for_window: std::mem::transmute(GetProcAddress(
+                    user_32,
+                    s!("GetDpiForWindow"),
+                )),
+                get_dpi_for_monitor: std::mem::transmute(GetProcAddress(
+                    shlib,
+                    s!("GetDpiForMonitor"),
+                )),
             }
         }
     }
@@ -234,7 +241,7 @@ pub fn read_stream_fully(stream: IStream) -> Vec<u8> {
             stream.Read(
                 buf.as_mut_ptr() as *mut _,
                 buf.len() as u32,
-                &mut num_read as *mut _,
+                Some(&mut num_read as *mut _),
             )
         }
         .is_err()

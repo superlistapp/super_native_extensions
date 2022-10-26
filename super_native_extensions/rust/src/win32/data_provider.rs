@@ -88,7 +88,7 @@ impl PlatformDataProvider {
     ) -> NativeExtensionsResult<()> {
         let data_object = DataObject::create(providers);
         unsafe {
-            OleSetClipboard(data_object)?;
+            OleSetClipboard(&data_object)?;
         }
         Ok(())
     }
