@@ -8,6 +8,7 @@ use std::{
 
 use gdk::{
     glib::{translate::from_glib_none, WeakRef},
+    keys::constants::B,
     prelude::StaticType,
     Display, DragAction, DragCancelReason, DragContext, Event,
 };
@@ -24,6 +25,7 @@ use crate::{
     error::{NativeExtensionsError, NativeExtensionsResult},
     log::OkLog,
     platform_impl::platform::drag_common::DropOperationExt,
+    ENGINE_CONTEXT,
 };
 
 use super::{common::surface_from_image_data, signal::Signal, DataObject};
@@ -126,11 +128,16 @@ impl Drop for Session {
 impl PlatformDragContext {
     pub fn new(
         id: PlatformDragContextId,
-        view_handle: i64,
+        engine_handle: i64,
         delegate: Weak<dyn PlatformDragContextDelegate>,
     ) -> Self {
         unsafe { gtk::set_initialized() };
-        let view: Widget = unsafe { from_glib_none(view_handle as *mut GtkWidget) };
+
+        let view = ENGINE_CONTEXT
+            .with(|c| c.get_flutter_view(engine_handle))
+            .expect("Failed to get FlutterView");
+
+        let view: Widget = unsafe { from_glib_none(view as *mut GtkWidget) };
 
         let weak = WeakRef::new();
         weak.set(Some(&view));

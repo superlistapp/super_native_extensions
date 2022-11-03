@@ -26,6 +26,7 @@ use crate::{
     log::OkLog,
     reader_manager::RegisteredDataReader,
     util::{NextId, TryGetOrInsert},
+    ENGINE_CONTEXT,
 };
 
 use super::{
@@ -52,10 +53,18 @@ struct Session {
 }
 
 impl PlatformDropContext {
-    pub fn new(id: i64, view_handle: i64, delegate: Weak<dyn PlatformDropContextDelegate>) -> Self {
+    pub fn new(
+        id: i64,
+        engine_handle: i64,
+        delegate: Weak<dyn PlatformDropContextDelegate>,
+    ) -> Self {
         unsafe { gtk::set_initialized() };
 
-        let view: Widget = unsafe { from_glib_none(view_handle as *mut GtkWidget) };
+        let view = ENGINE_CONTEXT
+            .with(|c| c.get_flutter_view(engine_handle))
+            .expect("Failed to get FlutterView");
+
+        let view: Widget = unsafe { from_glib_none(view as *mut GtkWidget) };
         let weak = WeakRef::new();
         weak.set(Some(&view));
 
