@@ -11,9 +11,12 @@ use clipboard_writer::GetClipboardWriter;
 use data_provider_manager::GetDataProviderManager;
 use drag_manager::GetDragManager;
 use drop_manager::GetDropManager;
+use flutter_engine_context::FlutterEngineContext;
 use keyboard_layout_manager::GetKeyboardLayoutDelegate;
 
-use nativeshell_core::{nativeshell_init_message_channel_context, Context, FunctionResult};
+use nativeshell_core::{
+    nativeshell_init_message_channel_context, util::Late, Context, FunctionResult,
+};
 use reader_manager::GetDataReaderManager;
 
 mod api_model;
@@ -85,6 +88,7 @@ impl DataTransferPlugin {
 
 thread_local! {
     static PLUGIN: DataTransferPlugin = DataTransferPlugin::new();
+    static ENGINE_CONTEXT: Late<FlutterEngineContext> = Late::new();
 }
 
 fn init(init_loger: bool) {
@@ -106,15 +110,19 @@ fn init(init_loger: bool) {
 }
 
 #[no_mangle]
+/// Entry point used for all non-android platforms
+#[cfg(not(target_os = "android"))]
 pub extern "C" fn super_native_extensions_init() {
     init(true);
+    ENGINE_CONTEXT.with(|c| c.set(FlutterEngineContext::new()));
 }
 
 #[cfg(target_os = "android")]
 mod android {
+    use flutter_engine_context::FlutterEngineContext;
     use once_cell::sync::OnceCell;
 
-    use crate::init;
+    use crate::{init, ENGINE_CONTEXT};
 
     pub static JAVA_VM: OnceCell<jni::JavaVM> = OnceCell::new();
     pub static CONTEXT: OnceCell<jni::objects::GlobalRef> = OnceCell::new();
@@ -130,6 +138,7 @@ mod android {
         env: jni::JNIEnv,
         _class: jni::objects::JClass,
         context: jni::objects::JObject,
+        plugin_class_loader: jni::objects::JObject,
         clip_data_helper: jni::objects::JObject,
         drag_drop_helper: jni::objects::JObject,
     ) {
@@ -148,6 +157,12 @@ mod android {
         CONTEXT.get_or_init(|| {
             env.new_global_ref(context)
                 .expect("Failed to create Context reference")
+        });
+        ENGINE_CONTEXT.with(|c| {
+            c.set(
+                FlutterEngineContext::new(&env, plugin_class_loader)
+                    .expect("Failed to create EngineContext"),
+            )
         });
         CLIP_DATA_HELPER.get_or_init(|| {
             env.new_global_ref(clip_data_helper)

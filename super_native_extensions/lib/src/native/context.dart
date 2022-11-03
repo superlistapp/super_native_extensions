@@ -24,11 +24,6 @@ void setContextOverride(MessageChannelContext context) {
 MessageChannelContext get superNativeExtensionsContext =>
     _contextOverride ?? _nativeContext;
 
-Future<int> getFlutterView() async {
-  const flutterChannel = MethodChannel('super_native_extensions');
-  return await flutterChannel.invokeMethod('getFlutterView');
-}
-
 DynamicLibrary openNativeLibrary() {
   final dylib = defaultTargetPlatform == TargetPlatform.android
       ? DynamicLibrary.open("libsuper_native_extensions.so")

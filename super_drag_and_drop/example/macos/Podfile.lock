@@ -1,21 +1,27 @@
 PODS:
+  - flutter_engine_context (0.0.1):
+    - FlutterMacOS
   - FlutterMacOS (1.0.0)
   - super_native_extensions (0.0.1):
     - FlutterMacOS
 
 DEPENDENCIES:
+  - flutter_engine_context (from `Flutter/ephemeral/.symlinks/plugins/flutter_engine_context/macos`)
   - FlutterMacOS (from `Flutter/ephemeral`)
   - super_native_extensions (from `Flutter/ephemeral/.symlinks/plugins/super_native_extensions/macos`)
 
 EXTERNAL SOURCES:
+  flutter_engine_context:
+    :path: Flutter/ephemeral/.symlinks/plugins/flutter_engine_context/macos
   FlutterMacOS:
     :path: Flutter/ephemeral
   super_native_extensions:
     :path: Flutter/ephemeral/.symlinks/plugins/super_native_extensions/macos
 
 SPEC CHECKSUMS:
-  FlutterMacOS: 57701585bf7de1b3fc2bb61f6378d73bbdea8424
-  super_native_extensions: 8650375550dd700579bf4a707c70e96bbad45df2
+  flutter_engine_context: 718995c0e998803213f527413f31388dd60c6a75
+  FlutterMacOS: 85f90bfb3f1703249cf1539e4dfbff31e8584698
+  super_native_extensions: 5d3cd46338fcbaf7eec8798f612e637ad1445e07
 
 PODFILE CHECKSUM: a884f6dd3f7494f3892ee6c81feea3a3abbf9153
 

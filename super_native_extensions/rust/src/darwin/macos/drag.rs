@@ -14,6 +14,7 @@ use crate::{
     drag_manager::{DataProviderEntry, DragSessionId, PlatformDragContextDelegate},
     error::{NativeExtensionsError, NativeExtensionsResult},
     value_promise::PromiseResult,
+    ENGINE_CONTEXT,
 };
 
 use super::{
@@ -67,12 +68,20 @@ thread_local! {
 }
 
 impl PlatformDragContext {
-    pub fn new(id: i64, view_handle: i64, delegate: Weak<dyn PlatformDragContextDelegate>) -> Self {
+    pub fn new(
+        id: i64,
+        engine_handle: i64,
+        delegate: Weak<dyn PlatformDragContextDelegate>,
+    ) -> Self {
         ONCE.call_once(prepare_flutter);
+        ONCE.call_once(prepare_flutter);
+        let view = ENGINE_CONTEXT
+            .with(|c| c.get_flutter_view(engine_handle))
+            .expect("Failed to get FlutterView");
         Self {
             id,
             delegate,
-            view: unsafe { StrongPtr::retain(view_handle as *mut _) },
+            view: unsafe { StrongPtr::retain(view) },
             last_mouse_down: RefCell::new(None),
             last_mouse_up: RefCell::new(None),
             sessions: RefCell::new(HashMap::new()),

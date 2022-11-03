@@ -111,7 +111,7 @@ impl GetDragManager for Context {
 #[derive(TryFromValue)]
 #[nativeshell(rename_all = "camelCase")]
 struct DragContextInitRequest {
-    view_handle: i64,
+    engine_handle: i64,
 }
 
 #[derive(TryFromValue)]
@@ -138,7 +138,7 @@ impl DragManager {
     ) -> NativeExtensionsResult<()> {
         let context = Rc::new(PlatformDragContext::new(
             isolate,
-            request.view_handle,
+            request.engine_handle,
             self.weak_self.clone(),
         ));
         context.assign_weak_self(Rc::downgrade(&context));

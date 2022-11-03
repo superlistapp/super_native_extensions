@@ -12,6 +12,7 @@ use crate::{
     },
     error::{NativeExtensionsError, NativeExtensionsResult},
     log::OkLog,
+    ENGINE_CONTEXT,
 };
 
 use super::{
@@ -21,7 +22,7 @@ use super::{
 
 pub struct PlatformDragContext {
     id: PlatformDragContextId,
-    view_handle: i64,
+    engine_handle: i64,
     delegate: Weak<dyn PlatformDragContextDelegate>,
     sessions: RefCell<HashMap<DragSessionId, DragSession>>,
 }
@@ -38,10 +39,14 @@ thread_local! {
 }
 
 impl PlatformDragContext {
-    pub fn new(id: i64, view_handle: i64, delegate: Weak<dyn PlatformDragContextDelegate>) -> Self {
+    pub fn new(
+        id: i64,
+        engine_handle: i64,
+        delegate: Weak<dyn PlatformDragContextDelegate>,
+    ) -> Self {
         Self {
             id,
-            view_handle,
+            engine_handle,
             delegate,
             sessions: RefCell::new(HashMap::new()),
         }
@@ -148,13 +153,15 @@ impl PlatformDragContext {
             },
         );
 
+        let view = ENGINE_CONTEXT.with(|c| c.get_flutter_view(self.engine_handle))?;
+
         let session_id: i64 = session_id.into();
         env.call_method(
             DRAG_DROP_HELPER.get().unwrap().as_obj(),
             "startDrag",
-            "(JJLandroid/content/ClipData;Landroid/graphics/Bitmap;II)V",
+            "(Lio/flutter/embedding/android/FlutterView;JLandroid/content/ClipData;Landroid/graphics/Bitmap;II)V",
             &[
-                self.view_handle.into(),
+                view.as_obj().into(),
                 session_id.into(),
                 data.into(),
                 bitmap.into(),

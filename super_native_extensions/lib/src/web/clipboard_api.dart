@@ -10,13 +10,13 @@ import 'dart:js_util' as js_util;
 @JS()
 @staticInterop
 class EventTarget {
-  external EventTarget();
+  external factory EventTarget();
 }
 
 @JS()
 @staticInterop
 class Clipboard implements EventTarget {
-  external Clipboard();
+  external factory Clipboard();
 }
 
 extension ClipboardExtension on Clipboard {
@@ -37,7 +37,7 @@ Clipboard getClipboard() {
 @JS()
 @staticInterop
 class ClipboardItem {
-  external ClipboardItem(dynamic items);
+  external factory ClipboardItem(dynamic items);
 }
 
 extension BlobExt on Blob {

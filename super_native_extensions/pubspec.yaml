@@ -17,8 +17,11 @@ dependencies:
   collection: ^1.16.0
   js: ^0.6.4
   nativeshell_core: ^0.1.0
-    # path:
+  # path:
     #   ../../rust/nativeshell_ng/core/dart
+  flutter_engine_context:
+    path:
+      ../../flutter/engine_context
 
 dev_dependencies:
   flutter_test:

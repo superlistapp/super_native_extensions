@@ -288,6 +288,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "flutter_engine_context"
+version = "0.1.0"
+dependencies = [
+ "android_logger",
+ "cocoa",
+ "jni",
+ "log",
+ "objc",
+ "once_cell",
+]
+
+[[package]]
 name = "foreign-types"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1097,6 +1109,7 @@ dependencies = [
  "cocoa",
  "core-foundation",
  "core-graphics",
+ "flutter_engine_context",
  "gdk",
  "gdk-sys",
  "glib-sys",

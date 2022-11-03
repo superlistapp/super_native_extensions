@@ -33,7 +33,7 @@ use crate::{
     error::{NativeExtensionsError, NativeExtensionsResult},
     log::OkLog,
     platform_impl::platform::common::{from_nsstring, superclass, CGAffineTransformMakeScale},
-    value_promise::PromiseResult,
+    value_promise::PromiseResult, ENGINE_CONTEXT,
 };
 
 use super::{drag_common::DropOperationExt, util::image_view_from_data, PlatformDataReader};
@@ -345,11 +345,18 @@ impl Session {
 }
 
 impl PlatformDropContext {
-    pub fn new(id: i64, view_handle: i64, delegate: Weak<dyn PlatformDropContextDelegate>) -> Self {
+    pub fn new(
+        id: i64,
+        engine_handle: i64,
+        delegate: Weak<dyn PlatformDropContextDelegate>,
+    ) -> Self {
+        let view = ENGINE_CONTEXT
+            .with(|c| c.get_flutter_view(engine_handle))
+            .expect("Failed to get FlutterView");
         Self {
             id,
             weak_self: Late::new(),
-            view: unsafe { StrongPtr::retain(view_handle as *mut _) },
+            view: unsafe { StrongPtr::retain(view) },
             delegate,
             interaction: Late::new(),
             interaction_delegate: Late::new(),
