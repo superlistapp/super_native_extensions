@@ -39,6 +39,7 @@ use crate::{
     log::OkLog,
     reader_manager::RegisteredDataReader,
     util::{DropNotifier, NextId},
+    ENGINE_CONTEXT,
 };
 
 use super::{
@@ -74,13 +75,16 @@ struct Session {
 impl PlatformDropContext {
     pub fn new(
         id: PlatformDropContextId,
-        view_handle: i64,
+        engine_handle: i64,
         delegate: Weak<dyn PlatformDropContextDelegate>,
     ) -> Self {
+        let view = ENGINE_CONTEXT
+            .with(|c| c.get_flutter_view(engine_handle))
+            .expect("Failed to get FlutterView");
         Self {
             id,
             weak_self: Late::new(),
-            view: HWND(view_handle as isize),
+            view: HWND(view),
             delegate,
             hook: Late::new(),
             next_session_id: Cell::new(0),

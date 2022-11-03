@@ -31,6 +31,7 @@ use crate::{
     error::{NativeExtensionsError, NativeExtensionsResult},
     log::OkLog,
     platform_impl::platform::data_object::DataObject,
+    ENGINE_CONTEXT,
 };
 
 use super::{
@@ -119,12 +120,16 @@ impl IDropSource_Impl for DropSource {
 impl PlatformDragContext {
     pub fn new(
         id: PlatformDragContextId,
-        view_handle: i64,
+        engine_handle: i64,
         delegate: Weak<dyn PlatformDragContextDelegate>,
     ) -> Self {
+        let view = ENGINE_CONTEXT
+            .with(|c| c.get_flutter_view(engine_handle))
+            .expect("Failed to get FlutterView");
+
         Self {
             id,
-            _view: HWND(view_handle as isize),
+            _view: HWND(view),
             delegate,
             weak_self: Late::new(),
             current_session: RefCell::new(None),
