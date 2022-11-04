@@ -23,6 +23,7 @@ use crate::{
     log::OkLog,
     reader_manager::RegisteredDataReader,
     util::{DropNotifier, NextId},
+    ENGINE_CONTEXT,
 };
 
 use super::{
@@ -32,7 +33,7 @@ use super::{
 
 pub struct PlatformDropContext {
     id: i64,
-    view_handle: i64,
+    engine_handle: i64,
     delegate: Weak<dyn PlatformDropContextDelegate>,
     next_session_id: Cell<i64>,
     current_session: RefCell<Option<Rc<Session>>>,
@@ -48,14 +49,18 @@ thread_local! {
 }
 
 impl PlatformDropContext {
-    pub fn new(id: i64, view_handle: i64, delegate: Weak<dyn PlatformDropContextDelegate>) -> Self {
-        Self {
+    pub fn new(
+        id: i64,
+        engine_handle: i64,
+        delegate: Weak<dyn PlatformDropContextDelegate>,
+    ) -> NativeExtensionsResult<Self> {
+        Ok(Self {
             id,
-            view_handle,
+            engine_handle,
             delegate,
             next_session_id: Cell::new(0),
             current_session: RefCell::new(None),
-        }
+        })
     }
 
     fn _assign_weak_self(&self, weak_self: Weak<Self>) -> NativeExtensionsResult<()> {
@@ -66,11 +71,13 @@ impl PlatformDropContext {
             .ok_or_else(|| NativeExtensionsError::OtherError("JAVA_VM not set".into()))?
             .attach_current_thread()?;
 
+        let view = ENGINE_CONTEXT.with(|c| c.get_flutter_view(self.engine_handle))?;
+
         env.call_method(
             DRAG_DROP_HELPER.get().unwrap().as_obj(),
             "registerDropHandler",
-            "(JJ)V",
-            &[self.view_handle.into(), self.id.into()],
+            "(Lio/flutter/embedding/android/FlutterView;J)V",
+            &[view.as_obj().into(), self.id.into()],
         )?;
         Ok(())
     }
@@ -193,17 +200,10 @@ impl PlatformDropContext {
         env: &JNIEnv<'a>,
         event: JObject<'a>,
     ) -> NativeExtensionsResult<Arc<DropNotifier>> {
-        let activity = env
-            .call_method(
-                DRAG_DROP_HELPER.get().unwrap().as_obj(),
-                "getActivity",
-                "(J)Landroid/app/Activity;",
-                &[self.view_handle.into()],
-            )?
-            .l()?;
+        let activity = ENGINE_CONTEXT.with(|c| c.get_activity(self.engine_handle))?;
         let permission = env
             .call_method(
-                activity,
+                activity.as_obj(),
                 "requestDragAndDropPermissions",
                 "(Landroid/view/DragEvent;)Landroid/view/DragAndDropPermissions;",
                 &[event.into()],

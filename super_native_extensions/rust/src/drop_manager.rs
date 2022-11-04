@@ -43,7 +43,7 @@ impl GetDropManager for Context {
 #[derive(TryFromValue)]
 #[nativeshell(rename_all = "camelCase")]
 struct DropContextInitRequest {
-    view_handle: i64,
+    engine_handle: i64,
 }
 
 #[derive(TryFromValue)]
@@ -185,9 +185,9 @@ impl DropManager {
     ) -> NativeExtensionsResult<()> {
         let context = Rc::new(PlatformDropContext::new(
             isolate,
-            request.view_handle,
+            request.engine_handle,
             self.weak_self.clone(),
-        ));
+        )?);
         context.assign_weak_self(Rc::downgrade(&context));
         self.contexts.borrow_mut().insert(isolate, context);
         Ok(())

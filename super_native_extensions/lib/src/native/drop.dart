@@ -1,4 +1,5 @@
 import 'package:collection/collection.dart';
+import 'package:flutter_engine_context/flutter_engine_context.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:nativeshell_core/nativeshell_core.dart';
@@ -108,9 +109,9 @@ class DropContextImpl extends DropContext {
   @override
   Future<void> initialize() async {
     WidgetsFlutterBinding.ensureInitialized();
-    final view = await getFlutterView();
     _channel.setMethodCallHandler(_handleMethodCall);
-    await _channel.invokeMethod("newContext", {'viewHandle': view});
+    final engineHandle = await FlutterEngineContext.instance.getEngineHandle();
+    await _channel.invokeMethod('newContext', {'engineHandle': engineHandle});
   }
 
   Session _sessionForId(int id) {

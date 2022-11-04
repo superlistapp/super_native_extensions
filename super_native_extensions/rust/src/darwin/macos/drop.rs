@@ -33,6 +33,7 @@ use crate::{
     },
     reader_manager::RegisteredDataReader,
     value_promise::PromiseResult,
+    ENGINE_CONTEXT,
 };
 
 use super::{
@@ -252,15 +253,20 @@ impl Session {
 }
 
 impl PlatformDropContext {
-    pub fn new(id: i64, view_handle: i64, delegate: Weak<dyn PlatformDropContextDelegate>) -> Self {
+    pub fn new(
+        id: i64,
+        engine_handle: i64,
+        delegate: Weak<dyn PlatformDropContextDelegate>,
+    ) -> NativeExtensionsResult<Self> {
         ONCE.call_once(prepare_flutter);
-        Self {
+        let view = ENGINE_CONTEXT.with(|c| c.get_flutter_view(engine_handle))?;
+        Ok(Self {
             id,
             weak_self: Late::new(),
-            view: unsafe { StrongPtr::retain(view_handle as *mut _) },
+            view: unsafe { StrongPtr::retain(view) },
             delegate,
             sessions: RefCell::new(HashMap::new()),
-        }
+        })
     }
 
     pub fn assign_weak_self(&self, weak_self: Weak<Self>) {

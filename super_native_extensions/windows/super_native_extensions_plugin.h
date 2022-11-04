@@ -12,7 +12,7 @@ class SuperNativeExtensionsPlugin : public flutter::Plugin {
 public:
   static void RegisterWithRegistrar(flutter::PluginRegistrarWindows *registrar);
 
-  SuperNativeExtensionsPlugin(HWND hwnd);
+  SuperNativeExtensionsPlugin();
 
   virtual ~SuperNativeExtensionsPlugin();
 
@@ -22,12 +22,6 @@ public:
   operator=(const SuperNativeExtensionsPlugin &) = delete;
 
 private:
-  HWND _hwnd;
-
-  // Called when a method is called on this plugin's channel from Dart.
-  void HandleMethodCall(
-      const flutter::MethodCall<flutter::EncodableValue> &method_call,
-      std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result);
 };
 
 } // namespace super_native_extensions

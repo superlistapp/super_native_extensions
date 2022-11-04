@@ -40,6 +40,7 @@ use crate::{
     platform_impl::platform::common::{superclass, to_nsstring},
     util::DropNotifier,
     value_promise::PromiseResult,
+    ENGINE_CONTEXT,
 };
 
 use super::{
@@ -402,16 +403,22 @@ impl DataProviderSessionDelegate for Session {
 }
 
 impl PlatformDragContext {
-    pub fn new(id: i64, view_handle: i64, delegate: Weak<dyn PlatformDragContextDelegate>) -> Self {
-        Self {
+    pub fn new(
+        id: i64,
+        engine_handle: i64,
+        delegate: Weak<dyn PlatformDragContextDelegate>,
+    ) -> NativeExtensionsResult<Self> {
+        let view = ENGINE_CONTEXT.with(|c| c.get_flutter_view(engine_handle))?;
+
+        Ok(Self {
             id,
             weak_self: Late::new(),
-            view: unsafe { StrongPtr::retain(view_handle as *mut _) },
+            view: unsafe { StrongPtr::retain(view) },
             delegate,
             interaction: Late::new(),
             interaction_delegate: Late::new(),
             sessions: RefCell::new(HashMap::new()),
-        }
+        })
     }
 
     pub fn assign_weak_self(&self, weak_self: Weak<Self>) {

@@ -20,37 +20,19 @@ namespace super_native_extensions {
 void SuperNativeExtensionsPlugin::RegisterWithRegistrar(
     flutter::PluginRegistrarWindows *registrar) {
 
-  super_native_extensions_init();
+  static bool initialized = false;
+  if (!initialized) {
+    super_native_extensions_init();
+    initialized = true;
+  }
 
-  auto channel =
-      std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
-          registrar->messenger(), "super_native_extensions",
-          &flutter::StandardMethodCodec::GetInstance());
-
-  auto plugin = std::make_unique<SuperNativeExtensionsPlugin>(
-      registrar->GetView()->GetNativeWindow());
-
-  channel->SetMethodCallHandler(
-      [plugin_pointer = plugin.get()](const auto &call, auto result) {
-        plugin_pointer->HandleMethodCall(call, std::move(result));
-      });
+  auto plugin = std::make_unique<SuperNativeExtensionsPlugin>();
 
   registrar->AddPlugin(std::move(plugin));
 }
 
-SuperNativeExtensionsPlugin::SuperNativeExtensionsPlugin(HWND hwnd)
-    : _hwnd(hwnd) {}
+SuperNativeExtensionsPlugin::SuperNativeExtensionsPlugin() {}
 
 SuperNativeExtensionsPlugin::~SuperNativeExtensionsPlugin() {}
-
-void SuperNativeExtensionsPlugin::HandleMethodCall(
-    const flutter::MethodCall<flutter::EncodableValue> &method_call,
-    std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result) {
-  if (method_call.method_name().compare("getFlutterView") == 0) {
-    result->Success(flutter::EncodableValue(reinterpret_cast<int64_t>(_hwnd)));
-  } else {
-    result->NotImplemented();
-  }
-}
 
 } // namespace super_native_extensions

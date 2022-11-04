@@ -1,9 +1,6 @@
 package com.superlist.super_native_extensions;
 
-import android.app.Activity;
 import android.content.ClipData;
-import android.content.Context;
-import android.content.ContextWrapper;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
@@ -12,9 +9,6 @@ import android.graphics.Paint;
 import android.graphics.Point;
 import android.view.DragEvent;
 import android.view.View;
-
-import java.util.HashMap;
-import java.util.Map;
 
 import io.flutter.embedding.android.FlutterView;
 
@@ -32,22 +26,6 @@ class SessionId {
 @SuppressWarnings("UnusedDeclaration")
 public class DragDropHelper {
     public static native boolean onDrag(DragEvent event, long dropHandlerId);
-
-    private long _nextId = 1;
-    private final Map<Long, FlutterView> flutterViewMap = new HashMap<>();
-    private final Map<Long, Activity> activityMap = new HashMap<>();
-
-    long registerFlutterView(FlutterView view, Activity activity) {
-        long id = _nextId++;
-        flutterViewMap.put(id, view);
-        activityMap.put(id, activity);
-        return id;
-    }
-
-    void unregisterFlutterView(long id) {
-        flutterViewMap.remove(id);
-        activityMap.remove(id);
-    }
 
     static class DragShadowBuilder extends View.DragShadowBuilder {
         DragShadowBuilder(Bitmap bitmap, Point touchPoint) {
@@ -73,8 +51,7 @@ public class DragDropHelper {
         }
     }
 
-    void startDrag(long viewId, long dragSessionId, ClipData clipData, Bitmap bitmap, int touchPointX, int touchPointY) {
-        FlutterView view = flutterViewMap.get(viewId);
+    void startDrag(FlutterView view, long dragSessionId, ClipData clipData, Bitmap bitmap, int touchPointX, int touchPointY) {
         final int DRAG_FLAG_GLOBAL = 1 << 8;
         final int DRAG_FLAG_GLOBAL_URI_READ = Intent.FLAG_GRANT_READ_URI_PERMISSION;
         if (view != null) {
@@ -83,10 +60,6 @@ public class DragDropHelper {
                     DRAG_FLAG_GLOBAL | DRAG_FLAG_GLOBAL_URI_READ
             );
         }
-    }
-
-    Activity getActivity(long viewId) {
-        return activityMap.get(viewId);
     }
 
     Long getSessionId(DragEvent event) {
@@ -98,13 +71,9 @@ public class DragDropHelper {
         }
     }
 
-    void registerDropHandler(long viewId, long handlerId) {
-        FlutterView view = flutterViewMap.get(viewId);
-
+    void registerDropHandler(FlutterView view, long handlerId) {
         if (view != null) {
-            view.setOnDragListener((v, event) -> {
-                return onDrag(event, handlerId);
-            });
+            view.setOnDragListener((v, event) -> onDrag(event, handlerId));
         }
     }
 }

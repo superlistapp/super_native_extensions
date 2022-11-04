@@ -1,5 +1,6 @@
 use std::{fmt::Display, io};
 
+use flutter_engine_context::FlutterEngineContextError;
 use nativeshell_core::{MethodCallError, PlatformError, Value};
 
 #[derive(Debug)]
@@ -16,6 +17,7 @@ pub enum NativeExtensionsError {
     IOError(io::Error),
     InvalidData,
     DragSessionNotFound,
+    EngineContextError(FlutterEngineContextError),
 }
 
 pub type NativeExtensionsResult<T> = Result<T, NativeExtensionsError>;
@@ -43,6 +45,7 @@ impl Display for NativeExtensionsError {
             NativeExtensionsError::IOError(e) => e.fmt(f),
             NativeExtensionsError::InvalidData => write!(f, "invalid data"),
             NativeExtensionsError::DragSessionNotFound => write!(f, "drag session not found"),
+            NativeExtensionsError::EngineContextError(e) => e.fmt(f),
         }
     }
 }
@@ -66,6 +69,7 @@ impl NativeExtensionsError {
             NativeExtensionsError::IOError(_) => "ioError".into(),
             NativeExtensionsError::InvalidData => "invalidData".into(),
             NativeExtensionsError::DragSessionNotFound => "dragSessionNotFound".into(),
+            NativeExtensionsError::EngineContextError(_) => "engineContextError".into(),
         }
     }
 }
@@ -89,5 +93,11 @@ impl From<MethodCallError> for NativeExtensionsError {
 impl From<io::Error> for NativeExtensionsError {
     fn from(e: io::Error) -> Self {
         NativeExtensionsError::IOError(e)
+    }
+}
+
+impl From<FlutterEngineContextError> for NativeExtensionsError {
+    fn from(e: FlutterEngineContextError) -> Self {
+        NativeExtensionsError::EngineContextError(e)
     }
 }

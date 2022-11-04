@@ -1,7 +1,6 @@
 import 'dart:ffi';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
 import 'package:nativeshell_core/nativeshell_core.dart';
 
 MessageChannelContext _getNativeContext() {
@@ -23,11 +22,6 @@ void setContextOverride(MessageChannelContext context) {
 
 MessageChannelContext get superNativeExtensionsContext =>
     _contextOverride ?? _nativeContext;
-
-Future<int> getFlutterView() async {
-  const flutterChannel = MethodChannel('super_native_extensions');
-  return await flutterChannel.invokeMethod('getFlutterView');
-}
 
 DynamicLibrary openNativeLibrary() {
   final dylib = defaultTargetPlatform == TargetPlatform.android
