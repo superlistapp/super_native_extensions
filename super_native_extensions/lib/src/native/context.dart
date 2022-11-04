@@ -1,7 +1,6 @@
 import 'dart:ffi';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
 import 'package:nativeshell_core/nativeshell_core.dart';
 
 MessageChannelContext _getNativeContext() {
