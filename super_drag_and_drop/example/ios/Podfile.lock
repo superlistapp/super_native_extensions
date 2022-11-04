@@ -15,7 +15,8 @@ EXTERNAL SOURCES:
 
 SPEC CHECKSUMS:
   Flutter: f04841e97a9d0b0a8025694d0796dd46242b2854
-  super_native_extensions: 9c2e10eb3f5607670f278fb8051a9958e5bb4536
+  flutter_engine_context: e6c5f2c20c309d2f4f10e2e54355f1cbfc1d9469
+  super_native_extensions: 55d087ec425f0a4af81a899705181ee51636a12d
 
 PODFILE CHECKSUM: ef19549a9bc3046e7bb7d2fab4d021637c0c58a3
 
