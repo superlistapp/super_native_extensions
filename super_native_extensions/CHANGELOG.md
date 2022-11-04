@@ -1,3 +1,8 @@
+## 0.1.6+1
+
+ - **FIX**: Broken buid on iOS with Rust 1.65.
+ - **FIX**: Workaround for Xcode warning.
+
 ## 0.1.6
 
 - Fix drop hanging on Windows
