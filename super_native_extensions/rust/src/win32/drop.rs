@@ -77,11 +77,9 @@ impl PlatformDropContext {
         id: PlatformDropContextId,
         engine_handle: i64,
         delegate: Weak<dyn PlatformDropContextDelegate>,
-    ) -> Self {
-        let view = ENGINE_CONTEXT
-            .with(|c| c.get_flutter_view(engine_handle))
-            .expect("Failed to get FlutterView");
-        Self {
+    ) -> NativeExtensionsResult<Self> {
+        let view = ENGINE_CONTEXT.with(|c| c.get_flutter_view(engine_handle))?;
+        Ok(Self {
             id,
             weak_self: Late::new(),
             view: HWND(view),
@@ -89,7 +87,7 @@ impl PlatformDropContext {
             hook: Late::new(),
             next_session_id: Cell::new(0),
             current_session: RefCell::new(None),
-        }
+        })
     }
 
     pub fn register_drop_formats(&self, _formats: &[String]) -> NativeExtensionsResult<()> {
