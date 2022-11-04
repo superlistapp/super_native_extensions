@@ -27,7 +27,11 @@ use crate::{
     ENGINE_CONTEXT,
 };
 
-use super::{common::surface_from_image_data, signal::Signal, DataObject};
+use super::{
+    common::{surface_from_image_data, synthetize_button_up},
+    signal::Signal,
+    DataObject,
+};
 
 pub struct PlatformDragContext {
     id: PlatformDragContextId,
@@ -214,6 +218,11 @@ impl PlatformDragContext {
             .as_ref()
             .cloned()
             .ok_or_else(|| NativeExtensionsError::OtherError("Missing mouse event".into()))?;
+
+        // relase event will get eaten
+        let mut release = synthetize_button_up(&event);
+        gtk::main_do_event(&mut release);
+
         let view = self.view()?;
         let mut actions = DragAction::empty();
         for operation in &request.configuration.allowed_operations {

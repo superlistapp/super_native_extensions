@@ -2,8 +2,8 @@ use std::ffi::{CStr, CString};
 
 use gdk::{
     cairo::{Format, ImageSurface},
-    glib::translate::{FromGlibPtrNone, ToGlibPtr},
-    Atom,
+    glib::translate::{FromGlibPtrNone, ToGlibPtr, ToGlibPtrMut},
+    Atom, Event, EventType,
 };
 use gdk_sys::{gdk_atom_intern, gdk_atom_name, GdkAtom};
 use glib_sys::GFALSE;
@@ -88,4 +88,15 @@ pub fn surface_from_image_data(image: ImageData) -> ImageSurface {
         image.device_pixel_ratio.unwrap_or(1.0),
     );
     res
+}
+
+pub(super) fn synthetize_button_up(event: &Event) -> Event {
+    if event.event_type() != EventType::ButtonPress {
+        panic!("Invalid event type");
+    }
+    let mut event = event.clone();
+    let e: *mut gdk_sys::GdkEvent = event.to_glib_none_mut().0;
+    let e = unsafe { &mut *e };
+    e.type_ = gdk_sys::GDK_BUTTON_RELEASE;
+    event
 }
