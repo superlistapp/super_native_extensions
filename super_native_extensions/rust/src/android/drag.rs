@@ -43,13 +43,13 @@ impl PlatformDragContext {
         id: i64,
         engine_handle: i64,
         delegate: Weak<dyn PlatformDragContextDelegate>,
-    ) -> Self {
-        Self {
+    ) -> NativeExtensionsResult<Self> {
+        Ok(Self {
             id,
             engine_handle,
             delegate,
             sessions: RefCell::new(HashMap::new()),
-        }
+        })
     }
 
     pub fn assign_weak_self(&self, weak_self: Weak<Self>) {

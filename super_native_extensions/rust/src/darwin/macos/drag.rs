@@ -72,20 +72,18 @@ impl PlatformDragContext {
         id: i64,
         engine_handle: i64,
         delegate: Weak<dyn PlatformDragContextDelegate>,
-    ) -> Self {
+    ) -> NativeExtensionsResult<Self> {
         ONCE.call_once(prepare_flutter);
         ONCE.call_once(prepare_flutter);
-        let view = ENGINE_CONTEXT
-            .with(|c| c.get_flutter_view(engine_handle))
-            .expect("Failed to get FlutterView");
-        Self {
+        let view = ENGINE_CONTEXT.with(|c| c.get_flutter_view(engine_handle))?;
+        Ok(Self {
             id,
             delegate,
             view: unsafe { StrongPtr::retain(view) },
             last_mouse_down: RefCell::new(None),
             last_mouse_up: RefCell::new(None),
             sessions: RefCell::new(HashMap::new()),
-        }
+        })
     }
 
     pub fn assign_weak_self(&self, weak_self: Weak<Self>) {

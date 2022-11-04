@@ -140,7 +140,7 @@ impl DragManager {
             isolate,
             request.engine_handle,
             self.weak_self.clone(),
-        ));
+        )?);
         context.assign_weak_self(Rc::downgrade(&context));
         self.contexts.borrow_mut().insert(isolate, context);
         Ok(())

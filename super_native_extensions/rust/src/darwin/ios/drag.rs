@@ -18,6 +18,7 @@ use core_graphics::{
     geometry::{CGPoint, CGRect, CGSize},
 };
 
+use log::info;
 use nativeshell_core::{platform::run_loop::PollSession, util::Late, Context, Value};
 use objc::{
     class,
@@ -407,11 +408,10 @@ impl PlatformDragContext {
         id: i64,
         engine_handle: i64,
         delegate: Weak<dyn PlatformDragContextDelegate>,
-    ) -> Self {
-        let view = ENGINE_CONTEXT
-            .with(|c| c.get_flutter_view(engine_handle))
-            .expect("Failed to get FlutterView");
-        Self {
+    ) -> NativeExtensionsResult<Self> {
+        let view = ENGINE_CONTEXT.with(|c| c.get_flutter_view(engine_handle))?;
+
+        Ok(Self {
             id,
             weak_self: Late::new(),
             view: unsafe { StrongPtr::retain(view) },
@@ -419,7 +419,7 @@ impl PlatformDragContext {
             interaction: Late::new(),
             interaction_delegate: Late::new(),
             sessions: RefCell::new(HashMap::new()),
-        }
+        })
     }
 
     pub fn assign_weak_self(&self, weak_self: Weak<Self>) {

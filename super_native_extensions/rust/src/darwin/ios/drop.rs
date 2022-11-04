@@ -33,7 +33,8 @@ use crate::{
     error::{NativeExtensionsError, NativeExtensionsResult},
     log::OkLog,
     platform_impl::platform::common::{from_nsstring, superclass, CGAffineTransformMakeScale},
-    value_promise::PromiseResult, ENGINE_CONTEXT,
+    value_promise::PromiseResult,
+    ENGINE_CONTEXT,
 };
 
 use super::{drag_common::DropOperationExt, util::image_view_from_data, PlatformDataReader};
@@ -349,11 +350,9 @@ impl PlatformDropContext {
         id: i64,
         engine_handle: i64,
         delegate: Weak<dyn PlatformDropContextDelegate>,
-    ) -> Self {
-        let view = ENGINE_CONTEXT
-            .with(|c| c.get_flutter_view(engine_handle))
-            .expect("Failed to get FlutterView");
-        Self {
+    ) -> NativeExtensionsResult<Self> {
+        let view = ENGINE_CONTEXT.with(|c| c.get_flutter_view(engine_handle))?;
+        Ok(Self {
             id,
             weak_self: Late::new(),
             view: unsafe { StrongPtr::retain(view) },
@@ -361,7 +360,7 @@ impl PlatformDropContext {
             interaction: Late::new(),
             interaction_delegate: Late::new(),
             sessions: RefCell::new(HashMap::new()),
-        }
+        })
     }
 
     pub fn register_drop_formats(&self, _formats: &[String]) -> NativeExtensionsResult<()> {

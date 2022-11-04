@@ -53,14 +53,14 @@ impl PlatformDropContext {
         id: i64,
         engine_handle: i64,
         delegate: Weak<dyn PlatformDropContextDelegate>,
-    ) -> Self {
-        Self {
+    ) -> NativeExtensionsResult<Self> {
+        Ok(Self {
             id,
             engine_handle,
             delegate,
             next_session_id: Cell::new(0),
             current_session: RefCell::new(None),
-        }
+        })
     }
 
     fn _assign_weak_self(&self, weak_self: Weak<Self>) -> NativeExtensionsResult<()> {
