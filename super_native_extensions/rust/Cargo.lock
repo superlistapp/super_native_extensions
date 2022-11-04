@@ -290,13 +290,12 @@ dependencies = [
 [[package]]
 name = "flutter_engine_context"
 version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bf2c39e6ac30910b9a4254e10f0f888907f1354f5fb227402c28d91926a004ae"
 dependencies = [
- "android_logger",
  "cocoa",
  "jni",
- "log",
  "objc",
- "once_cell",
 ]
 
 [[package]]
