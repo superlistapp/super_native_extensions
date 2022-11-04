@@ -72,7 +72,7 @@ impl PlatformDataReader {
                         &[clip_data.as_obj().into(), item.into(), context.into()],
                     )?
                     .l()?;
-                if formats.is_null() {
+                if env.is_same_object(formats, JObject::null())? {
                     Ok(Vec::new())
                 } else {
                     (0..env.get_array_length(*formats)?)
@@ -134,7 +134,7 @@ impl PlatformDataReader {
             )
         }
         let data = move || {
-            if data.is_null() {
+            if env.is_same_object(data, JObject::null())? {
                 Ok(Value::Null)
             } else if env.is_instance_of(data, "java/lang/CharSequence")? {
                 Ok(Value::String(env.get_string(data.into())?.into()))
@@ -198,7 +198,7 @@ impl PlatformDataReader {
         clip_data: JObject<'a>,
         source_drop_notifier: Option<Arc<DropNotifier>>,
     ) -> NativeExtensionsResult<Rc<Self>> {
-        let clip_data = if clip_data.is_null() {
+        let clip_data = if env.is_same_object(clip_data, JObject::null())? {
             None
         } else {
             Some(env.new_global_ref(clip_data)?)

@@ -77,7 +77,7 @@ impl<'a> DragEvent<'a> {
                 &[self.0.into()],
             )?
             .l()?;
-        if res.is_null() {
+        if env.is_same_object(res, JObject::null())? {
             Ok(None)
         } else {
             let session_id = env.call_method(res, "longValue", "()J", &[])?.j()?;
