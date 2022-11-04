@@ -18,7 +18,6 @@ use core_graphics::{
     geometry::{CGPoint, CGRect, CGSize},
 };
 
-use log::info;
 use nativeshell_core::{platform::run_loop::PollSession, util::Late, Context, Value};
 use objc::{
     class,
