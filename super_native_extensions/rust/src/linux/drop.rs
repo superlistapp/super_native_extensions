@@ -57,25 +57,23 @@ impl PlatformDropContext {
         id: i64,
         engine_handle: i64,
         delegate: Weak<dyn PlatformDropContextDelegate>,
-    ) -> Self {
+    ) -> NativeExtensionsResult<Self> {
         unsafe { gtk::set_initialized() };
 
-        let view = ENGINE_CONTEXT
-            .with(|c| c.get_flutter_view(engine_handle))
-            .expect("Failed to get FlutterView");
+        let view = ENGINE_CONTEXT.with(|c| c.get_flutter_view(engine_handle))?;
 
         let view: Widget = unsafe { from_glib_none(view as *mut GtkWidget) };
         let weak = WeakRef::new();
         weak.set(Some(&view));
 
-        Self {
+        Ok(Self {
             id,
             delegate,
             weak_self: Late::new(),
             view: weak,
             next_session_id: Cell::new(0),
             current_session: RefCell::new(None),
-        }
+        })
     }
 
     pub fn assign_weak_self(&self, weak_self: Weak<Self>) {

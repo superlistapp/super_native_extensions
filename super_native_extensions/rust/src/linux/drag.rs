@@ -8,7 +8,6 @@ use std::{
 
 use gdk::{
     glib::{translate::from_glib_none, WeakRef},
-    keys::constants::B,
     prelude::StaticType,
     Display, DragAction, DragCancelReason, DragContext, Event,
 };
@@ -130,19 +129,17 @@ impl PlatformDragContext {
         id: PlatformDragContextId,
         engine_handle: i64,
         delegate: Weak<dyn PlatformDragContextDelegate>,
-    ) -> Self {
+    ) -> NativeExtensionsResult<Self> {
         unsafe { gtk::set_initialized() };
 
-        let view = ENGINE_CONTEXT
-            .with(|c| c.get_flutter_view(engine_handle))
-            .expect("Failed to get FlutterView");
+        let view = ENGINE_CONTEXT.with(|c| c.get_flutter_view(engine_handle))?;
 
         let view: Widget = unsafe { from_glib_none(view as *mut GtkWidget) };
 
         let weak = WeakRef::new();
         weak.set(Some(&view));
 
-        Self {
+        Ok(Self {
             id,
             weak_self: Late::new(),
             view: weak,
@@ -150,7 +147,7 @@ impl PlatformDragContext {
             delegate,
             last_button_press_event: RefCell::new(None),
             sessions: RefCell::new(HashMap::new()),
-        }
+        })
     }
 
     pub fn assign_weak_self(&self, weak_self: Weak<Self>) {
