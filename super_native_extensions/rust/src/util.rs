@@ -56,7 +56,7 @@ impl NextId for Cell<i64> {
 
 #[allow(dead_code)]
 pub fn get_target_path(target_folder: &Path, file_name: &str) -> PathBuf {
-    let target_path = target_folder.join(&file_name);
+    let target_path = target_folder.join(file_name);
     if !target_path.exists() {
         target_path
     } else {
