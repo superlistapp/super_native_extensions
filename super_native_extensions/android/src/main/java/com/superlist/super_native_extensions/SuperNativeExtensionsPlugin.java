@@ -21,8 +21,7 @@ public class SuperNativeExtensionsPlugin implements FlutterPlugin {
     public void onAttachedToEngine(@NonNull FlutterPluginBinding flutterPluginBinding) {
         try {
             if (!nativeInitialized) {
-                init(flutterPluginBinding.getApplicationContext(),
-                        getClass().getClassLoader(), ClipDataHelper, DragDropHelper);
+                init(flutterPluginBinding.getApplicationContext(), ClipDataHelper, DragDropHelper);
                 nativeInitialized = true;
             }
         } catch (Throwable e) {
@@ -34,8 +33,9 @@ public class SuperNativeExtensionsPlugin implements FlutterPlugin {
     public void onDetachedFromEngine(@NonNull FlutterPluginBinding binding) {
     }
 
-    public static native void init(Context context, ClassLoader pluginClassLoader,
-                                   ClipDataHelper ClipDataHelper, DragDropHelper DragDropHelper);
+    public static native void init(Context context,
+                                   ClipDataHelper ClipDataHelper,
+                                   DragDropHelper DragDropHelper);
 
     static {
         System.loadLibrary("super_native_extensions");

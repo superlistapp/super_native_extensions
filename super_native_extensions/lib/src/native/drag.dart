@@ -1,6 +1,6 @@
 import 'dart:ui' as ui;
 
-import 'package:flutter_engine_context/flutter_engine_context.dart';
+import 'package:ironbird_engine_context/ironbird_engine_context.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
@@ -97,7 +97,7 @@ class DragContextImpl extends DragContext {
   @override
   Future<void> initialize() async {
     WidgetsFlutterBinding.ensureInitialized();
-    final engineHandle = await FlutterEngineContext.instance.getEngineHandle();
+    final engineHandle = await EngineContext.instance.getEngineHandle();
     _channel.setMethodCallHandler(_handleMethodCall);
     await _channel.invokeMethod('newContext', {
       'engineHandle': engineHandle,

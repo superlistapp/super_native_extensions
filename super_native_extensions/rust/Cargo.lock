@@ -288,17 +288,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "flutter_engine_context"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bf2c39e6ac30910b9a4254e10f0f888907f1354f5fb227402c28d91926a004ae"
-dependencies = [
- "cocoa",
- "jni",
- "objc",
-]
-
-[[package]]
 name = "foreign-types"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -643,6 +632,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "ironbird_engine_context"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "42832273da1cf0b0572a04ebd09971c566898c24686e1bf27d2ea19c2f049ec2"
+dependencies = [
+ "android_logger",
+ "cocoa",
+ "ironbird_jni_context",
+ "jni",
+ "log",
+ "objc",
+]
+
+[[package]]
+name = "ironbird_jni_context"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b160694bf979a12fead720a562cd58d8836dcb4053c3348fdd1940b1612ec8bd"
+dependencies = [
+ "jni",
+ "once_cell",
+]
+
+[[package]]
 name = "itoa"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -791,9 +804,9 @@ dependencies = [
 
 [[package]]
 name = "once_cell"
-version = "1.10.0"
+version = "1.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "87f3e037eac156d1775da914196f0f37741a274155e34a0b7e427c35d2a2ecb9"
+checksum = "86f0b0d4bf799edbc74508c1e8bf170ff5f41238e5f8225603ca7caaae2b7860"
 
 [[package]]
 name = "oslog"
@@ -1108,13 +1121,13 @@ dependencies = [
  "cocoa",
  "core-foundation",
  "core-graphics",
- "flutter_engine_context",
  "gdk",
  "gdk-sys",
  "glib-sys",
  "gobject-sys",
  "gtk",
  "gtk-sys",
+ "ironbird_engine_context",
  "jni",
  "log",
  "mime_guess",

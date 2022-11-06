@@ -1,5 +1,5 @@
 import 'package:collection/collection.dart';
-import 'package:flutter_engine_context/flutter_engine_context.dart';
+import 'package:ironbird_engine_context/ironbird_engine_context.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:nativeshell_core/nativeshell_core.dart';
@@ -110,7 +110,7 @@ class DropContextImpl extends DropContext {
   Future<void> initialize() async {
     WidgetsFlutterBinding.ensureInitialized();
     _channel.setMethodCallHandler(_handleMethodCall);
-    final engineHandle = await FlutterEngineContext.instance.getEngineHandle();
+    final engineHandle = await EngineContext.instance.getEngineHandle();
     await _channel.invokeMethod('newContext', {'engineHandle': engineHandle});
   }
 

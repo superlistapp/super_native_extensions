@@ -21,7 +21,7 @@ log = "0.4"
 simple_logger = "2.1"
 async-trait = "0.1"
 rand = "0.8.5"
-flutter_engine_context = "0.1.0"
+ironbird_engine_context = "0.1.0"
 
 [build-dependencies]
 serde = { version = "1.0.119", features = ["derive"] }
