@@ -1,14 +1,20 @@
 import 'dart:ffi';
+import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart';
 import 'package:nativeshell_core/nativeshell_core.dart';
 
 MessageChannelContext _getNativeContext() {
-  final dylib = openNativeLibrary();
-  final function =
-      dylib.lookup<NativeFunction<MessageChannelContextInitFunction>>(
-          "super_native_extensions_init_message_channel_context");
-  return MessageChannelContext.forInitFunction(function);
+  if (Platform.environment.containsKey('FLUTTER_TEST')) {
+    // FFI doesn't work in Flutter Tester
+    return MockMessageChannelContext();
+  } else {
+    final dylib = openNativeLibrary();
+    final function =
+        dylib.lookup<NativeFunction<MessageChannelContextInitFunction>>(
+            "super_native_extensions_init_message_channel_context");
+    return MessageChannelContext.forInitFunction(function);
+  }
 }
 
 final _nativeContext = _getNativeContext();
