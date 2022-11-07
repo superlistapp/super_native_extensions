@@ -1,3 +1,7 @@
+## 0.1.6+2
+
+ - **FIX**: Workaround for Xcode warning.
+
 ## 0.1.6+1
 
  - **FIX**: Workaround for Xcode warning.
