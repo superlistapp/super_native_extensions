@@ -4,7 +4,9 @@ use std::{
     rc::{Rc, Weak},
 };
 
-use nativeshell_core::{util::Late, Context, Value};
+use irondash_engine_context::EngineContext;
+use irondash_message_channel::{Late, Value};
+use irondash_run_loop::RunLoop;
 use windows::{
     core::implement,
     Win32::{
@@ -31,7 +33,6 @@ use crate::{
     error::{NativeExtensionsError, NativeExtensionsResult},
     log::OkLog,
     platform_impl::platform::data_object::DataObject,
-    ENGINE_CONTEXT,
 };
 
 use super::{
@@ -123,7 +124,7 @@ impl PlatformDragContext {
         engine_handle: i64,
         delegate: Weak<dyn PlatformDragContextDelegate>,
     ) -> NativeExtensionsResult<Self> {
-        let view = ENGINE_CONTEXT.with(|c| c.get_flutter_view(engine_handle))?;
+        let view = EngineContext::get()?.get_flutter_view(engine_handle)?;
 
         Ok(Self {
             id,
@@ -149,8 +150,7 @@ impl PlatformDragContext {
         session_id: DragSessionId,
     ) -> NativeExtensionsResult<()> {
         let weak_self = self.weak_self.clone();
-        Context::get()
-            .run_loop()
+        RunLoop::current()
             .schedule_next(move || {
                 if let Some(this) = weak_self.upgrade() {
                     this._start_drag(request, providers, session_id).ok_log();

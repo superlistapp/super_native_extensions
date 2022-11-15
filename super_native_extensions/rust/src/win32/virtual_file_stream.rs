@@ -6,7 +6,7 @@ use std::{
     thread,
 };
 
-use nativeshell_core::{util::Capsule, RunLoop, RunLoopSender};
+use irondash_run_loop::{util::Capsule, RunLoop, RunLoopSender};
 use windows::{
     core::{implement, Interface},
     Win32::{
@@ -28,7 +28,7 @@ use crate::{
 };
 
 struct StreamInner {
-    run_loop: Option<(RunLoopSender, Capsule<Rc<RunLoop>>)>,
+    run_loop_sender: Option<RunLoopSender>,
     reader: SegmentedQueueReader,
     size_promise: Arc<Promise<Option<i64>>>,
     error_promise: Arc<Promise<String>>,
@@ -118,9 +118,9 @@ impl Stream {
 
 impl Drop for StreamInner {
     fn drop(&mut self) {
-        if let Some((sender, mut run_loop)) = self.run_loop.take() {
+        if let Some(sender) = self.run_loop_sender.take() {
             sender.send(move || {
-                run_loop.take().unwrap().stop();
+                RunLoop::current().stop();
             });
         }
     }
@@ -142,7 +142,7 @@ impl VirtualFileStream {
     ) -> (IStream, Arc<DropNotifier>) {
         let stream = Arc::new(Stream {
             inner: Mutex::new(Some(StreamInner {
-                run_loop: None,
+                run_loop_sender: None,
                 reader,
                 size_promise,
                 error_promise,
@@ -172,10 +172,9 @@ impl VirtualFileStream {
         let promise_clone = promise.clone();
         thread::spawn(move || unsafe {
             CoInitialize(None).ok();
-            let run_loop = Rc::new(RunLoop::new());
             let stream = Arc::new(Stream {
                 inner: Mutex::new(Some(StreamInner {
-                    run_loop: Some((run_loop.new_sender(), Capsule::new(run_loop.clone()))),
+                    run_loop_sender: Some(RunLoop::current().new_sender()),
                     reader,
                     size_promise,
                     error_promise,
@@ -194,7 +193,7 @@ impl VirtualFileStream {
                 stream_clone.dispose();
             });
             promise_clone.set((Movable::new(mashalled), clean_up));
-            run_loop.run(); // will be stopped in drop
+            RunLoop::current().run(); // will be stopped in drop
             CoUninitialize();
         });
 

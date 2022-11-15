@@ -4,7 +4,7 @@ use std::{
     rc::Weak,
 };
 
-use nativeshell_core::util::Late;
+use irondash_message_channel::Late;
 use windows::{
     core::{implement, IUnknown, Interface},
     Win32::{

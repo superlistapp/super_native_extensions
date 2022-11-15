@@ -5,7 +5,9 @@ use std::{
     sync::Arc,
 };
 
-use nativeshell_core::{platform::run_loop::PollSession, util::Late, Context, Value};
+use irondash_engine_context::EngineContext;
+use irondash_message_channel::{Late, Value};
+use irondash_run_loop::{platform::PollSession, RunLoop};
 use windows::{
     core::{implement, Interface, PCWSTR},
     Win32::{
@@ -39,7 +41,6 @@ use crate::{
     log::OkLog,
     reader_manager::RegisteredDataReader,
     util::{DropNotifier, NextId},
-    ENGINE_CONTEXT,
 };
 
 use super::{
@@ -78,7 +79,7 @@ impl PlatformDropContext {
         engine_handle: i64,
         delegate: Weak<dyn PlatformDropContextDelegate>,
     ) -> NativeExtensionsResult<Self> {
-        let view = ENGINE_CONTEXT.with(|c| c.get_flutter_view(engine_handle))?;
+        let view = EngineContext::get()?.get_flutter_view(engine_handle)?;
         Ok(Self {
             id,
             weak_self: Late::new(),
@@ -106,10 +107,17 @@ impl PlatformDropContext {
         if idobject != OBJID_WINDOW.0 {
             return;
         }
-        let hook_hwnd = HOOK_TO_HWND.with(|a| a.borrow().get(&hwineventhook.0).cloned());
-        if let Some(hook_hwnd) = hook_hwnd {
-            if hook_hwnd == hwnd {
-                RevokeDragDrop(hook_hwnd).ok_log();
+        let hook_hwnd = HOOK_TO_HWND.try_with(|a| a.borrow().get(&hwineventhook.0).cloned());
+        match hook_hwnd {
+            Ok(hook_hwnd) => {
+                if let Some(hook_hwnd) = hook_hwnd {
+                    if hook_hwnd == hwnd {
+                        RevokeDragDrop(hook_hwnd).ok_log();
+                    }
+                }
+            }
+            Err(_) => {
+                // ignore - shutting down
             }
         }
     }
@@ -395,8 +403,7 @@ impl PlatformDropContext {
             }
             let mut poll_session = PollSession::new();
             while !done.get() {
-                Context::get()
-                    .run_loop()
+                RunLoop::current()
                     .platform_run_loop
                     .poll_once(&mut poll_session);
             }

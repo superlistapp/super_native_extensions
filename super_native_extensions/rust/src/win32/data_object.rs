@@ -7,7 +7,7 @@ use std::{
     sync::Arc,
 };
 
-use nativeshell_core::{platform::run_loop::PollSession, Context};
+use irondash_run_loop::{platform::PollSession, RunLoop};
 use windows::{
     core::{implement, HRESULT, HSTRING},
     Win32::{
@@ -127,8 +127,7 @@ impl DataObject {
                         return value.coerce_to_data(StringFormat::Utf16NullTerminated)
                     }
                     Some(ValuePromiseResult::Cancelled) => return None,
-                    None => Context::get()
-                        .run_loop()
+                    None => RunLoop::current()
                         .platform_run_loop
                         .poll_once(&mut poll_session),
                 }
