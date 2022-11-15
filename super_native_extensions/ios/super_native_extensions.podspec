@@ -20,10 +20,10 @@ A new Flutter plugin project.
 
   s.script_phase = {
     :name => 'Build SuperNativeExtensions Rust library',
-    :script => 'sh $PODS_TARGET_SRCROOT/../toolbox/build_pod.sh ../rust super_native_extensions',
+    :script => 'sh $PODS_TARGET_SRCROOT/../cargokit/build_pod.sh ../rust super_native_extensions',
     :execution_position=> :before_compile,
-    :input_files => ['${TARGET_TEMP_DIR}/toolbox_phony'],
-    :output_files => ['${TARGET_TEMP_DIR}/toolbox_phony_out'],
+    :input_files => ['${TARGET_TEMP_DIR}/cargokit_phony'],
+    :output_files => ['${TARGET_TEMP_DIR}/cargokit_phony_out'],
   }
   s.pod_target_xcconfig = {
     'DEFINES_MODULE' => 'YES',
