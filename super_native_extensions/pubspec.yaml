@@ -16,15 +16,8 @@ dependencies:
   ffi: ^2.0.1
   collection: ^1.16.0
   js: ^0.6.4
-  irondash_engine_context:
-    path:
-      ../../irondash/engine_context/dart
-  # nativeshell_core: ^0.1.0
-  # path:
-    #   ../../rust/nativeshell_ng/core/dart
-  irondash_message_channel:
-    path:
-      ../../irondash/message_channel/dart
+  irondash_engine_context: ^0.1.0
+  irondash_message_channel: ^0.1.0
 
 dev_dependencies:
   flutter_test:

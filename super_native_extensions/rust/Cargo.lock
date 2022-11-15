@@ -634,13 +634,17 @@ dependencies = [
 [[package]]
 name = "irondash_dart_ffi"
 version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ad05ae27a3e5a6cd785e821a742d3a4539ef3f71f9c567d44efa95e4901b596c"
 dependencies = [
  "once_cell",
 ]
 
 [[package]]
 name = "irondash_engine_context"
-version = "0.1.0"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "739903ebaab0425338be34a5c95673b0198dc33fdef2d7f121741474bed77117"
 dependencies = [
  "android_logger",
  "cocoa",
@@ -654,7 +658,9 @@ dependencies = [
 
 [[package]]
 name = "irondash_jni_context"
-version = "0.1.0"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "23f28c79ac1bd6958abf4730e4cbbbbd4d6c10e6751b9629432379dde52a3631"
 dependencies = [
  "jni",
  "once_cell",
@@ -663,6 +669,8 @@ dependencies = [
 [[package]]
 name = "irondash_message_channel"
 version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "08e56fddb698a35b2a7e76a054e0835bc307a68a5fbc5348eab2293582fcc5f7"
 dependencies = [
  "async-trait",
  "core-foundation",
@@ -676,6 +684,8 @@ dependencies = [
 [[package]]
 name = "irondash_message_channel_derive"
 version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3cc040dca601ea6a092d0c936dbe362863580c3537e4748ca6c17cbaf88cb0b7"
 dependencies = [
  "proc-macro-error",
  "proc-macro2",
@@ -686,6 +696,8 @@ dependencies = [
 [[package]]
 name = "irondash_run_loop"
 version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "22354c80e8e4df7ac22a2e02a788bf4759b7a372275a6f5dde5b3e394c4153c3"
 dependencies = [
  "core-foundation",
  "futures",
