@@ -34,9 +34,10 @@ android {
     }
 }
 
-apply from: "../toolbox/gradle/plugin.gradle"
 
-toolbox {
+apply from: "../cargokit/gradle/plugin.gradle"
+
+cargokit {
     manifestDir = "../rust"
     libname = "super_native_extensions"
 }

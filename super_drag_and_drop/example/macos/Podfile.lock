@@ -21,7 +21,7 @@ EXTERNAL SOURCES:
 SPEC CHECKSUMS:
   FlutterMacOS: 8f6f14fa908a6fb3fba0cd85dbd81ec4b251fb24
   irondash_engine_context: da62996ee25616d2f01bbeb85dc115d813359478
-  super_native_extensions: 4325f59d4bf41d417ca9567420b37f278c71cd83
+  super_native_extensions: 639855da5aaa8ef5d63f26e0889423d201ec5e19
 
 PODFILE CHECKSUM: 353c8bcc5d5b0994e508d035b5431cfe18c1dea7
 
