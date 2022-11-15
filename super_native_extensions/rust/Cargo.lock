@@ -632,26 +632,66 @@ dependencies = [
 ]
 
 [[package]]
-name = "ironbird_engine_context"
+name = "irondash_dart_ffi"
 version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "42832273da1cf0b0572a04ebd09971c566898c24686e1bf27d2ea19c2f049ec2"
 dependencies = [
- "android_logger",
- "cocoa",
- "ironbird_jni_context",
- "jni",
- "log",
- "objc",
+ "once_cell",
 ]
 
 [[package]]
-name = "ironbird_jni_context"
+name = "irondash_engine_context"
 version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b160694bf979a12fead720a562cd58d8836dcb4053c3348fdd1940b1612ec8bd"
+dependencies = [
+ "android_logger",
+ "cocoa",
+ "irondash_jni_context",
+ "irondash_run_loop",
+ "jni",
+ "log",
+ "objc",
+ "once_cell",
+]
+
+[[package]]
+name = "irondash_jni_context"
+version = "0.1.0"
 dependencies = [
  "jni",
+ "once_cell",
+]
+
+[[package]]
+name = "irondash_message_channel"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "core-foundation",
+ "irondash_dart_ffi",
+ "irondash_message_channel_derive",
+ "irondash_run_loop",
+ "objc",
+ "once_cell",
+]
+
+[[package]]
+name = "irondash_message_channel_derive"
+version = "0.1.1"
+dependencies = [
+ "proc-macro-error",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "irondash_run_loop"
+version = "0.1.0"
+dependencies = [
+ "core-foundation",
+ "futures",
+ "irondash_jni_context",
+ "log",
+ "objc",
  "once_cell",
 ]
 
@@ -756,32 +796,6 @@ checksum = "4192263c238a5f0d0c6bfd21f336a313a4ce1c450542449ca191bb657b4642ef"
 dependencies = [
  "mime",
  "unicase",
-]
-
-[[package]]
-name = "nativeshell_core"
-version = "0.1.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4b2fc16b9c4ed2e156c0c17aa38cf0c0a368e2e5ac37dfc5ccaa29571aaae43e"
-dependencies = [
- "async-trait",
- "core-foundation",
- "futures",
- "nativeshell_derive",
- "objc",
- "once_cell",
-]
-
-[[package]]
-name = "nativeshell_derive"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ff7db1761a0b8a77a95fe11182b85785757412b44fe923965127551c563c3d1a"
-dependencies = [
- "proc-macro-error",
- "proc-macro2",
- "quote",
- "syn",
 ]
 
 [[package]]
@@ -1127,11 +1141,12 @@ dependencies = [
  "gobject-sys",
  "gtk",
  "gtk-sys",
- "ironbird_engine_context",
+ "irondash_engine_context",
+ "irondash_message_channel",
+ "irondash_run_loop",
  "jni",
  "log",
  "mime_guess",
- "nativeshell_core",
  "objc",
  "once_cell",
  "oslog",

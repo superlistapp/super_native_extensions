@@ -1,12 +1,15 @@
 use std::rc::Rc;
 
 use async_trait::async_trait;
-use nativeshell_core::{
-    AsyncMethodHandler, Context, MethodCall, PlatformError, PlatformResult,
-    RegisteredAsyncMethodHandler, Value,
+use irondash_message_channel::{
+    AsyncMethodHandler, MethodCall, PlatformError, PlatformResult, RegisteredAsyncMethodHandler,
+    Value,
 };
 
-use crate::{platform_impl::platform::PlatformDataReader, reader_manager::GetDataReaderManager};
+use crate::{
+    context::Context, platform_impl::platform::PlatformDataReader,
+    reader_manager::GetDataReaderManager,
+};
 
 pub struct ClipboardReader {}
 

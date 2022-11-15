@@ -5,7 +5,7 @@ use std::{
     sync::Mutex,
 };
 
-use nativeshell_core::{util::Capsule, Context, RunLoopSender};
+use irondash_run_loop::{util::Capsule, RunLoop, RunLoopSender};
 
 pub struct DropNotifier {
     callback: Mutex<Option<Capsule<Box<dyn FnOnce()>>>>,
@@ -20,7 +20,7 @@ impl DropNotifier {
     pub fn new_with_boxed(callback: Box<dyn FnOnce()>) -> Self {
         Self {
             callback: Mutex::new(Some(Capsule::new(callback))),
-            sender: Context::get().run_loop().new_sender(),
+            sender: RunLoop::current().new_sender(),
         }
     }
 

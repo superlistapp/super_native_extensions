@@ -7,14 +7,15 @@ use std::{
 
 use async_trait::async_trait;
 
-use nativeshell_core::{
-    util::{Capsule, Late},
-    AsyncMethodHandler, AsyncMethodInvoker, Context, FinalizableHandle, IntoPlatformResult,
-    IntoValue, IsolateId, MethodCall, PlatformError, PlatformResult, RegisteredAsyncMethodHandler,
-    RunLoopSender, TryFromValue, Value,
+use irondash_message_channel::{
+    AsyncMethodHandler, AsyncMethodInvoker, FinalizableHandle, IntoPlatformResult, IntoValue,
+    IsolateId, Late, MethodCall, PlatformError, PlatformResult, RegisteredAsyncMethodHandler,
+    TryFromValue, Value,
 };
+use irondash_run_loop::{util::Capsule, RunLoop, RunLoopSender};
 
 use crate::{
+    context::Context,
     error::{NativeExtensionsError, NativeExtensionsResult},
     log::OkLog,
     platform::PlatformDataReader,
@@ -79,14 +80,14 @@ impl ReadProgress {
     {
         Self {
             _drop_notifier: drop_notifier,
-            sender: Context::get().run_loop().new_sender(),
+            sender: RunLoop::current().new_sender(),
             inner: Mutex::new(Capsule::new_with_sender(
                 ReadProgressInner {
                     cancellation_handler: None,
                     on_set_cancellation_handler: Box::new(on_set_cancellation_handler),
                     on_progress: Box::new(on_progress),
                 },
-                Context::get().run_loop().new_sender(),
+                RunLoop::current().new_sender(),
             )),
         }
     }
@@ -150,13 +151,13 @@ impl DataReaderManager {
 
     fn new_read_progress(&self, isolate_id: IsolateId, progress_id: i64) -> Arc<ReadProgress> {
         #[derive(IntoValue)]
-        #[nativeshell(rename_all = "camelCase")]
+        #[irondash(rename_all = "camelCase")]
         struct SetProgressCancellable {
             progress_id: i64,
             cancellable: bool,
         }
         #[derive(IntoValue)]
-        #[nativeshell(rename_all = "camelCase")]
+        #[irondash(rename_all = "camelCase")]
         struct ProgressUpdate {
             progress_id: i64,
             fraction: Option<f64>,
@@ -335,21 +336,21 @@ impl DataReaderManager {
 }
 
 #[derive(IntoValue, TryFromValue, Debug, Clone)]
-#[nativeshell(rename_all = "camelCase")]
+#[irondash(rename_all = "camelCase")]
 pub struct RegisteredDataReader {
     handle: DataReaderId,
     finalizable_handle: Value,
 }
 
 #[derive(TryFromValue)]
-#[nativeshell(rename_all = "camelCase")]
+#[irondash(rename_all = "camelCase")]
 struct ItemFormatsRequest {
     item_handle: i64,
     reader_handle: DataReaderId,
 }
 
 #[derive(TryFromValue)]
-#[nativeshell(rename_all = "camelCase")]
+#[irondash(rename_all = "camelCase")]
 struct ItemFormatIsSynthetizedRequest {
     item_handle: i64,
     reader_handle: DataReaderId,
@@ -357,14 +358,14 @@ struct ItemFormatIsSynthetizedRequest {
 }
 
 #[derive(TryFromValue)]
-#[nativeshell(rename_all = "camelCase")]
+#[irondash(rename_all = "camelCase")]
 struct ItemSuggestedNameRequest {
     item_handle: i64,
     reader_handle: DataReaderId,
 }
 
 #[derive(TryFromValue)]
-#[nativeshell(rename_all = "camelCase")]
+#[irondash(rename_all = "camelCase")]
 struct ItemDataRequest {
     item_handle: i64,
     reader_handle: DataReaderId,
@@ -373,7 +374,7 @@ struct ItemDataRequest {
 }
 
 #[derive(TryFromValue)]
-#[nativeshell(rename_all = "camelCase")]
+#[irondash(rename_all = "camelCase")]
 struct VirtualFileRequest {
     item_handle: i64,
     reader_handle: DataReaderId,
@@ -383,7 +384,7 @@ struct VirtualFileRequest {
 }
 
 #[derive(TryFromValue)]
-#[nativeshell(rename_all = "camelCase")]
+#[irondash(rename_all = "camelCase")]
 struct VirtualFileSupportedRequest {
     item_handle: i64,
     reader_handle: DataReaderId,

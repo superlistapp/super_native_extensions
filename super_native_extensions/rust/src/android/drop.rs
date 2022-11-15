@@ -5,25 +5,26 @@ use std::{
     sync::Arc,
 };
 
+use irondash_engine_context::EngineContext;
+use irondash_message_channel::{IsolateId, Value};
+use irondash_run_loop::RunLoop;
 use jni::{
     objects::{GlobalRef, JClass, JObject, JValue},
     sys::{jlong, jvalue},
     JNIEnv,
 };
 
-use nativeshell_core::{Context, Value};
-
 use crate::{
     android::{CONTEXT, DRAG_DROP_HELPER, JAVA_VM},
     api_model::{DropOperation, Point},
     drop_manager::{
         BaseDropEvent, DropEvent, DropItem, DropSessionId, PlatformDropContextDelegate,
+        PlatformDropContextId,
     },
     error::{NativeExtensionsError, NativeExtensionsResult},
     log::OkLog,
     reader_manager::RegisteredDataReader,
     util::{DropNotifier, NextId},
-    ENGINE_CONTEXT,
 };
 
 use super::{
@@ -32,7 +33,7 @@ use super::{
 };
 
 pub struct PlatformDropContext {
-    id: i64,
+    id: PlatformDropContextId,
     engine_handle: i64,
     delegate: Weak<dyn PlatformDropContextDelegate>,
     next_session_id: Cell<i64>,
@@ -45,12 +46,12 @@ struct Session {
 }
 
 thread_local! {
-    static CONTEXTS: RefCell<HashMap<i64, Weak<PlatformDropContext>>> = RefCell::new(HashMap::new());
+    static CONTEXTS: RefCell<HashMap<PlatformDropContextId, Weak<PlatformDropContext>>> = RefCell::new(HashMap::new());
 }
 
 impl PlatformDropContext {
     pub fn new(
-        id: i64,
+        id: PlatformDropContextId,
         engine_handle: i64,
         delegate: Weak<dyn PlatformDropContextDelegate>,
     ) -> NativeExtensionsResult<Self> {
@@ -71,13 +72,13 @@ impl PlatformDropContext {
             .ok_or_else(|| NativeExtensionsError::OtherError("JAVA_VM not set".into()))?
             .attach_current_thread()?;
 
-        let view = ENGINE_CONTEXT.with(|c| c.get_flutter_view(self.engine_handle))?;
+        let view = EngineContext::get()?.get_flutter_view(self.engine_handle)?;
 
         env.call_method(
             DRAG_DROP_HELPER.get().unwrap().as_obj(),
             "registerDropHandler",
             "(Lio/flutter/embedding/android/FlutterView;J)V",
-            &[view.as_obj().into(), self.id.into()],
+            &[view.as_obj().into(), self.id.0.into()],
         )?;
         Ok(())
     }
@@ -200,7 +201,7 @@ impl PlatformDropContext {
         env: &JNIEnv<'a>,
         event: JObject<'a>,
     ) -> NativeExtensionsResult<Arc<DropNotifier>> {
-        let activity = ENGINE_CONTEXT.with(|c| c.get_activity(self.engine_handle))?;
+        let activity = EngineContext::get()?.get_activity(self.engine_handle)?;
         let permission = env
             .call_method(
                 activity.as_obj(),
@@ -339,7 +340,7 @@ impl PlatformDropContext {
                             }),
                         );
                         while !done.get() {
-                            Context::get().run_loop().platform_run_loop.poll_once();
+                            RunLoop::current().platform_run_loop.poll_once();
                         }
                         Ok(true)
                     } else {
@@ -379,7 +380,7 @@ pub extern "C" fn Java_com_superlist_super_1native_1extensions_DragDropHelper_on
     drag_context: jlong,
 ) -> jvalue {
     let context = CONTEXTS
-        .with(|c| c.borrow().get(&drag_context).cloned())
+        .with(|c| c.borrow().get(&IsolateId(drag_context)).cloned())
         .and_then(|v| v.upgrade());
     match context {
         Some(context) => {

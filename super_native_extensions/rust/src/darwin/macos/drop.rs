@@ -11,7 +11,9 @@ use cocoa::{
     foundation::{NSArray, NSInteger, NSPoint, NSRect, NSUInteger},
 };
 
-use nativeshell_core::{platform::run_loop::PollSession, util::Late, Context, Value};
+use irondash_engine_context::EngineContext;
+use irondash_message_channel::{Late, Value};
+use irondash_run_loop::{platform::PollSession, RunLoop};
 use objc::{
     class, msg_send,
     rc::{autoreleasepool, StrongPtr},
@@ -23,7 +25,7 @@ use crate::{
     api_model::DropOperation,
     drop_manager::{
         BaseDropEvent, DropEvent, DropItem, DropSessionId, ItemPreviewRequest,
-        PlatformDropContextDelegate,
+        PlatformDropContextDelegate, PlatformDropContextId,
     },
     error::{NativeExtensionsError, NativeExtensionsResult},
     log::OkLog,
@@ -33,7 +35,6 @@ use crate::{
     },
     reader_manager::RegisteredDataReader,
     value_promise::PromiseResult,
-    ENGINE_CONTEXT,
 };
 
 use super::{
@@ -43,7 +44,7 @@ use super::{
 };
 
 pub struct PlatformDropContext {
-    id: i64,
+    id: PlatformDropContextId,
     weak_self: Late<Weak<Self>>,
     view: StrongPtr,
     delegate: Weak<dyn PlatformDropContextDelegate>,
@@ -53,7 +54,7 @@ pub struct PlatformDropContext {
 static ONCE: std::sync::Once = std::sync::Once::new();
 
 struct Session {
-    context_id: i64,
+    context_id: PlatformDropContextId,
     context_delegate: Weak<dyn PlatformDropContextDelegate>,
     context_view: StrongPtr,
     id: DropSessionId,
@@ -188,8 +189,7 @@ impl Session {
                             PromiseResult::Cancelled => break None,
                         }
                     }
-                    Context::get()
-                        .run_loop()
+                    RunLoop::current()
                         .platform_run_loop
                         .poll_once(&mut poll_session);
                 };
@@ -233,8 +233,7 @@ impl Session {
         );
         let mut poll_session = PollSession::new();
         while !done.get() {
-            Context::get()
-                .run_loop()
+            RunLoop::current()
                 .platform_run_loop
                 .poll_once(&mut poll_session);
         }
@@ -254,12 +253,12 @@ impl Session {
 
 impl PlatformDropContext {
     pub fn new(
-        id: i64,
+        id: PlatformDropContextId,
         engine_handle: i64,
         delegate: Weak<dyn PlatformDropContextDelegate>,
     ) -> NativeExtensionsResult<Self> {
         ONCE.call_once(prepare_flutter);
-        let view = ENGINE_CONTEXT.with(|c| c.get_flutter_view(engine_handle))?;
+        let view = EngineContext::get()?.get_flutter_view(engine_handle)?;
         Ok(Self {
             id,
             weak_self: Late::new(),

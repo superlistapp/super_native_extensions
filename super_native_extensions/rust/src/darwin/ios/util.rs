@@ -10,7 +10,7 @@ use core_graphics::{
     base::CGFloat,
     geometry::{CGPoint, CGRect, CGSize},
 };
-use nativeshell_core::{platform::value::ValueObjcConversion, Value};
+use irondash_message_channel::{value_darwin::ValueObjcConversion, Value};
 use objc::{class, msg_send, rc::StrongPtr, sel, sel_impl};
 
 use crate::{
@@ -158,7 +158,7 @@ pub fn register_file_representation<F>(
     unsafe {
         let () = msg_send![item_provider,
             registerFileRepresentationForTypeIdentifier:*type_identifier
-            fileOptions: if open_in_place { 1 } else { 0 } as NSInteger
+            fileOptions: i32::from(open_in_place) as NSInteger
             visibility: 0 as NSUInteger // all
             loadHandler: &*block
         ];

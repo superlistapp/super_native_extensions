@@ -1,7 +1,6 @@
 use std::{fmt::Display, io};
 
-use ironbird_engine_context::EngineContextError;
-use nativeshell_core::{MethodCallError, PlatformError, Value};
+use irondash_message_channel::{MethodCallError, PlatformError, Value};
 
 #[derive(Debug)]
 pub enum NativeExtensionsError {
@@ -17,7 +16,7 @@ pub enum NativeExtensionsError {
     IOError(io::Error),
     InvalidData,
     DragSessionNotFound,
-    EngineContextError(EngineContextError),
+    EngineContextError(irondash_engine_context::Error),
 }
 
 pub type NativeExtensionsResult<T> = Result<T, NativeExtensionsError>;
@@ -96,8 +95,8 @@ impl From<io::Error> for NativeExtensionsError {
     }
 }
 
-impl From<EngineContextError> for NativeExtensionsError {
-    fn from(e: EngineContextError) -> Self {
+impl From<irondash_engine_context::Error> for NativeExtensionsError {
+    fn from(e: irondash_engine_context::Error) -> Self {
         NativeExtensionsError::EngineContextError(e)
     }
 }

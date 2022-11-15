@@ -96,14 +96,20 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
-  ironbird_engine_context:
+  irondash_engine_context:
     dependency: transitive
     description:
-      name: ironbird_engine_context
-      sha256: e68d46fcaf1d4f92d47ebed8c7cfc04db5e004f060d31f8e93ae39d08cf3c99e
-      url: "https://pub.dev"
-    source: hosted
+      path: "/Users/Matej/Projects/super_native_extensions/super_native_extensions/../../irondash/engine_context/dart"
+      relative: false
+    source: path
     version: "0.1.1+1"
+  irondash_message_channel:
+    dependency: transitive
+    description:
+      path: "/Users/Matej/Projects/super_native_extensions/super_native_extensions/../../irondash/message_channel/dart"
+      relative: false
+    source: path
+    version: "0.0.1+1"
   js:
     dependency: transitive
     description:
@@ -144,14 +150,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.8.0"
-  nativeshell_core:
-    dependency: transitive
-    description:
-      name: nativeshell_core
-      sha256: "15ea30a01e801f27e0ffcf13a1a3027f43ca0f9f7544f9e8bfbd76a942d19414"
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.1.0"
   path:
     dependency: transitive
     description:
@@ -219,7 +217,7 @@ packages:
       path: "../../super_clipboard"
       relative: true
     source: path
-    version: "0.1.6+1"
+    version: "0.1.6+2"
   super_clipboard_example:
     dependency: "direct main"
     description:
@@ -233,14 +231,14 @@ packages:
       path: ".."
       relative: true
     source: path
-    version: "0.1.6+1"
+    version: "0.1.6+2"
   super_native_extensions:
     dependency: "direct overridden"
     description:
       path: "../../super_native_extensions"
       relative: true
     source: path
-    version: "0.1.6+1"
+    version: "0.1.6+2"
   term_glyph:
     dependency: transitive
     description:

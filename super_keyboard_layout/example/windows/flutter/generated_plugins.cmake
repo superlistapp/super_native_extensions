@@ -3,6 +3,7 @@
 #
 
 list(APPEND FLUTTER_PLUGIN_LIST
+  ironbird_engine_context
   super_native_extensions
 )
 

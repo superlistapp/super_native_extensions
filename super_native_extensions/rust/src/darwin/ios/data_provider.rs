@@ -15,10 +15,8 @@ use cocoa::{
     foundation::{NSArray, NSProcessInfo, NSURL},
 };
 
-use nativeshell_core::{
-    util::{Capsule, Late},
-    Context, IsolateId, RunLoopSender,
-};
+use irondash_message_channel::{IsolateId, Late};
+use irondash_run_loop::{spawn, util::Capsule, RunLoop, RunLoopSender};
 use objc::{
     class, msg_send,
     rc::{autoreleasepool, StrongPtr},
@@ -218,7 +216,7 @@ impl DataProviderSession {
         platform_provider: Weak<PlatformDataProvider>,
         delegate: Weak<dyn DataProviderSessionDelegate>,
     ) -> Arc<Self> {
-        let sender = Context::get().run_loop().new_sender();
+        let sender = RunLoop::current().new_sender();
         Arc::new(Self {
             state: Arc::downgrade(&state),
             _provider_handle: provider_handle,
@@ -273,7 +271,7 @@ impl DataProviderSession {
                     callback(nil, nil);
                     return;
                 }
-                Context::get().run_loop().spawn(async move {
+                spawn(async move {
                     let data = source_delegate
                         .get_lazy_data_async(source.isolate_id, id)
                         .await;

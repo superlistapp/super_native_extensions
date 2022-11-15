@@ -18,7 +18,9 @@ use core_graphics::{
     geometry::{CGPoint, CGRect, CGSize},
 };
 
-use nativeshell_core::{platform::run_loop::PollSession, util::Late, Context, Value};
+use irondash_engine_context::EngineContext;
+use irondash_message_channel::{Late, Value};
+use irondash_run_loop::{platform::PollSession, RunLoop};
 use objc::{
     class,
     declare::ClassDecl,
@@ -34,13 +36,12 @@ use crate::{
     data_provider_manager::DataProviderHandle,
     drag_manager::{
         DataProviderEntry, DragSessionId, GetAdditionalItemsResult, GetDragConfigurationResult,
-        PlatformDragContextDelegate,
+        PlatformDragContextDelegate, PlatformDragContextId,
     },
     error::{NativeExtensionsError, NativeExtensionsResult},
     platform_impl::platform::common::{superclass, to_nsstring},
     util::DropNotifier,
     value_promise::PromiseResult,
-    ENGINE_CONTEXT,
 };
 
 use super::{
@@ -50,7 +51,7 @@ use super::{
 };
 
 pub struct PlatformDragContext {
-    id: i64,
+    id: PlatformDragContextId,
     weak_self: Late<Weak<Self>>,
     view: StrongPtr,
     delegate: Weak<dyn PlatformDragContextDelegate>,
@@ -66,7 +67,7 @@ enum ImageType {
 }
 
 struct Session {
-    context_id: i64,
+    context_id: PlatformDragContextId,
     context_delegate: Weak<dyn PlatformDragContextDelegate>,
     view_container: StrongPtr,
     session_id: DragSessionId,
@@ -82,7 +83,7 @@ impl Session {
     fn new(
         context_delegate: Weak<dyn PlatformDragContextDelegate>,
         context_view: StrongPtr,
-        platform_drag_context_id: i64,
+        platform_drag_context_id: PlatformDragContextId,
         session_id: DragSessionId,
         configuration: DragConfiguration,
     ) -> Self {
@@ -194,8 +195,7 @@ impl Session {
                         PromiseResult::Cancelled => return nil,
                     }
                 }
-                Context::get()
-                    .run_loop()
+                RunLoop::current()
                     .platform_run_loop
                     .poll_once(&mut poll_session);
             }
@@ -346,8 +346,7 @@ impl Session {
         // It takes eterninty to get the UIKit cancelled notification;
         // So we do it manually slightly after the animation is done.
         let weak_self = self.weak_self.clone();
-        Context::get()
-            .run_loop()
+        RunLoop::current()
             .schedule(Duration::from_millis(600), move || {
                 if let Some(this) = weak_self.upgrade() {
                     this.cancelling();
@@ -404,11 +403,11 @@ impl DataProviderSessionDelegate for Session {
 
 impl PlatformDragContext {
     pub fn new(
-        id: i64,
+        id: PlatformDragContextId,
         engine_handle: i64,
         delegate: Weak<dyn PlatformDragContextDelegate>,
     ) -> NativeExtensionsResult<Self> {
-        let view = ENGINE_CONTEXT.with(|c| c.get_flutter_view(engine_handle))?;
+        let view = EngineContext::get()?.get_flutter_view(engine_handle)?;
 
         Ok(Self {
             id,
@@ -506,8 +505,7 @@ impl PlatformDragContext {
                         PromiseResult::Cancelled => return nil,
                     }
                 }
-                Context::get()
-                    .run_loop()
+                RunLoop::current()
                     .platform_run_loop
                     .poll_once(&mut poll_session);
             }

@@ -11,10 +11,11 @@ use std::{
 use crate::{
     api_model::{DataProviderId, DragConfiguration, DragRequest, DropOperation},
     data_provider_manager::DataProviderHandle,
-    drag_manager::{DataProviderEntry, DragSessionId, PlatformDragContextDelegate},
+    drag_manager::{
+        DataProviderEntry, DragSessionId, PlatformDragContextDelegate, PlatformDragContextId,
+    },
     error::{NativeExtensionsError, NativeExtensionsResult},
     value_promise::PromiseResult,
-    ENGINE_CONTEXT,
 };
 
 use super::{
@@ -33,7 +34,9 @@ use cocoa::{
 use core_foundation::base::CFRelease;
 use core_graphics::event::CGEventType;
 
-use nativeshell_core::{platform::run_loop::PollSession, Context, Value};
+use irondash_engine_context::EngineContext;
+use irondash_message_channel::Value;
+use irondash_run_loop::{platform::PollSession, RunLoop};
 use objc::{
     class, msg_send,
     rc::{autoreleasepool, StrongPtr},
@@ -53,7 +56,7 @@ struct DragSession {
 }
 
 pub struct PlatformDragContext {
-    id: i64,
+    id: PlatformDragContextId,
     delegate: Weak<dyn PlatformDragContextDelegate>,
     view: StrongPtr,
     last_mouse_down: RefCell<Option<StrongPtr>>,
@@ -69,13 +72,12 @@ thread_local! {
 
 impl PlatformDragContext {
     pub fn new(
-        id: i64,
+        id: PlatformDragContextId,
         engine_handle: i64,
         delegate: Weak<dyn PlatformDragContextDelegate>,
     ) -> NativeExtensionsResult<Self> {
         ONCE.call_once(prepare_flutter);
-        ONCE.call_once(prepare_flutter);
-        let view = ENGINE_CONTEXT.with(|c| c.get_flutter_view(engine_handle))?;
+        let view = EngineContext::get()?.get_flutter_view(engine_handle)?;
         Ok(Self {
             id,
             delegate,
@@ -270,8 +272,7 @@ impl PlatformDragContext {
         // Wait a bit to ensure drop site had enough time to request data.
         // Note that for file promises the drop notifier lifetime is extended
         // until the promise is fulfilled in data source.
-        Context::get()
-            .run_loop()
+        RunLoop::current()
             .schedule(Duration::from_secs(3), move || {
                 let _data_provider_handles = session._data_provider_handles;
             })
@@ -310,8 +311,7 @@ impl PlatformDragContext {
                             PromiseResult::Cancelled => return false,
                         }
                     }
-                    Context::get()
-                        .run_loop()
+                    RunLoop::current()
                         .platform_run_loop
                         .poll_once(&mut poll_session);
                 }

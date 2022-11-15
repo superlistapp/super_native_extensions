@@ -7,13 +7,15 @@ use std::{
 
 use async_trait::async_trait;
 
-use nativeshell_core::{
-    util::Late, AsyncMethodHandler, AsyncMethodInvoker, Context, IntoPlatformResult, IntoValue,
-    IsolateId, PlatformResult, RegisteredAsyncMethodHandler, TryFromValue, Value,
+use irondash_message_channel::{
+    AsyncMethodHandler, AsyncMethodInvoker, IntoPlatformResult, IntoValue, IsolateId, Late,
+    MethodCall, PlatformResult, RegisteredAsyncMethodHandler, TryFromValue, Value,
 };
+use irondash_run_loop::spawn;
 
 use crate::{
     api_model::{DataProviderId, DragConfiguration, DragItem, DragRequest, DropOperation, Point},
+    context::Context,
     data_provider_manager::{DataProviderHandle, GetDataProviderManager},
     error::{NativeExtensionsError, NativeExtensionsResult},
     log::{OkLog, OkLogUnexpected},
@@ -109,13 +111,13 @@ impl GetDragManager for Context {
 }
 
 #[derive(TryFromValue)]
-#[nativeshell(rename_all = "camelCase")]
+#[irondash(rename_all = "camelCase")]
 struct DragContextInitRequest {
     engine_handle: i64,
 }
 
 #[derive(TryFromValue)]
-#[nativeshell(rename_all = "camelCase")]
+#[irondash(rename_all = "camelCase")]
 pub struct LocalDataRequest {
     session_id: DragSessionId,
 }
@@ -189,13 +191,13 @@ impl DragManager {
         location: Point,
     ) -> NativeExtensionsResult<Option<GetDragConfigurationResult>> {
         #[derive(IntoValue)]
-        #[nativeshell(rename_all = "camelCase")]
+        #[irondash(rename_all = "camelCase")]
         struct DragConfigurationRequest {
             session_id: DragSessionId,
             location: Point,
         }
         #[derive(TryFromValue, Debug)]
-        #[nativeshell(rename_all = "camelCase")]
+        #[irondash(rename_all = "camelCase")]
         struct DragConfigurationResponse {
             configuration: Option<DragConfiguration>,
         }
@@ -232,13 +234,13 @@ impl DragManager {
         location: Point,
     ) -> NativeExtensionsResult<Option<GetAdditionalItemsResult>> {
         #[derive(IntoValue)]
-        #[nativeshell(rename_all = "camelCase")]
+        #[irondash(rename_all = "camelCase")]
         struct AdditionalItemsRequest {
             session_id: DragSessionId,
             location: Point,
         }
         #[derive(TryFromValue, Debug)]
-        #[nativeshell(rename_all = "camelCase")]
+        #[irondash(rename_all = "camelCase")]
         struct AdditionalItemsResponse {
             items: Option<Vec<DragItem>>,
         }
@@ -268,7 +270,7 @@ impl DragManager {
         location: Point,
     ) -> NativeExtensionsResult<bool> {
         #[derive(IntoValue)]
-        #[nativeshell(rename_all = "camelCase")]
+        #[irondash(rename_all = "camelCase")]
         struct LocationDraggableRequest {
             location: Point,
         }
@@ -342,7 +344,7 @@ impl AsyncMethodHandler for DragManager {
         self.invoker.set(invoker);
     }
 
-    async fn on_method_call(&self, call: nativeshell_core::MethodCall) -> PlatformResult {
+    async fn on_method_call(&self, call: MethodCall) -> PlatformResult {
         match call.method.as_str() {
             "newContext" => {
                 self.new_context(call.isolate, call.args.try_into()?)?;
@@ -375,7 +377,7 @@ impl PlatformDragContextDelegate for DragManager {
         let res_clone = res.clone();
         let weak_self = self.weak_self.clone();
         let session_id = DragSessionId(self.next_session_id.next_id());
-        Context::get().run_loop().spawn(async move {
+        spawn(async move {
             let this = weak_self.upgrade();
             if let Some(this) = this {
                 match this
@@ -407,7 +409,7 @@ impl PlatformDragContextDelegate for DragManager {
         let res = Arc::new(Promise::new());
         let res_clone = res.clone();
         let weak_self = self.weak_self.clone();
-        Context::get().run_loop().spawn(async move {
+        spawn(async move {
             let this = weak_self.upgrade();
             if let Some(this) = this {
                 match this
@@ -438,7 +440,7 @@ impl PlatformDragContextDelegate for DragManager {
         let res = Arc::new(Promise::new());
         let res_clone = res.clone();
         let weak_self = self.weak_self.clone();
-        Context::get().run_loop().spawn(async move {
+        spawn(async move {
             let this = weak_self.upgrade();
             if let Some(this) = this {
                 let draggable = this
@@ -463,7 +465,7 @@ impl PlatformDragContextDelegate for DragManager {
         screen_location: Point,
     ) {
         #[derive(IntoValue)]
-        #[nativeshell(rename_all = "camelCase")]
+        #[irondash(rename_all = "camelCase")]
         struct DragMoveRequest {
             session_id: DragSessionId,
             screen_location: Point,
@@ -488,7 +490,7 @@ impl PlatformDragContextDelegate for DragManager {
         operation: DropOperation,
     ) {
         #[derive(IntoValue)]
-        #[nativeshell(rename_all = "camelCase")]
+        #[irondash(rename_all = "camelCase")]
         struct DragEndRequest {
             session_id: DragSessionId,
             drop_operation: DropOperation,

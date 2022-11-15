@@ -20,11 +20,8 @@ use cocoa::{
     foundation::{NSArray, NSUInteger},
 };
 
-use nativeshell_core::{
-    platform::{run_loop::PollSession, value::ValueObjcConversion},
-    util::Late,
-    Context, IsolateId,
-};
+use irondash_message_channel::{value_darwin::ValueObjcConversion, IsolateId, Late};
+use irondash_run_loop::{platform::PollSession, RunLoop};
 use objc::{
     class,
     declare::ClassDecl,
@@ -270,8 +267,7 @@ impl ItemState {
                                             }
                                         }
                                         PlatformDataProvider::set_waiting_for_pasteboard_data(true);
-                                        Context::get()
-                                            .run_loop()
+                                        RunLoop::current()
                                             .platform_run_loop
                                             .poll_once(&mut poll_session);
                                         PlatformDataProvider::set_waiting_for_pasteboard_data(

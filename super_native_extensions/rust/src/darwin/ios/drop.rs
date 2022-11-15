@@ -13,7 +13,9 @@ use cocoa::{
 };
 use core_graphics::geometry::{CGPoint, CGRect};
 
-use nativeshell_core::{platform::run_loop::PollSession, util::Late, Context, Value};
+use irondash_engine_context::EngineContext;
+use irondash_message_channel::{Late, Value};
+use irondash_run_loop::{platform::PollSession, RunLoop};
 use objc::{
     class,
     declare::ClassDecl,
@@ -28,19 +30,18 @@ use crate::{
     api_model::{DropOperation, Size},
     drop_manager::{
         BaseDropEvent, DropEvent, DropItem, DropSessionId, ItemPreview, ItemPreviewRequest,
-        PlatformDropContextDelegate,
+        PlatformDropContextDelegate, PlatformDropContextId,
     },
     error::{NativeExtensionsError, NativeExtensionsResult},
     log::OkLog,
     platform_impl::platform::common::{from_nsstring, superclass, CGAffineTransformMakeScale},
     value_promise::PromiseResult,
-    ENGINE_CONTEXT,
 };
 
 use super::{drag_common::DropOperationExt, util::image_view_from_data, PlatformDataReader};
 
 pub struct PlatformDropContext {
-    id: i64,
+    id: PlatformDropContextId,
     weak_self: Late<Weak<Self>>,
     view: StrongPtr,
     delegate: Weak<dyn PlatformDropContextDelegate>,
@@ -50,7 +51,7 @@ pub struct PlatformDropContext {
 }
 
 struct Session {
-    context_id: i64,
+    context_id: PlatformDropContextId,
     context_delegate: Weak<dyn PlatformDropContextDelegate>,
     context_view: StrongPtr,
     platform_session: id,
@@ -190,8 +191,7 @@ impl Session {
         );
         let mut poll_session = PollSession::new();
         while !done.get() {
-            Context::get()
-                .run_loop()
+            RunLoop::current()
                 .platform_run_loop
                 .poll_once(&mut poll_session);
         }
@@ -337,8 +337,7 @@ impl Session {
                     PromiseResult::Cancelled => return Ok(nil),
                 }
             }
-            Context::get()
-                .run_loop()
+            RunLoop::current()
                 .platform_run_loop
                 .poll_once(&mut poll_session);
         }
@@ -347,11 +346,11 @@ impl Session {
 
 impl PlatformDropContext {
     pub fn new(
-        id: i64,
+        id: PlatformDropContextId,
         engine_handle: i64,
         delegate: Weak<dyn PlatformDropContextDelegate>,
     ) -> NativeExtensionsResult<Self> {
-        let view = ENGINE_CONTEXT.with(|c| c.get_flutter_view(engine_handle))?;
+        let view = EngineContext::get()?.get_flutter_view(engine_handle)?;
         Ok(Self {
             id,
             weak_self: Late::new(),

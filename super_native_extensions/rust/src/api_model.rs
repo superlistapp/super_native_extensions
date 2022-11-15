@@ -1,7 +1,7 @@
-use nativeshell_core::{IntoValue, TryFromValue, Value};
+use irondash_message_channel::{IntoValue, TryFromValue, Value};
 
 #[derive(Clone, Debug, Default, PartialEq, TryFromValue, IntoValue)]
-#[nativeshell(rename_all = "camelCase")]
+#[irondash(rename_all = "camelCase")]
 pub struct Rect {
     pub x: f64,
     pub y: f64,
@@ -28,21 +28,21 @@ impl Rect {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, TryFromValue, IntoValue)]
-#[nativeshell(rename_all = "camelCase")]
+#[irondash(rename_all = "camelCase")]
 pub struct Point {
     pub x: f64,
     pub y: f64,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, TryFromValue, IntoValue)]
-#[nativeshell(rename_all = "camelCase")]
+#[irondash(rename_all = "camelCase")]
 pub struct Size {
     pub width: f64,
     pub height: f64,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, TryFromValue, IntoValue)]
-#[nativeshell(rename_all = "camelCase")]
+#[irondash(rename_all = "camelCase")]
 pub struct ImageData {
     pub width: i32,
     pub height: i32,
@@ -69,16 +69,16 @@ impl From<i64> for DataProviderId {
 }
 
 #[derive(Debug, TryFromValue, IntoValue, Clone, PartialEq, Eq)]
-#[nativeshell(tag = "type", rename_all = "camelCase")]
+#[irondash(tag = "type", rename_all = "camelCase")]
 pub enum DataRepresentation {
-    #[nativeshell(rename_all = "camelCase")]
+    #[irondash(rename_all = "camelCase")]
     Simple { format: String, data: Value },
-    #[nativeshell(rename_all = "camelCase")]
+    #[irondash(rename_all = "camelCase")]
     Lazy {
         id: DataProviderValueId,
         format: String,
     },
-    #[nativeshell(rename_all = "camelCase")]
+    #[irondash(rename_all = "camelCase")]
     VirtualFile {
         id: DataProviderValueId,
         format: String,
@@ -111,7 +111,7 @@ impl DataRepresentation {
 }
 
 #[derive(Debug, TryFromValue, IntoValue, Clone, PartialEq, Eq)]
-#[nativeshell(rename_all = "camelCase")]
+#[irondash(rename_all = "camelCase")]
 pub struct DataProvider {
     pub representations: Vec<DataRepresentation>,
     pub suggested_name: Option<String>,
@@ -120,7 +120,7 @@ pub struct DataProvider {
 //
 
 #[derive(Debug, TryFromValue, IntoValue, Copy, Clone, PartialEq, Eq)]
-#[nativeshell(rename_all = "camelCase")]
+#[irondash(rename_all = "camelCase")]
 pub enum VirtualFileStorage {
     TemporaryFile,
     Memory,
@@ -129,14 +129,14 @@ pub enum VirtualFileStorage {
 //
 
 #[derive(TryFromValue, Debug)]
-#[nativeshell(rename_all = "camelCase")]
+#[irondash(rename_all = "camelCase")]
 pub struct DragImage {
     pub image_data: ImageData,
     pub source_rect: Rect,
 }
 
 #[derive(TryFromValue, Debug)]
-#[nativeshell(rename_all = "camelCase")]
+#[irondash(rename_all = "camelCase")]
 pub struct DragItem {
     pub data_provider_id: DataProviderId,
     /// optionally used on iPad during lifting (before dragging start)
@@ -146,7 +146,7 @@ pub struct DragItem {
 }
 
 #[derive(TryFromValue, Debug)]
-#[nativeshell(rename_all = "camelCase")]
+#[irondash(rename_all = "camelCase")]
 pub struct DragConfiguration {
     pub items: Vec<DragItem>,
     pub allowed_operations: Vec<DropOperation>,
@@ -161,7 +161,7 @@ impl DragConfiguration {
 }
 
 #[derive(TryFromValue)]
-#[nativeshell(rename_all = "camelCase")]
+#[irondash(rename_all = "camelCase")]
 pub struct DragRequest {
     pub configuration: DragConfiguration,
     pub combined_drag_image: Option<DragImage>,
@@ -169,7 +169,7 @@ pub struct DragRequest {
 }
 
 #[derive(Debug, TryFromValue, IntoValue, Copy, Clone, PartialEq, Eq)]
-#[nativeshell(rename_all = "camelCase")]
+#[irondash(rename_all = "camelCase")]
 pub enum DropOperation {
     None,
     UserCancelled, // macOS, windows, linux - drag cancelled by user pressing escape

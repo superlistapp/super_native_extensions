@@ -4,15 +4,15 @@ use std::{
     rc::{Rc, Weak},
 };
 
-use nativeshell_core::{
-    util::Late, Context, IntoValue, IsolateId, MethodCall, MethodCallReply, MethodHandler,
-    MethodInvoker, RegisteredMethodHandler, Value,
+use irondash_message_channel::{
+    IntoValue, IsolateId, Late, MethodCall, MethodCallReply, MethodHandler, MethodInvoker,
+    RegisteredMethodHandler, Value,
 };
 
-use crate::{log::OkLog, platform_impl::platform::PlatformKeyboardLayout};
+use crate::{context::Context, log::OkLog, platform_impl::platform::PlatformKeyboardLayout};
 
 #[derive(IntoValue, Clone)]
-#[nativeshell(rename_all = "camelCase")]
+#[irondash(rename_all = "camelCase")]
 pub struct Key {
     pub platform: i64,
     pub physical: i64,
@@ -24,7 +24,7 @@ pub struct Key {
 }
 
 #[derive(IntoValue, Clone)]
-#[nativeshell(rename_all = "camelCase")]
+#[irondash(rename_all = "camelCase")]
 pub struct KeyboardLayout {
     pub keys: Vec<Key>,
 }
