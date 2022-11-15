@@ -5,14 +5,14 @@ use std::{
 
 use async_trait::async_trait;
 use irondash_message_channel::{
-    AsyncMethodHandler, AsyncMethodInvoker, IntoPlatformResult, IsolateId, MethodCall,
-    PlatformError, PlatformResult, RegisteredAsyncMethodHandler, Value, Late,
+    AsyncMethodHandler, AsyncMethodInvoker, IntoPlatformResult, IsolateId, Late, MethodCall,
+    PlatformError, PlatformResult, RegisteredAsyncMethodHandler, Value,
 };
 
 use crate::{
-    api_model::DataProviderId, data_provider_manager::GetDataProviderManager,
+    api_model::DataProviderId, context::Context, data_provider_manager::GetDataProviderManager,
     error::NativeExtensionsResult, log::OkLog, platform_impl::platform::PlatformDataProvider,
-    util::DropNotifier, context::Context,
+    util::DropNotifier,
 };
 
 pub struct ClipboardWriter {
