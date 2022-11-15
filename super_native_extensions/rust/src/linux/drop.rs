@@ -14,7 +14,9 @@ use gtk::{
     DestDefaults, TargetList, Widget,
 };
 use gtk_sys::GtkWidget;
-use nativeshell_core::{util::Late, Context, Value};
+use irondash_engine_context::EngineContext;
+use irondash_message_channel::{Late, Value};
+use irondash_run_loop::RunLoop;
 
 use crate::{
     api_model::{DropOperation, Point},
@@ -26,7 +28,6 @@ use crate::{
     log::OkLog,
     reader_manager::RegisteredDataReader,
     util::{NextId, TryGetOrInsert},
-    ENGINE_CONTEXT,
 };
 
 use super::{
@@ -54,13 +55,13 @@ struct Session {
 
 impl PlatformDropContext {
     pub fn new(
-        id: i64,
+        id: PlatformDropContextId,
         engine_handle: i64,
         delegate: Weak<dyn PlatformDropContextDelegate>,
     ) -> NativeExtensionsResult<Self> {
         unsafe { gtk::set_initialized() };
 
-        let view = ENGINE_CONTEXT.with(|c| c.get_flutter_view(engine_handle))?;
+        let view = EngineContext::get()?.get_flutter_view(engine_handle)?;
 
         let view: Widget = unsafe { from_glib_none(view as *mut GtkWidget) };
         let weak = WeakRef::new();
@@ -93,8 +94,7 @@ impl PlatformDropContext {
                 let c = c.clone();
                 let weak_self = weak_self.clone();
                 // Ensure drag_leave comes after drag drop
-                Context::get()
-                    .run_loop()
+                RunLoop::current()
                     .schedule_next(move || {
                         if let Some(this) = weak_self.upgrade() {
                             this.drag_leave(&c, time).ok_log();
@@ -242,7 +242,7 @@ impl PlatformDropContext {
                     }),
                 );
                 while done.get().is_none() {
-                    Context::get().run_loop().platform_run_loop.poll_once();
+                    RunLoop::current().platform_run_loop.poll_once();
                 }
                 let context = context.clone();
                 let deleting = session.last_operation.get() == DropOperation::Move;
