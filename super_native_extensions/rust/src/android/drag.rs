@@ -1,7 +1,8 @@
 use std::{cell::RefCell, collections::HashMap, rc::Weak, sync::Arc};
 
+use irondash_engine_context::EngineContext;
+use irondash_message_channel::Value;
 use jni::{objects::JObject, sys::jsize, JNIEnv};
-use nativeshell_core::Value;
 
 use crate::{
     android::{DRAG_DROP_HELPER, JAVA_VM},
@@ -12,7 +13,6 @@ use crate::{
     },
     error::{NativeExtensionsError, NativeExtensionsResult},
     log::OkLog,
-    ENGINE_CONTEXT,
 };
 
 use super::{
@@ -35,12 +35,12 @@ struct DragSession {
 }
 
 thread_local! {
-    static CONTEXTS: RefCell<HashMap<i64, Weak<PlatformDragContext>>> = RefCell::new(HashMap::new());
+    static CONTEXTS: RefCell<HashMap<PlatformDragContextId, Weak<PlatformDragContext>>> = RefCell::new(HashMap::new());
 }
 
 impl PlatformDragContext {
     pub fn new(
-        id: i64,
+        id: PlatformDragContextId,
         engine_handle: i64,
         delegate: Weak<dyn PlatformDragContextDelegate>,
     ) -> NativeExtensionsResult<Self> {
@@ -153,7 +153,7 @@ impl PlatformDragContext {
             },
         );
 
-        let view = ENGINE_CONTEXT.with(|c| c.get_flutter_view(self.engine_handle))?;
+        let view = EngineContext::get()?.get_flutter_view(self.engine_handle)?;
 
         let session_id: i64 = session_id.into();
         env.call_method(

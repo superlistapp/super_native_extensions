@@ -5,22 +5,21 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use irondash_message_channel::{IsolateId, Late, Value};
+use irondash_run_loop::{util::Capsule, RunLoop, RunLoopSender};
 use jni::{
     objects::{JClass, JObject, JString},
     sys::{jobject, jsize},
     JNIEnv,
 };
 
-use nativeshell_core::{
-    util::{Capsule, Late},
-    Context, IsolateId, RunLoopSender, Value,
-};
 use once_cell::sync::Lazy;
 use url::Url;
 
 use crate::{
     android::{CONTEXT, JAVA_VM},
     api_model::{DataProvider, DataRepresentation},
+    context::Context,
     data_provider_manager::{DataProviderHandle, PlatformDataProviderDelegate},
     error::{NativeExtensionsError, NativeExtensionsResult},
     util::NextId,
@@ -90,7 +89,7 @@ impl PlatformDataProvider {
     ) -> Self {
         let id = NEXT_ID.with(|f| f.next_id());
         let mut data_providers = DATA_PROVIDERS.lock().unwrap();
-        let sender = Context::get().run_loop().new_sender();
+        let sender = RunLoop::current().new_sender();
         data_providers.insert(
             id,
             DataProviderRecord {
@@ -408,7 +407,7 @@ fn get_value(promise: Arc<ValuePromise>) -> NativeExtensionsResult<ValuePromiseR
             if let Some(result) = promise.try_take() {
                 return Ok(result);
             }
-            Context::get().run_loop().platform_run_loop.poll_once();
+            RunLoop::current().platform_run_loop.poll_once();
         }
     } else {
         Ok(promise.wait())

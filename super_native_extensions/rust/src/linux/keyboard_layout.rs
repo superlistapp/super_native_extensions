@@ -9,7 +9,7 @@ use gdk::{
     KeymapKey,
 };
 use gtk::Widget;
-use nativeshell_core::util::Late;
+use irondash_message_channel::Late;
 
 use crate::{
     keyboard_layout_manager::{Key, KeyboardLayout, KeyboardLayoutDelegate},

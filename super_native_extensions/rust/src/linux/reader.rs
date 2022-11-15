@@ -9,10 +9,9 @@ use std::{
 
 use gdk::{glib::SignalHandlerId, prelude::ObjectExt, Atom, Display, DragContext};
 use gtk::{traits::WidgetExt, Clipboard, SelectionData, Widget};
-use nativeshell_core::{
-    util::{FutureCompleter, Late},
-    Context, Value,
-};
+
+use irondash_message_channel::{Late, Value};
+use irondash_run_loop::{spawn, util::FutureCompleter};
 use url::Url;
 
 use crate::{
@@ -112,7 +111,7 @@ impl PlatformDataReader {
             })
         } else {
             let this = self.clone();
-            Context::get().run_loop().spawn(async move {
+            spawn(async move {
                 this.init().await;
             });
             None
@@ -293,7 +292,7 @@ impl WidgetReader {
     fn request_data_if_needed(&self, format: Atom, completer: FutureCompleter<SelectionData>) {
         let first = {
             let mut pending = self.pending.borrow_mut();
-            let entry = pending.entry(format.value()).or_insert(Vec::new());
+            let entry = pending.entry(format.value()).or_default();
             let first = entry.is_empty();
             entry.push(completer);
             first

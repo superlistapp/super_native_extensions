@@ -6,14 +6,14 @@ use std::{
     sync::Arc,
 };
 
+use irondash_message_channel::Value;
+use irondash_run_loop::{util::FutureCompleter, RunLoop};
 use jni::{
     objects::{GlobalRef, JObject},
     sys::{jbyte, jint},
     AttachGuard, JNIEnv,
 };
 
-use nativeshell_core::{util::FutureCompleter, Context, RunLoopSender, Value};
-use once_cell::sync::OnceCell;
 use url::Url;
 
 use crate::{
@@ -30,8 +30,6 @@ pub struct PlatformDataReader {
     // If needed enhance life of local data source
     _source_drop_notifier: Option<Arc<DropNotifier>>,
 }
-
-static RUN_LOOP_SENDER: OnceCell<RunLoopSender> = OnceCell::new();
 
 impl PlatformDataReader {
     fn get_env_and_context() -> NativeExtensionsResult<(AttachGuard<'static>, JObject<'static>)> {
@@ -115,7 +113,7 @@ impl PlatformDataReader {
     thread_local! {
         static NEXT_HANDLE: Cell<i64> = Cell::new(1);
         static PENDING:
-            RefCell<HashMap<i64,FutureCompleter<NativeExtensionsResult<Value>>>> = RefCell::new(HashMap::new());
+            RefCell<HashMap<i64,irondash_run_loop::util::FutureCompleter<NativeExtensionsResult<Value>>>> = RefCell::new(HashMap::new());
     }
 
     #[no_mangle]
@@ -126,7 +124,7 @@ impl PlatformDataReader {
         handle: jint,
         data: jni::objects::JObject,
     ) {
-        let sender = RUN_LOOP_SENDER.get().unwrap();
+        let sender = RunLoop::sender_for_main_thread();
         unsafe fn transform_slice_mut<T>(s: &mut [T]) -> &mut [jbyte] {
             std::slice::from_raw_parts_mut(
                 s.as_mut_ptr() as *mut jbyte,
@@ -161,7 +159,6 @@ impl PlatformDataReader {
         format: String,
         _progress: Option<Arc<ReadProgress>>,
     ) -> NativeExtensionsResult<Value> {
-        RUN_LOOP_SENDER.get_or_init(|| Context::get().run_loop().new_sender());
         match &self.clip_data {
             Some(clip_data) => {
                 let (future, completer) = FutureCompleter::new();

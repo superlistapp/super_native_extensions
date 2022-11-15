@@ -13,10 +13,11 @@ use cocoa::{
     base::{id, nil},
     foundation::{NSArray, NSUInteger, NSURL},
 };
-use nativeshell_core::{
-    platform::value::ValueObjcConversion,
+
+use irondash_message_channel::{value_darwin::ValueObjcConversion, Value};
+use irondash_run_loop::{
     util::{Capsule, FutureCompleter},
-    Context, Value,
+    RunLoop,
 };
 use objc::{
     class, msg_send,
@@ -222,7 +223,7 @@ impl PlatformDataReader {
     pub async fn convert_to_png(&self, data: Vec<u8>) -> NativeExtensionsResult<Value> {
         let (future, completer) = FutureCompleter::new();
         let mut completer = Capsule::new(completer);
-        let sender = Context::get().run_loop().new_sender();
+        let sender = RunLoop::current().new_sender();
         thread::spawn(move || {
             autoreleasepool(|| unsafe {
                 let data = to_nsdata(&data);
@@ -264,8 +265,7 @@ impl PlatformDataReader {
         data_type: String,
         completer: FutureCompleter<Value>,
     ) {
-        Context::get()
-            .run_loop()
+        RunLoop::current()
             .schedule_next(move || {
                 if PlatformDataProvider::is_waiting_for_pasteboard_data() {
                     // We're currently running nested run loop in which pasteboard is waiting

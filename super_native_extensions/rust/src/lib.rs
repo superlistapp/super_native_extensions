@@ -8,20 +8,19 @@ use std::ffi::c_void;
 use ::log::debug;
 use clipboard_reader::GetClipboardReader;
 use clipboard_writer::GetClipboardWriter;
+use context::Context;
 use data_provider_manager::GetDataProviderManager;
 use drag_manager::GetDragManager;
 use drop_manager::GetDropManager;
-use ironbird_engine_context::EngineContext;
 use keyboard_layout_manager::GetKeyboardLayoutDelegate;
 
-use nativeshell_core::{
-    nativeshell_init_message_channel_context, util::Late, Context, FunctionResult,
-};
+use irondash_message_channel::{irondash_init_message_channel_context, FunctionResult};
 use reader_manager::GetDataReaderManager;
 
 mod api_model;
 mod clipboard_reader;
 mod clipboard_writer;
+mod context;
 mod data_provider_manager;
 mod drag_manager;
 mod drop_manager;
@@ -88,7 +87,6 @@ impl DataTransferPlugin {
 
 thread_local! {
     static PLUGIN: DataTransferPlugin = DataTransferPlugin::new();
-    static ENGINE_CONTEXT: Late<EngineContext> = Late::new();
 }
 
 fn init(init_loger: bool) {
@@ -105,7 +103,6 @@ fn init(init_loger: bool) {
                 .ok();
         }
     }
-    ENGINE_CONTEXT.with(|c| c.set(EngineContext::new().unwrap()));
     // Lazily initialize the thread local
     PLUGIN.with(|_| {});
 }
@@ -174,5 +171,5 @@ pub extern "C" fn super_native_extensions_init_message_channel_context(
     data: *mut c_void,
 ) -> FunctionResult {
     debug!("Initializing message channel context");
-    nativeshell_init_message_channel_context(data)
+    irondash_init_message_channel_context(data)
 }

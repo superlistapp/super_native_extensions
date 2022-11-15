@@ -8,14 +8,15 @@ use std::{
 };
 
 use async_trait::async_trait;
-use nativeshell_core::{
-    util::Late, AsyncMethodHandler, AsyncMethodInvoker, Context, IntoPlatformResult, IntoValue,
-    IsolateId, MethodCall, PlatformError, PlatformResult, RegisteredAsyncMethodHandler,
-    TryFromValue, Value,
+use irondash_message_channel::{
+    AsyncMethodHandler, AsyncMethodInvoker, IntoPlatformResult, IntoValue, IsolateId, Late,
+    MethodCall, PlatformError, PlatformResult, RegisteredAsyncMethodHandler, TryFromValue, Value,
 };
+use irondash_run_loop::spawn;
 
 use crate::{
     api_model::{DataProvider, DataProviderId, DataProviderValueId},
+    context::Context,
     error::{NativeExtensionsError, NativeExtensionsResult},
     log::OkLog,
     platform_impl::platform::{platform_stream_close, platform_stream_write, PlatformDataProvider},
@@ -242,7 +243,7 @@ impl PlatformDataProviderDelegate for DataProviderManager {
         let res = Arc::new(ValuePromise::new());
         let res_clone = res.clone();
         let weak_self = self.weak_self.clone();
-        Context::get().run_loop().spawn(async move {
+        spawn(async move {
             let this = weak_self.upgrade();
             if let Some(this) = this {
                 let res = this.get_lazy_data_async(isolate_id, data_id).await;
@@ -263,7 +264,7 @@ impl PlatformDataProviderDelegate for DataProviderManager {
         value_id: DataProviderValueId,
     ) -> ValuePromiseResult {
         #[derive(IntoValue)]
-        #[nativeshell(rename_all = "camelCase")]
+        #[irondash(rename_all = "camelCase")]
         struct LazyDataRequest {
             value_id: DataProviderValueId,
         }
@@ -300,7 +301,7 @@ impl PlatformDataProviderDelegate for DataProviderManager {
             .borrow_mut()
             .insert(session_id, sesion);
         #[derive(IntoValue)]
-        #[nativeshell(rename_all = "camelCase")]
+        #[irondash(rename_all = "camelCase")]
         struct VirtualFileRequest {
             session_id: VirtualSessionId,
             virtual_file_id: DataProviderValueId,
@@ -330,33 +331,33 @@ impl PlatformDataProviderDelegate for DataProviderManager {
 }
 
 #[derive(Debug, TryFromValue)]
-#[nativeshell(rename_all = "camelCase")]
+#[irondash(rename_all = "camelCase")]
 struct VirtualFileUpdateProgress {
     session_id: VirtualSessionId,
     progress: f64,
 }
 
 #[derive(Debug, TryFromValue)]
-#[nativeshell(rename_all = "camelCase")]
+#[irondash(rename_all = "camelCase")]
 struct VirtualFileSizeKnown {
     session_id: VirtualSessionId,
     file_size: i64,
 }
 
 #[derive(Debug, TryFromValue)]
-#[nativeshell(rename_all = "camelCase")]
+#[irondash(rename_all = "camelCase")]
 struct VirtualFileComplete {
     session_id: VirtualSessionId,
 }
 
 #[derive(Debug, TryFromValue)]
-#[nativeshell(rename_all = "camelCase")]
+#[irondash(rename_all = "camelCase")]
 struct VirtualFileCancel {
     session_id: VirtualSessionId,
 }
 
 #[derive(Debug, TryFromValue)]
-#[nativeshell(rename_all = "camelCase")]
+#[irondash(rename_all = "camelCase")]
 struct VirtualFileError {
     session_id: VirtualSessionId,
     error_message: String,

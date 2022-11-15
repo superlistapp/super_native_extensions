@@ -1,6 +1,6 @@
 name: super_native_extensions
 description: Low level interface various native APIs such as clipboard and Drag and Drop. Not meant to be used directly.
-version: 0.1.6+1
+version: 0.1.6+2
 homepage: https://github.com/superlistapp/super_native_extensions
 
 environment:
@@ -16,10 +16,8 @@ dependencies:
   ffi: ^2.0.1
   collection: ^1.16.0
   js: ^0.6.4
-  ironbird_engine_context: ^0.1.0
-  nativeshell_core: ^0.1.0
-  # path:
-    #   ../../rust/nativeshell_ng/core/dart
+  irondash_engine_context: ^0.1.0
+  irondash_message_channel: ^0.1.0
 
 dev_dependencies:
   flutter_test:

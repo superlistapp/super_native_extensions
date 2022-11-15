@@ -14,7 +14,7 @@ use gtk_sys::{
     gtk_clipboard_request_uris, gtk_selection_data_get_data, gtk_selection_data_get_length,
     gtk_targets_include_text, GtkClipboard, GtkSelectionData,
 };
-use nativeshell_core::util::FutureCompleter;
+use irondash_run_loop::util::FutureCompleter;
 
 use super::common::{AtomExt, TYPE_TEXT};
 

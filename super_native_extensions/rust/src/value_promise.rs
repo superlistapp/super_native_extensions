@@ -1,6 +1,6 @@
 use std::sync::{Condvar, Mutex};
 
-use nativeshell_core::{TryFromValue, Value};
+use irondash_message_channel::{TryFromValue, Value};
 
 pub struct Promise<T> {
     data: Mutex<Option<T>>,
@@ -62,7 +62,7 @@ pub enum PromiseResult<T> {
 }
 
 #[derive(Debug, TryFromValue, PartialEq, Eq)]
-#[nativeshell(tag = "type", rename_all = "camelCase")]
+#[irondash(tag = "type", rename_all = "camelCase")]
 pub enum ValuePromiseResult {
     Ok { value: Value },
     Cancelled,

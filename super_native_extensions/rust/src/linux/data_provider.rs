@@ -8,7 +8,8 @@ use std::{
 use gdk::{Atom, Display};
 
 use gtk::{Clipboard, SelectionData, TargetList};
-use nativeshell_core::{util::Late, Context, IsolateId};
+use irondash_message_channel::{IsolateId, Late};
+use irondash_run_loop::RunLoop;
 
 use crate::{
     api_model::{DataProvider, DataProviderValueId, DataRepresentation},
@@ -124,7 +125,7 @@ impl DataObject {
                                         }
                                     }
                                 }
-                                Context::get().run_loop().platform_run_loop.poll_once();
+                                RunLoop::current().platform_run_loop.poll_once();
                             }
                         }
                     }

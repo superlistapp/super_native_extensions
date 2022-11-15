@@ -6,13 +6,15 @@ use std::{
 };
 
 use async_trait::async_trait;
-use nativeshell_core::{
-    util::Late, AsyncMethodHandler, AsyncMethodInvoker, Context, IntoPlatformResult, IntoValue,
-    IsolateId, MethodCallError, PlatformResult, RegisteredAsyncMethodHandler, TryFromValue, Value,
+use irondash_message_channel::{
+    AsyncMethodHandler, AsyncMethodInvoker, IntoPlatformResult, IntoValue, IsolateId, Late,
+    MethodCall, MethodCallError, PlatformResult, RegisteredAsyncMethodHandler, TryFromValue, Value,
 };
+use irondash_run_loop::{spawn, RunLoop};
 
 use crate::{
     api_model::{DropOperation, ImageData, Point, Rect, Size},
+    context::Context,
     drag_manager::{GetDragManager, PlatformDragContextId},
     error::{NativeExtensionsError, NativeExtensionsResult},
     log::{OkLog, OkLogUnexpected},
@@ -41,13 +43,13 @@ impl GetDropManager for Context {
 }
 
 #[derive(TryFromValue)]
-#[nativeshell(rename_all = "camelCase")]
+#[irondash(rename_all = "camelCase")]
 struct DropContextInitRequest {
     engine_handle: i64,
 }
 
 #[derive(TryFromValue)]
-#[nativeshell(rename_all = "camelCase")]
+#[irondash(rename_all = "camelCase")]
 struct RegisterDropFormatsRequest {
     formats: Vec<String>,
 }
@@ -71,7 +73,7 @@ impl From<i64> for DropItemId {
 }
 
 #[derive(IntoValue, Debug)]
-#[nativeshell(rename_all = "camelCase")]
+#[irondash(rename_all = "camelCase")]
 pub struct DropItem {
     pub item_id: DropItemId, // unique ID within session, consistent between events
     pub formats: Vec<String>,
@@ -79,7 +81,7 @@ pub struct DropItem {
 }
 
 #[derive(IntoValue, Debug)]
-#[nativeshell(rename_all = "camelCase")]
+#[irondash(rename_all = "camelCase")]
 pub struct DropEvent {
     pub session_id: DropSessionId,
     pub location_in_view: Point,
@@ -90,13 +92,13 @@ pub struct DropEvent {
 }
 
 #[derive(IntoValue, Debug)]
-#[nativeshell(rename_all = "camelCase")]
+#[irondash(rename_all = "camelCase")]
 pub struct BaseDropEvent {
     pub session_id: DropSessionId,
 }
 
 #[derive(IntoValue)]
-#[nativeshell(rename_all = "camelCase")]
+#[irondash(rename_all = "camelCase")]
 pub struct ItemPreviewRequest {
     pub session_id: DropSessionId,
     pub item_id: DropItemId,
@@ -106,7 +108,7 @@ pub struct ItemPreviewRequest {
 }
 
 #[derive(TryFromValue)]
-#[nativeshell(rename_all = "camelCase")]
+#[irondash(rename_all = "camelCase")]
 pub struct ItemPreview {
     pub destination_image: Option<ImageData>,
     pub destination_rect: Rect,
@@ -115,7 +117,7 @@ pub struct ItemPreview {
 }
 
 #[derive(TryFromValue)]
-#[nativeshell(rename_all = "camelCase")]
+#[irondash(rename_all = "camelCase")]
 pub struct ItemPreviewResponse {
     pub preview: Option<ItemPreview>,
 }
@@ -216,7 +218,7 @@ impl AsyncMethodHandler for DropManager {
         self.invoker.set(invoker);
     }
 
-    async fn on_method_call(&self, call: nativeshell_core::MethodCall) -> PlatformResult {
+    async fn on_method_call(&self, call: MethodCall) -> PlatformResult {
         match call.method.as_str() {
             "newContext" => {
                 self.new_context(call.isolate, call.args.try_into()?)?;
@@ -264,10 +266,7 @@ impl PlatformDropContextDelegate for DropManager {
                 // before dispatching any calls received during perform_drop.
                 // Not doing so would result in race condition on iOS where drop data
                 // must only be received during perform_drop.
-                Context::get()
-                    .run_loop()
-                    .schedule_next(move || res(r))
-                    .detach();
+                RunLoop::current().schedule_next(move || res(r)).detach();
             });
     }
 
@@ -303,7 +302,7 @@ impl PlatformDropContextDelegate for DropManager {
         let res = Arc::new(Promise::new());
         let res_clone = res.clone();
         let weak_self = self.weak_self.clone();
-        Context::get().run_loop().spawn(async move {
+        spawn(async move {
             let this = weak_self.upgrade();
             if let Some(this) = this {
                 let draggable = this

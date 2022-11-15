@@ -5,7 +5,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use nativeshell_core::{util::Late, IsolateId};
+use irondash_message_channel::{IsolateId, Late};
 use once_cell::sync::Lazy;
 use windows::Win32::System::Ole::OleSetClipboard;
 

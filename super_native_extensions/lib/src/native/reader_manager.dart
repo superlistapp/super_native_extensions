@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'package:nativeshell_core/nativeshell_core.dart';
+import 'package:irondash_message_channel/irondash_message_channel.dart';
 
 import 'context.dart';
 import '../reader.dart';

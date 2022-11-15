@@ -2,7 +2,7 @@ import 'dart:ffi';
 import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart';
-import 'package:nativeshell_core/nativeshell_core.dart';
+import 'package:irondash_message_channel/irondash_message_channel.dart';
 
 MessageChannelContext _getNativeContext() {
   if (Platform.environment.containsKey('FLUTTER_TEST')) {

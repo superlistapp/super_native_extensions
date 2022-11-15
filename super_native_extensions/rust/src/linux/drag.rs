@@ -14,7 +14,9 @@ use gdk::{
 
 use gtk::{prelude::DragContextExtManual, traits::WidgetExt, SelectionData, Widget};
 use gtk_sys::GtkWidget;
-use nativeshell_core::{util::Late, Context, Value};
+use irondash_engine_context::EngineContext;
+use irondash_message_channel::{Late, Value};
+use irondash_run_loop::RunLoop;
 
 use crate::{
     api_model::{DataProviderId, DragConfiguration, DragRequest, DropOperation, Point},
@@ -24,7 +26,6 @@ use crate::{
     error::{NativeExtensionsError, NativeExtensionsResult},
     log::OkLog,
     platform_impl::platform::drag_common::DropOperationExt,
-    ENGINE_CONTEXT,
 };
 
 use super::{
@@ -79,8 +80,7 @@ impl Session {
 
     fn schedule_update_position(&self) {
         let weak_self = self.weak_self.clone();
-        Context::get()
-            .run_loop()
+        RunLoop::current()
             .schedule(Duration::from_secs_f64(1.0 / 60.0), move || {
                 if let Some(this) = weak_self.upgrade() {
                     this.update_position();
@@ -136,7 +136,7 @@ impl PlatformDragContext {
     ) -> NativeExtensionsResult<Self> {
         unsafe { gtk::set_initialized() };
 
-        let view = ENGINE_CONTEXT.with(|c| c.get_flutter_view(engine_handle))?;
+        let view = EngineContext::get()?.get_flutter_view(engine_handle)?;
 
         let view: Widget = unsafe { from_glib_none(view as *mut GtkWidget) };
 

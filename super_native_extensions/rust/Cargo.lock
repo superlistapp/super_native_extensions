@@ -632,26 +632,78 @@ dependencies = [
 ]
 
 [[package]]
-name = "ironbird_engine_context"
+name = "irondash_dart_ffi"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "42832273da1cf0b0572a04ebd09971c566898c24686e1bf27d2ea19c2f049ec2"
+checksum = "ad05ae27a3e5a6cd785e821a742d3a4539ef3f71f9c567d44efa95e4901b596c"
 dependencies = [
- "android_logger",
- "cocoa",
- "ironbird_jni_context",
- "jni",
- "log",
- "objc",
+ "once_cell",
 ]
 
 [[package]]
-name = "ironbird_jni_context"
-version = "0.1.0"
+name = "irondash_engine_context"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b160694bf979a12fead720a562cd58d8836dcb4053c3348fdd1940b1612ec8bd"
+checksum = "739903ebaab0425338be34a5c95673b0198dc33fdef2d7f121741474bed77117"
+dependencies = [
+ "android_logger",
+ "cocoa",
+ "irondash_jni_context",
+ "irondash_run_loop",
+ "jni",
+ "log",
+ "objc",
+ "once_cell",
+]
+
+[[package]]
+name = "irondash_jni_context"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "23f28c79ac1bd6958abf4730e4cbbbbd4d6c10e6751b9629432379dde52a3631"
 dependencies = [
  "jni",
+ "once_cell",
+]
+
+[[package]]
+name = "irondash_message_channel"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "08e56fddb698a35b2a7e76a054e0835bc307a68a5fbc5348eab2293582fcc5f7"
+dependencies = [
+ "async-trait",
+ "core-foundation",
+ "irondash_dart_ffi",
+ "irondash_message_channel_derive",
+ "irondash_run_loop",
+ "objc",
+ "once_cell",
+]
+
+[[package]]
+name = "irondash_message_channel_derive"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3cc040dca601ea6a092d0c936dbe362863580c3537e4748ca6c17cbaf88cb0b7"
+dependencies = [
+ "proc-macro-error",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "irondash_run_loop"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "22354c80e8e4df7ac22a2e02a788bf4759b7a372275a6f5dde5b3e394c4153c3"
+dependencies = [
+ "core-foundation",
+ "futures",
+ "irondash_jni_context",
+ "log",
+ "objc",
  "once_cell",
 ]
 
@@ -756,32 +808,6 @@ checksum = "4192263c238a5f0d0c6bfd21f336a313a4ce1c450542449ca191bb657b4642ef"
 dependencies = [
  "mime",
  "unicase",
-]
-
-[[package]]
-name = "nativeshell_core"
-version = "0.1.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4b2fc16b9c4ed2e156c0c17aa38cf0c0a368e2e5ac37dfc5ccaa29571aaae43e"
-dependencies = [
- "async-trait",
- "core-foundation",
- "futures",
- "nativeshell_derive",
- "objc",
- "once_cell",
-]
-
-[[package]]
-name = "nativeshell_derive"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ff7db1761a0b8a77a95fe11182b85785757412b44fe923965127551c563c3d1a"
-dependencies = [
- "proc-macro-error",
- "proc-macro2",
- "quote",
- "syn",
 ]
 
 [[package]]
@@ -1127,11 +1153,12 @@ dependencies = [
  "gobject-sys",
  "gtk",
  "gtk-sys",
- "ironbird_engine_context",
+ "irondash_engine_context",
+ "irondash_message_channel",
+ "irondash_run_loop",
  "jni",
  "log",
  "mime_guess",
- "nativeshell_core",
  "objc",
  "once_cell",
  "oslog",

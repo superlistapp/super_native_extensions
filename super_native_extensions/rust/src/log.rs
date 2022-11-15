@@ -1,7 +1,7 @@
 use std::{fmt::Display, panic::Location};
 
+use irondash_message_channel::{MethodCallError, SendMessageError};
 use log::{Level, Record};
-use nativeshell_core::{MethodCallError, SendMessageError};
 
 use crate::error::NativeExtensionsError;
 

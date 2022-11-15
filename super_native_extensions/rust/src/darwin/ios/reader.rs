@@ -11,10 +11,10 @@ use cocoa::{
     foundation::NSArray,
 };
 
-use nativeshell_core::{
-    platform::value::ValueObjcConversion,
+use irondash_message_channel::{value_darwin::ValueObjcConversion, Value};
+use irondash_run_loop::{
     util::{Capsule, FutureCompleter},
-    Context, Value,
+    RunLoop,
 };
 use objc::{
     class, msg_send,
@@ -139,7 +139,7 @@ impl PlatformDataReader {
                 // travels between threads, must be refcounted because lock is Fn
                 let completer = Arc::new(Mutex::new(Capsule::new(completer)));
                 let provider = providers[item as usize];
-                let sender = Context::get().run_loop().new_sender();
+                let sender = RunLoop::current().new_sender();
                 let block = ConcreteBlock::new(move |data: id, _err: id| {
                     let data = Self::maybe_decode_bplist(data);
                     let data = Movable::new(StrongPtr::retain(data));
@@ -218,7 +218,7 @@ impl PlatformDataReader {
                 // travels between threads, must be refcounted because lock is Fn
                 let completer = Arc::new(Mutex::new(Capsule::new(completer)));
                 let provider = providers[item as usize];
-                let sender = Context::get().run_loop().new_sender();
+                let sender = RunLoop::current().new_sender();
                 let block = ConcreteBlock::new(move |url: id, err: id| {
                     let res = if err != nil {
                         Err(NativeExtensionsError::VirtualFileReceiveError(

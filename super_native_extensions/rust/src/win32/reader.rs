@@ -13,9 +13,10 @@ use std::{
 };
 
 use byte_slice_cast::AsSliceOf;
-use nativeshell_core::{
+use irondash_message_channel::Value;
+use irondash_run_loop::{
     util::{Capsule, FutureCompleter},
-    Context, RunLoopSender, Value,
+    RunLoop, RunLoopSender,
 };
 use rand::{distributions::Alphanumeric, Rng};
 use windows::{
@@ -221,7 +222,7 @@ impl PlatformDataReader {
         let (future, completer) = FutureCompleter::new();
 
         let mut completer = Capsule::new(completer);
-        let sender = Context::get().run_loop().new_sender();
+        let sender = RunLoop::current().new_sender();
 
         // Do the actual encoding on worker thread
         thread::spawn(move || {
@@ -455,7 +456,7 @@ impl PlatformDataReader {
             TYMED_ISTREAM => match unsafe { medium.Anonymous.pstm.as_ref() } {
                 Some(stream) => {
                     let reader = VirtualStreamReader {
-                        sender: Context::get().run_loop().new_sender(),
+                        sender: RunLoop::current().new_sender(),
                         stream: unsafe { Movable::new(stream.clone()) },
                         file_name: file_name.into(),
                         target_folder,
