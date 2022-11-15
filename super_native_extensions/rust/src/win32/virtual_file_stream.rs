@@ -1,12 +1,11 @@
 use std::{
     cell::Cell,
-    rc::Rc,
     slice,
     sync::{Arc, Mutex},
     thread,
 };
 
-use irondash_run_loop::{util::Capsule, RunLoop, RunLoopSender};
+use irondash_run_loop::{RunLoop, RunLoopSender};
 use windows::{
     core::{implement, Interface},
     Win32::{
