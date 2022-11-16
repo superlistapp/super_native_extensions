@@ -1,3 +1,7 @@
+## 0.1.7+1
+
+ - **FIX**: create phony file in BUILD_PRODUCTS_DIR.
+
 ## 0.1.7
 
  - **FEAT**: migrate to irondash (#27).
