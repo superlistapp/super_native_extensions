@@ -248,7 +248,9 @@ class _MyHomePageState extends State<MyHomePage>
               onPressed: _paste,
               style: OutlinedButton.styleFrom(
                 backgroundColor: Colors.blue.shade600,
-                foregroundColor: Colors.white,
+                // FIXME(knopp): Remove after 3.1.0 gets stable
+                // ignore: deprecated_member_use
+                primary: Colors.white,
               ),
               child: const Text('Paste')),
         ],

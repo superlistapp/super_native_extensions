@@ -1,4 +1,7 @@
 import 'dart:convert';
+// FIXME(knopp): Remove after 3.1.0 gets stable
+// ignore: unnecessary_import
+import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:collection/collection.dart';
