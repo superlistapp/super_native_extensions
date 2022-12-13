@@ -1,3 +1,7 @@
+## 0.1.7+2
+
+ - **FIX**: minor clean-ups.
+
 ## 0.1.7+1
 
  - **FIX**: create phony file in BUILD_PRODUCTS_DIR.

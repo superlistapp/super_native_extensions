@@ -1,3 +1,7 @@
+## 0.1.8+1
+
+ - **FIX**: minor clean-ups.
+
 ## 0.1.8
 
  - **FIX**: cancel mouse hover during dragging (#34).

@@ -1,3 +1,7 @@
+## 0.1.7+2
+
+ - **FIX**: minor clean-ups.
+
 ## 0.1.7+1
 
  - Update a dependency to the latest release.
