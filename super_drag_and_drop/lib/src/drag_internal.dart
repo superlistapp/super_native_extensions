@@ -130,6 +130,18 @@ abstract class _DragDetector extends StatelessWidget {
     final dragContext = _dragContext;
     if (dragContext != null) {
       final session = dragContext.newSession(pointer: pointer);
+      if (pointer != null) {
+        // Hide hover during dragging. The delay is here because there may
+        // be some move events received until system drag starts)
+        Future.delayed(const Duration(milliseconds: 50), () {
+          if (session.dragging) {
+            final event = PointerRemovedEvent(
+                pointer: pointer, kind: PointerDeviceKind.mouse);
+            RendererBinding.instance.mouseTracker
+                .updateWithEvent(event, () => HitTestResult());
+          }
+        });
+      }
       _maybeStartDragWithSession(
           dragContext, position, session, devicePixelRatio);
       return null;
