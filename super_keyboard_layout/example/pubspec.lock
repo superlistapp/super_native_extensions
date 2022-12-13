@@ -91,17 +91,19 @@ packages:
   irondash_engine_context:
     dependency: transitive
     description:
-      path: "/Users/Matej/Projects/super_native_extensions/super_native_extensions/../../irondash/engine_context/dart"
-      relative: false
-    source: path
-    version: "0.1.1+1"
+      name: irondash_engine_context
+      sha256: "18c1636c1fe53032862cdbfabb28b1a1bffaed4cf143118308618f63784b757b"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.1.0"
   irondash_message_channel:
     dependency: transitive
     description:
-      path: "/Users/Matej/Projects/super_native_extensions/super_native_extensions/../../irondash/message_channel/dart"
-      relative: false
-    source: path
-    version: "0.0.1+1"
+      name: irondash_message_channel
+      sha256: a35566b1e7c8747b7ff6c64e43f8d8fe68b6f9a9d79158d6e4147b46ab4e43b4
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.1.0"
   js:
     dependency: transitive
     description:
@@ -191,24 +193,24 @@ packages:
     dependency: transitive
     description:
       name: string_scanner
-      sha256: "862015c5db1f3f3c4ea3b94dc2490363a84262994b88902315ed74be1155612f"
+      sha256: "556692adab6cfa87322a115640c11f13cb77b3f076ddcc5d6ae3c20242bedcde"
       url: "https://pub.dev"
     source: hosted
-    version: "1.1.1"
+    version: "1.2.0"
   super_keyboard_layout:
     dependency: "direct main"
     description:
       path: ".."
       relative: true
     source: path
-    version: "0.1.6+2"
+    version: "0.1.7+1"
   super_native_extensions:
     dependency: "direct overridden"
     description:
       path: "../../super_native_extensions"
       relative: true
     source: path
-    version: "0.1.6+2"
+    version: "0.1.7+1"
   term_glyph:
     dependency: transitive
     description:
@@ -221,10 +223,10 @@ packages:
     dependency: transitive
     description:
       name: test_api
-      sha256: c9aba3b3dbfe8878845dfab5fa096eb8de7b62231baeeb1cea8e3ee81ca8c6d8
+      sha256: ad540f65f92caa91bf21dfc8ffb8c589d6e4dc0c2267818b4cc2792857706206
       url: "https://pub.dev"
     source: hosted
-    version: "0.4.15"
+    version: "0.4.16"
   vector_math:
     dependency: transitive
     description:
