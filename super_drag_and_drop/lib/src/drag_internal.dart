@@ -161,6 +161,12 @@ class _ImmediateMultiDragGestureRecognizer
     extends ImmediateMultiDragGestureRecognizer {
   int? lastPointer;
 
+  final LocationIsDraggable isLocationDraggable;
+
+  _ImmediateMultiDragGestureRecognizer({
+    required this.isLocationDraggable,
+  });
+
   @override
   void acceptGesture(int pointer) {
     lastPointer = pointer;
@@ -173,6 +179,9 @@ class _ImmediateMultiDragGestureRecognizer
         event.buttons != kPrimaryMouseButton) {
       return false;
     }
+    if (!isLocationDraggable(event.position)) {
+      return false;
+    }
     return super.isPointerAllowed(event);
   }
 }
@@ -180,10 +189,25 @@ class _ImmediateMultiDragGestureRecognizer
 class _DelayedMultiDragGestureRecognizer
     extends DelayedMultiDragGestureRecognizer {
   int? lastPointer;
+
+  final LocationIsDraggable isLocationDraggable;
+
+  _DelayedMultiDragGestureRecognizer({
+    required this.isLocationDraggable,
+  });
+
   @override
   void acceptGesture(int pointer) {
     lastPointer = pointer;
     super.acceptGesture(pointer);
+  }
+
+  @override
+  bool isPointerAllowed(PointerDownEvent event) {
+    if (!isLocationDraggable(event.position)) {
+      return false;
+    }
+    return super.isPointerAllowed(event);
   }
 }
 
@@ -191,8 +215,11 @@ class DesktopDragDetector extends _DragDetector {
   const DesktopDragDetector({
     super.key,
     required super.dragConfiguration,
+    required this.isLocationDraggable,
     required super.child,
   });
+
+  final LocationIsDraggable isLocationDraggable;
 
   @override
   Widget build(BuildContext context) {
@@ -202,7 +229,8 @@ class DesktopDragDetector extends _DragDetector {
         _ImmediateMultiDragGestureRecognizer:
             GestureRecognizerFactoryWithHandlers<
                     _ImmediateMultiDragGestureRecognizer>(
-                () => _ImmediateMultiDragGestureRecognizer(), (recognizer) {
+                () => _ImmediateMultiDragGestureRecognizer(
+                    isLocationDraggable: isLocationDraggable), (recognizer) {
           recognizer.onStart = (offset) =>
               maybeStartDrag(recognizer.lastPointer, offset, devicePixelRatio);
         })
@@ -241,8 +269,11 @@ class MobileDragDetector extends _DragDetector {
   const MobileDragDetector({
     super.key,
     required super.dragConfiguration,
+    required this.isLocationDraggable,
     required super.child,
   });
+
+  final LocationIsDraggable isLocationDraggable;
 
   @override
   Widget build(BuildContext context) {
@@ -252,7 +283,9 @@ class MobileDragDetector extends _DragDetector {
         _DelayedMultiDragGestureRecognizer:
             GestureRecognizerFactoryWithHandlers<
                     _DelayedMultiDragGestureRecognizer>(
-                () => _DelayedMultiDragGestureRecognizer(), (recognizer) {
+                () => _DelayedMultiDragGestureRecognizer(
+                      isLocationDraggable: isLocationDraggable,
+                    ), (recognizer) {
           recognizer.onStart = (offset) =>
               maybeStartDrag(recognizer.lastPointer, offset, devicePixelRatio);
         })

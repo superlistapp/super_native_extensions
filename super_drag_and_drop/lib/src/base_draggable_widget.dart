@@ -62,10 +62,16 @@ class BaseDraggableWidget extends StatelessWidget {
     } else if (defaultTargetPlatform == TargetPlatform.android ||
         defaultTargetPlatform == TargetPlatform.iOS) {
       child = MobileDragDetector(
-          dragConfiguration: dragConfiguration, child: child);
+        dragConfiguration: dragConfiguration,
+        isLocationDraggable: isLocationDraggable,
+        child: child,
+      );
     } else {
       child = DesktopDragDetector(
-          dragConfiguration: dragConfiguration, child: child);
+        dragConfiguration: dragConfiguration,
+        isLocationDraggable: isLocationDraggable,
+        child: child,
+      );
     }
     return BaseDraggableRenderWidget(
       hitTestBehavior: hitTestBehavior,
