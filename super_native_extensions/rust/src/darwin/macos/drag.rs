@@ -292,11 +292,6 @@ impl PlatformDragContext {
     }
 
     pub fn should_delay_window_ordering(&self, event: id) -> bool {
-        if cfg!(debug_assertions) {
-            // FIXME(knopp): Remove once
-            // https://github.com/dart-lang/sdk/pull/49708 is resolved.
-            return false;
-        }
         if unsafe { NSEvent::eventType(event) == NSEventType::NSLeftMouseDown } {
             let location: NSPoint = unsafe { msg_send![event, locationInWindow] };
             let location: NSPoint =
