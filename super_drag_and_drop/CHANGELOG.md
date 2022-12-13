@@ -1,3 +1,9 @@
+## 0.1.8
+
+ - **FIX**: cancel mouse hover during dragging (#34).
+ - **FEAT**: super_drag_and_drop: reexport formats from super_clipboard (#32).
+ - **FEAT**: expose isLocationDraggable  for DraggableWidget (#31).
+
 ## 0.1.7+1
 
  - Update a dependency to the latest release.
