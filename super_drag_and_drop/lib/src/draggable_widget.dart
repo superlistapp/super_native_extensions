@@ -131,12 +131,18 @@ class DraggableWidget extends StatelessWidget {
     this.onDragConfiguration,
     this.onAdditonalItems,
     this.hitTestBehavior = HitTestBehavior.deferToChild,
+    this.isLocationDraggable = _defaultIsLocationDraggable,
     this.dragItemsProvider = _defaultDragItemsProvider,
     this.additionalDragItemsProvider = _defaultDragItemsProvider,
   });
 
   final Widget child;
   final HitTestBehavior hitTestBehavior;
+
+  /// Should return true if the offset is considered draggable.
+  /// The offset is in global coordinates but restricted to area covered
+  /// by the Widget.
+  final LocationIsDraggable isLocationDraggable;
 
   /// Allows post-processing initial drag configuration.
   final OnDragConfiguration? onDragConfiguration;
@@ -146,6 +152,8 @@ class DraggableWidget extends StatelessWidget {
 
   final DragItemsProvider dragItemsProvider;
   final DragItemsProvider additionalDragItemsProvider;
+
+  static bool _defaultIsLocationDraggable(Offset position) => true;
 
   static List<DragItemWidgetState> _defaultDragItemsProvider(
       BuildContext context) {
@@ -216,6 +224,7 @@ class DraggableWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BaseDraggableWidget(
+      isLocationDraggable: isLocationDraggable,
       hitTestBehavior: hitTestBehavior,
       child: child,
       dragConfiguration: (_, session) async {
