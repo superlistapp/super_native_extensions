@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 import 'package:super_clipboard/super_clipboard.dart';
 import 'package:super_drag_and_drop/super_drag_and_drop.dart';
@@ -123,6 +124,12 @@ typedef OnGetDropItemPreview = FutureOr<DropItemPreview?> Function(
   DropItemPreviewRequest request,
 );
 
+/// Type of render object produced by [DropRegion] and [RenderDropMonitor].
+enum RenderObjectType {
+  box,
+  sliver,
+}
+
 /// Widget to which data can be dropped.
 class DropRegion extends SingleChildRenderObjectWidget {
   const DropRegion({
@@ -135,8 +142,11 @@ class DropRegion extends SingleChildRenderObjectWidget {
     this.onDropLeave,
     this.onDropEnded,
     this.onGetDropItemPreview,
+    this.renderObjectType = RenderObjectType.box,
     this.hitTestBehavior = HitTestBehavior.deferToChild,
   });
+
+  final RenderObjectType renderObjectType;
 
   final HitTestBehavior hitTestBehavior;
 
@@ -166,27 +176,42 @@ class DropRegion extends SingleChildRenderObjectWidget {
 
   @override
   RenderObject createRenderObject(BuildContext context) {
-    return RenderDropRegion(
-      behavior: hitTestBehavior,
-      formats: formats,
-      onDropOver: onDropOver,
-      onDropEnter: onDropEnter,
-      onDropLeave: onDropLeave,
-      onPerformDrop: onPerformDrop,
-      onDropEnded: onDropEnded,
-      onGetDropItemPreview: onGetDropItemPreview,
-      devicePixelRatio: MediaQuery.of(context).devicePixelRatio,
-    );
+    switch (renderObjectType) {
+      case RenderObjectType.box:
+        return RenderDropRegionBox(
+          behavior: hitTestBehavior,
+          formats: formats,
+          onDropOver: onDropOver,
+          onDropEnter: onDropEnter,
+          onDropLeave: onDropLeave,
+          onPerformDrop: onPerformDrop,
+          onDropEnded: onDropEnded,
+          onGetDropItemPreview: onGetDropItemPreview,
+          devicePixelRatio: MediaQuery.of(context).devicePixelRatio,
+        );
+      case RenderObjectType.sliver:
+        return RenderDropRegionSliver(
+          formats: formats,
+          onDropOver: onDropOver,
+          onDropEnter: onDropEnter,
+          onDropLeave: onDropLeave,
+          onPerformDrop: onPerformDrop,
+          onDropEnded: onDropEnded,
+          onGetDropItemPreview: onGetDropItemPreview,
+          devicePixelRatio: MediaQuery.of(context).devicePixelRatio,
+        );
+    }
   }
 
   @override
   void updateRenderObject(
       BuildContext context, covariant RenderObject renderObject) {
     final renderObject_ = renderObject as RenderDropRegion;
-    renderObject_.behavior = hitTestBehavior;
-    renderObject_.formatRegistration.dispose();
-    renderObject_.formatRegistration =
-        DropFormatRegistry.instance.registerFormats(formats);
+    if (renderObject_ is RenderProxyBoxWithHitTestBehavior) {
+      (renderObject_ as RenderProxyBoxWithHitTestBehavior).behavior =
+          hitTestBehavior;
+    }
+    renderObject_.updateFormats(formats);
     renderObject_.onDropOver = onDropOver;
     renderObject_.onDropLeave = onDropLeave;
     renderObject_.onPerformDrop = onPerformDrop;
@@ -217,6 +242,7 @@ class DropMonitor extends SingleChildRenderObjectWidget {
   const DropMonitor({
     super.key,
     super.child,
+    this.renderObjectType = RenderObjectType.box,
     this.hitTestBehavior = HitTestBehavior.deferToChild,
     required this.formats,
     this.onDropOver,
@@ -224,6 +250,7 @@ class DropMonitor extends SingleChildRenderObjectWidget {
     this.onDropEnded,
   });
 
+  final RenderObjectType renderObjectType;
   final HitTestBehavior hitTestBehavior;
   final List<DataFormat> formats;
 
@@ -240,23 +267,34 @@ class DropMonitor extends SingleChildRenderObjectWidget {
 
   @override
   RenderObject createRenderObject(BuildContext context) {
-    return RenderDropMonitor(
-      behavior: hitTestBehavior,
-      formats: formats,
-      onDropOver: onDropOver,
-      onDropLeave: onDropLeave,
-      onDropEnded: onDropEnded,
-    );
+    switch (renderObjectType) {
+      case RenderObjectType.box:
+        return RenderDropMonitorBox(
+          behavior: hitTestBehavior,
+          formats: formats,
+          onDropOver: onDropOver,
+          onDropLeave: onDropLeave,
+          onDropEnded: onDropEnded,
+        );
+      case RenderObjectType.sliver:
+        return RenderDropMonitorSliver(
+          formats: formats,
+          onDropOver: onDropOver,
+          onDropLeave: onDropLeave,
+          onDropEnded: onDropEnded,
+        );
+    }
   }
 
   @override
   void updateRenderObject(
       BuildContext context, covariant RenderObject renderObject) {
     final renderObject_ = renderObject as RenderDropMonitor;
-    renderObject_.behavior = hitTestBehavior;
-    renderObject_.formatRegistration.dispose();
-    renderObject_.formatRegistration =
-        DropFormatRegistry.instance.registerFormats(formats);
+    if (renderObject_ is RenderProxyBoxWithHitTestBehavior) {
+      (renderObject_ as RenderProxyBoxWithHitTestBehavior).behavior =
+          hitTestBehavior;
+    }
+    renderObject_.updateFormats(formats);
     renderObject_.onDropOver = onDropOver;
     renderObject_.onDropLeave = onDropLeave;
     renderObject_.onDropEnded = onDropEnded;
