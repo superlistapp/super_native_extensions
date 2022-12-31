@@ -135,7 +135,7 @@ impl PlatformDataReader {
         } else if item > 0 {
             let hdrop_len = self.get_hdrop()?.map(|v| v.len()).unwrap_or(0);
             if item < hdrop_len as i64 {
-                vec![format_to_string(CF_HDROP.0 as u32)]
+                vec![format_to_string(CF_HDROP.0)]
             } else {
                 Vec::new()
             }
@@ -246,7 +246,7 @@ impl PlatformDataReader {
     ) -> NativeExtensionsResult<Value> {
         let format = format_from_string(&data_type);
         let png = unsafe { RegisterClipboardFormatW(w!("PNG")) };
-        if format == CF_HDROP.0 as u32 {
+        if format == CF_HDROP.0 {
             let item = item as usize;
             let hdrop = self.get_hdrop()?.unwrap_or_default();
             if item < hdrop.len() {
@@ -290,8 +290,8 @@ impl PlatformDataReader {
 
     /// Returns parsed hdrop content
     fn get_hdrop(&self) -> NativeExtensionsResult<Option<Vec<String>>> {
-        if self.data_object.has_data(CF_HDROP.0 as u32) {
-            let data = self.data_object.get_data(CF_HDROP.0 as u32)?;
+        if self.data_object.has_data(CF_HDROP.0) {
+            let data = self.data_object.get_data(CF_HDROP.0)?;
             Ok(Some(Self::extract_drop_files(data)?))
         } else {
             Ok(None)
@@ -446,7 +446,7 @@ impl PlatformDataReader {
                     res
                 };
                 let path = get_target_path(&target_folder, file_name);
-                match fs::write(&path, &data) {
+                match fs::write(&path, data) {
                     Ok(_) => completer.complete(Ok(path)),
                     Err(err) => completer.complete(Err(
                         NativeExtensionsError::VirtualFileReceiveError(err.to_string()),
@@ -540,7 +540,7 @@ impl VirtualStreamReader {
         unsafe {
             self.stream.Stat(&mut stat as *mut _, STATFLAG_NONAME)?;
         }
-        Ok(stat.cbSize as u64)
+        Ok(stat.cbSize)
     }
 
     fn read_inner(&self) -> NativeExtensionsResult<PathBuf> {

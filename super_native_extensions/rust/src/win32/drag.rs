@@ -88,7 +88,7 @@ impl IDropSource_Impl for DropSource {
         if fescapepressed.as_bool() {
             self.cancelled.replace(true);
             DRAGDROP_S_CANCEL
-        } else if grfkeystate.0 & MK_LBUTTON.0 as u32 == 0 {
+        } else if grfkeystate.0 & MK_LBUTTON.0 == 0 {
             DRAGDROP_S_DROP
         } else {
             let mut cursor_pos = POINT::default();
