@@ -188,7 +188,7 @@ impl DataObject {
     fn data_for_hdrop(&self) -> Option<Vec<u8>> {
         let n_items = self.providers.len();
         let files: Vec<_> = (0..n_items)
-            .filter_map(|i| self.data_for_format(CF_HDROP.0 as u32, i))
+            .filter_map(|i| self.data_for_format(CF_HDROP.0, i))
             .collect();
         if files.is_empty() {
             None
@@ -281,8 +281,8 @@ impl DataObject {
         }
 
         if self.needs_synthetize_bitmap() {
-            res.push(make_format_with_tymed(CF_DIB.0 as u32, TYMED_HGLOBAL));
-            res.push(make_format_with_tymed(CF_DIBV5.0 as u32, TYMED_HGLOBAL));
+            res.push(make_format_with_tymed(CF_DIB.0, TYMED_HGLOBAL));
+            res.push(make_format_with_tymed(CF_DIBV5.0, TYMED_HGLOBAL));
         }
 
         // Extra data (set through SetData) last
@@ -290,7 +290,7 @@ impl DataObject {
         for format in extra_data.keys() {
             res.push(make_format_with_tymed(
                 *format as u32,
-                TYMED((TYMED_HGLOBAL.0 | TYMED_ISTREAM.0) as i32),
+                TYMED(TYMED_HGLOBAL.0 | TYMED_ISTREAM.0),
             ));
         }
         res
@@ -722,7 +722,7 @@ pub trait GetData {
             } else if medium.tymed == TYMED_HGLOBAL {
                 let size = GlobalSize(medium.Anonymous.hGlobal);
                 let data = GlobalLock(medium.Anonymous.hGlobal);
-                let data = slice::from_raw_parts(data as *const u8, size as usize);
+                let data = slice::from_raw_parts(data as *const u8, size);
                 let res = SHCreateMemStream(Some(data));
                 GlobalUnlock(medium.Anonymous.hGlobal);
                 res

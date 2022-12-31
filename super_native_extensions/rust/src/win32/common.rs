@@ -56,7 +56,7 @@ pub fn make_format_with_tymed_index(format: u32, tymed: TYMED, index: i32) -> FO
     FORMATETC {
         cfFormat: format as u16,
         ptd: null_mut(),
-        dwAspect: DVASPECT_CONTENT.0 as u32,
+        dwAspect: DVASPECT_CONTENT.0,
         lindex: index,
         tymed: tymed.0 as u32,
     }

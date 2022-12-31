@@ -124,7 +124,7 @@ impl FileHolder {
             .take(30)
             .map(char::from)
             .collect();
-        temp_dir.join(&file_name)
+        temp_dir.join(file_name)
     }
 }
 

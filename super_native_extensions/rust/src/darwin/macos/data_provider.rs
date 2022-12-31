@@ -60,7 +60,7 @@ pub fn platform_stream_close(handle: i32, delete: bool) {
     let path = FILE_PATHS.lock().unwrap().remove(&handle);
     if let Some(path) = path {
         if delete {
-            std::fs::remove_file(&path).ok();
+            std::fs::remove_file(path).ok();
         }
     }
 }
