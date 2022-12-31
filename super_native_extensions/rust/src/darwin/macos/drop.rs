@@ -317,7 +317,7 @@ impl PlatformDropContext {
                     context_id: self.id,
                     context_delegate: self.delegate.clone(),
                     context_view: self.view.clone(),
-                    id: (dragging_sequence_number as i64).into(),
+                    id: dragging_sequence_number.into(),
                     last_operation: Cell::new(DropOperation::None),
                     reader: platform_reader,
                     registered_reader,

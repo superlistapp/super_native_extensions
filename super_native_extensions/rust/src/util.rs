@@ -71,7 +71,7 @@ pub fn get_target_path(target_folder: &Path, file_name: &str) -> PathBuf {
             .map(|a| format!(".{}", a.to_string_lossy()))
             .unwrap_or_else(|| "".into());
         loop {
-            let target_path = target_folder.join(&format!("{} {}{}", stem, i, suffix));
+            let target_path = target_folder.join(format!("{} {}{}", stem, i, suffix));
             if !target_path.exists() {
                 return target_path;
             }
