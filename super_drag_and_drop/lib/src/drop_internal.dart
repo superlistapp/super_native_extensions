@@ -340,59 +340,164 @@ class DropFormatRegistration {
   final DropFormatRegistry _registry;
 }
 
-class RenderDropRegion extends RenderProxyBoxWithHitTestBehavior {
-  DropFormatRegistration formatRegistration;
-  FutureOr<raw.DropOperation> Function(DropOverEvent) onDropOver;
+mixin RenderDropRegion on RenderObject {
+  late FutureOr<raw.DropOperation> Function(DropOverEvent) onDropOver;
   void Function(DropEvent)? onDropEnter;
   void Function(DropEvent)? onDropLeave;
-  Future<void> Function(PerformDropEvent) onPerformDrop;
+  late Future<void> Function(PerformDropEvent) onPerformDrop;
   void Function(DropEvent)? onDropEnded;
   OnGetDropItemPreview? onGetDropItemPreview;
-  double devicePixelRatio;
+  late double devicePixelRatio;
 
-  RenderDropRegion({
-    required super.behavior,
+  DropFormatRegistration? _formatRegistration;
+
+  void updateFormats(List<DataFormat> formats) {
+    _formatRegistration?.dispose();
+    _formatRegistration = DropFormatRegistry.instance.registerFormats(formats);
+  }
+
+  void _init({
     required List<DataFormat> formats,
-    required this.onDropOver,
-    required this.onDropEnter,
-    required this.onDropLeave,
-    required this.onPerformDrop,
-    required this.onDropEnded,
-    required this.onGetDropItemPreview,
-    required this.devicePixelRatio,
-  }) : formatRegistration =
-            DropFormatRegistry.instance.registerFormats(formats);
+    required FutureOr<raw.DropOperation> Function(DropOverEvent) onDropOver,
+    required void Function(DropEvent)? onDropEnter,
+    required void Function(DropEvent)? onDropLeave,
+    required Future<void> Function(PerformDropEvent) onPerformDrop,
+    required void Function(DropEvent)? onDropEnded,
+    required OnGetDropItemPreview? onGetDropItemPreview,
+    required double devicePixelRatio,
+  }) {
+    updateFormats(formats);
+    this.onDropOver = onDropOver;
+    this.onDropEnter = onDropEnter;
+    this.onDropLeave = onDropLeave;
+    this.onPerformDrop = onPerformDrop;
+    this.onDropEnded = onDropEnded;
+    this.onGetDropItemPreview = onGetDropItemPreview;
+    this.devicePixelRatio = devicePixelRatio;
+  }
 
   @override
   void dispose() {
     super.dispose();
-    formatRegistration.dispose();
+    _formatRegistration?.dispose();
   }
 }
 
-class RenderDropMonitor extends RenderProxyBoxWithHitTestBehavior {
-  static final activeMonitors = <RenderDropMonitor>{};
+class RenderDropRegionBox extends RenderProxyBoxWithHitTestBehavior
+    with RenderDropRegion {
+  RenderDropRegionBox({
+    required super.behavior,
+    required List<DataFormat> formats,
+    required FutureOr<raw.DropOperation> Function(DropOverEvent) onDropOver,
+    required void Function(DropEvent)? onDropEnter,
+    required void Function(DropEvent)? onDropLeave,
+    required Future<void> Function(PerformDropEvent) onPerformDrop,
+    required void Function(DropEvent)? onDropEnded,
+    required OnGetDropItemPreview? onGetDropItemPreview,
+    required double devicePixelRatio,
+  }) {
+    _init(
+      formats: formats,
+      onDropOver: onDropOver,
+      onDropEnter: onDropEnter,
+      onDropLeave: onDropLeave,
+      onPerformDrop: onPerformDrop,
+      onDropEnded: onDropEnded,
+      onGetDropItemPreview: onGetDropItemPreview,
+      devicePixelRatio: devicePixelRatio,
+    );
+  }
+}
 
-  DropFormatRegistration formatRegistration;
+class RenderDropRegionSliver extends RenderProxySliver with RenderDropRegion {
+  RenderDropRegionSliver({
+    required List<DataFormat> formats,
+    required FutureOr<raw.DropOperation> Function(DropOverEvent) onDropOver,
+    required void Function(DropEvent)? onDropEnter,
+    required void Function(DropEvent)? onDropLeave,
+    required Future<void> Function(PerformDropEvent) onPerformDrop,
+    required void Function(DropEvent)? onDropEnded,
+    required OnGetDropItemPreview? onGetDropItemPreview,
+    required double devicePixelRatio,
+  }) {
+    _init(
+      formats: formats,
+      onDropOver: onDropOver,
+      onDropEnter: onDropEnter,
+      onDropLeave: onDropLeave,
+      onPerformDrop: onPerformDrop,
+      onDropEnded: onDropEnded,
+      onGetDropItemPreview: onGetDropItemPreview,
+      devicePixelRatio: devicePixelRatio,
+    );
+  }
+}
+
+mixin RenderDropMonitor on RenderObject {
   void Function(MonitorDropOverEvent)? onDropOver;
   void Function(DropEvent)? onDropLeave;
   void Function(DropEvent)? onDropEnded;
 
-  RenderDropMonitor({
-    required super.behavior,
-    required List<DataFormat> formats,
-    required this.onDropOver,
-    required this.onDropLeave,
-    required this.onDropEnded,
-  }) : formatRegistration =
-            DropFormatRegistry.instance.registerFormats(formats) {
-    activeMonitors.add(this);
+  static final activeMonitors = <RenderDropMonitor>{};
+
+  DropFormatRegistration? _formatRegistration;
+
+  void updateFormats(List<DataFormat> formats) {
+    _formatRegistration?.dispose();
+    _formatRegistration = DropFormatRegistry.instance.registerFormats(formats);
   }
 
   @override
   void dispose() {
     super.dispose();
     activeMonitors.remove(this);
-    formatRegistration.dispose();
+    _formatRegistration?.dispose();
+  }
+
+  void _init({
+    required List<DataFormat> formats,
+    required void Function(MonitorDropOverEvent)? onDropOver,
+    required void Function(DropEvent)? onDropLeave,
+    required void Function(DropEvent)? onDropEnded,
+  }) {
+    updateFormats(formats);
+    this.onDropOver = onDropOver;
+    this.onDropLeave = onDropLeave;
+    this.onDropEnded = onDropEnded;
+    activeMonitors.add(this);
+  }
+}
+
+class RenderDropMonitorBox extends RenderProxyBoxWithHitTestBehavior
+    with RenderDropMonitor {
+  RenderDropMonitorBox({
+    required super.behavior,
+    required List<DataFormat> formats,
+    required void Function(MonitorDropOverEvent)? onDropOver,
+    required void Function(DropEvent)? onDropLeave,
+    required void Function(DropEvent)? onDropEnded,
+  }) {
+    _init(
+      formats: formats,
+      onDropOver: onDropOver,
+      onDropLeave: onDropLeave,
+      onDropEnded: onDropEnded,
+    );
+  }
+}
+
+class RenderDropMonitorSliver extends RenderProxySliver with RenderDropMonitor {
+  RenderDropMonitorSliver({
+    required List<DataFormat> formats,
+    required void Function(MonitorDropOverEvent)? onDropOver,
+    required void Function(DropEvent)? onDropLeave,
+    required void Function(DropEvent)? onDropEnded,
+  }) {
+    _init(
+      formats: formats,
+      onDropOver: onDropOver,
+      onDropLeave: onDropLeave,
+      onDropEnded: onDropEnded,
+    );
   }
 }
