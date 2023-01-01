@@ -1,3 +1,7 @@
+## 0.1.7+3
+
+ - **FIX**: make clippy happy (#36).
+
 ## 0.1.7+2
 
  - **FIX**: minor clean-ups.

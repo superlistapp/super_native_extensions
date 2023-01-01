@@ -1,3 +1,7 @@
+## 0.1.9
+
+ - **FEAT**: [drop] add support for slivers (#35).
+
 ## 0.1.8+1
 
  - **FIX**: minor clean-ups.
