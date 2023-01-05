@@ -13,7 +13,13 @@ class DataReaderHandleImpl {
     required int handle,
     required FinalizableHandle finalizableHandle,
   })  : _handle = handle,
-        _finalizableHandle = finalizableHandle;
+        _finalizableHandle = finalizableHandle {
+    // In release mode the garbage collector eagerly disposes
+    // _finalizableHandle even if the surroudning DataReaderHandleImpl
+    // is still reachable.
+    // This is a workaround to keep the handle alive.
+    _useHandle();
+  }
 
   static DataReaderHandleImpl deserialize(dynamic handle) {
     final map = handle as Map;
@@ -25,8 +31,15 @@ class DataReaderHandleImpl {
 
   bool _disposed = false;
 
+  void _useHandle() {
+    // This will always be false but it's enough to make the garbage collector
+    // think we're using the handle.
+    if (_finalizableHandle as dynamic == null) {
+      _useHandle();
+    }
+  }
+
   final int _handle;
-  // ignore: unused_field
   final FinalizableHandle _finalizableHandle;
 }
 
