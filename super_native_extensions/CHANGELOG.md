@@ -1,3 +1,7 @@
+## 0.1.8
+
+ - **FEAT**: prevent finalizer invoked too early in release mode (#38).
+
 ## 0.1.7+3
 
  - **FIX**: make clippy happy (#36).
