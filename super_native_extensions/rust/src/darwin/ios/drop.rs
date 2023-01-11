@@ -38,7 +38,11 @@ use crate::{
     value_promise::PromiseResult,
 };
 
-use super::{drag_common::DropOperationExt, util::image_view_from_data, PlatformDataReader};
+use super::{
+    drag_common::DropOperationExt,
+    util::{image_view_from_data, IgnoreInteractionEvents},
+    PlatformDataReader,
+};
 
 pub struct PlatformDropContext {
     id: PlatformDropContextId,
@@ -190,6 +194,7 @@ impl Session {
             }),
         );
         let mut poll_session = PollSession::new();
+        let _ignore_events = IgnoreInteractionEvents::new();
         while !done.get() {
             RunLoop::current()
                 .platform_run_loop
@@ -325,6 +330,7 @@ impl Session {
             },
         );
         let mut poll_session = PollSession::new();
+        let _ignore_events = IgnoreInteractionEvents::new();
         loop {
             if let Some(result) = preview_promise.try_take() {
                 match result {
