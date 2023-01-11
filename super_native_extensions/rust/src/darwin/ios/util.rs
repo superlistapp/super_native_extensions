@@ -223,3 +223,28 @@ pub fn image_view_from_data(image_data: ImageData) -> StrongPtr {
     let image_view: id = unsafe { msg_send![class!(UIImageView), alloc] };
     unsafe { StrongPtr::new(msg_send![image_view, initWithImage: image]) }
 }
+
+/// Ignores the notifications event while in scope.
+pub struct IgnoreInteractionEvents {}
+
+impl IgnoreInteractionEvents {
+    pub fn new() -> Self {
+        unsafe {
+            // beginIgnoringInteractionEvents is a large stick but we need one
+            // to prevent active drag gesture recognizer from getting events while
+            // waiting for drag data.
+            let app: id = msg_send![class!(UIApplication), sharedApplication];
+            let () = msg_send![app, beginIgnoringInteractionEvents];
+        }
+        Self {}
+    }
+}
+
+impl Drop for IgnoreInteractionEvents {
+    fn drop(&mut self) {
+        unsafe {
+            let app: id = msg_send![class!(UIApplication), sharedApplication];
+            let () = msg_send![app, endIgnoringInteractionEvents];
+        }
+    }
+}

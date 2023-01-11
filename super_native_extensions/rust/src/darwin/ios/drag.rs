@@ -39,7 +39,10 @@ use crate::{
         PlatformDragContextDelegate, PlatformDragContextId,
     },
     error::{NativeExtensionsError, NativeExtensionsResult},
-    platform_impl::platform::common::{superclass, to_nsstring},
+    platform_impl::platform::{
+        common::{superclass, to_nsstring},
+        os::util::IgnoreInteractionEvents,
+    },
     util::DropNotifier,
     value_promise::PromiseResult,
 };
@@ -188,6 +191,7 @@ impl Session {
                 location,
             );
             let mut poll_session = PollSession::new();
+            let _ignore_events = IgnoreInteractionEvents::new();
             loop {
                 if let Some(items) = items_promise.try_take() {
                     match items {
@@ -496,6 +500,13 @@ impl PlatformDragContext {
             let configuration_promise =
                 delegate.get_drag_configuration_for_location(self.id, location.into());
             let mut poll_session = PollSession::new();
+
+            // Make sure that the recognizer doesn't get touch events while the
+            // we're pumping inner event loop, otherwise it might fail with an
+            // assertion inside _UIDragInteractionDriverStateMachineHandleEvent.
+            // This can be reproduced by quickly dragging the gesture while it
+            // is waiting for initial items
+            let _ignore_events = IgnoreInteractionEvents::new();
             loop {
                 if let Some(configuration) = configuration_promise.try_take() {
                     match configuration {
