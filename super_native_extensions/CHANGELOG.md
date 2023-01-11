@@ -1,3 +1,7 @@
+## 0.1.8+1
+
+ - **FIX**: rare crash while dragging on iOS (#40).
+
 ## 0.1.8
 
  - **FEAT**: prevent finalizer invoked too early in release mode (#38).
