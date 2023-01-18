@@ -398,6 +398,15 @@ fn prepare_flutter() {
             dragging_session_moved_to_point as extern "C" fn(&mut Object, Sel, id, NSPoint),
         );
 
+        // Custom mouseDown implementation will cause AppKit to query `mouseDownCanMoveWindow`
+        // to determine draggable window region. If this does not return YES then
+        // dragging with transparent titlebar + full size content view won't work:
+        // https://github.com/superlistapp/super_native_extensions/issues/42
+        class.add_method(
+            sel!(mouseDownCanMoveWindow),
+            mouse_down_can_move_window as extern "C" fn(&mut Object, Sel) -> BOOL,
+        );
+
         // Flutter implements mouseDown: on FlutterViewController, so we can add
         // implementation to FlutterView, intercept the event and call super.
         // If this changes and Flutter implements mouseDown: directly on
@@ -431,6 +440,10 @@ where
     } else {
         default()
     }
+}
+
+extern "C" fn mouse_down_can_move_window(_this: &mut Object, _sel: Sel) -> BOOL {
+    YES
 }
 
 extern "C" fn mouse_down(this: &mut Object, _sel: Sel, event: id) {
