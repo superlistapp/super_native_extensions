@@ -1,3 +1,7 @@
+## 0.1.8+2
+
+ - **FIX**: window dragging on macos with full size content view (#43).
+
 ## 0.1.8+1
 
  - **FIX**: rare crash while dragging on iOS (#40).
