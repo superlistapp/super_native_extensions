@@ -1,9 +1,9 @@
 import 'dart:async';
+import 'dart:typed_data';
 
+import 'package:meta/meta.dart';
 import 'package:super_native_extensions/raw_clipboard.dart' as raw;
-import 'package:collection/collection.dart';
 
-import 'platform.dart';
 import 'reader.dart';
 import 'writer.dart';
 
@@ -24,91 +24,6 @@ abstract class PlatformDataProvider {
 
   /// Returns all formats available in this provider.
   List<PlatformFormat> getAllFormats();
-}
-
-/// Format for a virtual file. Provides platform formats for providing
-/// and receiving virtual files. However unlike [DataFormat] there is no
-/// codec as the files are received without modifications.
-///
-/// For convenience any [DataFormat] is also a [VirtualFileFormat], though
-/// the codec is only used to provide platform formats and not to encode
-/// and decode data.
-abstract class VirtualFileFormat {
-  const VirtualFileFormat();
-
-  /// Platform format used when providing the virtual file.
-  PlatformFormat? get providerFormat;
-
-  /// List of platform formats used when obtaining [VirtualFileReceiver]
-  /// from [DataReader].
-  /// First formats for the list that yields a receiver will be used.
-  List<PlatformFormat> get receiverFormats;
-}
-
-/// DataFormat encapsulates [PlatformFormat]s for specific data type
-/// as well as logic to encode and decode data to platform specific formats.
-abstract class DataFormat<T extends Object> extends VirtualFileFormat {
-  const DataFormat();
-
-  PlatformCodec<T> codecForPlatform(ClipboardPlatform platform);
-
-  /// Encodes the provided data to platform specific format.
-  /// The encoded data can be added to [DataWriterItem].
-  ///
-  /// ```dart
-  /// final item = DataWriterItem();
-  /// item.add(Format.plainText('Hello World'));
-  /// ```
-  FutureOr<EncodedData> call(T data) async {
-    final encoder = codecForPlatform(currentPlatform);
-    final entries = <raw.DataRepresentation>[];
-    for (final format in encoder.encodingFormats) {
-      entries.add(
-        raw.DataRepresentation.simple(
-            format: format, data: await encoder.encode(data, format)),
-      );
-    }
-    return EncodedData(entries);
-  }
-
-  /// Encodes the provided lazy data. Some platforms support providing the data
-  /// on demand. In which case the [provider] callback will be invoked when
-  /// the data is requested. On platforms that do not support this (iOS, web)
-  /// the [provider] callback will be called eagerly.
-  FutureOr<EncodedData> lazy(DataProvider<T> provider) {
-    final encoder = codecForPlatform(currentPlatform);
-    final entries = <raw.DataRepresentation>[];
-    for (final format in encoder.encodingFormats) {
-      entries.add(
-        raw.DataRepresentation.lazy(
-            format: format,
-            dataProvider: () async => encoder.encode(await provider(), format)),
-      );
-    }
-    return EncodedData(entries);
-  }
-
-  bool canDecode(PlatformFormat format) {
-    final decoder = codecForPlatform(currentPlatform);
-    return decoder.decodingFormats.contains(format);
-  }
-
-  Future<T?> decode(PlatformFormat format, PlatformDataProvider provider) {
-    final decoder = codecForPlatform(currentPlatform);
-    return decoder.decode(provider, format);
-  }
-
-  List<PlatformFormat> get decodingFormats =>
-      codecForPlatform(currentPlatform).decodingFormats;
-
-  List<PlatformFormat> get encodingFormats =>
-      codecForPlatform(currentPlatform).encodingFormats;
-
-  @override
-  List<PlatformFormat> get receiverFormats => decodingFormats;
-
-  @override
-  PlatformFormat? get providerFormat => encodingFormats.firstOrNull;
 }
 
 /// Clipboard data in platform specific format. Do not use directly.
@@ -143,5 +58,105 @@ abstract class PlatformCodec<T extends Object> {
       PlatformDataProvider dataProvider, PlatformFormat format) async {
     final value = await dataProvider.getData(format);
     return value is T ? value : null;
+  }
+}
+
+/// Base class for formats of data transfered to clipboard and drag & drop.
+/// This branches into [ValueFormat] for data values that need to be converted
+/// from and to platform specific formats (such as plain text, HTML snippet,
+/// uri) and [FileFormat] representing files that are processed without
+/// conversion (i.e. PNG, JPEG).
+@sealed
+abstract class DataFormat<T extends Object> {
+  const DataFormat();
+
+  /// Encodes the provided data to platform specific format.
+  /// The encoded data can be added to [DataWriterItem].
+  ///
+  /// ```dart
+  /// final item = DataWriterItem();
+  /// item.add(Format.plainText('Hello World'));
+  /// ```
+  FutureOr<EncodedData> call(T data);
+
+  /// Encodes the provided lazy data. Some platforms support providing the data
+  /// on demand. In which case the [provider] callback will be invoked when
+  /// the data is requested. On platforms that do not support this (iOS, web)
+  /// the [provider] callback will be called eagerly.
+  FutureOr<EncodedData> lazy(DataProvider<T> provider);
+}
+
+/// Format for values that need to be converted from and to platform specific
+/// formats (such as plain text, HTML snippet, uri).
+///
+/// These formats can be used to provide and receive values, but not for
+/// generating and receiving virtual files.
+abstract class ValueFormat<T extends Object> extends DataFormat<T> {
+  const ValueFormat();
+
+  PlatformCodec<T> get codec;
+
+  @override
+  FutureOr<EncodedData> call(T data) async {
+    final encoder = codec;
+    final entries = <raw.DataRepresentation>[];
+    for (final format in encoder.encodingFormats) {
+      entries.add(
+        raw.DataRepresentation.simple(
+            format: format, data: await encoder.encode(data, format)),
+      );
+    }
+    return EncodedData(entries);
+  }
+
+  @override
+  FutureOr<EncodedData> lazy(DataProvider<T> provider) {
+    final encoder = codec;
+    final entries = <raw.DataRepresentation>[];
+    for (final format in encoder.encodingFormats) {
+      entries.add(
+        raw.DataRepresentation.lazy(
+            format: format,
+            dataProvider: () async => encoder.encode(await provider(), format)),
+      );
+    }
+    return EncodedData(entries);
+  }
+}
+
+/// Base format class for files that are in standardized formats and processed
+/// without conversion (i.e. PNG, JPEG).
+///
+/// These format can be used to provide and receive values, but also for
+/// providing and receiving virtual files (i.e. content generated on demand).
+abstract class FileFormat extends DataFormat<Uint8List> {
+  const FileFormat();
+
+  /// Platform format used when providing the virtual file.
+  PlatformFormat get providerFormat;
+
+  /// List of platform formats used when obtaining [VirtualFileReceiver]
+  /// from [DataReader].
+  /// First formats for the list that yields a receiver will be used.
+  List<PlatformFormat> get receiverFormats;
+
+  @override
+  FutureOr<EncodedData> call(Uint8List data) {
+    return EncodedData([
+      raw.DataRepresentation.simple(
+        format: providerFormat,
+        data: data,
+      ),
+    ]);
+  }
+
+  @override
+  FutureOr<EncodedData> lazy(DataProvider<Uint8List> provider) {
+    return EncodedData([
+      raw.DataRepresentation.lazy(
+        format: providerFormat,
+        dataProvider: provider,
+      ),
+    ]);
   }
 }

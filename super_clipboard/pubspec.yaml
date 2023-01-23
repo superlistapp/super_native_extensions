@@ -11,6 +11,7 @@ dependencies:
   flutter:
     sdk: flutter
   collection: ^1.16.0
+  meta: ^1.7.0
   super_native_extensions: ^0.1.8+2
 dev_dependencies:
   flutter_test:

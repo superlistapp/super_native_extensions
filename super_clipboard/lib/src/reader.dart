@@ -77,7 +77,7 @@ abstract class DataReader {
   /// for the format is not available. If format is not specified returns
   /// receiver for format with highest priority (if any).
   Future<raw.VirtualFileReceiver?> getVirtualFileReceiver({
-    VirtualFileFormat? format,
+    FileFormat? format,
   });
 
   /// If this reader is backed by raw DataReaderItem returns it.
@@ -153,18 +153,18 @@ class ClipboardReader extends ClipboardDataReader {
   }
 
   @override
-  bool isSynthetized(DataFormat<Object> format) {
+  bool isSynthetized(DataFormat format) {
     return items.any((item) => item.isSynthetized(format));
   }
 
   @override
-  bool isVirtual(DataFormat<Object> format) {
+  bool isVirtual(DataFormat format) {
     return items.any((item) => item.isVirtual(format));
   }
 
   @override
   Future<raw.VirtualFileReceiver?> getVirtualFileReceiver({
-    VirtualFileFormat? format,
+    FileFormat? format,
   }) async {
     for (final item in items) {
       final receiver = await item.getVirtualFileReceiver(format: format);

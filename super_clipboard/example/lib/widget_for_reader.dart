@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:collection/collection.dart';
 import 'package:super_clipboard/super_clipboard.dart';
 
-const formatCustom = CustomDataFormat<Uint8List>(
+const formatCustom = CustomValueFormat<Uint8List>(
   applicationId: "com.superlist.clipboard.Example.CustomType",
 );
 
