@@ -36,7 +36,7 @@ use windows::{
             DataExchange::RegisterClipboardFormatW,
             Memory::{GlobalLock, GlobalSize, GlobalUnlock},
             Ole::{OleGetClipboard, ReleaseStgMedium},
-            SystemServices::{CF_DIB, CF_DIBV5, CF_HDROP, CF_TIFF, CF_UNICODETEXT},
+            SystemServices::{CF_DIB, CF_DIBV5, CF_HDROP, CF_TIFF},
         },
         UI::Shell::{
             SHCreateMemStream, CFSTR_FILECONTENTS, CFSTR_FILEDESCRIPTOR, DROPFILES,
@@ -337,11 +337,10 @@ impl PlatformDataReader {
         // Map mime types to known windows clipboard format
         fn mime_to_windows(fmt: String) -> String {
             match fmt.as_str() {
-                "text/plain" => format_to_string(CF_UNICODETEXT.0),
                 "image/png" => "PNG".to_owned(),
                 "image/jpeg" => "JFIF".to_string(),
                 "image/gif" => "GIF".to_string(),
-                "iamge/tiff" => format_to_string(CF_TIFF.0),
+                "image/tiff" => format_to_string(CF_TIFF.0),
                 _ => fmt,
             }
         }

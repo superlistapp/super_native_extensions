@@ -42,17 +42,14 @@ class DataWriterItem {
   /// also supported on macOS. You can use [virtualFileSupported] to check
   /// whether current platform supports virtual files.
   void addVirtualFile({
-    required DataFormat format,
+    required FileFormat format,
     required VirtualFileProvider provider,
     VirtualFileStorage? storageSuggestion,
   }) {
     assert(virtualFileSupported);
-    if (format.providerFormat == null) {
-      throw StateError('Virtual doesn\'t support virtual files.');
-    }
     _data.add(EncodedData([
       raw.DataRepresentation.virtualFile(
-        format: format.providerFormat!,
+        format: format.providerFormat,
         virtualFileProvider: provider,
         storageSuggestion: storageSuggestion,
       )

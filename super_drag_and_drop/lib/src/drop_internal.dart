@@ -7,6 +7,9 @@ import 'package:flutter/rendering.dart';
 import 'package:super_clipboard/super_clipboard.dart';
 import 'package:super_native_extensions/raw_drag_drop.dart' as raw;
 
+// ignore: implementation_imports, // Needed for FormatExtensions
+import 'package:super_clipboard/src/reader_internal.dart';
+
 import 'util.dart';
 import 'drop.dart';
 

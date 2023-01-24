@@ -46,8 +46,53 @@ class SimplePlatformCodec<T extends Object> extends PlatformCodec<T> {
   }
 }
 
-class SimpleDataFormat<T extends Object> extends DataFormat<T> {
-  const SimpleDataFormat({
+class SimpleFileFormat extends FileFormat {
+  final List<PlatformFormat>? androidFormats;
+  final List<PlatformFormat>? iosFormats;
+  final List<PlatformFormat>? linuxFormats;
+  final List<PlatformFormat>? macosFormats;
+  final List<PlatformFormat>? windowsFormats;
+  final List<PlatformFormat>? webFormats;
+  final List<PlatformFormat> fallbackFormats;
+
+  List<PlatformFormat> _formatsForPlatform(ClipboardPlatform platform) {
+    switch (platform) {
+      case ClipboardPlatform.android:
+        return androidFormats ?? fallbackFormats;
+      case ClipboardPlatform.ios:
+        return iosFormats ?? fallbackFormats;
+      case ClipboardPlatform.linux:
+        return linuxFormats ?? fallbackFormats;
+      case ClipboardPlatform.macos:
+        return macosFormats ?? fallbackFormats;
+      case ClipboardPlatform.windows:
+        return windowsFormats ?? fallbackFormats;
+      case ClipboardPlatform.web:
+        return webFormats ?? fallbackFormats;
+    }
+  }
+
+  @override
+  PlatformFormat get providerFormat =>
+      _formatsForPlatform(currentPlatform).first;
+
+  @override
+  List<PlatformFormat> get receiverFormats =>
+      _formatsForPlatform(currentPlatform);
+
+  const SimpleFileFormat({
+    this.androidFormats,
+    this.iosFormats,
+    this.linuxFormats,
+    this.macosFormats,
+    this.windowsFormats,
+    this.webFormats,
+    this.fallbackFormats = const [],
+  });
+}
+
+class SimpleValueFormat<T extends Object> extends ValueFormat<T> {
+  const SimpleValueFormat({
     this.android,
     this.ios,
     this.linux,
@@ -58,7 +103,9 @@ class SimpleDataFormat<T extends Object> extends DataFormat<T> {
   });
 
   @override
-  PlatformCodec<T> codecForPlatform(ClipboardPlatform platform) {
+  PlatformCodec<T> get codec => _codecForPlatform(currentPlatform);
+
+  PlatformCodec<T> _codecForPlatform(ClipboardPlatform platform) {
     switch (platform) {
       case ClipboardPlatform.android:
         return android ?? fallback;

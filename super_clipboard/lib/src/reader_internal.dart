@@ -7,6 +7,33 @@ import 'format.dart';
 import 'reader.dart';
 import 'package:super_native_extensions/raw_clipboard.dart' as raw;
 
+extension FormatExtension<T extends Object> on DataFormat<T> {
+  List<String> get decodingFormats {
+    if (this is ValueFormat) {
+      return (this as ValueFormat).codec.decodingFormats;
+    } else if (this is FileFormat) {
+      return (this as FileFormat).receiverFormats;
+    } else {
+      throw StateError('Unknown format type');
+    }
+  }
+
+  bool canDecode(PlatformFormat format) {
+    return decodingFormats.contains(format);
+  }
+
+  Future<T?> decode(
+      PlatformFormat format, PlatformDataProvider provider) async {
+    if (this is ValueFormat) {
+      return (this as ValueFormat<T>).codec.decode(provider, format);
+    } else if (this is FileFormat) {
+      return (await provider.getData(format)) as T?;
+    } else {
+      throw StateError('Unknown format type');
+    }
+  }
+}
+
 class _PlatformDataProvider extends PlatformDataProvider {
   _PlatformDataProvider(this.formats, this.onGetData);
 
@@ -125,7 +152,7 @@ class ItemDataReader extends ClipboardDataReader {
   }
 
   @override
-  bool isVirtual(DataFormat<Object> format) {
+  bool isVirtual(DataFormat format) {
     return format.decodingFormats.any((f) => virtualFormats.contains(f));
   }
 
@@ -134,7 +161,7 @@ class ItemDataReader extends ClipboardDataReader {
 
   @override
   Future<VirtualFileReceiver?> getVirtualFileReceiver({
-    VirtualFileFormat? format,
+    FileFormat? format,
   }) async {
     final formats = format?.receiverFormats ?? await item.getAvailableFormats();
     for (final format in formats) {

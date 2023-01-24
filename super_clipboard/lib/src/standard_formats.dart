@@ -1,15 +1,14 @@
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'format.dart';
-import 'formats_base.dart';
 import 'format_conversions.dart';
+import 'formats_base.dart';
 import 'platform.dart';
 
 class Formats {
   Formats._();
 
-  static const standardFormats = [
+  static const List<DataFormat> standardFormats = [
     plainText,
     htmlText,
     fileUri,
@@ -20,9 +19,10 @@ class Formats {
     gif,
     webp,
     tiff,
+    utf8Text,
   ];
 
-  static const plainText = SimpleDataFormat<String>(
+  static const plainText = SimpleValueFormat<String>(
     ios: SimplePlatformCodec(
       formats: ['public.utf8-plain-text', 'public.plain-text'],
       onDecode: fromSystemUtf8,
@@ -45,7 +45,7 @@ class Formats {
   /// Key for rich text in form of html snippet. Make sure to include `formatPlainText`
   /// version in clipboard as well, otherwise setting the content may fail on some
   /// platforms (i.e. Android).
-  static const htmlText = SimpleDataFormat<String>(
+  static const htmlText = SimpleValueFormat<String>(
     ios: SimplePlatformCodec<String>(
       formats: ['public.html'],
       onDecode: fromSystemUtf8,
@@ -68,7 +68,7 @@ class Formats {
     ),
   );
 
-  static const fileUri = SimpleDataFormat<Uri>(
+  static const fileUri = SimpleValueFormat<Uri>(
     ios: SimplePlatformCodec<Uri>(
       formats: ['public.file-url'],
       onDecode: fileUriFromString,
@@ -91,7 +91,7 @@ class Formats {
     ),
   );
 
-  static const uri = SimpleDataFormat<NamedUri>(
+  static const uri = SimpleValueFormat<NamedUri>(
     macos: SimplePlatformCodec(
       decodingFormats: ['public.url', 'public.utf8-plain-text'],
       encodingFormats: [
@@ -134,11 +134,11 @@ class Formats {
     ),
   );
 
-  static const jpeg = SimpleDataFormat<Uint8List>(
-    macos: SimplePlatformCodec(formats: ['public.jpeg']),
-    ios: SimplePlatformCodec(formats: ['public.jpeg']),
-    windows: SimplePlatformCodec(formats: ['JFIF']),
-    fallback: SimplePlatformCodec(formats: ['image/jpeg']),
+  static const jpeg = SimpleFileFormat(
+    macosFormats: ['public.jpeg'],
+    iosFormats: ['public.jpeg'],
+    windowsFormats: ['JFIF'],
+    fallbackFormats: ['image/jpeg'],
   );
 
   /// PNG Image format
@@ -158,37 +158,45 @@ class Formats {
   ///
   /// On MacOS, TIFF image in pasteboard will be exposed as PNG unless there
   /// is another PNG already present in the clipboard.
-  static const png = SimpleDataFormat<Uint8List>(
-    macos: SimplePlatformCodec(formats: ['public.png']),
-    ios: SimplePlatformCodec(formats: ['public.png']),
-    windows: SimplePlatformCodec(formats: ['PNG']),
-    fallback: SimplePlatformCodec(formats: ['image/png']),
+  static const png = SimpleFileFormat(
+    macosFormats: ['public.png'],
+    iosFormats: ['public.png'],
+    windowsFormats: ['PNG'],
+    fallbackFormats: ['image/png'],
   );
 
-  static const gif = SimpleDataFormat<Uint8List>(
-    macos: SimplePlatformCodec(formats: ['public.gif']),
-    ios: SimplePlatformCodec(formats: ['public.gif']),
-    windows: SimplePlatformCodec(formats: ['GIF']),
-    fallback: SimplePlatformCodec(formats: ['image/gif']),
+  static const gif = SimpleFileFormat(
+    macosFormats: ['public.gif'],
+    iosFormats: ['public.gif'],
+    windowsFormats: ['GIF'],
+    fallbackFormats: ['image/gif'],
   );
 
-  static const tiff = SimpleDataFormat<Uint8List>(
-    macos: SimplePlatformCodec(formats: ['public.tiff']),
-    ios: SimplePlatformCodec(formats: ['public.tiff']),
-    windows: SimplePlatformCodec(formats: [cfTiff]),
-    fallback: SimplePlatformCodec(formats: ['image/tiff']),
+  static const tiff = SimpleFileFormat(
+    macosFormats: ['public.tiff'],
+    iosFormats: ['public.tiff'],
+    windowsFormats: [cfTiff],
+    fallbackFormats: ['image/tiff'],
   );
 
-  static const webp = SimpleDataFormat<Uint8List>(
-    macos: SimplePlatformCodec(formats: ['org.webmproject.webp']),
-    ios: SimplePlatformCodec(formats: ['org.webmproject.webp']),
-    fallback: SimplePlatformCodec(formats: ['image/webp']),
+  static const webp = SimpleFileFormat(
+    macosFormats: ['org.webmproject.webp'],
+    iosFormats: ['org.webmproject.webp'],
+    fallbackFormats: ['image/webp'],
   );
 
-  static const svg = SimpleDataFormat<Uint8List>(
-    macos: SimplePlatformCodec(formats: ['public.svg-image']),
-    ios: SimplePlatformCodec(formats: ['public.svg-image']),
-    fallback: SimplePlatformCodec(formats: ['image/svg+xml']),
+  static const svg = SimpleFileFormat(
+    macosFormats: ['public.svg-image'],
+    iosFormats: ['public.svg-image'],
+    fallbackFormats: ['image/svg+xml'],
+  );
+
+  // Format to be used for UTF-8 encoded files. Like other file format, this
+  // does no conversion.
+  static const utf8Text = SimpleFileFormat(
+    iosFormats: ['public.utf8-plain-text', 'public.plain-text'],
+    macosFormats: ['public.utf8-plain-text', 'public.plain-text'],
+    fallbackFormats: ['text/plain'],
   );
 }
 
@@ -201,19 +209,21 @@ class NamedUri {
   String? name;
 }
 
-class CustomDataFormat<T extends Object> extends DataFormat<T> {
+class CustomValueFormat<T extends Object> extends ValueFormat<T> {
   final String applicationId;
   final Future<T?> Function(Object value, String platformType)? onDecode;
   final FutureOr<Object> Function(T value, String platformType)? onEncode;
 
-  const CustomDataFormat({
+  const CustomValueFormat({
     required this.applicationId,
     this.onDecode,
     this.onEncode,
   });
 
   @override
-  PlatformCodec<T> codecForPlatform(ClipboardPlatform platform) {
+  PlatformCodec<T> get codec => _codecForPlatform(currentPlatform);
+
+  PlatformCodec<T> _codecForPlatform(ClipboardPlatform platform) {
     switch (platform) {
       case ClipboardPlatform.android:
         return SimplePlatformCodec<T>(

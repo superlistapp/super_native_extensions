@@ -274,7 +274,7 @@ class _MyHomePageState extends State<MyHomePage> {
       return null;
     }
     item.addVirtualFile(
-      format: Formats.plainText,
+      format: Formats.utf8Text,
       provider: (sinkProvider, progress) {
         showMessage('Requesting virtual file content.');
         final line = utf8.encode('Line in virtual file\n');
