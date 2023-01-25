@@ -35,8 +35,7 @@ use windows::{
             },
             DataExchange::RegisterClipboardFormatW,
             Memory::{GlobalLock, GlobalSize, GlobalUnlock},
-            Ole::{OleGetClipboard, ReleaseStgMedium},
-            SystemServices::{CF_DIB, CF_DIBV5, CF_HDROP, CF_TIFF},
+            Ole::{OleGetClipboard, ReleaseStgMedium, CF_DIB, CF_DIBV5, CF_HDROP, CF_TIFF},
         },
         UI::Shell::{
             SHCreateMemStream, CFSTR_FILECONTENTS, CFSTR_FILEDESCRIPTOR, DROPFILES,
@@ -112,7 +111,8 @@ impl PlatformDataReader {
     fn need_to_synthetize_png(&self) -> NativeExtensionsResult<bool> {
         let png = unsafe { RegisterClipboardFormatW(w!("PNG")) };
         let formats = self.data_object_formats_raw()?;
-        let has_dib = formats.contains(&CF_DIBV5.0) || formats.contains(&CF_DIB.0);
+        let has_dib =
+            formats.contains(&(CF_DIBV5.0 as u32)) || formats.contains(&(CF_DIB.0 as u32));
         let has_png = formats.contains(&png);
         Ok(has_dib && !has_png)
     }
@@ -135,7 +135,7 @@ impl PlatformDataReader {
         } else if item > 0 {
             let hdrop_len = self.get_hdrop()?.map(|v| v.len()).unwrap_or(0);
             if item < hdrop_len as i64 {
-                vec![format_to_string(CF_HDROP.0)]
+                vec![format_to_string(CF_HDROP.0 as u32)]
             } else {
                 Vec::new()
             }
@@ -202,10 +202,10 @@ impl PlatformDataReader {
     async fn generate_png(&self) -> NativeExtensionsResult<Vec<u8>> {
         let formats = self.data_object_formats()?;
         // prefer DIBV5 with alpha channel
-        let data = if formats.contains(&CF_DIBV5.0) {
-            Ok(self.data_object.get_data(CF_DIBV5.0)?)
-        } else if formats.contains(&CF_DIB.0) {
-            Ok(self.data_object.get_data(CF_DIB.0)?)
+        let data = if formats.contains(&(CF_DIBV5.0 as u32)) {
+            Ok(self.data_object.get_data(CF_DIBV5.0 as u32)?)
+        } else if formats.contains(&(CF_DIB.0 as u32)) {
+            Ok(self.data_object.get_data(CF_DIB.0 as u32)?)
         } else {
             Err(NativeExtensionsError::OtherError(
                 "No DIB or DIBV5 data found in data object".into(),
@@ -246,7 +246,7 @@ impl PlatformDataReader {
     ) -> NativeExtensionsResult<Value> {
         let format = format_from_string(&data_type);
         let png = unsafe { RegisterClipboardFormatW(w!("PNG")) };
-        if format == CF_HDROP.0 {
+        if format == CF_HDROP.0 as u32 {
             let item = item as usize;
             let hdrop = self.get_hdrop()?.unwrap_or_default();
             if item < hdrop.len() {
@@ -290,8 +290,8 @@ impl PlatformDataReader {
 
     /// Returns parsed hdrop content
     fn get_hdrop(&self) -> NativeExtensionsResult<Option<Vec<String>>> {
-        if self.data_object.has_data(CF_HDROP.0) {
-            let data = self.data_object.get_data(CF_HDROP.0)?;
+        if self.data_object.has_data(CF_HDROP.0 as u32) {
+            let data = self.data_object.get_data(CF_HDROP.0 as u32)?;
             Ok(Some(Self::extract_drop_files(data)?))
         } else {
             Ok(None)
@@ -340,7 +340,7 @@ impl PlatformDataReader {
                 "image/png" => "PNG".to_owned(),
                 "image/jpeg" => "JFIF".to_string(),
                 "image/gif" => "GIF".to_string(),
-                "image/tiff" => format_to_string(CF_TIFF.0),
+                "image/tiff" => format_to_string(CF_TIFF.0 as u32),
                 _ => fmt,
             }
         }

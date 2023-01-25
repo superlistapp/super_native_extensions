@@ -12,14 +12,13 @@ use windows::{
         UI::{
             Input::KeyboardAndMouse::{
                 GetKeyboardLayout, GetKeyboardLayoutList, MapVirtualKeyW, ToUnicodeEx, VK_CONTROL,
-                VK_MENU, VK_SHIFT, VK_SPACE,
+                VK_MENU, VK_SHIFT, VK_SPACE, MAPVK_VK_TO_VSC, MAPVK_VSC_TO_VK,
             },
             TextServices::{
                 CLSID_TF_InputProcessorProfiles, ITfInputProcessorProfiles,
                 ITfLanguageProfileNotifySink, ITfLanguageProfileNotifySink_Impl, ITfSource, HKL,
                 TF_INVALID_COOKIE,
             },
-            WindowsAndMessaging::{MAPVK_VK_TO_VSC, MAPVK_VSC_TO_VK},
         },
     },
 };

@@ -3,6 +3,7 @@ use std::{ptr::null_mut, slice};
 use windows::{
     core::PWSTR,
     Win32::{
+        Foundation::VARIANT_BOOL,
         Graphics::Imaging::{
             CLSID_WICImagingFactory, GUID_ContainerFormatBmp, GUID_ContainerFormatPng,
             IWICBitmapFrameEncode, IWICImagingFactory, WICBitmapEncoderNoCache,
@@ -13,7 +14,7 @@ use windows::{
                 StructuredStorage::{
                     CreateStreamOnHGlobal, GetHGlobalFromStream, IPropertyBag2, PROPBAG2,
                 },
-                VARIANT, VT_BOOL,
+                VT_BOOL,
             },
             Memory::{GlobalLock, GlobalSize, GlobalUnlock},
             Ole::VariantInit,
@@ -72,11 +73,10 @@ pub fn convert_to_dib(input_stream: IStream, use_v5: bool) -> windows::core::Res
                 let mut name: Vec<_> = "EnableV5Header32bppBGRA".encode_utf16().collect();
                 name.push(0);
                 option.pstrName = PWSTR(name.as_ptr() as *mut _);
-                let mut variant = VARIANT::default();
-                VariantInit(&mut variant as *mut _);
+                let mut variant = VariantInit();
                 let inside = &mut variant.Anonymous.Anonymous;
                 inside.vt = VT_BOOL;
-                inside.Anonymous.boolVal = 0xFFFFu16 as i16;
+                inside.Anonymous.boolVal = VARIANT_BOOL(0xFFFFu16 as i16);
                 property_bag.Write(1, &mut option as *mut _, &mut variant as *mut _)?;
             }
         }

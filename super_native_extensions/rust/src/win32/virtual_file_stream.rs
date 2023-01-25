@@ -225,8 +225,18 @@ impl ISequentialStream_Impl for VirtualFileStream {
 }
 
 impl IStream_Impl for VirtualFileStream {
-    fn Seek(&self, dlibmove: i64, dworigin: STREAM_SEEK) -> windows::core::Result<u64> {
-        self.stream.seek(dlibmove, dworigin)
+    fn Seek(
+        &self,
+        dlibmove: i64,
+        dworigin: STREAM_SEEK,
+        plibnewposition: *mut u64,
+    ) -> windows::core::Result<()> {
+        let position = self.stream.seek(dlibmove, dworigin)?;
+        if !plibnewposition.is_null() {
+            let new_position = &mut unsafe { *plibnewposition };
+            *new_position = position;
+        }
+        Ok(())
     }
 
     fn SetSize(&self, _libnewsize: u64) -> windows::core::Result<()> {
