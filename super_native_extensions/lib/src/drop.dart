@@ -103,7 +103,7 @@ class ItemPreviewRequest {
     required this.fadeOutDuration,
   });
 
-  static deserialize(dynamic request) {
+  static ItemPreviewRequest deserialize(dynamic request) {
     final map = request as Map;
     return ItemPreviewRequest(
       sessionId: map['sessionId'] as int,

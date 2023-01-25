@@ -6,6 +6,7 @@ import 'package:irondash_message_channel/irondash_message_channel.dart';
 
 import '../api_model.dart';
 import '../drop.dart';
+import '../mutex.dart';
 import '../reader.dart';
 import '../util.dart';
 import 'api_model.dart';
@@ -17,6 +18,7 @@ final _channel =
 
 class Session {
   DataReader? reader;
+  final mutex = Mutex();
 }
 
 extension ItemPreviewExt on ItemPreview {
@@ -127,37 +129,58 @@ class DropContextImpl extends DropContext {
       return handleError(() async {
         final event = await DropEventImpl.deserialize(
             call.arguments, _getReaderForSession);
-        _sessionForId(event.sessionId).reader = event.reader;
-
-        final operation = await delegate?.onDropUpdate(event);
-        return (operation ?? DropOperation.none).name;
+        final session = _sessionForId(event.sessionId);
+        session.reader = event.reader;
+        return session.mutex.protect(() async {
+          final operation = await delegate?.onDropUpdate(event);
+          return (operation ?? DropOperation.none).name;
+        });
       }, () => DropOperation.none.name);
     } else if (call.method == 'onPerformDrop') {
       return handleError(() async {
         final event = await DropEventImpl.deserialize(
             call.arguments, _getReaderForSession);
-        _sessionForId(event.sessionId).reader = event.reader;
-        return await delegate?.onPerformDrop(event);
+        final session = _sessionForId(event.sessionId);
+        session.reader = event.reader;
+        return session.mutex.protect(() async {
+          return await delegate?.onPerformDrop(event);
+        });
       }, () => null);
     } else if (call.method == 'onDropLeave') {
       return handleError(() async {
         final event = BaseDropEventExt.deserialize(call.arguments);
-        return await delegate?.onDropLeave(event);
+        final session = _sessionForId(event.sessionId);
+        return session.mutex.protect(() async {
+          return await delegate?.onDropLeave(event);
+        });
       }, () => null);
     } else if (call.method == 'onDropEnded') {
       return handleError(() async {
         final event = BaseDropEventExt.deserialize(call.arguments);
         final session = _sessions.remove(event.sessionId);
-        session?.reader?.dispose();
-        return await delegate?.onDropEnded(event);
+        if (session != null) {
+          return session.mutex.protect(() async {
+            session.reader?.dispose();
+            return await delegate?.onDropEnded(event);
+          });
+        } else {
+          return null;
+        }
       }, () => null);
     } else if (call.method == 'getPreviewForItem') {
       return handleError(() async {
         final request = ItemPreviewRequest.deserialize(call.arguments);
-        final preview = await delegate?.onGetItemPreview(request);
-        return {
-          'preview': preview?.serialize(),
-        };
+        final session = _sessions[request.sessionId];
+        if (session != null) {
+          return session.mutex.protect(() async {
+            final preview = await delegate?.onGetItemPreview(request);
+            return {
+              'preview': preview?.serialize(),
+            };
+          });
+        } else {
+          return {'preview': null};
+        }
       }, () => {'preview': null});
     } else {
       return null;
