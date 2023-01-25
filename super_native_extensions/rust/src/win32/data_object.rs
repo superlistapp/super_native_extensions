@@ -24,8 +24,7 @@ use windows::{
             Memory::{
                 GlobalAlloc, GlobalFree, GlobalLock, GlobalSize, GlobalUnlock, GLOBAL_ALLOC_FLAGS,
             },
-            Ole::{ReleaseStgMedium, DROPEFFECT},
-            SystemServices::{CF_DIB, CF_DIBV5, CF_HDROP},
+            Ole::{ReleaseStgMedium, CF_DIB, CF_DIBV5, CF_HDROP, DROPEFFECT},
         },
         UI::Shell::{
             IDataObjectAsyncCapability, IDataObjectAsyncCapability_Impl, SHCreateMemStream,
@@ -188,7 +187,7 @@ impl DataObject {
     fn data_for_hdrop(&self) -> Option<Vec<u8>> {
         let n_items = self.providers.len();
         let files: Vec<_> = (0..n_items)
-            .filter_map(|i| self.data_for_format(CF_HDROP.0, i))
+            .filter_map(|i| self.data_for_format(CF_HDROP.0 as u32, i))
             .collect();
         if files.is_empty() {
             None
@@ -233,7 +232,7 @@ impl DataObject {
         for provider in &self.providers {
             for repr in &provider.provider.data.representations {
                 let repr_format = format_from_string(repr.format());
-                has_bmp |= repr_format == CF_DIBV5.0 || repr_format == CF_DIB.0;
+                has_bmp |= repr_format == CF_DIBV5.0 as u32 || repr_format == CF_DIB.0 as u32;
                 has_foreign |= foreign_formats.contains(&repr_format);
             }
         }
@@ -281,8 +280,8 @@ impl DataObject {
         }
 
         if self.needs_synthetize_bitmap() {
-            res.push(make_format_with_tymed(CF_DIB.0, TYMED_HGLOBAL));
-            res.push(make_format_with_tymed(CF_DIBV5.0, TYMED_HGLOBAL));
+            res.push(make_format_with_tymed(CF_DIB.0 as u32, TYMED_HGLOBAL));
+            res.push(make_format_with_tymed(CF_DIBV5.0 as u32, TYMED_HGLOBAL));
         }
 
         // Extra data (set through SetData) last
@@ -456,7 +455,7 @@ impl IDataObject_Impl for DataObject {
                 Anonymous: STGMEDIUM_0 {
                     pstm: ManuallyDrop::new(stream),
                 },
-                pUnkForRelease: None,
+                pUnkForRelease: windows::core::ManuallyDrop::none(),
             });
         }
 
@@ -470,11 +469,11 @@ impl IDataObject_Impl for DataObject {
             .or_else(|| {
                 if format.cfFormat as u32 == format_file_descriptor {
                     self.data_for_file_group_descritor()
-                } else if format.cfFormat as u32 == CF_HDROP.0 {
+                } else if format.cfFormat == CF_HDROP.0 {
                     self.data_for_hdrop()
-                } else if needs_generate_bitmap && format.cfFormat as u32 == CF_DIB.0 {
+                } else if needs_generate_bitmap && format.cfFormat == CF_DIB.0 {
                     self.synthetize_bitmap_data(false).ok_log()
-                } else if needs_generate_bitmap && format.cfFormat as u32 == CF_DIBV5.0 {
+                } else if needs_generate_bitmap && format.cfFormat == CF_DIBV5.0 {
                     self.synthetize_bitmap_data(true).ok_log()
                 } else {
                     self.data_for_format(format.cfFormat as u32, 0)
@@ -490,21 +489,21 @@ impl IDataObject_Impl for DataObject {
                     Ok(STGMEDIUM {
                         tymed: TYMED_HGLOBAL,
                         Anonymous: STGMEDIUM_0 { hGlobal: global },
-                        pUnkForRelease: None,
+                        pUnkForRelease: windows::core::ManuallyDrop::none(),
                     })
                 } else if (format.tymed & TYMED_ISTREAM.0 as u32) != 0 {
                     let stream = unsafe { SHCreateMemStream(Some(&data)) };
                     let stream =
                         stream.ok_or_else(|| windows::core::Error::from(DV_E_FORMATETC))?;
                     unsafe {
-                        stream.Seek(0, STREAM_SEEK_END)?;
+                        stream.Seek(0, STREAM_SEEK_END, None)?;
                     }
                     Ok(STGMEDIUM {
                         tymed: TYMED_ISTREAM,
                         Anonymous: STGMEDIUM_0 {
                             pstm: ManuallyDrop::new(Some(stream)),
                         },
-                        pUnkForRelease: None,
+                        pUnkForRelease: windows::core::ManuallyDrop::none(),
                     })
                 } else {
                     Err(DV_E_FORMATETC.into())

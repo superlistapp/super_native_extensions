@@ -11,15 +11,14 @@ use windows::{
         Foundation::BOOL,
         UI::{
             Input::KeyboardAndMouse::{
-                GetKeyboardLayout, GetKeyboardLayoutList, MapVirtualKeyW, ToUnicodeEx, VK_CONTROL,
-                VK_MENU, VK_SHIFT, VK_SPACE,
+                GetKeyboardLayout, GetKeyboardLayoutList, MapVirtualKeyW, ToUnicodeEx,
+                MAPVK_VK_TO_VSC, MAPVK_VSC_TO_VK, VK_CONTROL, VK_MENU, VK_SHIFT, VK_SPACE,
             },
             TextServices::{
                 CLSID_TF_InputProcessorProfiles, ITfInputProcessorProfiles,
                 ITfLanguageProfileNotifySink, ITfLanguageProfileNotifySink_Impl, ITfSource, HKL,
                 TF_INVALID_COOKIE,
             },
-            WindowsAndMessaging::{MAPVK_VK_TO_VSC, MAPVK_VSC_TO_VK},
         },
     },
 };
