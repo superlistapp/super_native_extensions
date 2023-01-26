@@ -10,8 +10,22 @@ pub struct Context {
     outermost: bool,
 }
 
+#[cfg(not(target_os = "windows"))]
+struct Initializer {}
+
+#[cfg(not(target_os = "windows"))]
+impl Initializer {
+    fn new() -> Self {
+        Self {}
+    }
+}
+
+#[cfg(target_os = "windows")]
+type Initializer = crate::platform_impl::platform::OleInitializer;
+
 pub struct ContextInternal {
     attachments: RefCell<HashMap<TypeId, (Box<dyn Any>, usize /* insertion order */)>>,
+    _initializer: Initializer,
 }
 
 impl Context {
@@ -22,6 +36,7 @@ impl Context {
     pub fn new() -> Self {
         let internal = Rc::new(ContextInternal {
             attachments: RefCell::new(HashMap::new()),
+            _initializer: Initializer::new(),
         });
         let res = Self {
             internal: internal.clone(),
