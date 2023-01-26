@@ -20,6 +20,7 @@ class Formats {
     webp,
     tiff,
     utf8Text,
+    webUnknown,
   ];
 
   static const plainText = SimpleValueFormat<String>(
@@ -191,11 +192,19 @@ class Formats {
     fallbackFormats: ['image/svg+xml'],
   );
 
-  // Format to be used for UTF-8 encoded files. Like other file format, this
-  // does no conversion.
+  /// Format to be used for UTF-8 encoded files. Like other file format, this
+  /// does no conversion.
   static const utf8Text = SimpleFileFormat(
     iosFormats: ['public.utf8-plain-text', 'public.plain-text'],
     macosFormats: ['public.utf8-plain-text', 'public.plain-text'],
+    fallbackFormats: ['text/plain'],
+  );
+
+  /// Some browsers (Safari, of course, who else), do not report mime types of
+  /// files during dragging, only when dropped. In which case there will be one
+  /// item present during the drop over event of type [webUnknown].
+  static const webUnknown = SimpleFileFormat(
+    webFormats: ['web:unknown'],
     fallbackFormats: ['text/plain'],
   );
 }

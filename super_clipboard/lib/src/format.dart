@@ -122,6 +122,11 @@ abstract class ValueFormat<T extends Object> extends DataFormat<T> {
     }
     return EncodedData(entries);
   }
+
+  @override
+  String toString() {
+    return '$runtimeType (${codec.decodingFormats.first})';
+  }
 }
 
 /// Base format class for files that are in standardized formats and processed
@@ -158,5 +163,10 @@ abstract class FileFormat extends DataFormat<Uint8List> {
         dataProvider: provider,
       ),
     ]);
+  }
+
+  @override
+  String toString() {
+    return '$runtimeType ($providerFormat)';
   }
 }

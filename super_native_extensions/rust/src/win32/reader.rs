@@ -5,13 +5,15 @@ use std::{
     path::{Path, PathBuf},
     rc::{Rc, Weak},
     slice,
+    str::FromStr,
     sync::{
         atomic::{AtomicBool, Ordering},
-        Arc,
+        Arc, Mutex,
     },
     thread,
 };
 
+use async_trait::async_trait;
 use byte_slice_cast::AsSliceOf;
 use irondash_message_channel::Value;
 use irondash_run_loop::{
@@ -19,6 +21,8 @@ use irondash_run_loop::{
     RunLoop, RunLoopSender,
 };
 use rand::{distributions::Alphanumeric, Rng};
+use threadpool::ThreadPool;
+use url::Url;
 use windows::{
     core::HSTRING,
     w,
@@ -30,8 +34,8 @@ use windows::{
         },
         System::{
             Com::{
-                IDataObject, IStream, STATFLAG_NONAME, STATSTG, STGMEDIUM, TYMED, TYMED_HGLOBAL,
-                TYMED_ISTREAM,
+                IDataObject, IStream, STATFLAG_NONAME, STATSTG, STGMEDIUM, STREAM_SEEK_SET, TYMED,
+                TYMED_HGLOBAL, TYMED_ISTREAM,
             },
             DataExchange::RegisterClipboardFormatW,
             Memory::{GlobalLock, GlobalSize, GlobalUnlock},
@@ -48,7 +52,7 @@ use crate::{
     error::{NativeExtensionsError, NativeExtensionsResult},
     log::OkLog,
     platform_impl::platform::common::make_format_with_tymed_index,
-    reader_manager::ReadProgress,
+    reader_manager::{ReadProgress, VirtualFileReader},
     util::{get_target_path, DropNotifier, Movable},
 };
 
@@ -64,12 +68,29 @@ pub struct PlatformDataReader {
 }
 
 /// Virtual file descriptor
+#[derive(Clone)]
 struct FileDescriptor {
     name: String,
     format: String,
 }
 
 impl PlatformDataReader {
+    pub async fn get_format_for_file_uri(
+        file_uri: String,
+    ) -> NativeExtensionsResult<Option<String>> {
+        let url = Url::from_str(&file_uri)
+            .map_err(|_| NativeExtensionsError::OtherError("Couldn't parse file URL".into()))?;
+        let name = url.path_segments().and_then(|s| s.last());
+        match name {
+            Some(name) => {
+                let format = mime_from_name(name);
+                let format = mime_to_windows(format);
+                Ok(Some(format))
+            }
+            None => Ok(None),
+        }
+    }
+
     pub fn get_items_sync(&self) -> NativeExtensionsResult<Vec<i64>> {
         Ok((0..self.item_count()? as i64).collect())
     }
@@ -166,7 +187,7 @@ impl PlatformDataReader {
         Ok(format == "PNG" && self.need_to_synthetize_png()?)
     }
 
-    pub async fn can_get_virtual_file_for_item(
+    pub async fn can_copy_virtual_file_for_item(
         &self,
         item: i64,
         format: &str,
@@ -178,6 +199,14 @@ impl PlatformDataReader {
             }
         }
         Ok(false)
+    }
+
+    pub async fn can_read_virtual_file_for_item(
+        &self,
+        item: i64,
+        format: &str,
+    ) -> NativeExtensionsResult<bool> {
+        self.can_copy_virtual_file_for_item(item, format).await
     }
 
     pub async fn get_suggested_name_for_item(
@@ -334,17 +363,6 @@ impl PlatformDataReader {
             )
         };
 
-        // Map mime types to known windows clipboard format
-        fn mime_to_windows(fmt: String) -> String {
-            match fmt.as_str() {
-                "image/png" => "PNG".to_owned(),
-                "image/jpeg" => "JFIF".to_string(),
-                "image/gif" => "GIF".to_string(),
-                "image/tiff" => format_to_string(CF_TIFF.0 as u32),
-                _ => fmt,
-            }
-        }
-
         let res: Vec<_> = files
             .iter()
             .map(|f| {
@@ -354,16 +372,7 @@ impl PlatformDataReader {
                     .position(|a| *a == 0)
                     .unwrap_or(file_name.len());
                 let name = String::from_utf16_lossy(&file_name[0..len]);
-                let ext = Path::new(&name).extension();
-                let format = mime_guess::from_path(&name)
-                    .first()
-                    .map(|m| m.to_string())
-                    .unwrap_or_else(|| {
-                        format!(
-                            "application/octet-stream;extension={}",
-                            ext.unwrap_or_default().to_string_lossy()
-                        )
-                    });
+                let format = mime_from_name(&name);
                 let format = mime_to_windows(format);
                 FileDescriptor { name, format }
             })
@@ -426,7 +435,53 @@ impl PlatformDataReader {
         Ok(res)
     }
 
-    fn do_get_virtual_file(
+    fn stream_from_medium(medium: &STGMEDIUM) -> NativeExtensionsResult<IStream> {
+        match medium.tymed {
+            TYMED_HGLOBAL => {
+                let stream = unsafe {
+                    let size = GlobalSize(medium.Anonymous.hGlobal);
+                    let data = GlobalLock(medium.Anonymous.hGlobal);
+                    let data = slice::from_raw_parts(data as *const u8, size);
+                    let res = SHCreateMemStream(Some(data));
+                    GlobalUnlock(medium.Anonymous.hGlobal);
+                    res
+                };
+                match stream {
+                    Some(stream) => Ok(stream),
+                    None => Err(NativeExtensionsError::VirtualFileReceiveError(
+                        "Could not create stream from HGlobal".into(),
+                    )),
+                }
+            }
+            TYMED_ISTREAM => match unsafe { medium.Anonymous.pstm.as_ref() } {
+                Some(stream) => Ok(stream.clone()),
+                None => Err(NativeExtensionsError::VirtualFileReceiveError(
+                    "IStream missing".into(),
+                )),
+            },
+            _ => Err(NativeExtensionsError::VirtualFileReceiveError(
+                "unsupported data format (unexpected tymed)".into(),
+            )),
+        }
+    }
+
+    pub async fn create_virtual_file_reader_for_item(
+        &self,
+        item: i64,
+        _format: &str,
+        _progress: Arc<ReadProgress>,
+    ) -> NativeExtensionsResult<Option<Rc<dyn VirtualFileReader>>> {
+        let descriptor = self.descriptor_for_virtual_file(item)?;
+        let mut medium = self.medium_for_virtual_file(item)?;
+        let stream = Self::stream_from_medium(&medium);
+        unsafe { ReleaseStgMedium(&mut medium as *mut STGMEDIUM) };
+        let stream = stream?;
+        let stream = unsafe { Movable::new(stream) };
+        let reader = StreamReader::new(stream, descriptor.name).await?;
+        Ok(Some(Rc::new(reader)))
+    }
+
+    fn do_copy_virtual_file(
         medium: &STGMEDIUM,
         file_name: &str,
         target_folder: PathBuf,
@@ -435,17 +490,16 @@ impl PlatformDataReader {
     ) {
         match medium.tymed {
             TYMED_HGLOBAL => {
-                let data = unsafe {
+                let path = get_target_path(&target_folder, file_name);
+                let res = unsafe {
                     let size = GlobalSize(medium.Anonymous.hGlobal);
                     let data = GlobalLock(medium.Anonymous.hGlobal);
-
-                    let v = slice::from_raw_parts(data as *const u8, size);
-                    let res: Vec<u8> = v.into();
+                    let data = slice::from_raw_parts(data as *const u8, size);
+                    let res = fs::write(&path, data);
                     GlobalUnlock(medium.Anonymous.hGlobal);
                     res
                 };
-                let path = get_target_path(&target_folder, file_name);
-                match fs::write(&path, data) {
+                match res {
                     Ok(_) => completer.complete(Ok(path)),
                     Err(err) => completer.complete(Err(
                         NativeExtensionsError::VirtualFileReceiveError(err.to_string()),
@@ -454,7 +508,7 @@ impl PlatformDataReader {
             }
             TYMED_ISTREAM => match unsafe { medium.Anonymous.pstm.as_ref() } {
                 Some(stream) => {
-                    let reader = VirtualStreamReader {
+                    let reader = VirtualStreamCopier {
                         sender: RunLoop::current().new_sender(),
                         stream: unsafe { Movable::new(stream.clone()) },
                         file_name: file_name.into(),
@@ -476,13 +530,7 @@ impl PlatformDataReader {
         }
     }
 
-    pub async fn get_virtual_file_for_item(
-        &self,
-        item: i64,
-        _format: &str,
-        target_folder: PathBuf,
-        progress: Arc<ReadProgress>,
-    ) -> NativeExtensionsResult<PathBuf> {
+    fn descriptor_for_virtual_file(&self, item: i64) -> NativeExtensionsResult<FileDescriptor> {
         let descriptors = self.get_file_descriptors()?.ok_or_else(|| {
             NativeExtensionsError::VirtualFileReceiveError(
                 "DataObject has not virtual files".into(),
@@ -491,6 +539,10 @@ impl PlatformDataReader {
         let descriptor = descriptors.get(item as usize).ok_or_else(|| {
             NativeExtensionsError::VirtualFileReceiveError("item not found".into())
         })?;
+        Ok(descriptor.clone())
+    }
+
+    fn medium_for_virtual_file(&self, item: i64) -> NativeExtensionsResult<STGMEDIUM> {
         let format = unsafe { RegisterClipboardFormatW(CFSTR_FILECONTENTS) };
         let format = make_format_with_tymed_index(
             format,
@@ -499,32 +551,173 @@ impl PlatformDataReader {
         );
         if self.data_object.has_data_for_format(&format) {
             unsafe {
-                let mut medium = DataObject::with_local_request(|| {
+                let medium = DataObject::with_local_request(|| {
                     self.data_object.GetData(&format as *const _)
                 })?;
-                let (future, completer) = FutureCompleter::new();
-                Self::do_get_virtual_file(
-                    &medium,
-                    &descriptor.name,
-                    target_folder,
-                    progress,
-                    completer,
-                );
-                ReleaseStgMedium(&mut medium as *mut STGMEDIUM);
-                return future.await;
+                Ok(medium)
+            }
+        } else {
+            Err(NativeExtensionsError::VirtualFileReceiveError(
+                "item not found".into(),
+            ))
+        }
+    }
+
+    pub async fn copy_virtual_file_for_item(
+        &self,
+        item: i64,
+        _format: &str,
+        target_folder: PathBuf,
+        progress: Arc<ReadProgress>,
+    ) -> NativeExtensionsResult<PathBuf> {
+        let descriptor = self.descriptor_for_virtual_file(item)?;
+        let mut medium = self.medium_for_virtual_file(item)?;
+        unsafe {
+            let (future, completer) = FutureCompleter::new();
+            Self::do_copy_virtual_file(
+                &medium,
+                &descriptor.name,
+                target_folder,
+                progress,
+                completer,
+            );
+            ReleaseStgMedium(&mut medium as *mut STGMEDIUM);
+            return future.await;
+        }
+    }
+}
+
+struct StreamReader {
+    stream: Movable<IStream>,
+    length: u64,
+    file_name: String,
+    // Single thread thread-pool so that all requests are run in background
+    // but serialized.
+    thread_pool: ThreadPool,
+    read_state: Arc<Mutex<Option<ReadState>>>,
+}
+
+struct ReadState {
+    num_read: u64,
+}
+
+impl StreamReader {
+    async fn new(stream: Movable<IStream>, file_name: String) -> NativeExtensionsResult<Self> {
+        let thread_pool = ThreadPool::new(1);
+        let length = Self::stream_length(&stream, &thread_pool).await?;
+        Ok(StreamReader {
+            stream,
+            length,
+            file_name,
+            thread_pool,
+            read_state: Arc::new(Mutex::new(None)),
+        })
+    }
+
+    async fn stream_length(
+        stream: &Movable<IStream>,
+        thread_pool: &ThreadPool,
+    ) -> NativeExtensionsResult<u64> {
+        fn stream_length(stream: &IStream) -> NativeExtensionsResult<u64> {
+            let mut stat = STATSTG::default();
+            unsafe {
+                stream.Stat(&mut stat as *mut _, STATFLAG_NONAME)?;
+            }
+            Ok(stat.cbSize)
+        }
+
+        let (future, completer) = FutureCompleter::new();
+        let stream_clone = stream.clone();
+        let sender = RunLoop::current().new_sender();
+        let mut completer = Capsule::new_with_sender(completer, sender.clone());
+        thread_pool.execute(move || {
+            let len = stream_length(&stream_clone);
+            sender.send(move || {
+                completer.take().unwrap().complete(len);
+            });
+        });
+
+        future.await
+    }
+
+    fn read(
+        stream: Movable<IStream>,
+        length: u64,
+        state: Arc<Mutex<Option<ReadState>>>,
+    ) -> NativeExtensionsResult<Vec<u8>> {
+        let mut state = state.lock().unwrap();
+        if state.is_none() {
+            state.replace(ReadState { num_read: 0 });
+            unsafe {
+                stream.Seek(0, STREAM_SEEK_SET, None)?;
             }
         }
-        Err(NativeExtensionsError::VirtualFileReceiveError(
-            "item not found".into(),
-        ))
+        let mut buf = Vec::<u8>::new();
+        buf.resize(1024 * 256, 0);
+        let mut state = state.as_mut().unwrap();
+        let to_read = (length - state.num_read).min(buf.len() as u64) as u32;
+        if to_read == 0 {
+            Ok(Vec::new())
+        } else {
+            let mut did_read = 0u32;
+            let res = unsafe {
+                stream.Read(
+                    buf.as_ptr() as *mut _,
+                    to_read,
+                    Some(&mut did_read as *mut _),
+                )
+            };
+            if res != S_OK {
+                Err(windows::core::Error::from(res).into())
+            } else {
+                state.num_read += did_read as u64;
+                buf.resize(did_read as usize, 0);
+                Ok(buf)
+            }
+        }
+    }
+}
+
+#[async_trait(?Send)]
+impl VirtualFileReader for StreamReader {
+    async fn read_next(&self) -> NativeExtensionsResult<Vec<u8>> {
+        let (future, completer) = FutureCompleter::new();
+        let sender = RunLoop::current().new_sender();
+        let mut completer = Capsule::new_with_sender(completer, sender.clone());
+        let stream = self.stream.clone();
+        let read_state = self.read_state.clone();
+        let length = self.length;
+        self.thread_pool.execute(move || {
+            let res = Self::read(stream, length, read_state);
+            sender.send(move || {
+                completer.take().unwrap().complete(res);
+            });
+        });
+        future.await
+    }
+
+    fn file_size(&self) -> NativeExtensionsResult<Option<i64>> {
+        let mut stat = STATSTG::default();
+        unsafe {
+            self.stream.Stat(&mut stat as *mut _, STATFLAG_NONAME)?;
+        }
+        Ok(Some(stat.cbSize as i64))
+    }
+
+    fn file_name(&self) -> Option<String> {
+        Some(self.file_name.clone())
+    }
+
+    fn close(&self) -> NativeExtensionsResult<()> {
+        // Stream gets closed upon release
+        Ok(())
     }
 }
 
 // Most streams in COM should be agile, also the documentation for IDataObjectAsyncCapability
 // assumes that the stream is read on background thread so we wrap it inside Movable
 // in order to be able to send it.
-
-struct VirtualStreamReader {
+struct VirtualStreamCopier {
     sender: RunLoopSender,
     stream: Movable<IStream>,
     file_name: String,
@@ -533,7 +726,7 @@ struct VirtualStreamReader {
     completer: Capsule<FutureCompleter<NativeExtensionsResult<PathBuf>>>,
 }
 
-impl VirtualStreamReader {
+impl VirtualStreamCopier {
     fn get_length(&self) -> NativeExtensionsResult<u64> {
         let mut stat = STATSTG::default();
         unsafe {
@@ -585,6 +778,11 @@ impl VirtualStreamReader {
         let mut buf = Vec::<u8>::new();
         buf.resize(1024 * 256, 0);
         let mut last_reported_progress = 0f64;
+
+        unsafe {
+            self.stream.Seek(0, STREAM_SEEK_SET, None)?;
+        }
+
         loop {
             if cancelled.load(Ordering::Acquire) {
                 return Err(NativeExtensionsError::VirtualFileReceiveError(
@@ -633,4 +831,28 @@ impl VirtualStreamReader {
             completer.complete(res);
         });
     }
+}
+
+// Map mime types to known windows clipboard format
+fn mime_to_windows(fmt: String) -> String {
+    match fmt.as_str() {
+        "image/png" => "PNG".to_owned(),
+        "image/jpeg" => "JFIF".to_string(),
+        "image/gif" => "GIF".to_string(),
+        "image/tiff" => format_to_string(CF_TIFF.0 as u32),
+        _ => fmt,
+    }
+}
+
+fn mime_from_name(name: &str) -> String {
+    let ext = Path::new(name).extension();
+    mime_guess::from_path(name)
+        .first()
+        .map(|m| m.to_string())
+        .unwrap_or_else(|| {
+            format!(
+                "application/octet-stream;extension={}",
+                ext.unwrap_or_default().to_string_lossy()
+            )
+        })
 }

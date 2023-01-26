@@ -157,14 +157,33 @@ class MyDropRegion extends StatelessWidget {
         // Note that data must be requested before the performDrop callback
         // is over.
         final item = event.session.items.first;
+
         // data reader is available now
         final reader = item.dataReader!;
         if (reader.hasValue(Formats.plainText)) {
-          reader.getValue(Formats.plainText, (value) {
+          reader.getValue<String>(Formats.plainText, (value) {
             if (value.error != null) {
               print('Error reading value ${value.error}');
             } else {
+              // You can access values through the `value` property.
               print('Dropped text: ${value.value}');
+            }
+          });
+        }
+
+        // Binary values should be received as stream. This will also work for
+        // receiving virtual files.
+        if (reader.hasValue(Formats.png)) {
+          reader.getValue(Formats.png, (value) {
+            if (value.error != null) {
+              print('Error reading value ${value.error}');
+            } else {
+              // Binary files may be too large to be loaded in memory and thus
+              // are exposed as stream.
+              final stream = value.asStream();
+              // Alternatively, if you know that that the value is small enough,
+              // you can read the entire value into memory:
+              final data = value.readAll();
             }
           });
         }
@@ -205,10 +224,24 @@ Virtual files are files that do not physically exist at the moment of drag. On d
 // TODO(knopp): Example
 ```
 
-### Dropping virtual files
+## Synthetized files
+
+On desktop platform, dropping files usually puts the file URL or path into the
+payload. This is diffrent from mobile and web, where you can receive the actual
+file data.
+
+To streamline this, `super_drag_and_drop` will synthesize a file stream for the dropped file path. This way you can always receive the file content as a stream, regardless of platform.
+
+## Receiving virtual files
+
+Receving virtual files doesn't require any special handling. You can consume the content of virtual file just like any other stream:
 
 ```dart
-// TODO(knopp): Example
+reader.getValue<Uint8List>(Formats.png, (value) {
+  final Stream<Uint8List> stream = value.asStream();
+  // You can now use the stream to read the file content.
+  });
+})
 ```
 
 ## Running the example

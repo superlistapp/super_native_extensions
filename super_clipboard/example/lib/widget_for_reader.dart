@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -36,11 +37,21 @@ class ReaderInfo {
     Object? localData,
   }) async {
     // build list of native formats with virtual/synthetized flags
-    List<String>? formats = await reader.rawReader!.getAvailableFormats();
+    final List<String> formats = reader.platformFormats;
+
+    final List<String> rawFormats =
+        await reader.rawReader!.getAvailableFormats();
+
+    // Reader may synthetize format from URI.
+    List<String> synthetizedByReader = List.of(formats)
+      ..removeWhere((element) => rawFormats.contains(element));
+
     final virtual =
         await Future.wait(formats.map((e) => reader.rawReader!.isVirtual(e)));
-    final synthetized = await Future.wait(
-        formats.map((e) => reader.rawReader!.isSynthetized(e)));
+
+    final synthetized = await Future.wait(formats.map((e) async =>
+        await reader.rawReader!.isSynthetized(e) ||
+        synthetizedByReader.contains(e)));
 
     return ReaderInfo._(
       reader: reader,
@@ -76,13 +87,30 @@ class _PlatformFormat {
 
 /// Turn [DataReader.getValue] into a future.
 extension _ReadValue on DataReader {
-  Future<T?> readValue<T extends Object>(DataFormat<T> format) async {
+  Future<T?> readValue<T extends Object>(DataFormat<T> format) {
     final c = Completer<T?>();
     getValue<T>(format, (value) {
       if (value.error != null) {
         c.completeError(value.error!);
       } else {
         c.complete(value.value);
+      }
+    });
+    return c.future;
+  }
+
+  Future<Uint8List?>? readFile(FileFormat format) {
+    final c = Completer<Uint8List?>();
+    getValue<Uint8List>(format, (value) async {
+      if (value.error != null) {
+        c.completeError(value.error!);
+      } else {
+        try {
+          final all = await value.readAll();
+          c.complete(all);
+        } catch (e) {
+          c.completeError(e);
+        }
       }
     });
     return c.future;
@@ -115,7 +143,7 @@ Future<Widget> _buildWidgetForReader(
   final formats = <DataFormat>{};
   children.retainWhere((element) => formats.add(element.format));
 
-  // build list of native formats with virtua/synthetized flags
+  // build list of native formats with virtual/synthetized flags
   final nativeFormats = reader._formats.map((e) {
     final attributes = [
       if (e.virtual) 'virtual',
@@ -264,11 +292,16 @@ class _RepresentationWidget extends StatelessWidget {
     required this.format,
     required this.name,
     required this.synthetized,
+    required this.virtual,
     required this.content,
   });
 
   @override
   Widget build(BuildContext context) {
+    final tag = [
+      if (virtual) 'virtual',
+      if (synthetized) 'synthetized',
+    ].join(' ');
     return DefaultTextStyle.merge(
       style: const TextStyle(fontSize: 12),
       child: Container(
@@ -285,7 +318,7 @@ class _RepresentationWidget extends StatelessWidget {
                   name,
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
-                Text(synthetized ? ' (synthetized)' : ''),
+                Text(tag.isNotEmpty ? ' ($tag)' : ''),
               ],
             ),
             const SizedBox(
@@ -301,17 +334,18 @@ class _RepresentationWidget extends StatelessWidget {
   final DataFormat format;
   final String name;
   final bool synthetized;
+  final bool virtual;
   final Widget content;
 }
 
 Future<_RepresentationWidget?> _widgetForImage(
   BuildContext context,
-  DataFormat<Uint8List> format,
+  FileFormat format,
   String name,
   DataReader reader,
 ) async {
   final scale = MediaQuery.of(context).devicePixelRatio;
-  final image = await reader.readValue(format);
+  final image = await reader.readFile(format);
   if (image == null || image.isEmpty /* Tiff on Firefox/Linux */) {
     return null;
   } else {
@@ -319,6 +353,7 @@ Future<_RepresentationWidget?> _widgetForImage(
       format: format,
       name: 'Image ($name)',
       synthetized: reader.isSynthetized(format),
+      virtual: reader.isVirtual(format),
       content: Container(
         padding: const EdgeInsets.only(top: 4),
         alignment: Alignment.centerLeft,
@@ -344,8 +379,26 @@ Future<_RepresentationWidget?> _widgetForFormat(
         return _RepresentationWidget(
           format: format,
           name: 'Plain Text',
-          synthetized: reader.isSynthetized(Formats.plainText),
+          synthetized: reader.isSynthetized(format),
+          virtual: reader.isVirtual(format),
           content: Text(sanitized),
+        );
+      }
+    case Formats.utf8Text:
+      if (!reader.isVirtual(format) && !reader.isSynthetized(format)) {
+        return null;
+      }
+      final contents = await reader.readFile(Formats.utf8Text);
+      if (contents == null) {
+        return null;
+      } else {
+        final text = utf8.decode(contents);
+        return _RepresentationWidget(
+          format: format,
+          name: 'Plain Text (utf8 file)',
+          synthetized: reader.isSynthetized(format),
+          virtual: reader.isVirtual(format),
+          content: Text(text),
         );
       }
     case Formats.htmlText:
@@ -356,7 +409,8 @@ Future<_RepresentationWidget?> _widgetForFormat(
         return _RepresentationWidget(
           format: format,
           name: 'HTML Text',
-          synthetized: reader.isSynthetized(Formats.htmlText),
+          synthetized: reader.isSynthetized(format),
+          virtual: reader.isVirtual(format),
           content: Text(html),
         );
       }
@@ -383,7 +437,8 @@ Future<_RepresentationWidget?> _widgetForFormat(
         return _RepresentationWidget(
           format: Formats.fileUri,
           name: 'File URI',
-          synthetized: reader.isSynthetized(Formats.fileUri),
+          synthetized: reader.isSynthetized(format),
+          virtual: reader.isVirtual(format),
           content: Text(fileUri.toString()),
         );
       }
@@ -393,6 +448,7 @@ Future<_RepresentationWidget?> _widgetForFormat(
           format: Formats.uri,
           name: 'URI',
           synthetized: reader.isSynthetized(Formats.uri),
+          virtual: reader.isVirtual(Formats.uri),
           content: _UriWidget(uri: uri),
         );
       }
@@ -406,6 +462,7 @@ Future<_RepresentationWidget?> _widgetForFormat(
           format: format,
           name: 'Custom Data',
           synthetized: reader.isSynthetized(formatCustom),
+          virtual: reader.isVirtual(formatCustom),
           content: Text(data.toString()),
         );
       }

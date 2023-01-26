@@ -6,16 +6,55 @@ import 'package:super_native_extensions/raw_clipboard.dart' as raw;
 
 import 'format.dart';
 import 'reader_internal.dart';
+import 'reader_value_delegate.dart';
 import 'standard_formats.dart';
 export 'package:super_native_extensions/raw_clipboard.dart'
     show VirtualFileReceiver, Pair, ReadProgress;
 
 class DataReaderValue<T extends Object> {
-  DataReaderValue({this.value, this.error});
+  DataReaderValue(this._delegate);
 
-  final T? value;
-  final Object? error;
+  final DataReaderValueDelegate<T> _delegate;
+
+  /// Returns the actual value.
+  ///
+  /// Note that if this is binary value ([Uint8List]), this may only be the
+  /// first chunk of file. In which case you can either advance
+  /// using [BinaryDataReaderValue.readNext], get the file contents as
+  /// stream through [BinaryDataReaderValue.asStream] or read the whole file
+  /// using [BinaryDataReaderValue.readAll].
+  T? get value => _delegate.value;
+
+  Object? get error => _delegate.error;
 }
+
+/// These methods are available if DataReaderValue content is an [Uint8List].
+/// The methods below may only be called from within the onValue callback.
+extension BinaryDataReaderValue on DataReaderValue<Uint8List> {
+  /// Reads the next chunk of the file. Returns `false` if there is no more data.
+  Future<bool> readNext() => _delegate.readNext();
+
+  /// Returns file name for the file, if available. File name at this
+  /// point, if available, will be more reliable than the one provided
+  /// by [DataReader.getSuggestedName];
+  String? get fileName => _delegate.fileName;
+
+  /// Disposes the result. Generally this only needs to call this when stream
+  /// was requested through [asStream] but not consumed. Otherwise it is called
+  /// automatically at the end of value callback or when stream is consumed.
+  void dispose() {
+    _delegate.dispose(force: true);
+  }
+
+  /// Returns the result of the data as stream. This can only be called once per
+  /// value.
+  Stream<Uint8List> asStream() => _delegate.asStream();
+
+  /// Reads the rest of the data and returns it as a single chunk.
+  Future<Uint8List> readAll() => _delegate.readAll();
+}
+
+typedef AsyncValueChanged<T> = FutureOr<void> Function(T value);
 
 abstract class DataReader {
   /// Returns true value for data format is possibly available in this reader.
@@ -38,7 +77,7 @@ abstract class DataReader {
   /// Loads the value for the given format.
   ///
   /// If no value for given format is available, `null` progress is returned and
-  /// [onValue] is caleld immediately with `null` result.
+  /// [onValue] is called immediately with `null` result.
   ///
   /// Getting the value is intentionally not exposed as async operation in order
   /// to prevent awaiting in contexts where it could block platform code (i.e.
@@ -48,8 +87,10 @@ abstract class DataReader {
   /// [ClipboardDataReader].
   raw.ReadProgress? getValue<T extends Object>(
     DataFormat<T> format,
-    ValueChanged<DataReaderValue<T>> onValue,
-  );
+    AsyncValueChanged<DataReaderValue<T>> onValue, {
+    bool allowVirtualFiles = true,
+    bool synthetizeFilesFromURIs = true,
+  });
 
   /// Returns whether value for given format is being synthetized. On Windows
   /// DIB images are accessible as PNG (converted on demand), same thing is
@@ -57,17 +98,8 @@ abstract class DataReader {
   bool isSynthetized(DataFormat format);
 
   /// When `true`, data in this format is virtual. It means it might not be
-  /// readily available and may need to be retrieved through
-  /// [getVirtualFileReceiver] instead of [getValue]. This is the case on macOS
-  /// and Windows. On iOS virtual data can be received through both [getValue]
-  /// and [getVirtualFileReceiver].
-  ///
-  /// On some platforms (macOS) data might be available through both [getValue]
-  /// and [getVirtualFileReceiver], with the virtual receiver being able to
-  /// provide a higher quality rendition of the data. For example dragging a
-  /// photo stored on iCloud from the Photos app will have a low resolution
-  /// value available through [getValue] and high resolution version available
-  /// through virtual receiver.
+  /// readily available and may be generated on demand. This is true for example
+  /// when dropping images from iPhone (they will be downloaded after dropped).
   bool isVirtual(DataFormat format);
 
   /// Returns suggested file name for the contents (if available).
@@ -76,9 +108,15 @@ abstract class DataReader {
   /// Returns virtual file receiver for given format or `null` if virtual data
   /// for the format is not available. If format is not specified returns
   /// receiver for format with highest priority (if any).
+  ///
+  /// Usually it is not needed to call this method directly, as [getValue]
+  /// will automatically call it if virtual data is available.
   Future<raw.VirtualFileReceiver?> getVirtualFileReceiver({
     FileFormat? format,
   });
+
+  /// Returns list of platform specific format identifiers for this item.
+  List<PlatformFormat> get platformFormats;
 
   /// If this reader is backed by raw DataReaderItem returns it.
   raw.DataReaderItem? get rawReader => null;
@@ -136,12 +174,19 @@ class ClipboardReader extends ClipboardDataReader {
 
   @override
   raw.ReadProgress? getValue<T extends Object>(
-      DataFormat<T> format, ValueChanged<DataReaderValue<T>> onValue) {
+    DataFormat<T> format,
+    AsyncValueChanged<DataReaderValue<T>> onValue, {
+    bool allowVirtualFiles = true,
+    bool synthetizeFilesFromURIs = true,
+  }) {
     final item = items.firstWhereOrNull((element) => element.hasValue(format));
     if (item != null) {
-      return item.getValue(format, onValue);
+      return item.getValue(format, onValue,
+          allowVirtualFiles: allowVirtualFiles,
+          synthetizeFilesFromURIs: synthetizeFilesFromURIs);
     } else {
-      onValue(DataReaderValue(value: null));
+      final delegate = SimpleValueDelegate<T>(value: null);
+      delegate.sendAsValue(onValue);
       return null;
     }
   }
@@ -184,5 +229,18 @@ class ClipboardReader extends ClipboardDataReader {
       }
     }
     return null;
+  }
+
+  @override
+  List<PlatformFormat> get platformFormats {
+    final res = <PlatformFormat>[];
+    for (final item in items) {
+      for (final format in item.platformFormats) {
+        if (!res.contains(format)) {
+          res.add(format);
+        }
+      }
+    }
+    return res;
   }
 }

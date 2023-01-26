@@ -228,6 +228,7 @@ impl PlatformDragContext {
                 &mut effects_out as *mut DROPEFFECT,
             );
         }
+
         // Data source might be still in use through IDataObjectAsyncCapability,
         // but we want to let user know that drag session ended immediately.
         // COM will make sure that the data object is kept alive and when
@@ -241,6 +242,9 @@ impl PlatformDragContext {
                 operation
             };
             delegate.drag_session_did_end_with_operation(self.id, session_id, operation);
+            for c in delegate.get_platform_drop_contexts() {
+                c.local_dragging_did_end()?;
+            }
         }
         self.current_session.replace(None);
 

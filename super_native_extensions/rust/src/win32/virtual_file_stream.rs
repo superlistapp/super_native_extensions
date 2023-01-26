@@ -105,12 +105,15 @@ impl Stream {
         pstatstg: *mut windows::Win32::System::Com::STATSTG,
         _grfstatflag: STATFLAG,
     ) -> windows::core::Result<()> {
-        let inner = self.inner.lock().unwrap();
-        if let Some(inner) = inner.as_ref() {
-            let size = inner.size_promise.wait_clone();
-            let statstg = unsafe { &mut *pstatstg };
-            statstg.cbSize = size.unwrap_or(0) as u64;
-        }
+        let size_promise = {
+            let inner = self.inner.lock().unwrap();
+            inner.as_ref().map(|inner| inner.size_promise.clone())
+        };
+
+        let size = size_promise.and_then(|p| p.wait_clone());
+        let statstg = unsafe { &mut *pstatstg };
+        statstg.cbSize = size.unwrap_or(0) as u64;
+
         Ok(())
     }
 }
@@ -132,7 +135,7 @@ pub struct VirtualFileStream {
 
 impl VirtualFileStream {
     /// Creates agile stream that can be accessed on any thread. This should be
-    /// used when stream is accessed by local applicaiton on background thread.
+    /// used when stream is accessed by local application on background thread.
     pub fn create_agile(
         reader: SegmentedQueueReader,
         size_promise: Arc<Promise<Option<i64>>>,
@@ -149,12 +152,11 @@ impl VirtualFileStream {
                 position: Cell::new(0),
             })),
         });
-        let stream_clone = stream.clone();
         let stream: IStream = VirtualFileStream { stream }.into();
         (
             stream,
             Arc::new(DropNotifier::new(move || {
-                stream_clone.dispose();
+                // We don't let the stream leak, no need for manual dispose here.
             })),
         )
     }
@@ -171,27 +173,32 @@ impl VirtualFileStream {
         let promise_clone = promise.clone();
         thread::spawn(move || unsafe {
             CoInitialize(None).ok();
-            let stream = Arc::new(Stream {
-                inner: Mutex::new(Some(StreamInner {
-                    run_loop_sender: Some(RunLoop::current().new_sender()),
-                    reader,
-                    size_promise,
-                    error_promise,
-                    _handle: handle,
-                    position: Cell::new(0),
-                })),
-            });
-            let stream_clone = stream.clone();
-            let stream: IStream = VirtualFileStream { stream }.into();
-            let mashalled = CoMarshalInterThreadInterfaceInStream(&IStream::IID, &stream).unwrap();
-            // Ensure stream disposal when parent dataobject is disposed. This is
-            // to ensure that when stream leaks it is at least destroyed (and thread
-            // released)  when data object is destroyed.
-            // https://github.com/microsoft/terminal/issues/13498
-            let clean_up = Box::new(move || {
-                stream_clone.dispose();
-            });
-            promise_clone.set((Movable::new(mashalled), clean_up));
+            {
+                let stream = Arc::new(Stream {
+                    inner: Mutex::new(Some(StreamInner {
+                        run_loop_sender: Some(RunLoop::current().new_sender()),
+                        reader,
+                        size_promise,
+                        error_promise,
+                        _handle: handle,
+                        position: Cell::new(0),
+                    })),
+                });
+                let weak_stream = Arc::downgrade(&stream);
+                let stream: IStream = VirtualFileStream { stream }.into();
+                let mashalled =
+                    CoMarshalInterThreadInterfaceInStream(&IStream::IID, &stream).unwrap();
+                // Ensure stream disposal when parent dataobject is disposed. This is
+                // to ensure that when stream leaks it is at least destroyed (and thread
+                // released)  when data object is destroyed.
+                // https://github.com/microsoft/terminal/issues/13498
+                let clean_up = Box::new(move || {
+                    if let Some(stream) = weak_stream.upgrade() {
+                        stream.dispose();
+                    }
+                });
+                promise_clone.set((Movable::new(mashalled), clean_up));
+            }
             RunLoop::current().run(); // will be stopped in drop
             CoUninitialize();
         });

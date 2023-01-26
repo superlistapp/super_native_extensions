@@ -19,7 +19,7 @@ use url::Url;
 use crate::{
     android::{CLIP_DATA_HELPER, CONTEXT, JAVA_VM},
     error::{NativeExtensionsError, NativeExtensionsResult},
-    reader_manager::ReadProgress,
+    reader_manager::{ReadProgress, VirtualFileReader},
     util::DropNotifier,
 };
 
@@ -32,6 +32,12 @@ pub struct PlatformDataReader {
 }
 
 impl PlatformDataReader {
+    pub async fn get_format_for_file_uri(
+        _file_uri: String,
+    ) -> NativeExtensionsResult<Option<String>> {
+        Ok(None)
+    }
+
     fn get_env_and_context() -> NativeExtensionsResult<(AttachGuard<'static>, JObject<'static>)> {
         let env = JAVA_VM
             .get()
@@ -242,7 +248,7 @@ impl PlatformDataReader {
         Ok(false)
     }
 
-    pub async fn can_get_virtual_file_for_item(
+    pub async fn can_read_virtual_file_for_item(
         &self,
         _item: i64,
         _format: &str,
@@ -250,7 +256,24 @@ impl PlatformDataReader {
         Ok(false)
     }
 
-    pub async fn get_virtual_file_for_item(
+    pub async fn can_copy_virtual_file_for_item(
+        &self,
+        _item: i64,
+        _format: &str,
+    ) -> NativeExtensionsResult<bool> {
+        Ok(false)
+    }
+
+    pub async fn create_virtual_file_reader_for_item(
+        &self,
+        _item: i64,
+        _format: &str,
+        _progress: Arc<ReadProgress>,
+    ) -> NativeExtensionsResult<Option<Rc<dyn VirtualFileReader>>> {
+        Ok(None)
+    }
+
+    pub async fn copy_virtual_file_for_item(
         &self,
         _item: i64,
         _format: &str,

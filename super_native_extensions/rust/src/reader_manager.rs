@@ -37,6 +37,7 @@ pub struct DataReaderManager {
     next_id: Cell<i64>,
     readers: RefCell<HashMap<DataReaderId, ReaderEntry>>,
     progresses: RefCell<HashMap<(IsolateId, i64), sync::Weak<ReadProgress>>>,
+    virtual_file_readers: RefCell<HashMap<(IsolateId, i64), Rc<dyn VirtualFileReader>>>,
 }
 
 struct ReaderEntry {
@@ -145,6 +146,7 @@ impl DataReaderManager {
             next_id: Cell::new(1),
             readers: RefCell::new(HashMap::new()),
             progresses: RefCell::new(HashMap::new()),
+            virtual_file_readers: RefCell::new(HashMap::new()),
         }
         .register("DataReaderManager")
     }
@@ -280,6 +282,10 @@ impl DataReaderManager {
             .await
     }
 
+    async fn get_format_for_file_uri(&self, uri: String) -> NativeExtensionsResult<Option<String>> {
+        PlatformDataReader::get_format_for_file_uri(uri).await
+    }
+
     async fn get_item_data(
         &self,
         isolate_id: IsolateId,
@@ -307,24 +313,94 @@ impl DataReaderManager {
         Ok(())
     }
 
-    async fn can_get_virtual_file(
+    async fn can_copy_virtual_file(
         &self,
         request: VirtualFileSupportedRequest,
     ) -> NativeExtensionsResult<bool> {
         self.get_reader(request.reader_handle)?
-            .can_get_virtual_file_for_item(request.item_handle, &request.format)
+            .can_copy_virtual_file_for_item(request.item_handle, &request.format)
             .await
     }
 
-    async fn get_virtual_file(
+    async fn can_read_virtual_file(
+        &self,
+        request: VirtualFileSupportedRequest,
+    ) -> NativeExtensionsResult<bool> {
+        self.get_reader(request.reader_handle)?
+            .can_read_virtual_file_for_item(request.item_handle, &request.format)
+            .await
+    }
+
+    async fn virtual_file_reader_create(
         &self,
         isolate_id: IsolateId,
-        request: VirtualFileRequest,
+        request: VirtualFileReaderRequest,
+    ) -> NativeExtensionsResult<VirtualFileReaderResponse> {
+        let reader = self.get_reader(request.reader_handle)?;
+        let progress = self.new_read_progress(isolate_id, request.progress_id);
+        let res = reader
+            .create_virtual_file_reader_for_item(request.item_handle, &request.format, progress)
+            .await?;
+        match res {
+            Some(reader) => {
+                let reader_handle = self.next_id.next_id();
+                let file_size = reader.file_size()?;
+                let file_name = reader.file_name();
+                self.virtual_file_readers
+                    .borrow_mut()
+                    .insert((isolate_id, reader_handle), reader);
+                Ok(VirtualFileReaderResponse {
+                    reader_handle,
+                    file_name,
+                    file_size,
+                })
+            }
+            None => Err(NativeExtensionsError::VirtualFileReceiveError(
+                "not supported".into(),
+            )),
+        }
+    }
+
+    async fn virtual_file_reader_read(
+        &self,
+        isolate_id: IsolateId,
+        virtual_reader_id: i64,
+    ) -> NativeExtensionsResult<Option<Vec<u8>>> {
+        let reader = self
+            .virtual_file_readers
+            .borrow()
+            .get(&(isolate_id, virtual_reader_id))
+            .cloned();
+        match reader {
+            Some(reader) => reader.read_next().await.map(Some),
+            None => Ok(None),
+        }
+    }
+
+    fn virtual_file_reader_close(
+        &self,
+        isolate_id: IsolateId,
+        virtual_reader_id: i64,
+    ) -> NativeExtensionsResult<()> {
+        let reader = self
+            .virtual_file_readers
+            .borrow_mut()
+            .remove(&(isolate_id, virtual_reader_id));
+        if let Some(reader) = reader {
+            reader.close()?;
+        }
+        Ok(())
+    }
+
+    async fn copy_virtual_file(
+        &self,
+        isolate_id: IsolateId,
+        request: VirtualFileCopyRequest,
     ) -> NativeExtensionsResult<String> {
         let reader = self.get_reader(request.reader_handle)?;
         let progress = self.new_read_progress(isolate_id, request.progress_id);
         let res = reader
-            .get_virtual_file_for_item(
+            .copy_virtual_file_for_item(
                 request.item_handle,
                 &request.format,
                 request.target_folder.into(),
@@ -375,7 +451,24 @@ struct ItemDataRequest {
 
 #[derive(TryFromValue)]
 #[irondash(rename_all = "camelCase")]
-struct VirtualFileRequest {
+struct VirtualFileReaderRequest {
+    item_handle: i64,
+    reader_handle: DataReaderId,
+    format: String,
+    progress_id: i64,
+}
+
+#[derive(IntoValue)]
+#[irondash(rename_all = "camelCase")]
+struct VirtualFileReaderResponse {
+    reader_handle: i64,
+    file_size: Option<i64>,
+    file_name: Option<String>,
+}
+
+#[derive(TryFromValue)]
+#[irondash(rename_all = "camelCase")]
+struct VirtualFileCopyRequest {
     item_handle: i64,
     reader_handle: DataReaderId,
     format: String,
@@ -392,6 +485,14 @@ struct VirtualFileSupportedRequest {
 }
 
 #[async_trait(?Send)]
+pub trait VirtualFileReader {
+    async fn read_next(&self) -> NativeExtensionsResult<Vec<u8>>;
+    fn file_size(&self) -> NativeExtensionsResult<Option<i64>>;
+    fn file_name(&self) -> Option<String>;
+    fn close(&self) -> NativeExtensionsResult<()>;
+}
+
+#[async_trait(?Send)]
 impl AsyncMethodHandler for DataReaderManager {
     fn assign_weak_self(&self, weak_self: Weak<Self>) {
         self.weak_self.set(weak_self);
@@ -399,6 +500,30 @@ impl AsyncMethodHandler for DataReaderManager {
 
     fn assign_invoker(&self, invoker: AsyncMethodInvoker) {
         self.invoker.set(invoker);
+    }
+
+    fn on_isolate_destroyed(&self, destroyed_isolate_id: IsolateId) {
+        let mut progresses = self.progresses.borrow_mut();
+        progresses.retain(|(isolate_id, _), progress| {
+            if *isolate_id == destroyed_isolate_id {
+                if let Some(progress) = progress.upgrade() {
+                    progress.cancel();
+                }
+                false
+            } else {
+                true
+            }
+        });
+
+        let mut readers = self.virtual_file_readers.borrow_mut();
+        readers.retain(|(isolate_id, _), reader| {
+            if *isolate_id == destroyed_isolate_id {
+                reader.close().ok_log();
+                false
+            } else {
+                true
+            }
+        })
     }
 
     async fn on_method_call(&self, call: MethodCall) -> PlatformResult {
@@ -426,15 +551,34 @@ impl AsyncMethodHandler for DataReaderManager {
                 .get_item_data(call.isolate, call.args.try_into()?)
                 .await
                 .into_platform_result(),
+            "getFormatForFileUri" => self
+                .get_format_for_file_uri(call.args.try_into()?)
+                .await
+                .into_platform_result(),
             "cancelProgress" => self
                 .cancel_progress(call.isolate, call.args.try_into()?)
                 .into_platform_result(),
-            "canGetVirtualFile" => self
-                .can_get_virtual_file(call.args.try_into()?)
+            "canCopyVirtualFile" => self
+                .can_copy_virtual_file(call.args.try_into()?)
                 .await
                 .into_platform_result(),
-            "getVirtualFile" => self
-                .get_virtual_file(call.isolate, call.args.try_into()?)
+            "canReadVirtualFile" => self
+                .can_read_virtual_file(call.args.try_into()?)
+                .await
+                .into_platform_result(),
+            "virtualFileReaderCreate" => self
+                .virtual_file_reader_create(call.isolate, call.args.try_into()?)
+                .await
+                .into_platform_result(),
+            "virtualFileReaderRead" => self
+                .virtual_file_reader_read(call.isolate, call.args.try_into()?)
+                .await
+                .into_platform_result(),
+            "virtualFileReaderClose" => self
+                .virtual_file_reader_close(call.isolate, call.args.try_into()?)
+                .into_platform_result(),
+            "copyVirtualFile" => self
+                .copy_virtual_file(call.isolate, call.args.try_into()?)
                 .await
                 .into_platform_result(),
             _ => Err(PlatformError {

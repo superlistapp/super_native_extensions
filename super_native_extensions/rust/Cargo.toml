@@ -21,8 +21,9 @@ log = "0.4"
 simple_logger = "2.1"
 async-trait = "0.1"
 rand = "0.8.5"
+url = "2.2.2"
 irondash_engine_context = "0.1.0"
-irondash_run_loop = "0.1.0"
+irondash_run_loop = "0.1.1"
 irondash_message_channel = { version = "0.1.0", features = [ "derive" ]}
 
 [build-dependencies]
@@ -48,12 +49,11 @@ oslog = "0.2.0"
 jni = "0.19"
 once_cell = "1.8.0"
 android_logger = "0.11"
-url = "2.2.2"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 byte-slice-cast = "1.2.1"
 once_cell = "1.8.0"
-mime_guess = "2.0.4"
+threadpool = "1.8.1"
 
 [target.'cfg(target_os = "windows")'.dependencies.windows]
 version = "0.44.0"
@@ -81,13 +81,15 @@ features = [
 ]
 
 [target.'cfg(target_os = "linux")'.dependencies]
-glib-sys = "0.15.10"
-gdk-sys = "0.15.1"
-gtk-sys = "0.15.3"
-gobject-sys = "0.15.10"
-gdk = "0.15.4"
-gtk = { version = "0.15.5", features = ["v3_22"] }
-url = "2.2.2"
+glib-sys = "0.16.3"
+gdk-sys = "0.16.0"
+gtk-sys = "0.16.0"
+gobject-sys = "0.16.3"
+gdk = "0.16.2"
+gtk = { version = "0.16.2" }
+
+[target.'cfg(any(target_os = "linux", target_os = "windows"))'.dependencies]
+mime_guess = "2.0.4"
 
 [patch.crates-io]
 # irondash_dart_ffi = { path = "../../../irondash/dart_ffi" }
@@ -95,3 +97,6 @@ url = "2.2.2"
 # irondash_engine_context = { path = "../../../irondash/engine_context/rust" }
 # irondash_run_loop = { path = "../../../irondash/run_loop" }
 # irondash_message_channel_derive = { path = "../../../irondash/message_channel/rust_derive" }
+
+# Until the PR gets upstreamed
+mime_guess = { git = "https://github.com/knopp/mime_guess.git" }

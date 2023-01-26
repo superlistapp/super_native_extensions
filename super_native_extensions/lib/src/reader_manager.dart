@@ -32,9 +32,10 @@ abstract class ReaderManager {
     required String format,
   });
 
-  Pair<Future<String?>, ReadProgress> getVirtualFile(
+  Future<VirtualFileReceiver?> createVirtualFileReceiver(
     DataReaderItemHandle handle, {
     required String format,
-    required String targetFolder,
   });
+
+  Future<String?> formatForFileUri(Uri uri);
 }

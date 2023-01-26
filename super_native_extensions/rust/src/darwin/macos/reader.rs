@@ -29,9 +29,9 @@ use crate::{
     error::{NativeExtensionsError, NativeExtensionsResult},
     log::OkLog,
     platform_impl::platform::common::{
-        from_nsstring, nserror_description, path_from_url, to_nsdata, to_nsstring,
+        format_from_url, from_nsstring, nserror_description, path_from_url, to_nsdata, to_nsstring,
     },
-    reader_manager::ReadProgress,
+    reader_manager::{ReadProgress, VirtualFileReader},
 };
 
 use super::PlatformDataProvider;
@@ -42,6 +42,17 @@ pub struct PlatformDataReader {
 }
 
 impl PlatformDataReader {
+    pub async fn get_format_for_file_uri(
+        file_uri: String,
+    ) -> NativeExtensionsResult<Option<String>> {
+        let res = autoreleasepool(|| unsafe {
+            let string = to_nsstring(&file_uri);
+            let url = NSURL::URLWithString_(nil, *string);
+            format_from_url(url)
+        });
+        Ok(res)
+    }
+
     pub fn get_items_sync(&self) -> NativeExtensionsResult<Vec<i64>> {
         let count = autoreleasepool(|| unsafe {
             let items: id = msg_send![*self.pasteboard, pasteboardItems];
@@ -341,7 +352,7 @@ impl PlatformDataReader {
         res
     }
 
-    pub async fn can_get_virtual_file_for_item(
+    pub async fn can_copy_virtual_file_for_item(
         &self,
         item: i64,
         format: &str,
@@ -365,7 +376,24 @@ impl PlatformDataReader {
         })
     }
 
-    pub async fn get_virtual_file_for_item(
+    pub async fn can_read_virtual_file_for_item(
+        &self,
+        _item: i64,
+        _format: &str,
+    ) -> NativeExtensionsResult<bool> {
+        Ok(false)
+    }
+
+    pub async fn create_virtual_file_reader_for_item(
+        &self,
+        _item: i64,
+        _format: &str,
+        _progress: Arc<ReadProgress>,
+    ) -> NativeExtensionsResult<Option<Rc<dyn VirtualFileReader>>> {
+        Ok(None)
+    }
+
+    pub async fn copy_virtual_file_for_item(
         &self,
         item: i64,
         _format: &str,
