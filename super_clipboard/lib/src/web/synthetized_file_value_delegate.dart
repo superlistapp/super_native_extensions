@@ -3,7 +3,7 @@ import 'dart:typed_data';
 
 import '../reader_value_delegate.dart';
 
-/// Value delegate for values synthetized form file URIs
+/// Value delegate for values synthetized from file URIs
 class SynthetizedFileValueDelegate extends DataReaderValueDelegate<Uint8List> {
   final Uri fileUri;
 
