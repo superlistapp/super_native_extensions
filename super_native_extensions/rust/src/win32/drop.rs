@@ -66,6 +66,7 @@ thread_local! {
 struct Session {
     id: DropSessionId,
     is_inside: Cell<bool>,
+    missing_drop_end: Cell<bool>,
     data_object: IDataObject,
     last_operation: Cell<DropOperation>,
     async_result: Rc<Cell<Option<DROPEFFECT>>>,
@@ -184,6 +185,19 @@ impl PlatformDropContext {
         Ok(())
     }
 
+    pub fn local_dragging_did_end(&self) -> NativeExtensionsResult<()> {
+        let missing_drop_end = self
+            .current_session
+            .borrow()
+            .as_ref()
+            .map(|s| s.missing_drop_end.get())
+            .unwrap_or(false);
+        if missing_drop_end {
+            self.drop_end()?;
+        }
+        Ok(())
+    }
+
     fn local_dragging(&self) -> NativeExtensionsResult<bool> {
         Ok(self
             .delegate()?
@@ -296,6 +310,7 @@ impl PlatformDropContext {
                     Rc::new(Session {
                         id: self.next_session_id.next_id().into(),
                         is_inside: Cell::new(true),
+                        missing_drop_end: Cell::new(false),
                         data_object: data_object.clone(),
                         last_operation: Cell::new(DropOperation::None),
                         async_result,
@@ -305,6 +320,7 @@ impl PlatformDropContext {
                 })
                 .clone();
             session.is_inside.set(true);
+            session.missing_drop_end.set(false);
             let session_clone = session.clone();
             let event = self.event_for_session(&session, pt, grfkeystate, *effect, None)?;
             delegate.send_drop_update(
@@ -331,6 +347,7 @@ impl PlatformDropContext {
     ) -> NativeExtensionsResult<()> {
         let effect = unsafe { &mut *pdweffect };
         if let Some(session) = self.current_session.borrow().as_ref().cloned() {
+            session.missing_drop_end.set(false);
             let session_clone = session.clone();
             let event = self.event_for_session(&session, pt, grfkeystate, *effect, None)?;
             self.delegate()?.send_drop_update(
@@ -350,11 +367,15 @@ impl PlatformDropContext {
 
     fn on_drag_leave(&self) -> NativeExtensionsResult<()> {
         self.drop_exit()?;
+        let local_dragging = self.local_dragging()?;
         if let Some(s) = self.current_session.borrow_mut().as_ref() {
-            s.is_inside.set(false)
+            s.is_inside.set(false);
+
+            // will invoke drop_end when local drag session ends
+            s.missing_drop_end.set(local_dragging);
         }
         // Keep session alive for local dragging
-        if !self.local_dragging()? {
+        if !local_dragging {
             self.drop_end()?;
         }
         Ok(())

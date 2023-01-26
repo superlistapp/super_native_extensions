@@ -18,7 +18,7 @@ class _DropItem extends DropItem {
 
   @override
   bool hasValue(DataFormat f) {
-    return _item.formats.any(f.canDecode);
+    return platformFormats.any(f.canDecode);
   }
 
   @override
@@ -36,7 +36,8 @@ class _DropItem extends DropItem {
   DataReader? get dataReader => _reader;
 
   @override
-  List<PlatformFormat> get platformFormats => _item.formats;
+  List<PlatformFormat> get platformFormats =>
+      _reader?.platformFormats ?? _item.formats;
 
   Future<void> _maybeInitReader() async {
     if (_reader == null && _item.readerItem != null) {

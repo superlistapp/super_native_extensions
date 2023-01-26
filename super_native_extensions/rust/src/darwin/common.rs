@@ -10,9 +10,10 @@ use std::{
 };
 
 use cocoa::{
-    base::{id, nil},
+    base::{id, nil, BOOL, YES},
     foundation::{NSDictionary, NSInteger, NSString},
 };
+use core_foundation::{base::Boolean, string::CFStringRef};
 use core_graphics::{
     base::{kCGBitmapByteOrderDefault, kCGImageAlphaLast, kCGRenderingIntentDefault, CGFloat},
     color_space::{kCGColorSpaceSRGB, CGColorSpace},
@@ -83,6 +84,16 @@ pub fn path_from_url(url: id) -> PathBuf {
     path.into()
 }
 
+pub unsafe fn format_from_url(url: id) -> Option<String> {
+    let ty: id = std::ptr::null_mut();
+    let res: BOOL = msg_send![url, getResourceValue:&ty forKey:NSURLTypeIdentifierKey error:nil];
+    if res == YES && !ty.is_null() {
+        Some(from_nsstring(ty))
+    } else {
+        None
+    }
+}
+
 pub fn cg_image_from_image_data(image: ImageData) -> CGImage {
     let data = CGDataProvider::from_buffer(Arc::new(image.data));
     let rgb = CGColorSpace::create_with_name(unsafe { kCGColorSpaceSRGB })
@@ -123,7 +134,16 @@ extern "C" {
     );
 }
 
+extern "C" {
+    pub static NSURLTypeIdentifierKey: id;
+}
+
 pub unsafe fn superclass(this: &Object) -> &Class {
     let superclass: id = msg_send![this, superclass];
     &*(superclass as *const _)
+}
+
+#[link(name = "CoreServices", kind = "framework")]
+extern "C" {
+    pub fn UTTypeConformsTo(name: CFStringRef, inConformsToUTI: CFStringRef) -> Boolean;
 }

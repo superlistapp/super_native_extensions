@@ -4,7 +4,7 @@ import 'dart:js_util';
 import '../clipboard_writer.dart';
 import '../data_provider.dart';
 import 'clipboard_api.dart';
-import 'js_util.dart';
+import 'js_interop.dart';
 
 class ClipboardWriterImpl extends ClipboardWriter {
   List<DataProviderHandle> _currentPayload = [];

@@ -8,9 +8,10 @@ use std::{
 use block::ConcreteBlock;
 use cocoa::{
     base::{id, nil},
-    foundation::NSArray,
+    foundation::{NSArray, NSURL},
 };
 
+use core_foundation::{base::TCFType, string::CFString};
 use irondash_message_channel::{value_darwin::ValueObjcConversion, Value};
 use irondash_run_loop::{
     util::{Capsule, FutureCompleter},
@@ -26,10 +27,13 @@ use crate::{
     error::{NativeExtensionsError, NativeExtensionsResult},
     log::OkLog,
     platform_impl::platform::{
-        common::{from_nsstring, nserror_description, path_from_url, to_nsstring},
+        common::{
+            format_from_url, from_nsstring, nserror_description, path_from_url, to_nsstring,
+            UTTypeConformsTo,
+        },
         progress_bridge::bridge_progress,
     },
-    reader_manager::ReadProgress,
+    reader_manager::{ReadProgress, VirtualFileReader},
     util::{get_target_path, Movable},
 };
 
@@ -43,6 +47,17 @@ enum ReaderSource {
 }
 
 impl PlatformDataReader {
+    pub async fn get_format_for_file_uri(
+        file_uri: String,
+    ) -> NativeExtensionsResult<Option<String>> {
+        let res = autoreleasepool(|| unsafe {
+            let string = to_nsstring(&file_uri);
+            let url = NSURL::URLWithString_(nil, *string);
+            format_from_url(url)
+        });
+        Ok(res)
+    }
+
     fn get_items_providers(&self) -> Vec<id> {
         match &self.source {
             ReaderSource::Pasteboard(pasteboard) => {
@@ -195,16 +210,57 @@ impl PlatformDataReader {
         Ok(false)
     }
 
-    pub async fn can_get_virtual_file_for_item(
+    fn uti_conforms_to(uti: &str, conforms_to: &str) -> bool {
+        let uti = CFString::new(uti);
+        let conforms_to = CFString::new(conforms_to);
+
+        let conforms_to = unsafe {
+            UTTypeConformsTo(uti.as_concrete_TypeRef(), conforms_to.as_concrete_TypeRef())
+        };
+
+        conforms_to != 0
+    }
+
+    pub async fn can_copy_virtual_file_for_item(
         &self,
         item: i64,
         format: &str,
     ) -> NativeExtensionsResult<bool> {
+        // All data on iOS can be received as a virtual file through
+        // loadFileRepresentationForTypeIdentifier so we add a bit of heurists
+        // to avoid creating a temporary file for text, composite content, images
+        // and URLS. The assumption here is that they are small enough to be
+        // to be all loaded in memory.
+        if Self::uti_conforms_to(format, "public.composite-content")
+            || Self::uti_conforms_to(format, "public.text")
+            || Self::uti_conforms_to(format, "public.image")
+            || Self::uti_conforms_to(format, "public.url")
+            || Self::uti_conforms_to(format, "com.apple.property-list")
+        {
+            return Ok(false);
+        }
         let formats = self.get_formats_for_item_sync(item)?;
         Ok(formats.iter().any(|f| f == format))
     }
 
-    pub async fn get_virtual_file_for_item(
+    pub async fn can_read_virtual_file_for_item(
+        &self,
+        _item: i64,
+        _format: &str,
+    ) -> NativeExtensionsResult<bool> {
+        Ok(false)
+    }
+
+    pub async fn create_virtual_file_reader_for_item(
+        &self,
+        _item: i64,
+        _format: &str,
+        _progress: Arc<ReadProgress>,
+    ) -> NativeExtensionsResult<Option<Rc<dyn VirtualFileReader>>> {
+        Ok(None)
+    }
+
+    pub async fn copy_virtual_file_for_item(
         &self,
         item: i64,
         format: &str,

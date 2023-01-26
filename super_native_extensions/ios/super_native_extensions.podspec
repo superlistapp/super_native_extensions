@@ -33,7 +33,7 @@ A new Flutter plugin project.
     'EXCLUDED_ARCHS' => 'armv7',
     # For static lib we need better control of re-exported symbols
     'EXPORTED_SYMBOLS_FILE' => '$PODS_TARGET_SRCROOT/../rust/symbols.txt',
-    'OTHER_LDFLAGS' => '-lsuper_native_extensions',
+    'OTHER_LDFLAGS' => '-lsuper_native_extensions -framework CoreServices',
   }
   s.user_target_xcconfig = {
     'EXCLUDED_ARCHS' => 'armv7',

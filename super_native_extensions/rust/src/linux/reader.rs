@@ -2,8 +2,9 @@ use std::{
     cell::{Cell, RefCell},
     collections::HashMap,
     os::raw::c_uint,
-    path::PathBuf,
+    path::{Path, PathBuf},
     rc::Rc,
+    str::FromStr,
     sync::Arc,
 };
 
@@ -16,7 +17,7 @@ use url::Url;
 
 use crate::{
     error::{NativeExtensionsError, NativeExtensionsResult},
-    reader_manager::ReadProgress,
+    reader_manager::{ReadProgress, VirtualFileReader},
 };
 
 use super::{
@@ -76,6 +77,21 @@ pub struct ReaderInfo {
 }
 
 impl PlatformDataReader {
+    pub async fn get_format_for_file_uri(
+        file_uri: String,
+    ) -> NativeExtensionsResult<Option<String>> {
+        let url = Url::from_str(&file_uri)
+            .map_err(|_| NativeExtensionsError::OtherError("Couldn't parse file URL".into()))?;
+        let name = url.path_segments().and_then(|s| s.last());
+        match name {
+            Some(name) => {
+                let format = mime_from_name(name);
+                Ok(Some(format))
+            }
+            None => Ok(None),
+        }
+    }
+
     async fn init(&self) {
         if !self.inner.is_set() && !self.initializing.get() {
             self.initializing.set(true);
@@ -205,7 +221,7 @@ impl PlatformDataReader {
         Ok(false)
     }
 
-    pub async fn can_get_virtual_file_for_item(
+    pub async fn can_copy_virtual_file_for_item(
         &self,
         _item: i64,
         _format: &str,
@@ -213,7 +229,24 @@ impl PlatformDataReader {
         Ok(false)
     }
 
-    pub async fn get_virtual_file_for_item(
+    pub async fn can_read_virtual_file_for_item(
+        &self,
+        _item: i64,
+        _format: &str,
+    ) -> NativeExtensionsResult<bool> {
+        Ok(false)
+    }
+
+    pub async fn create_virtual_file_reader_for_item(
+        &self,
+        _item: i64,
+        _format: &str,
+        _progress: Arc<ReadProgress>,
+    ) -> NativeExtensionsResult<Option<Rc<dyn VirtualFileReader>>> {
+        Ok(None)
+    }
+
+    pub async fn copy_virtual_file_for_item(
         &self,
         _item: i64,
         _format: &str,
@@ -370,4 +403,17 @@ impl Drop for WidgetReader {
         self.widget
             .disconnect(self.data_received_sig.replace(None).unwrap());
     }
+}
+
+fn mime_from_name(name: &str) -> String {
+    let ext = Path::new(name).extension();
+    mime_guess::from_path(name)
+        .first()
+        .map(|m| m.to_string())
+        .unwrap_or_else(|| {
+            format!(
+                "application/octet-stream;extension={}",
+                ext.unwrap_or_default().to_string_lossy()
+            )
+        })
 }

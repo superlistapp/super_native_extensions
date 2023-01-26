@@ -30,6 +30,19 @@ class ClipboardReaderHandle extends DataReaderItemHandleImpl {
     // provide name. Go figure.
     return null;
   }
+
+  @override
+  Future<bool> canGetVirtualFile(String format) async {
+    return false;
+  }
+
+  @override
+  Future<VirtualFileReceiver?> createVirtualFileReceiver(
+    DataReaderItemHandle handle, {
+    required String format,
+  }) async {
+    return null;
+  }
 }
 
 class ClipboardReaderImpl extends ClipboardReader {

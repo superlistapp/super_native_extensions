@@ -15,6 +15,9 @@ class DataReader {
     });
   }
 
+  static Future<String?> formatForFileUri(Uri uri) =>
+      ReaderManager.instance.formatForFileUri(uri);
+
   DataReader({
     required DataReaderHandle handle,
   }) : _handle = handle;
@@ -86,12 +89,10 @@ class DataReaderItem {
   Future<VirtualFileReceiver?> getVirtualFileReceiver({
     required String format,
   }) async {
-    if (await ReaderManager.instance
-        .canGetVirtualFile(_handle, format: format)) {
-      return VirtualFileReceiver._(item: _handle, format: format);
-    } else {
-      return null;
-    }
+    return ReaderManager.instance.createVirtualFileReceiver(
+      _handle,
+      format: format,
+    );
   }
 
   DataReaderItem({
@@ -104,20 +105,29 @@ class DataReaderItem {
   List<String>? _availableFormats;
 }
 
-class VirtualFileReceiver {
-  VirtualFileReceiver._({
-    required this.item,
-    required this.format,
-  });
+abstract class VirtualFile {
+  /// Returns the file name or `null` if not available.
+  String? get fileName;
 
-  Pair<Future<String?>, ReadProgress> receiveVirtualFile({
-    /// Target folder must be same for all files received in one session.
+  /// Returns total length if available.
+  int? get length;
+
+  /// Reads next chunk of the data. Returns empty list when all data has been read.
+  Future<Uint8List> readNext();
+
+  /// Closes the virtual file.
+  void close();
+}
+
+abstract class VirtualFileReceiver {
+  String get format;
+
+  /// Receives the virtual file.
+  Pair<Future<VirtualFile>, ReadProgress> receiveVirtualFile();
+
+  /// Copies the virtual file to specific folder and returns the path.
+  /// Not available on web.
+  Pair<Future<String>, ReadProgress> copyVirtualFile({
     required String targetFolder,
-  }) {
-    return ReaderManager.instance
-        .getVirtualFile(item, format: format, targetFolder: targetFolder);
-  }
-
-  final DataReaderItemHandle item;
-  final String format;
+  });
 }

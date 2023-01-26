@@ -1,9 +1,10 @@
 import 'dart:async';
 import 'dart:html' as html;
+import 'dart:typed_data';
+import 'dart:js_util' as js_util;
 
 import 'package:collection/collection.dart';
 import 'package:flutter/widgets.dart';
-import 'package:js/js.dart';
 import 'package:super_native_extensions/src/mutex.dart';
 
 import '../api_model.dart';
@@ -13,30 +14,9 @@ import '../drop.dart';
 import '../reader.dart';
 import '../reader_manager.dart';
 
+import 'js_interop.dart';
 import 'clipboard_api.dart';
 import 'reader_manager.dart';
-
-import 'dart:js_util' as js_util;
-
-extension DataTransferItemExt on html.DataTransferItem {
-  bool get isString => kind == 'string';
-  bool get isFile => kind == 'file';
-
-  String get format {
-    final type = this.type ?? '';
-    if (type.isNotEmpty) {
-      return type;
-    } else if (isString) {
-      return 'text/plain';
-    } else {
-      return 'application/octet-stream';
-    }
-  }
-
-  void getAsString(ValueChanged<String> callback) {
-    js_util.callMethod(this, 'getAsString', [allowInterop(callback)]);
-  }
-}
 
 class WebItemDataReaderHandle implements DataReaderItemHandleImpl {
   WebItemDataReaderHandle(this.items, {required bool canRead})
@@ -113,7 +93,9 @@ class WebItemDataReaderHandle implements DataReaderItemHandleImpl {
     if (entry != null) {
       formats.add('web:entry');
     }
-    return formats;
+    // safari doesn't provide types during dragging, but we still need to report
+    // to use that there is potential contents.
+    return formats.isNotEmpty ? formats : ['web:unknown'];
   }
 
   @override
@@ -130,11 +112,82 @@ class WebItemDataReaderHandle implements DataReaderItemHandleImpl {
   final html.Entry? entry;
   final Map<String, Future<String>> strings;
   final List<html.DataTransferItem> items;
+
+  @override
+  Future<bool> canGetVirtualFile(String format) async {
+    return !format.startsWith('web:') && file != null;
+  }
+
+  @override
+  Future<VirtualFileReceiver?> createVirtualFileReceiver(
+    DataReaderItemHandle handle, {
+    required String format,
+  }) async {
+    assert(file != null,
+        'Should not have requested virtual file receiver without file');
+    return _VirtualFileReceiver(format, file!);
+  }
+}
+
+class _VirtualFileReceiver extends VirtualFileReceiver {
+  _VirtualFileReceiver(this.format, this.file);
+
+  @override
+  final String format;
+  final html.File file;
+
+  @override
+  Pair<Future<String>, ReadProgress> copyVirtualFile(
+      {required String targetFolder}) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Pair<Future<VirtualFile>, ReadProgress> receiveVirtualFile() {
+    final progress = SimpleProgress();
+    progress.done();
+    return Pair(Future.value(_VirtualFile(file)), progress);
+  }
+}
+
+class _VirtualFile extends VirtualFile {
+  _VirtualFile(this.file);
+
+  final html.File file;
+
+  ReadableStreamDefaultReader? _reader;
+
+  @override
+  void close() {
+    _reader?.cancel();
+  }
+
+  @override
+  String? get fileName => file.name;
+
+  @override
+  int? get length => file.size;
+
+  @override
+  Future<Uint8List> readNext() async {
+    if (_reader == null) {
+      final stream = file.stream();
+      _reader = stream.getReader();
+    }
+
+    final next = await _reader!.read();
+    if (next.done) {
+      return Uint8List(0);
+    } else {
+      return next.value as Uint8List;
+    }
+  }
 }
 
 List<DropItem> _translateTransferItems(
   html.DataTransferItemList? itemList, {
   required bool allowReader,
+  required bool hasFiles,
 }) {
   final res = <WebItemDataReaderHandle>[];
   var items = <html.DataTransferItem>[];
@@ -150,6 +203,9 @@ List<DropItem> _translateTransferItems(
   }
   if (items.isNotEmpty) {
     res.add(WebItemDataReaderHandle(items, canRead: allowReader));
+  }
+  if (res.isEmpty && hasFiles) {
+    res.add(WebItemDataReaderHandle([], canRead: false));
   }
   return res
       .mapIndexed((i, e) => DropItem(
@@ -221,11 +277,16 @@ class DropContextImpl extends DropContext {
     if (_sessionId == null) {
       return;
     }
+    final bool hasFiles = transfer.types?.contains("Files") ?? false;
     final dropEvent = DropEvent(
       sessionId: _sessionId!,
       locationInView: Offset(event.page.x.toDouble(), event.page.y.toDouble()),
       allowedOperations: _translateAllowedEffect(transfer.effectAllowed),
-      items: _translateTransferItems(transfer.items, allowReader: false),
+      items: _translateTransferItems(
+        transfer.items,
+        allowReader: false,
+        hasFiles: hasFiles,
+      ),
     );
     final currentSessionId = _sessionId;
     transfer.dropEffect = lastOperation.toWeb();
@@ -252,11 +313,16 @@ class DropContextImpl extends DropContext {
   }
 
   void _onDrop(html.DataTransfer transfer, html.MouseEvent event) async {
+    final bool hasFiles = transfer.types?.contains("Files") ?? false;
     final dropEvent = DropEvent(
       sessionId: _sessionId!,
       locationInView: Offset(event.page.x.toDouble(), event.page.y.toDouble()),
       allowedOperations: _translateAllowedEffect(transfer.effectAllowed),
-      items: _translateTransferItems(transfer.items, allowReader: true),
+      items: _translateTransferItems(
+        transfer.items,
+        allowReader: true,
+        hasFiles: hasFiles,
+      ),
       acceptedOperation: lastOperation,
     );
     await _mutex.protect(() async {

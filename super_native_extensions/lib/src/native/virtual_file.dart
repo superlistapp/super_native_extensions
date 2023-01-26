@@ -1,0 +1,66 @@
+import 'dart:io';
+import 'package:path/path.dart' as path;
+
+import 'package:flutter/foundation.dart';
+import 'package:uuid/uuid.dart';
+
+import '../reader.dart';
+
+class _VirtualFile extends VirtualFile {
+  _VirtualFile({
+    required this.file,
+    required this.onClose,
+  });
+
+  final VoidCallback onClose;
+  final File file;
+  RandomAccessFile? _file;
+
+  @override
+  void close() async {
+    try {
+      _file?.closeSync();
+    } catch (_) {}
+    onClose();
+  }
+
+  @override
+  String? get fileName => path.basename(file.path);
+
+  @override
+  int? get length => file.existsSync() ? file.lengthSync() : null;
+
+  @override
+  Future<Uint8List> readNext() async {
+    _file ??= await file.open();
+    return _file!.read(1024 * 64);
+  }
+}
+
+/// Virtual file receiver implementation that works on provided copy.
+abstract class CopyVirtualFileReceiver extends VirtualFileReceiver {
+  @override
+  Pair<Future<VirtualFile>, ReadProgress> receiveVirtualFile() {
+    final uuid = const Uuid().v4().toString();
+    final folder = path.join(Directory.systemTemp.path, 'vfr-$uuid');
+    Directory(folder).createSync();
+    try {
+      final pair = copyVirtualFile(targetFolder: folder);
+      final future = pair.first.then((value) {
+        return _VirtualFile(
+          file: File(value),
+          onClose: () {
+            Directory(folder).deleteSync(recursive: true);
+          },
+        );
+      }, onError: (e) {
+        Directory(folder).deleteSync(recursive: true);
+        throw e;
+      });
+      return Pair(future, pair.second);
+    } catch (e) {
+      Directory(folder).deleteSync(recursive: true);
+      rethrow;
+    }
+  }
+}

@@ -16,6 +16,10 @@ class SimpleProgress extends ReadProgress {
   @override
   ValueListenable<double?> get fraction => _fraction;
 
+  void done() {
+    _fraction.value = 1.0;
+  }
+
   final _cancellable = ValueNotifier(false);
   final _fraction = ValueNotifier<double?>(null);
 }
@@ -29,6 +33,11 @@ abstract class DataReaderItemHandleImpl {
   Future<List<String>> getFormats();
   Future<Object?> getDataForFormat(String format);
   Future<String?> suggestedName();
+  Future<bool> canGetVirtualFile(String format);
+  Future<VirtualFileReceiver?> createVirtualFileReceiver(
+    DataReaderItemHandle handle, {
+    required String format,
+  });
 }
 
 class DataProviderReaderItem extends DataReaderItemHandleImpl {
@@ -63,6 +72,19 @@ class DataProviderReaderItem extends DataReaderItemHandleImpl {
   Future<String?> suggestedName() async {
     return provider.provider.suggestedName;
   }
+
+  @override
+  Future<bool> canGetVirtualFile(String format) async {
+    return false;
+  }
+
+  @override
+  Future<VirtualFileReceiver?> createVirtualFileReceiver(
+    DataReaderItemHandle handle, {
+    required String format,
+  }) async {
+    return null;
+  }
 }
 
 class ReaderManagerImpl extends ReaderManager {
@@ -81,10 +103,10 @@ class ReaderManagerImpl extends ReaderManager {
     final res = impl.getDataForFormat(format);
     final completer = Completer<Object?>();
     res.then((value) {
-      progress._fraction.value = 1.0;
+      progress.done();
       completer.complete(value);
     }).catchError((error) {
-      progress._fraction.value = 1.0;
+      progress.done();
       completer.completeError(error);
     });
     return Pair(completer.future, progress);
@@ -120,16 +142,22 @@ class ReaderManagerImpl extends ReaderManager {
   Future<bool> canGetVirtualFile(
     DataReaderItemHandle handle, {
     required String format,
-  }) async {
-    return false;
+  }) {
+    final impl = handle as DataReaderItemHandleImpl;
+    return impl.canGetVirtualFile(format);
   }
 
   @override
-  Pair<Future<String?>, ReadProgress> getVirtualFile(
+  Future<VirtualFileReceiver?> createVirtualFileReceiver(
     DataReaderItemHandle handle, {
     required String format,
-    required String targetFolder,
-  }) {
-    throw UnsupportedError('Virtual files are not supported on web');
+  }) async {
+    final impl = handle as DataReaderItemHandleImpl;
+    return impl.createVirtualFileReceiver(handle, format: format);
+  }
+
+  @override
+  Future<String?> formatForFileUri(Uri uri) async {
+    return null;
   }
 }

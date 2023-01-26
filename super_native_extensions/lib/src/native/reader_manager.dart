@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:irondash_message_channel/irondash_message_channel.dart';
+import 'package:super_native_extensions/src/native/virtual_file.dart';
 
 import 'context.dart';
 import '../reader.dart';
@@ -146,8 +147,7 @@ class ReaderManagerImpl extends ReaderManager {
     return Pair(completer.future, progress);
   }
 
-  @override
-  Future<bool> canGetVirtualFile(
+  Future<bool> canCopyVirtualFile(
     DataReaderItemHandle handle, {
     required String format,
   }) async {
@@ -155,7 +155,22 @@ class ReaderManagerImpl extends ReaderManager {
       throw StateError(
           "Attempting to query virtual file from disposed reader.");
     }
-    return await _channel.invokeMethod("canGetVirtualFile", {
+    return await _channel.invokeMethod("canCopyVirtualFile", {
+      "itemHandle": handle._itemHandle,
+      "readerHandle": handle._readerHandle,
+      'format': format,
+    });
+  }
+
+  Future<bool> canReadVirtualFile(
+    DataReaderItemHandle handle, {
+    required String format,
+  }) async {
+    if (handle._reader._disposed) {
+      throw StateError(
+          "Attempting to query virtual file from disposed reader.");
+    }
+    return await _channel.invokeMethod("canReadVirtualFile", {
       "itemHandle": handle._itemHandle,
       "readerHandle": handle._readerHandle,
       'format': format,
@@ -163,7 +178,92 @@ class ReaderManagerImpl extends ReaderManager {
   }
 
   @override
-  Pair<Future<String?>, ReadProgress> getVirtualFile(
+  Future<bool> canGetVirtualFile(
+    DataReaderItemHandle handle, {
+    required String format,
+  }) async {
+    return (await canReadVirtualFile(handle, format: format)) ||
+        (await canCopyVirtualFile(handle, format: format));
+  }
+
+  @override
+  Future<VirtualFileReceiver?> createVirtualFileReceiver(
+    DataReaderItemHandle handle, {
+    required String format,
+  }) async {
+    // First try to produce receiver that can receive the file without copying
+    // it first
+    if (await canReadVirtualFile(handle, format: format)) {
+      assert(
+          await canCopyVirtualFile(handle, format: format),
+          'If implementation can read virtual file it must also '
+          'be able to copy virtual file.');
+      return _VirtualFileReceiver(
+        readerManager: this,
+        handle: handle,
+        format: format,
+      );
+    } else if (await canCopyVirtualFile(handle, format: format)) {
+      return _CopyVirtualFileReceiver(
+        readerManager: this,
+        handle: handle,
+        format: format,
+      );
+    } else {
+      return null;
+    }
+  }
+
+  Pair<Future<VirtualFile>, ReadProgress> virtualFileCreate(
+    DataReaderItemHandle handle, {
+    required String format,
+  }) {
+    if (handle._reader._disposed) {
+      throw StateError("Attempting to get virtual file from disposed reader.");
+    }
+    final progress = ReadProgressImpl(readerManager: this);
+    final completer = Completer<VirtualFile>();
+    _progressMap[progress.id] = progress;
+    _channel.invokeMethod("virtualFileReaderCreate", {
+      "itemHandle": handle._itemHandle,
+      "readerHandle": handle._readerHandle,
+      "format": format,
+      "progressId": progress.id,
+    }).then((value) {
+      _completeProgress(progress.id);
+      final response = value as Map;
+      final file = _VirtualFile(
+        readerManager: this,
+        handle: response['readerHandle'],
+        fileName: response['fileName'],
+        length: response['fileSize'],
+      );
+      completer.complete(file);
+    }, onError: (error) {
+      _completeProgress(progress.id);
+      completer.completeError(error);
+    });
+    return Pair(completer.future, progress);
+  }
+
+  @override
+  Future<String?> formatForFileUri(Uri uri) {
+    return _channel.invokeMethod('getFormatForFileUri', uri.toString());
+  }
+
+  Future<Uint8List?> virtualFileRead({
+    required int handle,
+  }) {
+    return _channel.invokeMethod('virtualFileReaderRead', handle);
+  }
+
+  Future<void> virtualFileClose({
+    required int handle,
+  }) async {
+    await _channel.invokeMethod('virtualFileReaderClose', handle);
+  }
+
+  Pair<Future<String>, ReadProgress> copyVirtualFile(
     DataReaderItemHandle handle, {
     required String format,
     required String targetFolder,
@@ -172,9 +272,9 @@ class ReaderManagerImpl extends ReaderManager {
       throw StateError("Attempting to get virtual file from disposed reader.");
     }
     final progress = ReadProgressImpl(readerManager: this);
-    final completer = Completer<String?>();
+    final completer = Completer<String>();
     _progressMap[progress.id] = progress;
-    _channel.invokeMethod("getVirtualFile", {
+    _channel.invokeMethod("copyVirtualFile", {
       "itemHandle": handle._itemHandle,
       "readerHandle": handle._readerHandle,
       "format": format,
@@ -245,4 +345,88 @@ class ReadProgressImpl extends ReadProgress {
 
   final _cancellable = ValueNotifier(false);
   final _fraction = ValueNotifier<double?>(null);
+}
+
+class _VirtualFile extends VirtualFile {
+  _VirtualFile({
+    required this.readerManager,
+    required this.handle,
+    this.fileName,
+    this.length,
+  });
+
+  @override
+  void close() {
+    readerManager.virtualFileClose(handle: handle);
+  }
+
+  @override
+  Future<Uint8List> readNext() async {
+    return (await readerManager.virtualFileRead(handle: handle)) ??
+        Uint8List(0);
+  }
+
+  final ReaderManagerImpl readerManager;
+  final int handle;
+
+  @override
+  final String? fileName;
+
+  @override
+  final int? length;
+}
+
+class _VirtualFileReceiver extends VirtualFileReceiver {
+  _VirtualFileReceiver({
+    required this.readerManager,
+    required this.handle,
+    required this.format,
+  });
+
+  @override
+  Pair<Future<VirtualFile>, ReadProgress> receiveVirtualFile() {
+    return readerManager.virtualFileCreate(handle, format: format);
+  }
+
+  @override
+  Pair<Future<String>, ReadProgress> copyVirtualFile({
+    required String targetFolder,
+  }) {
+    return readerManager.copyVirtualFile(
+      handle,
+      format: format,
+      targetFolder: targetFolder,
+    );
+  }
+
+  final ReaderManagerImpl readerManager;
+  final DataReaderItemHandle handle;
+
+  @override
+  final String format;
+}
+
+class _CopyVirtualFileReceiver extends CopyVirtualFileReceiver {
+  _CopyVirtualFileReceiver({
+    required this.readerManager,
+    required this.handle,
+    required this.format,
+  });
+
+  @override
+  Pair<Future<String>, ReadProgress> copyVirtualFile({
+    required String targetFolder,
+  }) {
+    return readerManager.copyVirtualFile(
+      handle,
+      format: format,
+      targetFolder: targetFolder,
+    );
+  }
+
+  final ReaderManagerImpl readerManager;
+  final DataReaderItemHandle handle;
+
+  @override
+  final String format;
 }

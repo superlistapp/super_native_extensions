@@ -116,6 +116,12 @@ class DropContextImpl extends DropContext {
     await _channel.invokeMethod('newContext', {'engineHandle': engineHandle});
   }
 
+  Session _sessionForEvent(dynamic event) {
+    final map = event as Map;
+    final sessionId = map['sessionId'] as int;
+    return _sessionForId(sessionId);
+  }
+
   Session _sessionForId(int id) {
     return _sessions.putIfAbsent(id, () => Session());
   }
@@ -127,30 +133,30 @@ class DropContextImpl extends DropContext {
   Future<dynamic> _handleMethodCall(MethodCall call) async {
     if (call.method == 'onDropUpdate') {
       return handleError(() async {
-        final event = await DropEventImpl.deserialize(
-            call.arguments, _getReaderForSession);
-        final session = _sessionForId(event.sessionId);
-        session.reader = event.reader;
+        final session = _sessionForEvent(call.arguments);
         return session.mutex.protect(() async {
+          final event = await DropEventImpl.deserialize(
+              call.arguments, _getReaderForSession);
+          session.reader = event.reader;
           final operation = await delegate?.onDropUpdate(event);
           return (operation ?? DropOperation.none).name;
         });
       }, () => DropOperation.none.name);
     } else if (call.method == 'onPerformDrop') {
       return handleError(() async {
-        final event = await DropEventImpl.deserialize(
-            call.arguments, _getReaderForSession);
-        final session = _sessionForId(event.sessionId);
-        session.reader = event.reader;
+        final session = _sessionForEvent(call.arguments);
         return session.mutex.protect(() async {
+          final event = await DropEventImpl.deserialize(
+              call.arguments, _getReaderForSession);
+          session.reader = event.reader;
           return await delegate?.onPerformDrop(event);
         });
       }, () => null);
     } else if (call.method == 'onDropLeave') {
       return handleError(() async {
-        final event = BaseDropEventExt.deserialize(call.arguments);
-        final session = _sessionForId(event.sessionId);
+        final session = _sessionForEvent(call.arguments);
         return session.mutex.protect(() async {
+          final event = BaseDropEventExt.deserialize(call.arguments);
           return await delegate?.onDropLeave(event);
         });
       }, () => null);

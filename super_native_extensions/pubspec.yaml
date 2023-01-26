@@ -16,6 +16,8 @@ dependencies:
   ffi: ^2.0.1
   collection: ^1.16.0
   js: ^0.6.4
+  path: ^1.8.2
+  uuid: ^3.0.7
   irondash_engine_context: ^0.1.0
   irondash_message_channel: ^0.1.0
 

@@ -195,6 +195,10 @@ impl DropManager {
         Ok(())
     }
 
+    pub fn get_platform_drop_contexts(&self) -> Vec<Rc<PlatformDropContext>> {
+        self.contexts.borrow().values().cloned().collect()
+    }
+
     async fn get_preview_for_item(
         &self,
         id: PlatformDropContextId,
