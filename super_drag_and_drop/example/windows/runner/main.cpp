@@ -37,6 +37,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
     ::DispatchMessage(&msg);
   }
 
-  ::OleUninitialize();
+  ::CoUninitialize();
   return EXIT_SUCCESS;
 }
