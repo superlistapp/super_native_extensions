@@ -653,7 +653,7 @@ impl StreamReader {
             }
         }
         let mut buf = Vec::<u8>::new();
-        buf.resize(1024 * 256, 0);
+        buf.resize(1024 * 1024, 0);
         let mut state = state.as_mut().unwrap();
         let to_read = (length - state.num_read).min(buf.len() as u64) as u32;
         if to_read == 0 {
@@ -776,7 +776,7 @@ impl VirtualStreamCopier {
         let length = self.get_length()?;
         let mut num_read: u64 = 0;
         let mut buf = Vec::<u8>::new();
-        buf.resize(1024 * 256, 0);
+        buf.resize(1024 * 1024, 0);
         let mut last_reported_progress = 0f64;
 
         unsafe {
