@@ -144,7 +144,7 @@ class ItemDataReader extends ClipboardDataReader {
           final adapter = DataReaderVirtualFileAdapter(file);
           final res = onFile(DataReaderResult(value: adapter));
           if (res is Future) {
-            res.then((_) => adapter.maybeDispose());
+            res.then((_) => adapter.maybeClose());
           }
         } else {
           onFile(DataReaderResult(error: value.error));
@@ -161,7 +161,7 @@ class ItemDataReader extends ClipboardDataReader {
               final adapter = DataReaderVirtualFileAdapter(file);
               final res = onFile(DataReaderResult(value: adapter));
               if (res is Future) {
-                res.then((_) => adapter.maybeDispose());
+                res.then((_) => adapter.maybeClose());
               }
             },
             onError: (e) {

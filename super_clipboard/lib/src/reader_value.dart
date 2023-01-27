@@ -23,7 +23,7 @@ class DataReaderFileValueAdapter extends DataReaderFile {
   final Uint8List value;
 
   @override
-  void dispose() {}
+  void close() {}
 
   @override
   String? get fileName => null;
@@ -43,33 +43,33 @@ class DataReaderFileValueAdapter extends DataReaderFile {
 }
 
 class DataReaderVirtualFileAdapter extends DataReaderFile {
-  DataReaderVirtualFileAdapter(this.value);
+  DataReaderVirtualFileAdapter(this.file);
 
   bool _disposed = false;
   bool _streamRequested = false;
 
-  final raw.VirtualFile value;
+  final raw.VirtualFile file;
 
   @override
-  void dispose() {
+  void close() {
     if (!_disposed) {
       _disposed = true;
-      value.close();
+      file.close();
     }
   }
 
-  void maybeDispose() {
+  void maybeClose() {
     if (_streamRequested) {
       return;
     }
-    dispose();
+    close();
   }
 
   @override
-  String? get fileName => value.fileName;
+  String? get fileName => file.fileName;
 
   @override
-  int? get fileSize => value.length;
+  int? get fileSize => file.length;
 
   @override
   Stream<Uint8List> getStream() {
@@ -86,7 +86,7 @@ class DataReaderVirtualFileAdapter extends DataReaderFile {
   Stream<Uint8List> _getStream() async* {
     try {
       while (true) {
-        final next = await value.readNext();
+        final next = await file.readNext();
         if (next.isEmpty) {
           break;
         } else {
@@ -95,7 +95,7 @@ class DataReaderVirtualFileAdapter extends DataReaderFile {
       }
     } finally {
       _streamRequested = false;
-      dispose();
+      close();
     }
   }
 

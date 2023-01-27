@@ -29,10 +29,10 @@ abstract class DataReaderFile {
   /// Returns the file size if available.
   int? get fileSize;
 
-  /// Disposes the result. Generally this only needs to call this when stream
+  /// Closes the file. Generally this only needs to call this when stream
   /// was requested through [getStream] but not consumed. Otherwise it is called
   /// automatically at the end of value callback or when stream is consumed.
-  void dispose();
+  void close();
 
   /// Returns the result of the data as stream. This can only be called once per
   /// value. Stream must be requested within the `onFile` callback.
