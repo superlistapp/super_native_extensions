@@ -381,8 +381,7 @@ impl BackgroundThreadFile {
             let block = ConcreteBlock::new(move |new_url: id| {
                 let path = path_from_url(new_url);
                 let sender = RunLoop::current().new_sender();
-                let file = File::open(&path)
-                    .map_err(|err| NativeExtensionsError::VirtualFileReceiveError(err.to_string()));
+                let file = File::open(&path);
                 match file {
                     Ok(file) => {
                         promise_clone2.set(Ok(BackgroundThreadFile {
@@ -393,7 +392,7 @@ impl BackgroundThreadFile {
                         RunLoop::current().run();
                     }
                     Err(err) => {
-                        promise_clone2.set(Err(err));
+                        promise_clone2.set(Err(NativeExtensionsError::from(err)));
                     }
                 }
             });
