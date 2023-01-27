@@ -160,4 +160,9 @@ class ReaderManagerImpl extends ReaderManager {
   Future<String?> formatForFileUri(Uri uri) async {
     return null;
   }
+
+  @override
+  VirtualFile createVirtualFileFromUri(Uri uri) {
+    throw UnsupportedError('createVirtualFileFromUri is not supported on web');
+  }
 }

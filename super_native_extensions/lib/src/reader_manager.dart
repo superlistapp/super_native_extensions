@@ -38,4 +38,6 @@ abstract class ReaderManager {
   });
 
   Future<String?> formatForFileUri(Uri uri);
+
+  VirtualFile createVirtualFileFromUri(Uri uri);
 }

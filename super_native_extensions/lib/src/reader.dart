@@ -117,6 +117,12 @@ abstract class VirtualFile {
 
   /// Closes the virtual file.
   void close();
+
+  /// Creates virtual file from file at specific file URI.
+  /// Not supported on web.
+  static VirtualFile fromFileUri(Uri uri) {
+    return ReaderManager.instance.createVirtualFileFromUri(uri);
+  }
 }
 
 abstract class VirtualFileReceiver {
