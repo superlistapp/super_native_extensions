@@ -48,15 +48,18 @@ abstract class DataReader {
   /// Returns true value for data format is possibly available in this reader.
   ///
   /// Note that it is expected for [getValue] to return `null` even though
-  /// [hasValue] returns yes, because in some cases this can not be fully
+  /// [canProvide] returns yes, because in some cases this can not be fully
   /// determined from the format string, but only from the data itself.
   ///
   /// For example on some platforms file URI and regular URI have same type,
   /// so when receiving [Formats.fileUri] the decoder will have to fetch the value
   /// and will return null if URI is not a file uri.
-  bool hasValue(DataFormat format) {
+  bool canProvide(DataFormat format) {
     return getFormats([format]).isNotEmpty;
   }
+
+  @Deprecated('use canProvide instead')
+  bool hasValue(DataFormat format) => canProvide(format);
 
   /// Returns subset of [allFormats] that this reader can provide,
   /// sorted according to priority.
@@ -165,8 +168,8 @@ class ClipboardReader extends ClipboardDataReader {
   }
 
   @override
-  bool hasValue(DataFormat format) {
-    return items.any((item) => item.hasValue(format));
+  bool canProvide(DataFormat format) {
+    return items.any((item) => item.canProvide(format));
   }
 
   @override
@@ -174,7 +177,8 @@ class ClipboardReader extends ClipboardDataReader {
     ValueFormat<T> format,
     AsyncValueChanged<DataReaderResult<T>> onValue,
   ) {
-    final item = items.firstWhereOrNull((element) => element.hasValue(format));
+    final item =
+        items.firstWhereOrNull((element) => element.canProvide(format));
     if (item != null) {
       return item.getValue(
         format,
@@ -193,7 +197,8 @@ class ClipboardReader extends ClipboardDataReader {
     bool allowVirtualFiles = true,
     bool synthetizeFilesFromURIs = true,
   }) {
-    final item = items.firstWhereOrNull((element) => element.hasValue(format));
+    final item =
+        items.firstWhereOrNull((element) => element.canProvide(format));
     if (item != null) {
       return item.getFile(format, onFile,
           allowVirtualFiles: allowVirtualFiles,
@@ -206,7 +211,8 @@ class ClipboardReader extends ClipboardDataReader {
 
   @override
   Future<T?> readValue<T extends Object>(ValueFormat<T> format) async {
-    final item = items.firstWhereOrNull((element) => element.hasValue(format));
+    final item =
+        items.firstWhereOrNull((element) => element.canProvide(format));
     return item?.readValue(format);
   }
 

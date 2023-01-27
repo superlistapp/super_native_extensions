@@ -14,7 +14,10 @@ abstract class DropItem with Diagnosticable {
   /// Returns whether the item contains data for given [DataFormat].
   /// This is a best guess based on format identifier. It is still possible
   /// that [dataReader] will fail to provide the data during drop.
-  bool hasValue(DataFormat f);
+  bool canProvide(DataFormat f);
+
+  @Deprecated('use canProvide instead')
+  bool hasValue(DataFormat f) => canProvide(f);
 
   /// Local data associated with this drop item that can be only read when
   /// dropping within the same application.

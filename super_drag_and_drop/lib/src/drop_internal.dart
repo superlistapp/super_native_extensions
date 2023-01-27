@@ -17,7 +17,7 @@ class _DropItem extends DropItem {
   _DropItem._(this._item);
 
   @override
-  bool hasValue(DataFormat f) {
+  bool canProvide(DataFormat f) {
     return platformFormats.any(f.canDecode);
   }
 
