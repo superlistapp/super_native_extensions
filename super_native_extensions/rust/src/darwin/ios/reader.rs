@@ -1,4 +1,5 @@
 use std::{
+    cell::RefCell,
     fs::{self, File},
     io::Read,
     path::PathBuf,
@@ -18,8 +19,9 @@ use core_foundation::{base::TCFType, string::CFString};
 use irondash_message_channel::{value_darwin::ValueObjcConversion, Value};
 use irondash_run_loop::{
     util::{Capsule, FutureCompleter},
-    RunLoop, RunLoopSender,
+    RunLoop,
 };
+
 use objc::{
     class, msg_send,
     rc::{autoreleasepool, StrongPtr},
@@ -280,7 +282,7 @@ impl PlatformDataReader {
                         nserror_description(err),
                     ))
                 } else {
-                    BackgroundThreadFile::new(url)
+                    FileWithBackgroundCoordinator::new(url)
                 };
                 let completer = completer.clone();
                 sender.send(move || {
@@ -364,15 +366,17 @@ impl PlatformDataReader {
     pub fn assign_weak_self(&self, _weak: Weak<PlatformDataReader>) {}
 }
 
-struct BackgroundThreadFile {
-    sender: RunLoopSender,
-    file: Arc<Mutex<Option<File>>>,
+struct FileWithBackgroundCoordinator {
+    // used to block the coordinator thread
+    coordinator_thread_release: Arc<Promise<()>>,
+    file: RefCell<Option<File>>,
     path: PathBuf,
 }
 
-impl BackgroundThreadFile {
-    /// Opens a file reader thread with running run loop protected by file coordinator.
-    fn new(url: id) -> NativeExtensionsResult<BackgroundThreadFile> {
+impl FileWithBackgroundCoordinator {
+    /// Creates new thread where it keeps the coordinator alive while the
+    /// FileWithBackgroundCoordinator is reading file.
+    fn new(url: id) -> NativeExtensionsResult<FileWithBackgroundCoordinator> {
         let promise = Arc::new(Promise::new());
         let url = unsafe { Movable::new(url) };
         let promise_clone = promise.clone();
@@ -380,16 +384,17 @@ impl BackgroundThreadFile {
         thread::spawn(move || {
             let block = ConcreteBlock::new(move |new_url: id| {
                 let path = path_from_url(new_url);
-                let sender = RunLoop::current().new_sender();
+                let release = Arc::new(Promise::new());
                 let file = File::open(&path);
                 match file {
                     Ok(file) => {
-                        promise_clone2.set(Ok(BackgroundThreadFile {
-                            sender,
-                            file: Arc::new(Mutex::new(Some(file))),
+                        promise_clone2.set(Ok(FileWithBackgroundCoordinator {
+                            coordinator_thread_release: release.clone(),
+                            file: RefCell::new(Some(file)),
                             path,
                         }));
-                        RunLoop::current().run();
+                        // wait until the file is closed
+                        release.wait();
                     }
                     Err(err) => {
                         promise_clone2.set(Err(NativeExtensionsError::from(err)));
@@ -419,60 +424,36 @@ impl BackgroundThreadFile {
     }
 }
 
-#[async_trait(?Send)]
-impl VirtualFileReader for BackgroundThreadFile {
-    async fn read_next(&self) -> NativeExtensionsResult<Vec<u8>> {
-        if self.file.lock().unwrap().is_none() {
-            return Err(NativeExtensionsError::VirtualFileReceiveError(
-                "File already closed".into(),
-            ));
-        }
-        let (future, completer) = FutureCompleter::new();
-        let sender = RunLoop::current().new_sender();
-        let mut completer = Capsule::new_with_sender(completer, sender.clone());
-        let file = self.file.clone();
-        self.sender.send(move || {
-            let mut file = file.lock().unwrap();
-            match file.as_mut() {
-                Some(file) => {
-                    let mut buf = vec![0; 1024 * 1024];
-                    let res = file
-                        .read(&mut buf)
-                        .map(|size| {
-                            buf.truncate(size);
-                            buf
-                        })
-                        .map_err(NativeExtensionsError::from);
-                    sender.send(move || {
-                        let completer = completer.take().unwrap();
-                        completer.complete(res)
-                    });
-                }
-                None => {
-                    sender.send(move || {
-                        let completer = completer.take().unwrap();
-                        completer.complete(Err(NativeExtensionsError::VirtualFileReceiveError(
-                            "File is closed".into(),
-                        )));
-                    });
-                }
-            }
-        });
-        future.await
+impl Drop for FileWithBackgroundCoordinator {
+    fn drop(&mut self) {
+        self.close().ok();
     }
+}
 
-    fn close(&self) -> NativeExtensionsResult<()> {
-        let file = self.file.lock().unwrap().take();
-        if let Some(_file) = file {
-            self.sender.send(|| {
-                RunLoop::current().stop();
-            });
+#[async_trait(?Send)]
+impl VirtualFileReader for FileWithBackgroundCoordinator {
+    async fn read_next(&self) -> NativeExtensionsResult<Vec<u8>> {
+        let mut file = self.file.borrow_mut();
+        match file.as_mut() {
+            Some(file) => {
+                let mut buf = vec![0; 1024 * 1024];
+                file.read(&mut buf)
+                    .map(|size| {
+                        buf.truncate(size);
+                        buf
+                    })
+                    .map_err(NativeExtensionsError::from)
+            }
+            None => {
+                return Err(NativeExtensionsError::VirtualFileReceiveError(
+                    "File already closed".into(),
+                ));
+            }
         }
-        Ok(())
     }
 
     fn file_size(&self) -> NativeExtensionsResult<Option<i64>> {
-        let file = self.file.lock().unwrap();
+        let file = self.file.borrow();
         match file.as_ref() {
             Some(file) => {
                 let metadata = file.metadata()?;
@@ -486,5 +467,13 @@ impl VirtualFileReader for BackgroundThreadFile {
         self.path
             .file_name()
             .map(|name| name.to_string_lossy().into_owned())
+    }
+
+    fn close(&self) -> NativeExtensionsResult<()> {
+        let file = self.file.borrow_mut().take();
+        if let Some(_file) = file {
+            self.coordinator_thread_release.set(());
+        }
+        Ok(())
     }
 }
