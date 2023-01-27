@@ -77,17 +77,23 @@ Be sure to replace `<your-package-name>` in the snippet with your actual package
 
 ```dart
     final reader = await ClipboardReader.readClipboard();
-    if (reader.hasValue(Formats.htmlText)) {
+
+    if (reader.canProvide(Formats.htmlText)) {
         final html = await reader.readValue(Formats.htmlText);
         // .. do something with the HTML text
     }
-    if (reader.hasValue(Formats.plainText)) {
+
+    if (reader.canProvide(Formats.plainText)) {
         final text = await reader.readValue(Formats.plainText);
         // Do something with the plain text
     }
-    if (reader.hasValue(Formats.png)) {
-        final png = await reader.readValue(Formats.png);
-        // Do something with the PNG image
+
+    /// Binary formats need to be read as streams
+    if (reader.canProvide(Formats.png)) {
+        reader.getFile(Formats.png, (result) {
+            // Do something with the PNG image
+            final stream = result.value?.getStream();
+        });
     }
 ```
 

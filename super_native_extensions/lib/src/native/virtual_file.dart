@@ -6,8 +6,8 @@ import 'package:uuid/uuid.dart';
 
 import '../reader.dart';
 
-class _VirtualFile extends VirtualFile {
-  _VirtualFile({
+class VirtualFileFromFile extends VirtualFile {
+  VirtualFileFromFile({
     required this.file,
     required this.onClose,
   });
@@ -33,7 +33,7 @@ class _VirtualFile extends VirtualFile {
   @override
   Future<Uint8List> readNext() async {
     _file ??= await file.open();
-    return _file!.read(1024 * 64);
+    return _file!.read(1024 * 256);
   }
 }
 
@@ -47,7 +47,7 @@ abstract class CopyVirtualFileReceiver extends VirtualFileReceiver {
     try {
       final pair = copyVirtualFile(targetFolder: folder);
       final future = pair.first.then((value) {
-        return _VirtualFile(
+        return VirtualFileFromFile(
           file: File(value),
           onClose: () {
             Directory(folder).deleteSync(recursive: true);

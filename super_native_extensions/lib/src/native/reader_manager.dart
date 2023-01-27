@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -319,6 +320,12 @@ class ReaderManagerImpl extends ReaderManager {
       context: superNativeExtensionsContext);
 
   final _progressMap = <int, ReadProgressImpl>{};
+
+  @override
+  VirtualFile createVirtualFileFromUri(Uri uri) {
+    final file = File(uri.toFilePath());
+    return VirtualFileFromFile(file: file, onClose: () {});
+  }
 }
 
 class ReadProgressImpl extends ReadProgress {

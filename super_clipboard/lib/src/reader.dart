@@ -6,52 +6,40 @@ import 'package:super_native_extensions/raw_clipboard.dart' as raw;
 
 import 'format.dart';
 import 'reader_internal.dart';
-import 'reader_value_delegate.dart';
 import 'standard_formats.dart';
 export 'package:super_native_extensions/raw_clipboard.dart'
     show VirtualFileReceiver, Pair, ReadProgress;
 
-class DataReaderValue<T extends Object> {
-  DataReaderValue(this._delegate);
+class DataReaderResult<T> {
+  DataReaderResult({
+    this.value,
+    this.error,
+  });
 
-  final DataReaderValueDelegate<T> _delegate;
-
-  /// Returns the actual value.
-  ///
-  /// Note that if this is binary value ([Uint8List]), this may only be the
-  /// first chunk of file. In which case you can either advance
-  /// using [BinaryDataReaderValue.readNext], get the file contents as
-  /// stream through [BinaryDataReaderValue.asStream] or read the whole file
-  /// using [BinaryDataReaderValue.readAll].
-  T? get value => _delegate.value;
-
-  Object? get error => _delegate.error;
+  final T? value;
+  final Object? error;
 }
 
-/// These methods are available if DataReaderValue content is an [Uint8List].
-/// The methods below may only be called from within the onValue callback.
-extension BinaryDataReaderValue on DataReaderValue<Uint8List> {
-  /// Reads the next chunk of the file. Returns `false` if there is no more data.
-  Future<bool> readNext() => _delegate.readNext();
-
+abstract class DataReaderFile {
   /// Returns file name for the file, if available. File name at this
   /// point, if available, will be more reliable than the one provided
   /// by [DataReader.getSuggestedName];
-  String? get fileName => _delegate.fileName;
+  String? get fileName;
 
-  /// Disposes the result. Generally this only needs to call this when stream
-  /// was requested through [asStream] but not consumed. Otherwise it is called
+  /// Returns the file size if available.
+  int? get fileSize;
+
+  /// Closes the file. Generally this only needs to call this when stream
+  /// was requested through [getStream] but not consumed. Otherwise it is called
   /// automatically at the end of value callback or when stream is consumed.
-  void dispose() {
-    _delegate.dispose(force: true);
-  }
+  void close();
 
   /// Returns the result of the data as stream. This can only be called once per
-  /// value.
-  Stream<Uint8List> asStream() => _delegate.asStream();
+  /// value. Stream must be requested within the `onFile` callback.
+  Stream<Uint8List> getStream();
 
   /// Reads the rest of the data and returns it as a single chunk.
-  Future<Uint8List> readAll() => _delegate.readAll();
+  Future<Uint8List> readAll();
 }
 
 typedef AsyncValueChanged<T> = FutureOr<void> Function(T value);
@@ -60,15 +48,18 @@ abstract class DataReader {
   /// Returns true value for data format is possibly available in this reader.
   ///
   /// Note that it is expected for [getValue] to return `null` even though
-  /// [hasValue] returns yes, because in some cases this can not be fully
+  /// [canProvide] returns yes, because in some cases this can not be fully
   /// determined from the format string, but only from the data itself.
   ///
   /// For example on some platforms file URI and regular URI have same type,
   /// so when receiving [Formats.fileUri] the decoder will have to fetch the value
   /// and will return null if URI is not a file uri.
-  bool hasValue(DataFormat format) {
+  bool canProvide(DataFormat format) {
     return getFormats([format]).isNotEmpty;
   }
+
+  @Deprecated('use canProvide instead')
+  bool hasValue(DataFormat format) => canProvide(format);
 
   /// Returns subset of [allFormats] that this reader can provide,
   /// sorted according to priority.
@@ -86,8 +77,17 @@ abstract class DataReader {
   /// When reading value form clipboard you can use the async variant in
   /// [ClipboardDataReader].
   raw.ReadProgress? getValue<T extends Object>(
-    DataFormat<T> format,
-    AsyncValueChanged<DataReaderValue<T>> onValue, {
+    ValueFormat<T> format,
+    AsyncValueChanged<DataReaderResult<T>> onValue,
+  );
+
+  /// Loads file for the given format.
+  ///
+  /// If no file for given format is available, `null` progress is returned and
+  /// [onFile] is called immediately with `null` result.
+  raw.ReadProgress? getFile(
+    FileFormat format,
+    AsyncValueChanged<DataReaderResult<DataReaderFile>> onFile, {
     bool allowVirtualFiles = true,
     bool synthetizeFilesFromURIs = true,
   });
@@ -130,7 +130,7 @@ abstract class ClipboardDataReader extends DataReader {
   ///
   /// Attempts to read value for given format. Will return `null` if the value
   /// is not available or the data is virtual (macOS and Windows).
-  Future<T?> readValue<T extends Object>(DataFormat<T> format);
+  Future<T?> readValue<T extends Object>(ValueFormat<T> format);
 
   static Future<ClipboardDataReader> forItem(raw.DataReaderItem item) async =>
       ItemDataReader.fromItem(item);
@@ -168,32 +168,51 @@ class ClipboardReader extends ClipboardDataReader {
   }
 
   @override
-  bool hasValue(DataFormat format) {
-    return items.any((item) => item.hasValue(format));
+  bool canProvide(DataFormat format) {
+    return items.any((item) => item.canProvide(format));
   }
 
   @override
   raw.ReadProgress? getValue<T extends Object>(
-    DataFormat<T> format,
-    AsyncValueChanged<DataReaderValue<T>> onValue, {
-    bool allowVirtualFiles = true,
-    bool synthetizeFilesFromURIs = true,
-  }) {
-    final item = items.firstWhereOrNull((element) => element.hasValue(format));
+    ValueFormat<T> format,
+    AsyncValueChanged<DataReaderResult<T>> onValue,
+  ) {
+    final item =
+        items.firstWhereOrNull((element) => element.canProvide(format));
     if (item != null) {
-      return item.getValue(format, onValue,
-          allowVirtualFiles: allowVirtualFiles,
-          synthetizeFilesFromURIs: synthetizeFilesFromURIs);
+      return item.getValue(
+        format,
+        onValue,
+      );
     } else {
-      final delegate = SimpleValueDelegate<T>(value: null);
-      delegate.sendAsValue(onValue);
+      onValue(DataReaderResult());
       return null;
     }
   }
 
   @override
-  Future<T?> readValue<T extends Object>(DataFormat<T> format) async {
-    final item = items.firstWhereOrNull((element) => element.hasValue(format));
+  raw.ReadProgress? getFile(
+    FileFormat format,
+    AsyncValueChanged<DataReaderResult<DataReaderFile>> onFile, {
+    bool allowVirtualFiles = true,
+    bool synthetizeFilesFromURIs = true,
+  }) {
+    final item =
+        items.firstWhereOrNull((element) => element.canProvide(format));
+    if (item != null) {
+      return item.getFile(format, onFile,
+          allowVirtualFiles: allowVirtualFiles,
+          synthetizeFilesFromURIs: synthetizeFilesFromURIs);
+    } else {
+      onFile(DataReaderResult());
+      return null;
+    }
+  }
+
+  @override
+  Future<T?> readValue<T extends Object>(ValueFormat<T> format) async {
+    final item =
+        items.firstWhereOrNull((element) => element.canProvide(format));
     return item?.readValue(format);
   }
 

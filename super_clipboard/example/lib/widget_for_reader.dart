@@ -87,7 +87,7 @@ class _PlatformFormat {
 
 /// Turn [DataReader.getValue] into a future.
 extension _ReadValue on DataReader {
-  Future<T?> readValue<T extends Object>(DataFormat<T> format) {
+  Future<T?> readValue<T extends Object>(ValueFormat<T> format) {
     final c = Completer<T?>();
     getValue<T>(format, (value) {
       if (value.error != null) {
@@ -101,12 +101,13 @@ extension _ReadValue on DataReader {
 
   Future<Uint8List?>? readFile(FileFormat format) {
     final c = Completer<Uint8List?>();
-    getValue<Uint8List>(format, (value) async {
+    getFile(format, (value) async {
       if (value.error != null) {
         c.completeError(value.error!);
-      } else {
+      } else if (value.value != null) {
+        final file = value.value!;
         try {
-          final all = await value.readAll();
+          final all = await file.readAll();
           c.complete(all);
         } catch (e) {
           c.completeError(e);

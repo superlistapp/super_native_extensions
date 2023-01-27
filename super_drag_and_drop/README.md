@@ -133,7 +133,7 @@ class MyDropRegion extends StatelessWidget {
         if (item.localData is Map) {
           // This is a drag within the app and has custom local data set.
         }
-        if (item.hasValue(Formats.plainText)) {
+        if (item.canProvide(Formats.plainText)) {
           // this item contains plain text.
         }
         // This drop region only supports copy operation.
@@ -160,9 +160,9 @@ class MyDropRegion extends StatelessWidget {
 
         // data reader is available now
         final reader = item.dataReader!;
-        if (reader.hasValue(Formats.plainText)) {
-          reader.getValue<String>(Formats.plainText, (value) {
-            if (value.error != null) {
+        if (reader.canProvide(Formats.plainText)) {
+          reader.getValue<String>(Formats.plainText, (result) {
+            if (result.error != null) {
               print('Error reading value ${value.error}');
             } else {
               // You can access values through the `value` property.
@@ -171,19 +171,17 @@ class MyDropRegion extends StatelessWidget {
           });
         }
 
-        // Binary values should be received as stream. This will also work for
-        // receiving virtual files.
-        if (reader.hasValue(Formats.png)) {
-          reader.getValue(Formats.png, (value) {
-            if (value.error != null) {
+        if (reader.canProvide(Formats.png)) {
+          reader.getFile(Formats.png, (result) {
+            if (result.error != null) {
               print('Error reading value ${value.error}');
             } else {
               // Binary files may be too large to be loaded in memory and thus
               // are exposed as stream.
-              final stream = value.asStream();
+              final stream = result?.getStream();
               // Alternatively, if you know that that the value is small enough,
               // you can read the entire value into memory:
-              final data = value.readAll();
+              final data = result?.readAll();
             }
           });
         }
@@ -237,8 +235,8 @@ To streamline this, `super_drag_and_drop` will synthesize a file stream for the 
 Receving virtual files doesn't require any special handling. You can consume the content of virtual file just like any other stream:
 
 ```dart
-reader.getValue<Uint8List>(Formats.png, (value) {
-  final Stream<Uint8List> stream = value.asStream();
+reader.getFile(Formats.png, (result) {
+  final Stream<Uint8List> stream = result.value?ƒ.asStream();
   // You can now use the stream to read the file content.
   });
 })
