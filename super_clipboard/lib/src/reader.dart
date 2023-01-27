@@ -35,7 +35,7 @@ abstract class DataReaderFile {
   void dispose();
 
   /// Returns the result of the data as stream. This can only be called once per
-  /// value.
+  /// value. Stream must be requested within the `onFile` callback.
   Stream<Uint8List> getStream();
 
   /// Reads the rest of the data and returns it as a single chunk.
