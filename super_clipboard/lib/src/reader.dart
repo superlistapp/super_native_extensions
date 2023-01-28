@@ -10,16 +10,6 @@ import 'standard_formats.dart';
 export 'package:super_native_extensions/raw_clipboard.dart'
     show VirtualFileReceiver, Pair, ReadProgress;
 
-class DataReaderResult<T> {
-  DataReaderResult({
-    this.value,
-    this.error,
-  });
-
-  final T? value;
-  final Object? error;
-}
-
 abstract class DataReaderFile {
   /// Returns file name for the file, if available. File name at this
   /// point, if available, will be more reliable than the one provided
@@ -67,8 +57,8 @@ abstract class DataReader {
 
   /// Loads the value for the given format.
   ///
-  /// If no value for given format is available, `null` progress is returned and
-  /// [onValue] is called immediately with `null` result.
+  /// If no value for given format is available, `null` progress is returned
+  /// and the [onValue] block will not be called.
   ///
   /// Getting the value is intentionally not exposed as async operation in order
   /// to prevent awaiting in contexts where it could block platform code (i.e.
@@ -76,18 +66,35 @@ abstract class DataReader {
   ///
   /// When reading value form clipboard you can use the async variant in
   /// [ClipboardDataReader].
+  ///
+  /// Note that it is possible to receive a `null` value despite [canProvide]
+  /// returning true. Sometimes the presence of value can not be determined
+  /// just form the format string, but only from the data itself. For example
+  /// file and regular URI have same type on some platforms, so when receiving
+  /// [Formats.fileUri] the decoder will have to fetch the value and will return
+  /// null if URI is not a file uri.
   raw.ReadProgress? getValue<T extends Object>(
     ValueFormat<T> format,
-    AsyncValueChanged<DataReaderResult<T>> onValue,
-  );
+    AsyncValueChanged<T?> onValue, {
+    ValueChanged<Object>? onError,
+  });
 
   /// Loads file for the given format.
   ///
   /// If no file for given format is available, `null` progress is returned and
-  /// [onFile] is called immediately with `null` result.
+  /// the [onFile] block will not be called.
+  ///
+  /// Returned progress tracks the progress from method invocation to receiving
+  /// the file object. To track progress of reading the file you can use
+  /// reported file size in [DataReaderFile] when you read the stream.
+  ///
+  /// On most platform the progress will be indeterminate followed by 1.0 at
+  /// the end. On iOS the progress is bridged to underlying NSProgress object
+  /// and should be more accurate and cancellable.
   raw.ReadProgress? getFile(
     FileFormat format,
-    AsyncValueChanged<DataReaderResult<DataReaderFile>> onFile, {
+    AsyncValueChanged<DataReaderFile> onFile, {
+    ValueChanged<Object>? onError,
     bool allowVirtualFiles = true,
     bool synthetizeFilesFromURIs = true,
   });
@@ -95,6 +102,10 @@ abstract class DataReader {
   /// Returns whether value for given format is being synthetized. On Windows
   /// DIB images are accessible as PNG (converted on demand), same thing is
   /// done on macOS for TIFF images.
+  ///
+  /// On desktop platforms file URIs are also exposed as files with appropriate
+  /// formats so they can be read through [DataReaderFile] API. For those
+  /// [isSynthetized] will also return `true`.
   bool isSynthetized(DataFormat format);
 
   /// When `true`, data in this format is virtual. It means it might not be
@@ -103,13 +114,16 @@ abstract class DataReader {
   bool isVirtual(DataFormat format);
 
   /// Returns suggested file name for the contents (if available).
+  /// This is the best guess that can be provided from reader. You may be able
+  /// to get more accurate name after receiving the [DataReaderFile] through
+  /// [getFile].
   Future<String?> getSuggestedName();
 
   /// Returns virtual file receiver for given format or `null` if virtual data
   /// for the format is not available. If format is not specified returns
   /// receiver for format with highest priority (if any).
   ///
-  /// Usually it is not needed to call this method directly, as [getValue]
+  /// Usually it is not needed to call this method directly, as [getFile]
   /// will automatically call it if virtual data is available.
   Future<raw.VirtualFileReceiver?> getVirtualFileReceiver({
     FileFormat? format,
@@ -175,17 +189,18 @@ class ClipboardReader extends ClipboardDataReader {
   @override
   raw.ReadProgress? getValue<T extends Object>(
     ValueFormat<T> format,
-    AsyncValueChanged<DataReaderResult<T>> onValue,
-  ) {
+    AsyncValueChanged<T?> onValue, {
+    ValueChanged<Object>? onError,
+  }) {
     final item =
         items.firstWhereOrNull((element) => element.canProvide(format));
     if (item != null) {
       return item.getValue(
         format,
         onValue,
+        onError: onError,
       );
     } else {
-      onValue(DataReaderResult());
       return null;
     }
   }
@@ -193,7 +208,8 @@ class ClipboardReader extends ClipboardDataReader {
   @override
   raw.ReadProgress? getFile(
     FileFormat format,
-    AsyncValueChanged<DataReaderResult<DataReaderFile>> onFile, {
+    AsyncValueChanged<DataReaderFile> onFile, {
+    ValueChanged<Object>? onError,
     bool allowVirtualFiles = true,
     bool synthetizeFilesFromURIs = true,
   }) {
@@ -201,10 +217,10 @@ class ClipboardReader extends ClipboardDataReader {
         items.firstWhereOrNull((element) => element.canProvide(format));
     if (item != null) {
       return item.getFile(format, onFile,
+          onError: onError,
           allowVirtualFiles: allowVirtualFiles,
           synthetizeFilesFromURIs: synthetizeFilesFromURIs);
     } else {
-      onFile(DataReaderResult());
       return null;
     }
   }

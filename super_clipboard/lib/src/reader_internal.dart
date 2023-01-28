@@ -1,7 +1,8 @@
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'package:collection/collection.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 
 import 'format.dart';
 import 'reader_value.dart';
@@ -131,24 +132,34 @@ class ItemDataReader extends ClipboardDataReader {
   @override
   ReadProgress? getFile(
     FileFormat format,
-    AsyncValueChanged<DataReaderResult<DataReaderFile>> onFile, {
+    AsyncValueChanged<DataReaderFile> onFile, {
+    ValueChanged<Object>? onError,
     bool allowVirtualFiles = true,
     bool synthetizeFilesFromURIs = true,
   }) {
+    final handleError = onError ??
+        (error) {
+          Zone.current
+              .handleUncaughtError(error, AsyncError.defaultStackTrace(error));
+        };
     if (synthetizeFilesFromURIs &&
         synthetizedFromURIFormat != null &&
         format.canDecode(synthetizedFromURIFormat!)) {
       return getValue<Uri>(Formats.fileUri, (value) async {
-        if (value.value != null) {
-          final file = raw.VirtualFile.fromFileUri(value.value!);
+        if (value != null) {
+          final file = raw.VirtualFile.fromFileUri(value);
           final adapter = DataReaderVirtualFileAdapter(file);
-          final res = onFile(DataReaderResult(value: adapter));
+          final res = onFile(adapter);
           if (res is Future) {
             res.then((_) => adapter.maybeClose());
           }
         } else {
-          onFile(DataReaderResult(error: value.error));
+          // This should never happen - the URI was alrady retrieved once in
+          // ItemDataReader.forItem.
+          handleError(StateError('Could not retrieve URI'));
         }
+      }, onError: (e) {
+        handleError(e);
       });
     }
 
@@ -159,13 +170,13 @@ class ItemDataReader extends ClipboardDataReader {
           file.first.then(
             (file) async {
               final adapter = DataReaderVirtualFileAdapter(file);
-              final res = onFile(DataReaderResult(value: adapter));
+              final res = onFile(adapter);
               if (res is Future) {
                 res.then((_) => adapter.maybeClose());
               }
             },
             onError: (e) {
-              onFile(DataReaderResult(error: e));
+              handleError(e);
             },
           );
           return file.second;
@@ -177,27 +188,28 @@ class ItemDataReader extends ClipboardDataReader {
       if (format.receiverFormats.contains(f)) {
         final data = item.getDataForFormat(f);
         data.first.then((value) {
-          if (value != null) {
-            final list = value as Uint8List;
-            onFile(DataReaderResult(value: DataReaderFileValueAdapter(list)));
-          } else {
-            onFile(DataReaderResult());
-          }
+          final list = value != null ? value as Uint8List : Uint8List(0);
+          onFile(DataReaderFileValueAdapter(list));
         }, onError: (e) {
-          onFile(DataReaderResult(error: e));
+          handleError(e);
         });
         return data.second;
       }
     }
-    onFile(DataReaderResult());
     return null;
   }
 
   @override
   ReadProgress? getValue<T extends Object>(
     ValueFormat<T> format,
-    AsyncValueChanged<DataReaderResult<T>> onValue,
-  ) {
+    AsyncValueChanged<T?> onValue, {
+    ValueChanged<Object>? onError,
+  }) {
+    final handleError = onError ??
+        (error) {
+          Zone.current
+              .handleUncaughtError(error, AsyncError.defaultStackTrace(error));
+        };
     ReadProgress? progress;
     Future<Object?> onGetData(PlatformFormat format) async {
       final data = item.getDataForFormat(format);
@@ -212,9 +224,9 @@ class ItemDataReader extends ClipboardDataReader {
         format
             .decode(primaryFormat, _PlatformDataProvider(formats, onGetData))
             .then((value) {
-          onValue(DataReaderResult(value: value));
+          onValue(value);
         }, onError: (e) {
-          onValue(DataReaderResult(error: e));
+          handleError(e);
         });
         // Decoder must load value immediately, it can't delay loading across
         // await boundary.
@@ -223,20 +235,20 @@ class ItemDataReader extends ClipboardDataReader {
         return progress;
       }
     }
-    onValue(DataReaderResult());
     return null;
   }
 
   @override
   Future<T?> readValue<T extends Object>(ValueFormat<T> format) async {
     final c = Completer<T?>();
-    getValue<T>(format, (value) {
-      if (value.error != null) {
-        c.completeError(value.error!);
-      } else {
-        c.complete(value.value);
-      }
+    final progress = getValue<T>(format, (value) {
+      c.complete(value);
+    }, onError: (e) {
+      c.completeError(e);
     });
+    if (progress == null) {
+      c.complete(null);
+    }
     return c.future;
   }
 

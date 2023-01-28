@@ -90,9 +90,9 @@ Be sure to replace `<your-package-name>` in the snippet with your actual package
 
     /// Binary formats need to be read as streams
     if (reader.canProvide(Formats.png)) {
-        reader.getFile(Formats.png, (result) {
+        reader.getFile(Formats.png, (file) {
             // Do something with the PNG image
-            final stream = result.value?.getStream();
+            final stream = file.getStream();
         });
     }
 ```
