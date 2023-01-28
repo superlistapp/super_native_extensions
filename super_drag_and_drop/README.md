@@ -161,28 +161,30 @@ class MyDropRegion extends StatelessWidget {
         // data reader is available now
         final reader = item.dataReader!;
         if (reader.canProvide(Formats.plainText)) {
-          reader.getValue<String>(Formats.plainText, (result) {
-            if (result.error != null) {
-              print('Error reading value ${value.error}');
-            } else {
+          reader.getValue<String>(Formats.plainText, (value) {
+            if (value != null) {
               // You can access values through the `value` property.
-              print('Dropped text: ${value.value}');
+              print('Dropped text: ${value}');
             }
+          }, onError: (error) {
+            print('Error reading value $error');
           });
         }
 
         if (reader.canProvide(Formats.png)) {
-          reader.getFile(Formats.png, (result) {
-            if (result.error != null) {
-              print('Error reading value ${value.error}');
-            } else {
+          reader.getFile(Formats.png, (file) {
               // Binary files may be too large to be loaded in memory and thus
               // are exposed as stream.
-              final stream = result?.getStream();
+              final stream = file.getStream();
+
               // Alternatively, if you know that that the value is small enough,
               // you can read the entire value into memory:
-              final data = result?.readAll();
+              // (note that readAll is mutually exclusive with getStream(), you
+              // can only use one of them)
+              // final data = file.readAll();
             }
+          }, onError: (error) {
+            print('Error reading value $error');
           });
         }
       },

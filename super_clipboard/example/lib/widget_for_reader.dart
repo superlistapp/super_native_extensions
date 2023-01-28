@@ -89,31 +89,32 @@ class _PlatformFormat {
 extension _ReadValue on DataReader {
   Future<T?> readValue<T extends Object>(ValueFormat<T> format) {
     final c = Completer<T?>();
-    getValue<T>(format, (value) {
-      if (value.error != null) {
-        c.completeError(value.error!);
-      } else {
-        c.complete(value.value);
-      }
+    final progress = getValue<T>(format, (value) {
+      c.complete(value);
+    }, onError: (e) {
+      c.completeError(e);
     });
+    if (progress == null) {
+      c.complete(null);
+    }
     return c.future;
   }
 
   Future<Uint8List?>? readFile(FileFormat format) {
     final c = Completer<Uint8List?>();
-    getFile(format, (value) async {
-      if (value.error != null) {
-        c.completeError(value.error!);
-      } else if (value.value != null) {
-        final file = value.value!;
-        try {
-          final all = await file.readAll();
-          c.complete(all);
-        } catch (e) {
-          c.completeError(e);
-        }
+    final progress = getFile(format, (file) async {
+      try {
+        final all = await file.readAll();
+        c.complete(all);
+      } catch (e) {
+        c.completeError(e);
       }
+    }, onError: (e) {
+      c.completeError(e);
     });
+    if (progress == null) {
+      c.complete(null);
+    }
     return c.future;
   }
 }
