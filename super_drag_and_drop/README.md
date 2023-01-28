@@ -176,9 +176,12 @@ class MyDropRegion extends StatelessWidget {
               // Binary files may be too large to be loaded in memory and thus
               // are exposed as stream.
               final stream = file.getStream();
+
               // Alternatively, if you know that that the value is small enough,
               // you can read the entire value into memory:
-              final data = file.readAll();
+              // (note that readAll is mutually exclusive with getStream(), you
+              // can only use one of them)
+              // final data = file.readAll();
             }
           }, onError: (error) {
             print('Error reading value $error');
