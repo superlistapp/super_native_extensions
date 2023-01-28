@@ -1,3 +1,9 @@
+## 0.2.0
+
+> Note: This release has breaking changes.
+
+ - **BREAKING** **FEAT**: implement unified content receiving (#47).
+
 ## 0.1.7+6
 
  - Update a dependency to the latest release.

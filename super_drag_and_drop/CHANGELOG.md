@@ -1,3 +1,14 @@
+## 0.2.0
+
+> Note: This release has breaking changes.
+
+ - **FIX**: properly unitialize com on windows.
+ - **FEAT**: cleanup receiving of files (#54).
+ - **FEAT**: initialize ole on windows (#51).
+ - **DOCS**: minor fix.
+ - **BREAKING** **FEAT**: implement unified content receiving (#47).
+ - **BREAKING** **FEAT**: refactor format (#46).
+
 ## 0.1.9+3
 
  - Update a dependency to the latest release.

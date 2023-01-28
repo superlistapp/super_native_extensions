@@ -1,3 +1,16 @@
+## 0.2.0
+
+> Note: This release has breaking changes.
+
+ - **FIX**: increase buffer size.
+ - **FIX**: serialize invocation of drop events (#49).
+ - **FEAT**: declare more well-known formats (#58).
+ - **FEAT**: add support for inplace file reading on ios (#55).
+ - **FEAT**: cleanup receiving of files (#54).
+ - **FEAT**: initialize ole on windows (#51).
+ - **BREAKING** **FEAT**: implement unified content receiving (#47).
+ - **BREAKING** **FEAT**: refactor format (#46).
+
 ## 0.1.8+2
 
  - **FIX**: window dragging on macos with full size content view (#43).
