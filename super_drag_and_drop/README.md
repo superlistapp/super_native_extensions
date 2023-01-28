@@ -237,8 +237,8 @@ To streamline this, `super_drag_and_drop` will synthesize a file stream for the 
 Receving virtual files doesn't require any special handling. You can consume the content of virtual file just like any other stream:
 
 ```dart
-  reader.getFile(Formats.png, (result) {
-    final Stream<Uint8List> ?stream = result.value?.asStream();
+  reader.getFile(Formats.png, (file) {
+    final Stream<Uint8List> stream = result.getStream();
     // You can now use the stream to read the file content.
   });
 })
