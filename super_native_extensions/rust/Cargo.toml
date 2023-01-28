@@ -24,7 +24,7 @@ rand = "0.8.5"
 url = "2.2.2"
 irondash_engine_context = "0.1.0"
 irondash_run_loop = "0.1.1"
-irondash_message_channel = { version = "0.1.0", features = [ "derive" ]}
+irondash_message_channel = { version = "0.1.0", features = ["derive"] }
 
 [build-dependencies]
 serde = { version = "1.0.119", features = ["derive"] }
@@ -99,4 +99,4 @@ mime_guess = "2.0.4"
 # irondash_message_channel_derive = { path = "../../../irondash/message_channel/rust_derive" }
 
 # Until the PR gets upstreamed
-mime_guess = { git = "https://github.com/knopp/mime_guess.git" }
+mime_guess = { git = "https://github.com/knopp/mime_guess.git", branch = "super_native_extensions" }

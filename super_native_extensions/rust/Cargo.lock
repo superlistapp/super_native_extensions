@@ -830,7 +830,7 @@ checksum = "2a60c7ce501c71e03a9c9c0d35b861413ae925bd979cc7a4e30d060069aaac8d"
 [[package]]
 name = "mime_guess"
 version = "2.0.4"
-source = "git+https://github.com/knopp/mime_guess.git#f6d36d8531bef9ad86f3ee274f65a1a31ea4d9b4"
+source = "git+https://github.com/knopp/mime_guess.git?branch=super_native_extensions#b82f36c5f1cba5475300b54a424dff20529ecb7a"
 dependencies = [
  "mime",
  "unicase",

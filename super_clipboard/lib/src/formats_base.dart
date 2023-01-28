@@ -53,22 +53,24 @@ class SimpleFileFormat extends FileFormat {
   final List<PlatformFormat>? macosFormats;
   final List<PlatformFormat>? windowsFormats;
   final List<PlatformFormat>? webFormats;
+  final List<PlatformFormat>? uniformTypeIdentifiers; // macOS, iOS
+  final List<PlatformFormat>? mimeTypes; // Other platforms
   final List<PlatformFormat> fallbackFormats;
 
   List<PlatformFormat> _formatsForPlatform(ClipboardPlatform platform) {
     switch (platform) {
       case ClipboardPlatform.android:
-        return androidFormats ?? fallbackFormats;
+        return androidFormats ?? mimeTypes ?? fallbackFormats;
       case ClipboardPlatform.ios:
-        return iosFormats ?? fallbackFormats;
+        return iosFormats ?? uniformTypeIdentifiers ?? fallbackFormats;
       case ClipboardPlatform.linux:
-        return linuxFormats ?? fallbackFormats;
+        return linuxFormats ?? mimeTypes ?? fallbackFormats;
       case ClipboardPlatform.macos:
-        return macosFormats ?? fallbackFormats;
+        return macosFormats ?? uniformTypeIdentifiers ?? fallbackFormats;
       case ClipboardPlatform.windows:
-        return windowsFormats ?? fallbackFormats;
+        return windowsFormats ?? mimeTypes ?? fallbackFormats;
       case ClipboardPlatform.web:
-        return webFormats ?? fallbackFormats;
+        return webFormats ?? mimeTypes ?? fallbackFormats;
     }
   }
 
@@ -87,6 +89,8 @@ class SimpleFileFormat extends FileFormat {
     this.macosFormats,
     this.windowsFormats,
     this.webFormats,
+    this.uniformTypeIdentifiers,
+    this.mimeTypes,
     this.fallbackFormats = const [],
   });
 }

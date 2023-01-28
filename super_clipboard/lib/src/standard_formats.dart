@@ -19,6 +19,50 @@ class Formats {
     gif,
     webp,
     tiff,
+    bmp,
+    ico,
+    heic,
+    heif,
+    mp4,
+    mov,
+    m4v,
+    avi,
+    mpeg,
+    webm,
+    ogg,
+    wmv,
+    flv,
+    mkv,
+    ts,
+    mp3,
+    oga,
+    aac,
+    wav,
+    pdf,
+    doc,
+    docx,
+    xls,
+    xlsx,
+    ppt,
+    pptx,
+    rtf,
+    json,
+    zip,
+    tar,
+    gzip,
+    bzip2,
+    xz,
+    rar,
+    jar,
+    sevenZip,
+    dmg,
+    iso,
+    deb,
+    rpm,
+    apk,
+    exe,
+    msi,
+    dll,
     utf8Text,
     webUnknown,
   ];
@@ -135,11 +179,18 @@ class Formats {
     ),
   );
 
+  //
+  // File Formats
+  //
+
+  //
+  // Image
+  //
+
   static const jpeg = SimpleFileFormat(
-    macosFormats: ['public.jpeg'],
-    iosFormats: ['public.jpeg'],
+    uniformTypeIdentifiers: ['public.jpeg'],
     windowsFormats: ['JFIF'],
-    fallbackFormats: ['image/jpeg'],
+    mimeTypes: ['image/jpeg'],
   );
 
   /// PNG Image format
@@ -160,17 +211,15 @@ class Formats {
   /// On MacOS, TIFF image in pasteboard will be exposed as PNG unless there
   /// is another PNG already present in the clipboard.
   static const png = SimpleFileFormat(
-    macosFormats: ['public.png'],
-    iosFormats: ['public.png'],
+    uniformTypeIdentifiers: ['public.png'],
     windowsFormats: ['PNG'],
-    fallbackFormats: ['image/png'],
+    mimeTypes: ['image/png'],
   );
 
   static const gif = SimpleFileFormat(
-    macosFormats: ['public.gif'],
-    iosFormats: ['public.gif'],
+    uniformTypeIdentifiers: ['public.gif'],
     windowsFormats: ['GIF'],
-    fallbackFormats: ['image/gif'],
+    mimeTypes: ['image/gif'],
   );
 
   static const tiff = SimpleFileFormat(
@@ -181,23 +230,264 @@ class Formats {
   );
 
   static const webp = SimpleFileFormat(
-    macosFormats: ['org.webmproject.webp'],
-    iosFormats: ['org.webmproject.webp'],
-    fallbackFormats: ['image/webp'],
+    uniformTypeIdentifiers: ['org.webmproject.webp'],
+    mimeTypes: ['image/webp'],
   );
 
   static const svg = SimpleFileFormat(
-    macosFormats: ['public.svg-image'],
-    iosFormats: ['public.svg-image'],
-    fallbackFormats: ['image/svg+xml'],
+    uniformTypeIdentifiers: ['public.svg-image'],
+    mimeTypes: ['public.svg-image'],
+  );
+
+  static const bmp = SimpleFileFormat(
+    uniformTypeIdentifiers: ['com.microsoft.bmp'],
+    mimeTypes: ['image/bmp'],
+  );
+
+  static const ico = SimpleFileFormat(
+    uniformTypeIdentifiers: ['com.microsoft.ico'],
+    mimeTypes: ['image/x-icon'],
+  );
+
+  static const heic = SimpleFileFormat(
+    uniformTypeIdentifiers: ['public.heic'],
+    mimeTypes: ['image/heic'],
+  );
+
+  static const heif = SimpleFileFormat(
+    uniformTypeIdentifiers: ['public.heif'],
+    mimeTypes: ['image/heif'],
+  );
+
+  //
+  // Video
+  //
+
+  static const mp4 = SimpleFileFormat(
+    uniformTypeIdentifiers: ['public.mpeg-4'],
+    mimeTypes: ['video/mp4'],
+  );
+
+  static const mov = SimpleFileFormat(
+    uniformTypeIdentifiers: ['com.apple.quicktime-movie'],
+    mimeTypes: ['video/quicktime'],
+  );
+
+  static const m4v = SimpleFileFormat(
+    uniformTypeIdentifiers: ['com.apple.m4v-video'],
+    mimeTypes: ['video/x-m4v'],
+  );
+
+  static const avi = SimpleFileFormat(
+    uniformTypeIdentifiers: ['public.avi'],
+    mimeTypes: ['video/x-msvideo'],
+  );
+
+  static const mpeg = SimpleFileFormat(
+    uniformTypeIdentifiers: ['public.mpeg'],
+    mimeTypes: ['video/mpeg'],
+  );
+
+  static const webm = SimpleFileFormat(
+    uniformTypeIdentifiers: ['org.webmproject.webm'],
+    mimeTypes: ['video/webm'],
+  );
+
+  static const ogg = SimpleFileFormat(
+    uniformTypeIdentifiers: ['org.xiph.ogg.theora'],
+    mimeTypes: ['video/ogg'],
+  );
+
+  static const wmv = SimpleFileFormat(
+    uniformTypeIdentifiers: ['com.microsoft.wmv'],
+    mimeTypes: ['vvideo/x-ms-wmv'],
+  );
+
+  static const flv = SimpleFileFormat(
+    uniformTypeIdentifiers: ['com.adobe.flash-video'],
+    mimeTypes: ['video/x-flv'],
+  );
+
+  static const mkv = SimpleFileFormat(
+    uniformTypeIdentifiers: ['org.matroska.mkv'],
+    mimeTypes: ['video/x-matroska'],
+  );
+
+  static const ts = SimpleFileFormat(
+    uniformTypeIdentifiers: ['com.apple.mpeg-2-transport-stream'],
+    mimeTypes: ['video/vnd.dlna.mpeg-tts'],
+  );
+
+  //
+  // Audio
+  //
+
+  static const mp3 = SimpleFileFormat(
+    uniformTypeIdentifiers: ['public.mp3'],
+    mimeTypes: ['audio/mpeg'],
+  );
+
+  static const oga = SimpleFileFormat(
+    uniformTypeIdentifiers: ['org.xiph.ogg.vorbis'],
+    mimeTypes: ['audio/ogg'],
+  );
+
+  static const aac = SimpleFileFormat(
+    uniformTypeIdentifiers: ['public.aac-audio'],
+    mimeTypes: ['audio/aac'],
+  );
+
+  static const wav = SimpleFileFormat(
+    uniformTypeIdentifiers: ['public.wav'],
+    mimeTypes: ['audio/wav'],
+  );
+
+  //
+  // Document
+  //
+
+  static const pdf = SimpleFileFormat(
+    uniformTypeIdentifiers: ['com.adobe.pdf'],
+    mimeTypes: ['application/pdf'],
+  );
+
+  static const doc = SimpleFileFormat(
+    uniformTypeIdentifiers: ['com.microsoft.word.doc'],
+    mimeTypes: ['application/msword'],
+  );
+
+  static const docx = SimpleFileFormat(
+    uniformTypeIdentifiers: ['org.openxmlformats.wordprocessingml.document'],
+    mimeTypes: [
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    ],
+  );
+
+  static const xls = SimpleFileFormat(
+    uniformTypeIdentifiers: ['com.microsoft.excel.xls'],
+    mimeTypes: ['application/vnd.ms-excel'],
+  );
+
+  static const xlsx = SimpleFileFormat(
+    uniformTypeIdentifiers: ['org.openxmlformats.spreadsheetml.sheet'],
+    mimeTypes: [
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    ],
+  );
+
+  static const ppt = SimpleFileFormat(
+    uniformTypeIdentifiers: ['com.microsoft.powerpoint.​ppt'],
+    mimeTypes: ['application/vnd.ms-powerpoint'],
+  );
+
+  static const pptx = SimpleFileFormat(
+    uniformTypeIdentifiers: ['org.openxmlformats.presentationml.presentation'],
+    mimeTypes: [
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+    ],
+  );
+
+  static const rtf = SimpleFileFormat(
+    uniformTypeIdentifiers: ['public.rtf'],
+    mimeTypes: ['application/rtf'],
+  );
+
+  static const json = SimpleFileFormat(
+    uniformTypeIdentifiers: ['public.json'],
+    mimeTypes: ['application/json'],
+  );
+
+  //
+  // Archive
+  //
+
+  static const zip = SimpleFileFormat(
+    uniformTypeIdentifiers: ['public.zip-archive'],
+    mimeTypes: ['application/zip'],
+  );
+
+  static const tar = SimpleFileFormat(
+    uniformTypeIdentifiers: ['public.tar-archive'],
+    mimeTypes: ['application/x-tar'],
+  );
+
+  static const gzip = SimpleFileFormat(
+    uniformTypeIdentifiers: ['public.gzip'],
+    mimeTypes: ['application/gzip'],
+  );
+
+  static const bzip2 = SimpleFileFormat(
+    uniformTypeIdentifiers: ['public.bzip2-archive'],
+    mimeTypes: ['application/x-bzip2'],
+  );
+
+  static const xz = SimpleFileFormat(
+    uniformTypeIdentifiers: ['public.xz-archive'],
+    mimeTypes: ['application/x-xz'],
+  );
+
+  static const rar = SimpleFileFormat(
+    uniformTypeIdentifiers: ['com.rarlab.rar'],
+    mimeTypes: ['application/x-rar-compressed'],
+  );
+
+  static const jar = SimpleFileFormat(
+    uniformTypeIdentifiers: ['com.sun.java-archive'],
+    mimeTypes: ['application/java-archive'],
+  );
+
+  static const sevenZip = SimpleFileFormat(
+    uniformTypeIdentifiers: ['org.7-zip.7-zip-archive'],
+    mimeTypes: ['application/x-7z-compressed'],
+  );
+
+  static const dmg = SimpleFileFormat(
+    uniformTypeIdentifiers: ['com.apple.disk-image-udif'],
+    mimeTypes: ['application/x-apple-diskimage'],
+  );
+
+  static const iso = SimpleFileFormat(
+    uniformTypeIdentifiers: ['public.iso-image'],
+    mimeTypes: ['application/x-iso9660-image'],
+  );
+
+  static const deb = SimpleFileFormat(
+    uniformTypeIdentifiers: ['org.debian.deb-archive'],
+    mimeTypes: ['application/x-debian-package'],
+  );
+
+  static const rpm = SimpleFileFormat(
+    uniformTypeIdentifiers: ['com.redhat.rpm-archive'],
+    mimeTypes: ['application/x-rpm'],
+  );
+
+  static const apk = SimpleFileFormat(
+    uniformTypeIdentifiers: ['com.android.package-archive'],
+    mimeTypes: ['application/vnd.android.package-archive'],
+  );
+
+  // Executable
+
+  static const exe = SimpleFileFormat(
+    uniformTypeIdentifiers: ['com.microsoft.windows-executable'],
+    mimeTypes: ['application/x-msdownload'],
+  );
+
+  static const msi = SimpleFileFormat(
+    uniformTypeIdentifiers: ['com.microsoft.msi-installer'],
+    mimeTypes: ['application/x-msi'],
+  );
+
+  static const dll = SimpleFileFormat(
+    uniformTypeIdentifiers: ['com.microsoft.windows-dynamic-link-library'],
+    mimeTypes: ['application/x-msdownload'],
   );
 
   /// Format to be used for UTF-8 encoded files. Like other file format, this
   /// does no conversion.
   static const utf8Text = SimpleFileFormat(
-    iosFormats: ['public.utf8-plain-text', 'public.plain-text'],
-    macosFormats: ['public.utf8-plain-text', 'public.plain-text'],
-    fallbackFormats: ['text/plain'],
+    uniformTypeIdentifiers: ['public.utf8-plain-text', 'public.plain-text'],
+    mimeTypes: ['text/plain'],
   );
 
   /// Some browsers (Safari, of course, who else), do not report mime types of
@@ -205,7 +495,6 @@ class Formats {
   /// item present during the drop over event of type [webUnknown].
   static const webUnknown = SimpleFileFormat(
     webFormats: ['web:unknown'],
-    fallbackFormats: ['text/plain'],
   );
 }
 
