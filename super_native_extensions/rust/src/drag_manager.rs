@@ -12,6 +12,7 @@ use irondash_message_channel::{
     MethodCall, PlatformResult, RegisteredAsyncMethodHandler, TryFromValue, Value,
 };
 use irondash_run_loop::spawn;
+use log::warn;
 
 use crate::{
     api_model::{DataProviderId, DragConfiguration, DragItem, DragRequest, DropOperation, Point},
@@ -141,6 +142,11 @@ impl DragManager {
         isolate: IsolateId,
         request: DragContextInitRequest,
     ) -> NativeExtensionsResult<()> {
+        if self.contexts.borrow().get(&isolate).is_some() {
+            // Can happen during hot reload
+            warn!("DragContext already exists for isolate {:?}", isolate);
+            return Ok(());
+        }
         let context = Rc::new(PlatformDragContext::new(
             isolate,
             request.engine_handle,
