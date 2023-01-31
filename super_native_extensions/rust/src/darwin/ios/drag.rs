@@ -302,7 +302,10 @@ impl Session {
 
     fn preview_for_item(&self, index: usize) -> id {
         let configuration = self.configuration.borrow();
-        let drag_image = &configuration.items[index].image;
+        let drag_image = configuration.items[index]
+            .lift_image
+            .as_ref()
+            .unwrap_or(&configuration.items[index].image);
         let image_view = self.image_view_for_item(index, ImageType::Lift);
         unsafe {
             let parameters: id = msg_send![class!(UIDragPreviewParameters), new];

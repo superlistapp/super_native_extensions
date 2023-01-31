@@ -29,6 +29,7 @@ extension DragItemExt on DragItem {
         'dataProviderId': dataProvider.id,
         'localData': localData,
         'image': image.serialize(),
+        'liftImage': liftImage?.serialize(),
       };
 }
 
