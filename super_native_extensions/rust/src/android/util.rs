@@ -9,7 +9,7 @@ pub type JniResult<T> = jni::errors::Result<T>;
 
 impl From<jni::errors::Error> for NativeExtensionsError {
     fn from(error: jni::errors::Error) -> Self {
-        NativeExtensionsError::OtherError(format!("JNI: {}", error))
+        NativeExtensionsError::OtherError(format!("JNI: {error}"))
     }
 }
 

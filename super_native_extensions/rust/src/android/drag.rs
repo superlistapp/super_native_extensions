@@ -234,10 +234,10 @@ enum HandleEventResult {
 }
 
 impl DragSession {
-    fn handle_event<'a>(
+    fn handle_event(
         &self,
         session_id: DragSessionId,
-        env: &JNIEnv<'a>,
+        env: &JNIEnv,
         event: DragEvent,
     ) -> NativeExtensionsResult<HandleEventResult> {
         let action = event.get_action(env)?;

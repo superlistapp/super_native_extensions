@@ -30,8 +30,7 @@ impl<'a> DragEvent<'a> {
             0x05 => Ok(DragAction::DragEntered),
             0x06 => Ok(DragAction::DragExited),
             _ => Err(NativeExtensionsError::OtherError(format!(
-                "Unknown drag action: {}",
-                action
+                "Unknown drag action: {action}"
             ))),
         }
     }
