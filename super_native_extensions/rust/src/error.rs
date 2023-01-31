@@ -26,7 +26,7 @@ impl Display for NativeExtensionsError {
         match self {
             NativeExtensionsError::UnknownError => write!(f, "unknown error"),
             NativeExtensionsError::MethodCallError(e) => e.fmt(f),
-            NativeExtensionsError::OtherError(m) => write!(f, "{:?}", m),
+            NativeExtensionsError::OtherError(m) => write!(f, "{m:?}"),
             NativeExtensionsError::DataSourceNotFound => {
                 write!(f, "Platform data source not found")
             }
@@ -39,7 +39,7 @@ impl Display for NativeExtensionsError {
                 write!(f, "virtual session not found")
             }
             NativeExtensionsError::VirtualFileReceiveError(m) => {
-                write!(f, "virtual file receive error: {}", m)
+                write!(f, "virtual file receive error: {m}")
             }
             NativeExtensionsError::IOError(e) => e.fmt(f),
             NativeExtensionsError::InvalidData => write!(f, "invalid data"),
