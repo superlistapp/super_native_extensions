@@ -153,7 +153,12 @@ impl PlatformDragContext {
                 let () = msg_send![dragging_item, setDraggingFrame:rect contents:*snapshot];
                 dragging_items.push(dragging_item);
             }
-            let event = self.last_mouse_down.borrow().as_ref().cloned().unwrap();
+            let event = self
+                .last_mouse_down
+                .borrow()
+                .as_ref()
+                .cloned()
+                .ok_or(NativeExtensionsError::MouseEventNotFound)?;
             let dragging_items = NSArray::arrayWithObjects(nil, &dragging_items);
 
             let app = NSApplication::sharedApplication(nil);
@@ -185,8 +190,8 @@ impl PlatformDragContext {
                     _data_provider_handles: data_provider_handles,
                 },
             );
-        });
-        Ok(())
+            Ok(())
+        })
     }
 
     fn on_mouse_down(&self, event: id) {
