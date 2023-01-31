@@ -11,6 +11,7 @@ use irondash_message_channel::{
     MethodCall, MethodCallError, PlatformResult, RegisteredAsyncMethodHandler, TryFromValue, Value,
 };
 use irondash_run_loop::{spawn, RunLoop};
+use log::warn;
 
 use crate::{
     api_model::{DropOperation, ImageData, Point, Rect, Size},
@@ -185,6 +186,11 @@ impl DropManager {
         isolate: IsolateId,
         request: DropContextInitRequest,
     ) -> NativeExtensionsResult<()> {
+        if self.contexts.borrow().get(&isolate).is_some() {
+            // Can happen during hot reload
+            warn!("DropContext already exists for isolate {:?}", isolate);
+            return Ok(());
+        }
         let context = Rc::new(PlatformDropContext::new(
             isolate,
             request.engine_handle,
