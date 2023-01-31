@@ -16,6 +16,7 @@ pub enum NativeExtensionsError {
     IOError(io::Error),
     InvalidData,
     DragSessionNotFound,
+    MouseEventNotFound,
     EngineContextError(irondash_engine_context::Error),
 }
 
@@ -44,6 +45,7 @@ impl Display for NativeExtensionsError {
             NativeExtensionsError::IOError(e) => e.fmt(f),
             NativeExtensionsError::InvalidData => write!(f, "invalid data"),
             NativeExtensionsError::DragSessionNotFound => write!(f, "drag session not found"),
+            NativeExtensionsError::MouseEventNotFound => write!(f, "mouse event not found"),
             NativeExtensionsError::EngineContextError(e) => e.fmt(f),
         }
     }
@@ -68,6 +70,7 @@ impl NativeExtensionsError {
             NativeExtensionsError::IOError(_) => "ioError".into(),
             NativeExtensionsError::InvalidData => "invalidData".into(),
             NativeExtensionsError::DragSessionNotFound => "dragSessionNotFound".into(),
+            NativeExtensionsError::MouseEventNotFound => "mouseEventNotFound".into(),
             NativeExtensionsError::EngineContextError(_) => "engineContextError".into(),
         }
     }
