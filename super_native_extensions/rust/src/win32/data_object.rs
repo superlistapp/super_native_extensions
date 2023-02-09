@@ -318,7 +318,7 @@ impl DataObject {
                     .suggested_name
                     .as_ref()
                     .cloned()
-                    .unwrap_or_else(|| format!("File {}", cnt));
+                    .unwrap_or_else(|| format!("File {cnt}"));
                 descriptors.push(Self::file_descriptor_for_item(&name));
             }
         }
