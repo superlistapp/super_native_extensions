@@ -8,7 +8,7 @@ use std::{
 use irondash_engine_context::EngineContext;
 use irondash_message_channel::{Late, Value};
 use irondash_run_loop::{platform::PollSession, RunLoop};
-use log::{info, warn};
+use log::warn;
 use windows::{
     core::{implement, Interface, PCWSTR},
     Win32::{
@@ -131,7 +131,6 @@ impl PlatformDropContext {
             if RevokeDragDrop(self.view).is_ok() {
                 warn!("Flutter HWND had already a drop target registered!");
             }
-            info!("Registering drop target ({:p}, {:?})", self, self.view);
             if let Err(err) = RegisterDragDrop(self.view, &target) {
                 if err.code() == E_OUTOFMEMORY {
                     eprintln!("**");
