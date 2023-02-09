@@ -741,7 +741,7 @@ impl VirtualStreamCopier {
             .take(30)
             .map(char::from)
             .collect();
-        let temp_path = self.target_folder.join(format!(".{}", temp_name));
+        let temp_path = self.target_folder.join(format!(".{temp_name}"));
         let file = File::create(&temp_path)?;
         unsafe {
             let path: String = temp_path.to_string_lossy().into();

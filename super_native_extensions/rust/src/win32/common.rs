@@ -34,7 +34,7 @@ pub fn format_to_string(format: u32) -> String {
     let mut buf: [_; 1024] = [0u16; 1024];
     let len = unsafe { GetClipboardFormatNameW(format, &mut buf) };
     if len == 0 {
-        format!("{}{}", INTERNAL_PREFIX, format)
+        format!("{INTERNAL_PREFIX}{format}")
     } else {
         String::from_utf16_lossy(&buf[..len as usize])
     }
@@ -64,7 +64,7 @@ pub fn make_format_with_tymed_index(format: u32, tymed: TYMED, index: i32) -> FO
 
 impl From<windows::core::Error> for NativeExtensionsError {
     fn from(error: windows::core::Error) -> Self {
-        NativeExtensionsError::OtherError(format!("Windows Error: {}", error))
+        NativeExtensionsError::OtherError(format!("Windows Error: {error}"))
     }
 }
 
