@@ -1,3 +1,11 @@
+## 0.2.1
+
+ - **FIX**: regression when dropping plain text on web (#66).
+ - **FIX**: [macos] error instead of panic when no mouse event is found (#60).
+ - **FIX**: do not recreate drag and drop contexts on hot reload (#61).
+ - **FIX**: lift image being ignored on iOS (#59).
+ - **FEAT**: try revoking drop target first on windows (#63).
+
 ## 0.2.0
 
 > Note: This release has breaking changes.

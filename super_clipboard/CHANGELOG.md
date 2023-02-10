@@ -1,3 +1,7 @@
+## 0.2.1
+
+ - Bump "super_clipboard" to `0.2.1`.
+
 ## 0.2.0
 
 > Note: This release has breaking changes.
