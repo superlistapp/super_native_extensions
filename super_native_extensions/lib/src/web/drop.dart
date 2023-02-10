@@ -22,6 +22,7 @@ class WebItemDataReaderHandle implements DataReaderItemHandleImpl {
   WebItemDataReaderHandle(this.items, {required bool canRead})
       : file = canRead ? _getFile(items) : null,
         entry = canRead ? _getEntry(items) : null,
+        // reading strings multiple times fails in Chrome so we cache them
         strings = canRead ? _getStrings(items) : {};
 
   static html.File? _getFile(List<html.DataTransferItem> items) {
@@ -64,20 +65,16 @@ class WebItemDataReaderHandle implements DataReaderItemHandleImpl {
     if (format == 'web:entry') {
       return entry;
     }
+    if (strings.containsKey(format)) {
+      return strings[format];
+    }
     for (final item in items) {
-      if (item.format == format) {
-        if (item.isFile) {
-          final file = this.file;
-          if (file != null) {
-            final slice = file.slice();
-            final buffer = await slice.arrayBuffer();
-            return buffer?.asUint8List();
-          }
-        } else if (item.isString) {
-          final string = strings[item.format];
-          if (string != null) {
-            return string;
-          }
+      if (item.isFile && item.format == format) {
+        final file = this.file;
+        if (file != null) {
+          final slice = file.slice();
+          final buffer = await slice.arrayBuffer();
+          return buffer?.asUint8List();
         }
       }
     }
@@ -123,9 +120,11 @@ class WebItemDataReaderHandle implements DataReaderItemHandleImpl {
     DataReaderItemHandle handle, {
     required String format,
   }) async {
-    assert(file != null,
-        'Should not have requested virtual file receiver without file');
-    return _VirtualFileReceiver(format, file!);
+    if (await canGetVirtualFile(format)) {
+      return _VirtualFileReceiver(format, file!);
+    } else {
+      return null;
+    }
   }
 }
 
