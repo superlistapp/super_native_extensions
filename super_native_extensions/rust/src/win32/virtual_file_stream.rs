@@ -5,7 +5,7 @@ use std::{
     thread,
 };
 
-use irondash_run_loop::{RunLoop, RunLoopSender};
+use irondash_run_loop::{util::Capsule, RunLoop, RunLoopSender};
 use windows::{
     core::{implement, Interface},
     Win32::{
@@ -26,8 +26,7 @@ use crate::{
     value_promise::Promise,
 };
 
-struct StreamInner {
-    run_loop_sender: Option<RunLoopSender>,
+struct StreamState {
     reader: SegmentedQueueReader,
     size_promise: Arc<Promise<Option<i64>>>,
     error_promise: Arc<Promise<String>>,
@@ -35,13 +34,37 @@ struct StreamInner {
     position: Cell<i64>,
 }
 
+struct StreamInner {
+    stream: Option<StreamState>,
+    factory: Option<Box<dyn FnOnce() -> StreamState + Send>>,
+    run_loop_sender: Option<RunLoopSender>,
+}
+
 struct Stream {
-    inner: Mutex<Option<StreamInner>>,
+    inner: Mutex<StreamInner>,
 }
 
 impl Stream {
-    fn dispose(&self) {
-        self.inner.lock().unwrap().take();
+    fn initialize_if_needed(&self) {
+        let mut inner = self.inner.lock().unwrap();
+        if let Some(factory) = inner.factory.take() {
+            inner.stream.replace(factory());
+        }
+    }
+
+    fn dispose_inactive_stream(&self) {
+        let mut inner = self.inner.lock().unwrap();
+        inner.factory.take();
+
+        // If client didn't interact with the stream until now shut down the
+        // RunLoop thread.
+        if inner.stream.is_none() {
+            if let Some(sender) = inner.run_loop_sender.take() {
+                sender.send(move || {
+                    RunLoop::current().stop();
+                });
+            }
+        }
     }
 
     fn read(
@@ -50,21 +73,24 @@ impl Stream {
         cb: u32,
         pcbread: *mut u32,
     ) -> windows::core::HRESULT {
+        self.initialize_if_needed();
         let inner = self.inner.lock().unwrap();
-        match inner.as_ref() {
-            Some(inner) => {
+        match inner.stream.as_ref() {
+            Some(stream) => {
                 // This doesn't entirely conform to ISequentialStream::Read documentation.
                 // To avoid blocking we may read less data than requested and still
                 // return S_OK.
                 let pcbread = unsafe { &mut *pcbread };
-                let data = inner.reader.read_some(cb as usize);
+                let data = stream.reader.read_some(cb as usize);
                 let data_out = unsafe { slice::from_raw_parts_mut(pv as *mut u8, data.len()) };
                 data_out.copy_from_slice(&data);
                 *pcbread = data.len() as u32;
 
-                inner.position.set(inner.position.get() + data.len() as i64);
+                stream
+                    .position
+                    .set(stream.position.get() + data.len() as i64);
 
-                if let Some(_err) = inner.error_promise.try_clone() {
+                if let Some(_err) = stream.error_promise.try_clone() {
                     // TODO(knopp): Can we somehow pass the message?
                     return E_FAIL;
                 }
@@ -79,18 +105,19 @@ impl Stream {
     }
 
     fn seek(&self, dlibmove: i64, dworigin: STREAM_SEEK) -> windows::core::Result<u64> {
+        self.initialize_if_needed();
         let inner = self.inner.lock().unwrap();
-        match inner.as_ref() {
-            Some(inner) => {
+        match inner.stream.as_ref() {
+            Some(stream) => {
                 let position = if dworigin == STREAM_SEEK_SET {
                     dlibmove
                 } else if dworigin == STREAM_SEEK_CUR {
-                    inner.position.get() + dlibmove
+                    stream.position.get() + dlibmove
                 } else {
                     -1
                 };
                 // Pretend that seek is supported as long as we don't really need to seek
-                if position == inner.position.get() {
+                if position == stream.position.get() {
                     Ok(position as u64)
                 } else {
                     Err(E_NOTIMPL.into())
@@ -105,9 +132,13 @@ impl Stream {
         pstatstg: *mut windows::Win32::System::Com::STATSTG,
         _grfstatflag: STATFLAG,
     ) -> windows::core::Result<()> {
+        self.initialize_if_needed();
         let size_promise = {
             let inner = self.inner.lock().unwrap();
-            inner.as_ref().map(|inner| inner.size_promise.clone())
+            inner
+                .stream
+                .as_ref()
+                .map(|inner| inner.size_promise.clone())
         };
 
         let size = size_promise.and_then(|p| p.wait_clone());
@@ -118,14 +149,46 @@ impl Stream {
     }
 }
 
-impl Drop for StreamInner {
+impl Drop for Stream {
     fn drop(&mut self) {
-        if let Some(sender) = self.run_loop_sender.take() {
+        if let Some(sender) = self.inner.lock().unwrap().run_loop_sender.take() {
             sender.send(move || {
                 RunLoop::current().stop();
             });
         }
     }
+}
+
+pub struct VirtualStreamSession {
+    pub reader: SegmentedQueueReader,
+    pub size_promise: Arc<Promise<Option<i64>>>,
+    pub error_promise: Arc<Promise<String>>,
+    pub handle: Arc<VirtualSessionHandle>,
+}
+
+// Represents the session provider as boxed factory method that is Send
+fn session_provider_as_factory<F>(provider: F) -> Box<dyn FnOnce() -> StreamState + 'static + Send>
+where
+    F: FnOnce() -> VirtualStreamSession + 'static,
+{
+    let sender = RunLoop::current().new_sender();
+    let mut provider = Capsule::new_with_sender(provider, sender.clone());
+    Box::new(move || {
+        let res = Arc::new(Promise::new());
+        let res_clone = res.clone();
+        sender.send(move || {
+            let provider = provider.take().unwrap();
+            let session = provider();
+            res_clone.set(StreamState {
+                reader: session.reader,
+                size_promise: session.size_promise,
+                error_promise: session.error_promise,
+                _handle: session.handle,
+                position: Cell::new(0),
+            })
+        });
+        res.wait()
+    })
 }
 
 #[implement(IStream)]
@@ -136,21 +199,17 @@ pub struct VirtualFileStream {
 impl VirtualFileStream {
     /// Creates agile stream that can be accessed on any thread. This should be
     /// used when stream is accessed by local application on background thread.
-    pub fn create_agile(
-        reader: SegmentedQueueReader,
-        size_promise: Arc<Promise<Option<i64>>>,
-        error_promise: Arc<Promise<String>>,
-        handle: Arc<VirtualSessionHandle>,
-    ) -> (IStream, Arc<DropNotifier>) {
+    pub fn create_agile<F>(session_provider: F) -> (IStream, Arc<DropNotifier>)
+    where
+        F: FnOnce() -> VirtualStreamSession + 'static,
+    {
+        let factory = session_provider_as_factory(session_provider);
         let stream = Arc::new(Stream {
-            inner: Mutex::new(Some(StreamInner {
+            inner: Mutex::new(StreamInner {
+                stream: None,
+                factory: Some(factory),
                 run_loop_sender: None,
-                reader,
-                size_promise,
-                error_promise,
-                _handle: handle,
-                position: Cell::new(0),
-            })),
+            }),
         });
         let stream: IStream = VirtualFileStream { stream }.into();
         (
@@ -163,26 +222,24 @@ impl VirtualFileStream {
 
     /// Moves the stream to another thread and return marshalled proxy.
     /// This should be used when providing stream to other applications.
-    pub fn create_marshalled_on_background_thread(
-        reader: SegmentedQueueReader,
-        size_promise: Arc<Promise<Option<i64>>>,
-        error_promise: Arc<Promise<String>>,
-        handle: Arc<VirtualSessionHandle>, // fired when stream is dropped
-    ) -> (IStream, Arc<DropNotifier>) {
+    pub fn create_marshalled_on_background_thread<F>(
+        session_provider: F,
+    ) -> (IStream, Arc<DropNotifier>)
+    where
+        F: FnOnce() -> VirtualStreamSession + 'static,
+    {
+        let factory = session_provider_as_factory(session_provider);
         let promise = Arc::new(Promise::<(Movable<IStream>, Box<dyn FnOnce() + Send>)>::new());
         let promise_clone = promise.clone();
         thread::spawn(move || unsafe {
             CoInitialize(None).ok();
             {
                 let stream = Arc::new(Stream {
-                    inner: Mutex::new(Some(StreamInner {
+                    inner: Mutex::new(StreamInner {
+                        stream: None,
+                        factory: Some(factory),
                         run_loop_sender: Some(RunLoop::current().new_sender()),
-                        reader,
-                        size_promise,
-                        error_promise,
-                        _handle: handle,
-                        position: Cell::new(0),
-                    })),
+                    }),
                 });
                 let weak_stream = Arc::downgrade(&stream);
                 let stream: IStream = VirtualFileStream { stream }.into();
@@ -194,7 +251,7 @@ impl VirtualFileStream {
                 // https://github.com/microsoft/terminal/issues/13498
                 let clean_up = Box::new(move || {
                     if let Some(stream) = weak_stream.upgrade() {
-                        stream.dispose();
+                        stream.dispose_inactive_stream();
                     }
                 });
                 promise_clone.set((Movable::new(mashalled), clean_up));

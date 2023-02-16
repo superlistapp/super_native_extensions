@@ -5,8 +5,10 @@ use std::{
     rc::Rc,
     slice,
     sync::Arc,
+    time::Duration,
 };
 
+use irondash_message_channel::IsolateId;
 use irondash_run_loop::{platform::PollSession, RunLoop};
 use windows::{
     core::{implement, HRESULT, HSTRING},
@@ -37,7 +39,7 @@ use windows::{
 
 use crate::{
     api_model::{DataProviderValueId, DataRepresentation, VirtualFileStorage},
-    data_provider_manager::{DataProviderHandle, VirtualFileResult},
+    data_provider_manager::{DataProviderHandle, PlatformDataProviderDelegate, VirtualFileResult},
     log::OkLog,
     segmented_queue::{new_segmented_queue, QueueConfiguration},
     util::DropNotifier,
@@ -52,7 +54,7 @@ use super::{
         make_format_with_tymed_index, read_stream_fully,
     },
     image_conversion::convert_to_dib,
-    virtual_file_stream::VirtualFileStream,
+    virtual_file_stream::{VirtualFileStream, VirtualStreamSession},
     PlatformDataProvider,
 };
 
@@ -334,6 +336,38 @@ impl DataObject {
         Some(res)
     }
 
+    fn create_virtual_stream_session(
+        delegate: Rc<dyn PlatformDataProviderDelegate>,
+        isolate_id: IsolateId,
+        virtual_file_id: DataProviderValueId,
+        configuration: QueueConfiguration,
+    ) -> VirtualStreamSession {
+        let (writer, reader) = new_segmented_queue(configuration);
+        let stream_handle = add_stream_entry(writer);
+        let size_promise = Arc::new(Promise::<Option<i64>>::new());
+        let size_promise_clone = size_promise.clone();
+        let error_promise = Arc::new(Promise::<String>::new());
+        let error_promise_clone = error_promise.clone();
+        let session_handle = delegate.get_virtual_file(
+            isolate_id,
+            virtual_file_id,
+            stream_handle,
+            Box::new(move |size| size_promise_clone.set(size)),
+            Box::new(move |_progress| {}),
+            Box::new(move |result| {
+                if let VirtualFileResult::Error { message } = result {
+                    error_promise_clone.set(message);
+                }
+            }),
+        );
+        VirtualStreamSession {
+            reader,
+            size_promise,
+            error_promise,
+            handle: session_handle,
+        }
+    }
+
     fn stream_for_virtual_file(
         &self,
         provider: &PlatformDataProvider,
@@ -357,37 +391,24 @@ impl DataObject {
                     max_memory_usage: None,
                 }
             };
-            let (writer, reader) = new_segmented_queue(configuration);
-            let stream_handle = add_stream_entry(writer);
-            let size_promise = Arc::new(Promise::<Option<i64>>::new());
-            let size_promise_clone = size_promise.clone();
-            let error_promise = Arc::new(Promise::<String>::new());
-            let error_promise_clone = error_promise.clone();
-            let drop_notifier = delegate.get_virtual_file(
-                provider.isolate_id,
-                virtual_file_id,
-                stream_handle,
-                Box::new(move |size| size_promise_clone.set(size)),
-                Box::new(move |_progress| {}),
-                Box::new(move |result| {
-                    if let VirtualFileResult::Error { message } = result {
-                        error_promise_clone.set(message);
-                    }
-                }),
-            );
-            let (stream, notifier) = if agile {
-                VirtualFileStream::create_agile(reader, size_promise, error_promise, drop_notifier)
-            } else {
-                VirtualFileStream::create_marshalled_on_background_thread(
-                    reader,
-                    size_promise,
-                    error_promise,
-                    drop_notifier,
+            let isolate_id = provider.isolate_id;
+            let provider = move || {
+                Self::create_virtual_stream_session(
+                    delegate,
+                    isolate_id,
+                    virtual_file_id,
+                    configuration,
                 )
             };
+            let (stream, notifier) = if agile {
+                VirtualFileStream::create_agile(provider)
+            } else {
+                VirtualFileStream::create_marshalled_on_background_thread(provider)
+            };
+
             // The drop notifier will be invoked when DataObject gets released
             // That will ensure that the stream is destroyed when data object
-            // is dropped in case the cleant leaks the stream.
+            // is dropped in case the client leaks the stream.
             self.virtual_stream_notifiers.borrow_mut().push(notifier);
             Some(stream)
         } else {
@@ -438,6 +459,25 @@ impl DataObject {
 
     fn is_local_request() -> bool {
         IS_LOCAL_REQUEST.with(|f| f.get())
+    }
+}
+
+impl Drop for DataObject {
+    fn drop(&mut self) {
+        // Keep the streams alive for one second after disposing data object
+        // to give the client chance to interact with stream.
+        // Otherwise the streams will be disposed to prevent leaks.
+        // See VirtualFileStream::dispose()
+        let notifiers: Vec<_> = self
+            .virtual_stream_notifiers
+            .borrow_mut()
+            .drain(0..)
+            .collect();
+        RunLoop::current()
+            .schedule(Duration::from_secs(1), move || {
+                let _notifiers = notifiers;
+            })
+            .detach();
     }
 }
 
