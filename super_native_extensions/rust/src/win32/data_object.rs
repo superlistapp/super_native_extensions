@@ -10,6 +10,7 @@ use std::{
 
 use irondash_message_channel::IsolateId;
 use irondash_run_loop::{platform::PollSession, RunLoop};
+use threadpool::ThreadPool;
 use windows::{
     core::{implement, HRESULT, HSTRING},
     Win32::{
@@ -71,6 +72,7 @@ pub struct DataObject {
     extra_data: RefCell<HashMap<u16, Vec<u8>>>,
     in_operation: Cell<bool>, // async stream
     virtual_stream_notifiers: RefCell<Vec<Arc<DropNotifier>>>,
+    thread_pool: RefCell<Option<ThreadPool>>,
 }
 
 /// These formats are not commonly supported on Windows. If they
@@ -94,6 +96,7 @@ impl DataObject {
             extra_data: RefCell::new(HashMap::new()),
             in_operation: Cell::new(false),
             virtual_stream_notifiers: RefCell::new(Vec::new()),
+            thread_pool: RefCell::new(None),
         };
         data_object.into()
     }
@@ -403,7 +406,9 @@ impl DataObject {
             let (stream, notifier) = if agile {
                 VirtualFileStream::create_agile(provider)
             } else {
-                VirtualFileStream::create_marshalled_on_background_thread(provider)
+                let mut thread_pool = self.thread_pool.borrow_mut();
+                let thread_pool = thread_pool.get_or_insert_with(|| ThreadPool::new(1));
+                VirtualFileStream::create_marshalled_on_background_thread(provider, thread_pool)
             };
 
             // The drop notifier will be invoked when DataObject gets released
