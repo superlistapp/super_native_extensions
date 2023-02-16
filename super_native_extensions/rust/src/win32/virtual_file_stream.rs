@@ -2,10 +2,10 @@ use std::{
     cell::Cell,
     slice,
     sync::{Arc, Mutex},
-    thread,
 };
 
 use irondash_run_loop::{util::Capsule, RunLoop, RunLoopSender};
+use threadpool::ThreadPool;
 use windows::{
     core::{implement, Interface},
     Win32::{
@@ -224,6 +224,7 @@ impl VirtualFileStream {
     /// This should be used when providing stream to other applications.
     pub fn create_marshalled_on_background_thread<F>(
         session_provider: F,
+        thread_pool: &mut ThreadPool,
     ) -> (IStream, Arc<DropNotifier>)
     where
         F: FnOnce() -> VirtualStreamSession + 'static,
@@ -231,7 +232,15 @@ impl VirtualFileStream {
         let factory = session_provider_as_factory(session_provider);
         let promise = Arc::new(Promise::<(Movable<IStream>, Box<dyn FnOnce() + Send>)>::new());
         let promise_clone = promise.clone();
-        thread::spawn(move || unsafe {
+
+        // VSCode seems to periodically request the stream just to close it immediately.
+        // To alleviate this a bit we try to reuse the thread. However we also want to
+        // ensure that we don't wait on thread_pool because existing running tasks might be
+        // blocking.
+        if thread_pool.active_count() == thread_pool.max_count() {
+            thread_pool.set_num_threads(thread_pool.max_count() + 1);
+        }
+        thread_pool.execute(move || unsafe {
             CoInitialize(None).ok();
             {
                 let stream = Arc::new(Stream {
