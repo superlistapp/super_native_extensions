@@ -1,3 +1,13 @@
+## 0.2.2
+
+ - **FIX**: regression when dropping plain text on web (#66).
+ - **FIX**: [macos] error instead of panic when no mouse event is found (#60).
+ - **FIX**: do not recreate drag and drop contexts on hot reload (#61).
+ - **FIX**: lift image being ignored on iOS (#59).
+ - **FEAT**: [windows] use thread pool for virtual file background thread (#68).
+ - **FEAT**: [windows] delay virtual file request until IStream is read (#67).
+ - **FEAT**: try revoking drop target first on windows (#63).
+
 ## 0.2.1
 
  - **FIX**: regression when dropping plain text on web (#66).

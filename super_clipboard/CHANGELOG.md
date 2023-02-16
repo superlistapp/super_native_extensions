@@ -1,3 +1,7 @@
+## 0.2.1+1
+
+ - Update a dependency to the latest release.
+
 ## 0.2.1
 
  - Bump "super_clipboard" to `0.2.1`.

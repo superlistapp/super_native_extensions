@@ -1,3 +1,7 @@
+## 0.2.2
+
+ - **FEAT**: [windows] improved behavior when dragging virtual files over certain applications
+
 ## 0.2.1
 
  - **FIX**: regression when dropping plain text on web (#66).
