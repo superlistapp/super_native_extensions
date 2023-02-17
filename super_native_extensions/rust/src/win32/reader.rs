@@ -697,11 +697,7 @@ impl VirtualFileReader for StreamReader {
     }
 
     fn file_size(&self) -> NativeExtensionsResult<Option<i64>> {
-        let mut stat = STATSTG::default();
-        unsafe {
-            self.stream.Stat(&mut stat as *mut _, STATFLAG_NONAME)?;
-        }
-        Ok(Some(stat.cbSize as i64))
+        Ok(Some(self.length as i64))
     }
 
     fn file_name(&self) -> Option<String> {
