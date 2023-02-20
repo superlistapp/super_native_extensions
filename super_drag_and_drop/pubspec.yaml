@@ -1,6 +1,6 @@
 name: super_drag_and_drop
 description: Native Drag and Drop support for Flutter. Allows dragging contents across applications.
-version: 0.2.2
+version: 0.2.2+1
 homepage: https://github.com/superlistapp/super_native_extensions
 
 environment:
@@ -11,8 +11,8 @@ dependencies:
   flutter:
     sdk: flutter
   collection: ^1.16.0
-  super_native_extensions: ^0.2.2
-  super_clipboard: ^0.2.1+1
+  super_native_extensions: ^0.2.2+1
+  super_clipboard: ^0.2.1+2
 dev_dependencies:
   flutter_test:
     sdk: flutter

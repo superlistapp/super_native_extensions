@@ -1,3 +1,8 @@
+## 0.2.2+1
+
+ - **FIX**: clipboard copy on web in release mode (#72).
+ - **FIX**: [windows] use cached length when reading virtual stream (#69).
+
 ## 0.2.2
 
  - **FIX**: regression when dropping plain text on web (#66).

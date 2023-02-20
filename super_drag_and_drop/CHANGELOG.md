@@ -1,3 +1,7 @@
+## 0.2.2+1
+
+ - Update a dependency to the latest release.
+
 ## 0.2.2
 
  - **FEAT**: [windows] improved behavior when dragging virtual files over certain applications
