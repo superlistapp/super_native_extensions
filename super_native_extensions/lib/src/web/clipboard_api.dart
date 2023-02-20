@@ -26,8 +26,8 @@ extension ClipboardExtension on Clipboard {
     return (await items).cast<ClipboardItem>();
   }
 
-  Future<void> write(Iterable<ClipboardItem> data) =>
-      js_util.promiseToFuture(js_util.callMethod(this, 'write', [data]));
+  Future<void> write(Iterable<ClipboardItem> data) => js_util.promiseToFuture(
+      js_util.callMethod(this, 'write', [data.toList(growable: false)]));
 }
 
 Clipboard getClipboard() {
