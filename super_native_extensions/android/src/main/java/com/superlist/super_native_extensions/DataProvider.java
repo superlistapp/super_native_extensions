@@ -50,6 +50,11 @@ public class DataProvider extends ContentProvider {
     public AssetFileDescriptor openTypedAssetFile(Uri uri, String mimeTypeFilter, Bundle opts, CancellationSignal signal) throws FileNotFoundException {
         String uriString = uri.toString();
         String mimeType = getMimeTypeForURI(uriString, mimeTypeFilter);
+        // Clipper insists on requesting text/* even for images and other types
+        if (mimeType == null) {
+            throw new IllegalArgumentException("No mime type " + mimeTypeFilter +
+                                               " found for uri: " + uriString);
+        }
         // when requesting to open the file on main thread we assume that the stream
         // will also be read on main thread (blocking) so we need the data upfront.
         // this happens for example when ClipData.coerceToText is called by flutter
