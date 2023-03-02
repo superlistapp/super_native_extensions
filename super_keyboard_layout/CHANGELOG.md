@@ -1,3 +1,7 @@
+## 0.2.1
+
+ - **FEAT**: add super_hot_key (#77).
+
 ## 0.2.0+4
 
  - Update a dependency to the latest release.

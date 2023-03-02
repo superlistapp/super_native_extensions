@@ -1,3 +1,7 @@
+## 0.2.3
+
+ - **FEAT**: add super_hot_key (#77).
+
 ## 0.2.2+2
 
  - **FIX**: [android] throw exception if wrong mime filter is requested.
