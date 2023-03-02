@@ -386,11 +386,11 @@ Future<_RepresentationWidget?> _widgetForFormat(
           content: Text(sanitized),
         );
       }
-    case Formats.utf8Text:
+    case Formats.plainTextFile:
       if (!reader.isVirtual(format) && !reader.isSynthetized(format)) {
         return null;
       }
-      final contents = await reader.readFile(Formats.utf8Text);
+      final contents = await reader.readFile(Formats.plainTextFile);
       if (contents == null) {
         return null;
       } else {
