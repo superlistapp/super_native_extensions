@@ -63,10 +63,15 @@ class Formats {
     exe,
     msi,
     dll,
-    utf8Text,
+    plainTextFile,
     webUnknown,
   ];
 
+  /// Value format for plain text. This is used for copying and pasting text
+  /// as well as dragging and dropping plain text snippets. This format takes
+  /// care of conversion from/to platform specific encoding.
+  ///
+  /// When consuming dropped text files use [plainTextFile] format instead.
   static const plainText = SimpleValueFormat<String>(
     ios: SimplePlatformCodec(
       formats: ['public.utf8-plain-text', 'public.plain-text'],
@@ -483,12 +488,17 @@ class Formats {
     mimeTypes: ['application/x-msdownload'],
   );
 
-  /// Format to be used for UTF-8 encoded files. Like other file format, this
-  /// does no conversion.
-  static const utf8Text = SimpleFileFormat(
+  /// Used when dropping a plain text file. Client is responsible for dealing
+  /// with file encoding.
+  static const plainTextFile = SimpleFileFormat(
     uniformTypeIdentifiers: ['public.utf8-plain-text', 'public.plain-text'],
     mimeTypes: ['text/plain'],
   );
+
+  /// Deprecated. Original name was misleading because the UTF8 encoding is not
+  /// enforced.
+  @Deprecated('Use plainTextFile instead.')
+  static const utf8Text = plainTextFile;
 
   /// Some browsers (Safari, of course, who else), do not report mime types of
   /// files during dragging, only when dropped. In which case there will be one
