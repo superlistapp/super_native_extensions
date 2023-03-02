@@ -1,3 +1,7 @@
+## 0.2.2+2
+
+ - **FIX**: [android] throw exception if wrong mime filter is requested.
+
 ## 0.2.2+1
 
  - **FIX**: clipboard copy on web in release mode (#72).
