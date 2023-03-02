@@ -722,9 +722,9 @@ dependencies = [
 
 [[package]]
 name = "irondash_run_loop"
-version = "0.1.1"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a7f0bd59712e6cb9f8537add55dc99619decfbf6265272e6f59c5dc1bfb0a3b"
+checksum = "fceb1f49f89287dcb1c10ba640f250c2da0a2262c8cc1a2ce0d19a803ca52116"
 dependencies = [
  "core-foundation",
  "futures",

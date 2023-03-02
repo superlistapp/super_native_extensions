@@ -23,7 +23,7 @@ async-trait = "0.1"
 rand = "0.8.5"
 url = "2.2.2"
 irondash_engine_context = "0.1.0"
-irondash_run_loop = "0.1.1"
+irondash_run_loop = "0.1.2"
 irondash_message_channel = { version = "0.1.0", features = ["derive"] }
 
 [build-dependencies]
