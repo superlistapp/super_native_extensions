@@ -5,6 +5,7 @@ packages:
   - super_clipboard/example
   - super_drag_and_drop
   - super_drag_and_drop/example
+  - super_hot_key
   - super_keyboard_layout
   - super_keyboard_layout/example
   - super_native_extensions

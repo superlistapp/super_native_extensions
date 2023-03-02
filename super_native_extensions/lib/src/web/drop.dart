@@ -5,8 +5,8 @@ import 'dart:js_util' as js_util;
 
 import 'package:collection/collection.dart';
 import 'package:flutter/widgets.dart';
-import 'package:super_native_extensions/src/mutex.dart';
 
+import '../mutex.dart';
 import '../api_model.dart';
 import '../data_provider.dart';
 import '../drag.dart';
