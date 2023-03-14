@@ -1,3 +1,7 @@
+## 0.2.3+1
+
+ - Update a dependency to the latest release.
+
 ## 0.2.3
 
  - **FEAT**: add Formats.plainTextFile.

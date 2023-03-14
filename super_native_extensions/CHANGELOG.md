@@ -1,3 +1,7 @@
+## 0.2.4
+
+ - **FEAT**: [macos] receiving virtual files from outlook attachments (#81).
+
 ## 0.2.3
 
  - **FEAT**: add super_hot_key (#77).
