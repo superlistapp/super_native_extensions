@@ -110,7 +110,7 @@ impl PlatformKeyboardLayout {
         if let Some(key) = key {
             if key < 256 {
                 let char = key as u8 as char;
-                return ('a'..='z').contains(&char) || ('0'..='9').contains(&char);
+                return char.is_ascii_lowercase() || char.is_ascii_digit();
             }
         }
         false
@@ -237,7 +237,7 @@ impl PlatformKeyboardLayout {
             '.' => '>',
             '/' => '?',
             c => {
-                if ('a'..='z').contains(&c) {
+                if c.is_ascii_lowercase() {
                     let delta = b'A' as i32 - b'a' as i32;
                     (c as u8 as i32 + delta) as u8 as char
                 } else {
