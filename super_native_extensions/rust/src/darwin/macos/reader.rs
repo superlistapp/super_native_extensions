@@ -65,7 +65,7 @@ impl PlatformDataReader {
         self.get_items_sync()
     }
 
-    pub fn get_formats_for_item_sync(&self, item: i64) -> NativeExtensionsResult<Vec<String>> {
+    fn promise_receiver_types_for_item(&self, item: i64) -> NativeExtensionsResult<Vec<String>> {
         autoreleasepool(|| unsafe {
             let items: id = msg_send![*self.pasteboard, pasteboardItems];
             if item < NSArray::count(items) as i64 {
@@ -79,6 +79,16 @@ impl PlatformDataReader {
                 // First virtual files
                 let receiver = self.get_promise_receiver_for_item(item)?;
                 if let Some(receiver) = receiver {
+                    // Outlook reports wrong types for [fileTypes] (extension instead of UTI), but has correct type
+                    // in "com.apple.pasteboard.promised-file-content-type.
+                    let ty = to_nsstring("com.apple.pasteboard.promised-file-content-type");
+                    let value = NSPasteboardItem::stringForType(pasteboard_item, *ty);
+                    if value != nil {
+                        let string = from_nsstring(value);
+                        if !string.is_empty() {
+                            push(&mut res, string);
+                        }
+                    }
                     let receiver_types: id = msg_send![*receiver, fileTypes];
                     for i in 0..NSArray::count(receiver_types) {
                         push(
@@ -86,6 +96,29 @@ impl PlatformDataReader {
                             from_nsstring(NSArray::objectAtIndex(receiver_types, i)),
                         );
                     }
+                }
+                Ok(res)
+            } else {
+                Ok(Vec::new())
+            }
+        })
+    }
+
+    pub fn get_formats_for_item_sync(&self, item: i64) -> NativeExtensionsResult<Vec<String>> {
+        autoreleasepool(|| unsafe {
+            let items: id = msg_send![*self.pasteboard, pasteboardItems];
+            if item < NSArray::count(items) as i64 {
+                let pasteboard_item = NSArray::objectAtIndex(items, item as NSUInteger);
+                let mut res = Vec::new();
+                fn push(res: &mut Vec<String>, s: String) {
+                    if !res.contains(&s) {
+                        res.push(s);
+                    }
+                }
+                // First virtual files
+                let virtual_types = self.promise_receiver_types_for_item(item)?;
+                for format in virtual_types {
+                    push(&mut res, format);
                 }
                 // Second regular items
                 let types = NSPasteboardItem::types(pasteboard_item);
@@ -138,7 +171,9 @@ impl PlatformDataReader {
                 let types = NSPasteboardItem::types(item);
                 for i in 0..NSArray::count(types) {
                     let format = from_nsstring(NSArray::objectAtIndex(types, i));
-                    if format == "com.apple.NSFilePromiseItemMetaData" {
+                    if format == "com.apple.NSFilePromiseItemMetaData"
+                        || format == "com.apple.pasteboard.promised-file-url"
+                    {
                         return true;
                     }
                 }
@@ -357,23 +392,8 @@ impl PlatformDataReader {
         item: i64,
         format: &str,
     ) -> NativeExtensionsResult<bool> {
-        autoreleasepool(|| {
-            let receiver = self.get_promise_receiver_for_item(item)?;
-            match receiver {
-                Some(receiver) => {
-                    let receiver_types: id = unsafe { msg_send![*receiver, fileTypes] };
-                    for i in 0..unsafe { NSArray::count(receiver_types) } {
-                        let ty =
-                            unsafe { from_nsstring(NSArray::objectAtIndex(receiver_types, i)) };
-                        if ty == format {
-                            return Ok(true);
-                        }
-                    }
-                    Ok(false)
-                }
-                None => Ok(false),
-            }
-        })
+        let virtual_types = self.promise_receiver_types_for_item(item)?;
+        Ok(virtual_types.iter().any(|f| f == format))
     }
 
     pub async fn can_read_virtual_file_for_item(
