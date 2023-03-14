@@ -31,3 +31,5 @@ build/
 
 .flutter-plugins
 .flutter-plugins-dependencies
+
+pubspec_overrides.yaml
