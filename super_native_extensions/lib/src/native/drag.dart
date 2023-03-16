@@ -28,15 +28,15 @@ extension DragItemExt on DragItem {
   dynamic serialize() => {
         'dataProviderId': dataProvider.id,
         'localData': localData,
-        'image': image.serialize(),
-        'liftImage': liftImage?.serialize(),
+        'image': image.image.serialize(),
+        'liftImage': image.liftImage?.serialize(),
       };
 }
 
-extension DragImageExt on DragImage {
+extension DragImageExt on TargettedImageData {
   dynamic serialize() => {
         'imageData': imageData.serialize(),
-        'sourceRect': sourceRect.serialize(),
+        'sourceRect': rect.serialize(),
       };
 }
 

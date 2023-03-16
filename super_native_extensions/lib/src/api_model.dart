@@ -33,6 +33,37 @@ class ImageData {
   }
 }
 
+/// Image representation of part of user interface.
+class TargettedImage {
+  TargettedImage(this.image, this.rect);
+
+  /// Image to be used as avatar image.
+  final Image image;
+
+  /// Initial position of avatar image (in global coordinates).
+  final Rect rect;
+}
+
+class TargettedImageData {
+  TargettedImageData({
+    required this.imageData,
+    required this.rect,
+  });
+
+  final ImageData imageData;
+  final Rect rect;
+}
+
+extension TargettedImageIntoRaw on TargettedImage {
+  Future<TargettedImageData> intoRaw(double devicePixelRatio) async {
+    return TargettedImageData(
+      imageData:
+          await ImageData.fromImage(image, devicePixelRatio: devicePixelRatio),
+      rect: rect,
+    );
+  }
+}
+
 //
 // Drag
 //

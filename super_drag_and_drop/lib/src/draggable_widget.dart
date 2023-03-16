@@ -1,10 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
 import 'package:super_native_extensions/raw_drag_drop.dart' as raw;
+import 'package:super_native_extensions/widgets.dart';
 export 'package:super_native_extensions/raw_drag_drop.dart'
     show DropOperation, DragSession;
 
@@ -83,15 +83,25 @@ class DragItemWidgetState extends State<DragItemWidget> {
   final repaintBoundary = GlobalKey();
 
   Future<DragImage> _getSnapshot() async {
-    final renderObject = repaintBoundary.currentContext?.findRenderObject()
-        as RenderRepaintBoundary;
-    final image = await renderObject.toImage(
-        pixelRatio: MediaQuery.of(context).devicePixelRatio);
-    final transform = renderObject.getTransformTo(null);
-    final r =
-        Rect.fromLTWH(0, 0, renderObject.size.width, renderObject.size.height);
-    final rect = MatrixUtils.transformRect(transform, r);
-    return DragImage(image, rect);
+    final snapshotter = Snapshotter.of(_innerContext!)!;
+    final dragSnapshot = await snapshotter.getSnapshot(SnapshotType.drag);
+    final snapshot = dragSnapshot ?? await snapshotter.getSnapshot(null);
+
+    if (snapshot == null) {
+      // This might happen if widget is removed before snapshot is ready.
+      // TODO(knopp): Handle this better.
+      throw StateError('Failed get drag snapshot.');
+    }
+    raw.TargettedImage? liftImage;
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      liftImage = await snapshotter.getSnapshot(SnapshotType.lift);
+      // If there is no custom lift image but custom drag snapshot, use
+      // default image as lift image for smoother transition.
+      if (liftImage == null && dragSnapshot != null) {
+        liftImage = await snapshotter.getSnapshot(null);
+      }
+    }
+    return DragImage(image: snapshot, liftImage: liftImage);
   }
 
   Future<DragItem?> createItem(raw.DragSession session) async {
@@ -102,11 +112,15 @@ class DragItemWidgetState extends State<DragItemWidget> {
     return widget.allowedOperations();
   }
 
+  BuildContext? _innerContext;
+
   @override
   Widget build(BuildContext context) {
-    return RepaintBoundary(
-      key: repaintBoundary,
-      child: widget.child,
+    return FallbackSnapshotWidget(
+      child: Builder(builder: (context) {
+        _innerContext = context;
+        return widget.child;
+      }),
     );
   }
 }

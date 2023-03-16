@@ -78,7 +78,7 @@ class DragSessionImpl extends DragSession implements DragDriverDelegate {
 
 class _SessionState implements DragDriverDelegate {
   final DragConfiguration configuration;
-  final DragImage image;
+  final TargettedImageData image;
   final Offset originalPosition;
   final html.CanvasElement canvas;
   final ValueNotifier<Offset?> lastScreenLocation;
@@ -129,11 +129,11 @@ class _SessionState implements DragDriverDelegate {
 
   void _moveCanvas(Offset position) {
     canvas.style.left =
-        '${image.sourceRect.left + position.dx - originalPosition.dx}px';
+        '${image.rect.left + position.dx - originalPosition.dx}px';
     canvas.style.top =
-        '${image.sourceRect.top + position.dy - originalPosition.dy}px';
-    canvas.style.width = '${image.sourceRect.width}px';
-    canvas.style.height = '${image.sourceRect.height}px';
+        '${image.rect.top + position.dy - originalPosition.dy}px';
+    canvas.style.width = '${image.rect.width}px';
+    canvas.style.height = '${image.rect.height}px';
   }
 
   void updatePosition(Offset position) async {

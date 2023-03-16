@@ -26,33 +26,31 @@ class DragConfiguration {
   final bool prefersFullSizePreviews;
 }
 
+class DragImageData {
+  DragImageData({
+    required this.image,
+    this.liftImage,
+  });
+
+  /// Image used while dragging.
+  TargettedImageData image;
+
+  /// Used on iPad during lift (before dragging starts). If not set normal
+  /// drag image is used. This should closely resemble the widget being dragged.
+  TargettedImageData? liftImage;
+}
+
 class DragItem {
   DragItem({
     required this.dataProvider,
-    this.liftImage,
     required this.image,
     this.localData,
   });
 
   final DataProviderHandle dataProvider;
 
-  /// Used on iPad during lift (before dragging starts). If not set normal
-  /// drag image is used. This should closely resemble the widget being dragged.
-  final DragImage? liftImage;
-
-  /// Image used while dragging.
-  final DragImage image;
+  final DragImageData image;
   final Object? localData;
-}
-
-class DragImage {
-  DragImage({
-    required this.imageData,
-    required this.sourceRect,
-  });
-
-  final ImageData imageData;
-  final ui.Rect sourceRect;
 }
 
 class DragRequest {
@@ -64,7 +62,7 @@ class DragRequest {
 
   final DragConfiguration configuration;
   final ui.Offset position;
-  final DragImage? combinedDragImage;
+  final TargettedImageData? combinedDragImage;
 }
 
 /// Represents a drag session. Allows inspecting local drag data and
