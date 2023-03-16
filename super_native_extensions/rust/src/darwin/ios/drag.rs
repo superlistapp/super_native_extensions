@@ -231,9 +231,18 @@ impl Session {
                     let (index, _) = PlatformDragContext::item_info(item);
                     let image = self.image_view_for_item(index, ImageType::Drag);
                     let provider = ConcreteBlock::new(move || {
+                        let parameters: id = msg_send![class!(UIDragPreviewParameters), new];
+                        let () = msg_send![parameters, autorelease];
+                        let clear_color: id = msg_send![class!(UIColor), clearColor];
+                        let () = msg_send![parameters, setBackgroundColor: clear_color];
+
+                        // TODO(knopp): Make this configurable
+                        let shadow_path: id = msg_send![class!(UIBezierPath), bezierPathWithRect: CGRect{ origin: CGPoint { x: 0.0, y: 0.0 }, size: CGSize { width: 0.0, height: 0.0,} }];
+                        let () = msg_send![parameters, setShadowPath: shadow_path];
+
                         let image = image.clone().autorelease();
                         let preview: id = msg_send![class!(UIDragPreview), alloc];
-                        let () = msg_send![preview, initWithView: image];
+                        let () = msg_send![preview, initWithView:image parameters: parameters];
                         let () = msg_send![preview, autorelease];
                         preview
                     });
