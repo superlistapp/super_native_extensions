@@ -77,16 +77,16 @@ class BaseDraggableWidget extends StatelessWidget {
     child = Listener(
       behavior: HitTestBehavior.translucent,
       onPointerDown: (_) {
-        Snapshotter.of(context)?.arm();
+        Snapshotter.of(context)?.armed = true;
       },
       onPointerCancel: (_) {
         if (context.mounted) {
-          Snapshotter.of(context)?.disarm();
+          Snapshotter.of(context)?.armed = false;
         }
       },
       onPointerUp: (_) {
         if (context.mounted) {
-          Snapshotter.of(context)?.disarm();
+          Snapshotter.of(context)?.armed = false;
         }
       },
       child: child,

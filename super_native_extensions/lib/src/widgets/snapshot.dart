@@ -39,8 +39,7 @@ abstract class Snapshotter {
     }
   }
 
-  void arm();
-  void disarm();
+  set armed(bool armed);
 
   Future<TargettedImage?> getSnapshot(SnapshotType? type);
 }
@@ -88,8 +87,7 @@ class _CustomSnapshotWidgetState extends State<CustomSnapshotWidget>
           child: widget.builder(context, null),
         );
       } else {
-        return Stack(
-          fit: StackFit.passthrough,
+        return _SnapshotLayout(
           children: [
             RepaintBoundary(
               key: _defaultKey,
@@ -99,14 +97,11 @@ class _CustomSnapshotWidgetState extends State<CustomSnapshotWidget>
               ),
             ),
             for (final type in widget.supportedTypes)
-              IgnorePointer(
-                ignoring: true,
-                child: ClipRect(
-                  clipper: const _ZeroClipper(),
-                  child: RepaintBoundary(
-                    key: _keys[type],
-                    child: widget.builder(context, type),
-                  ),
+              ClipRect(
+                clipper: const _ZeroClipper(),
+                child: RepaintBoundary(
+                  key: _keys[type],
+                  child: widget.builder(context, type),
                 ),
               ),
           ],
@@ -135,19 +130,10 @@ class _CustomSnapshotWidgetState extends State<CustomSnapshotWidget>
   }
 
   @override
-  void arm() {
-    if (!_armed) {
+  set armed(bool value) {
+    if (_armed != value) {
       setState(() {
-        _armed = true;
-      });
-    }
-  }
-
-  @override
-  void disarm() {
-    if (_armed) {
-      setState(() {
-        _armed = false;
+        _armed = value;
       });
     }
   }
@@ -265,20 +251,97 @@ class _FallbackSnapshotWidgetState extends State<FallbackSnapshotWidget>
   }
 
   @override
-  void arm() {
-    if (!_armed) {
+  set armed(bool value) {
+    if (_armed != value) {
       setState(() {
-        _armed = true;
+        _armed = value;
       });
+    }
+  }
+}
+
+class _SnapshotLayout extends MultiChildRenderObjectWidget {
+  const _SnapshotLayout({
+    // ignore: unused_element
+    super.key,
+    required super.children,
+  });
+
+  @override
+  RenderObject createRenderObject(BuildContext context) {
+    return _RenderSnapshotLayout();
+  }
+}
+
+class _ParentData extends ContainerBoxParentData<RenderBox> {}
+
+class _RenderSnapshotLayout extends RenderBox
+    with
+        ContainerRenderObjectMixin<RenderBox,
+            ContainerBoxParentData<RenderBox>>,
+        RenderBoxContainerDefaultsMixin<RenderBox,
+            ContainerBoxParentData<RenderBox>> {
+  @override
+  void setupParentData(RenderBox child) {
+    if (child.parentData is! _ParentData) {
+      child.parentData = _ParentData();
     }
   }
 
   @override
-  void disarm() {
-    if (_armed) {
-      setState(() {
-        _armed = false;
-      });
+  double computeMaxIntrinsicWidth(double height) {
+    return firstChild?.computeMaxIntrinsicWidth(height) ?? 0.0;
+  }
+
+  @override
+  double computeMinIntrinsicWidth(double height) {
+    return firstChild?.computeMinIntrinsicWidth(height) ?? 0.0;
+  }
+
+  @override
+  double computeMaxIntrinsicHeight(double width) {
+    return firstChild?.computeMaxIntrinsicHeight(width) ?? 0.0;
+  }
+
+  @override
+  double computeMinIntrinsicHeight(double width) {
+    return firstChild?.computeMinIntrinsicHeight(width) ?? 0.0;
+  }
+
+  @override
+  Size computeDryLayout(BoxConstraints constraints) {
+    return firstChild?.computeDryLayout(constraints) ?? Size.zero;
+  }
+
+  @override
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) {
+    return firstChild?.hitTest(result, position: position) ?? false;
+  }
+
+  @override
+  void performLayout() {
+    RenderBox? child = firstChild;
+    if (child != null) {
+      child.layout(constraints, parentUsesSize: true);
+      size = child.size;
+
+      while (true) {
+        final parentData = child!.parentData as _ParentData;
+        child = parentData.nextSibling;
+
+        if (child == null) {
+          break;
+        } else {
+          child.layout(constraints);
+        }
+      }
+    } else {
+      size = Size.zero;
     }
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    defaultPaint(context, offset);
   }
 }
