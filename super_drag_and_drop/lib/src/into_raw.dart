@@ -28,9 +28,12 @@ extension DragItemsIntoRaw on List<DragItem> {
     }
     final items = <raw.DragItem>[];
     for (final item in indexed()) {
+      final image = item.value.image is Future
+          ? await item.value.image
+          : item.value.image as DragImage;
       items.add(raw.DragItem(
         dataProvider: handles[item.index],
-        image: await item.value.image.intoRaw(devicePixelRatio),
+        image: await image.intoRaw(devicePixelRatio),
         localData: item.value.localData,
       ));
     }

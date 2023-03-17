@@ -6,24 +6,62 @@ import 'package:flutter/widgets.dart';
 import '../api_model.dart';
 
 enum SnapshotType {
+  /// Snapshot used for lift animation on iOS.
   lift,
+
+  /// Snapshot used during dragging.
   drag,
 }
 
+typedef TranslationProvider = Offset Function(
+  /// Snapshot rectangle in local coordinates.
+  Rect rect,
+
+  /// Drag position within the rectangle.
+  Offset dragPosition,
+
+  /// Type of snapshot.
+  SnapshotType type,
+);
+
+typedef ConstraintsTransformProvider = BoxConstraints Function(
+  BoxConstraints constraints,
+  SnapshotType type,
+);
+
 typedef SnapshotBuilder = Widget Function(
   BuildContext context,
+
+  /// Type of snapshot currently being built or `null` when building
+  /// normal child widget.
   SnapshotType? type,
 );
 
+/// Widget that provides custom dragging snapshots.
 class CustomSnapshotWidget extends StatefulWidget {
   const CustomSnapshotWidget({
     super.key,
+    this.supportedTypes = const {SnapshotType.drag},
     required this.builder,
-    this.supportedTypes = const {},
+    this.translation,
+    this.constraintsTransform,
   });
 
+  /// Set of supported snapshot types. The builder will be called
+  /// only for these types.
   final Set<SnapshotType> supportedTypes;
+
+  /// Builder that creates the widget that will be used as a snapshot.
+  /// The builder will be called with `null` type when building normal
+  /// child widget.
   final SnapshotBuilder builder;
+
+  /// Allows to transform snapshot location.
+  final TranslationProvider? translation;
+
+  /// Allows to transform constraints for snapshot widget. The resulting
+  /// constraints may exceed parent constraints without causing an error.
+  final ConstraintsTransformProvider? constraintsTransform;
 
   @override
   State<CustomSnapshotWidget> createState() => _CustomSnapshotWidgetState();
@@ -41,24 +79,36 @@ abstract class Snapshotter {
 
   set armed(bool armed);
 
-  Future<TargettedImage?> getSnapshot(SnapshotType? type);
+  Future<TargettedImage?> getSnapshot(Offset location, SnapshotType? type);
 }
 
 class _PendingSnapshot {
-  _PendingSnapshot(this.type, this.completer);
+  _PendingSnapshot(this.type, this.location, this.completer);
 
   final SnapshotType? type;
+  final Offset location;
   final Completer<TargettedImage?> completer;
 }
 
 TargettedImage _getSnapshot(
-    BuildContext context, RenderRepaintBoundary renderObject) {
+    BuildContext context,
+    RenderRepaintBoundary renderObject,
+    Offset location,
+    Offset Function(Rect rect, Offset offset)? translation) {
   final image = renderObject.toImageSync(
       pixelRatio: MediaQuery.of(context).devicePixelRatio);
   final transform = renderObject.getTransformTo(null);
   final r =
       Rect.fromLTWH(0, 0, renderObject.size.width, renderObject.size.height);
-  final rect = MatrixUtils.transformRect(transform, r);
+
+  var offset = Offset.zero;
+  if (translation != null) {
+    final inverted = transform.clone()..invert();
+    final dragLocation = MatrixUtils.transformPoint(inverted, location);
+    offset = translation(r, dragLocation);
+  }
+
+  final rect = MatrixUtils.transformRect(transform, r.shift(offset));
   return TargettedImage(image, rect);
 }
 
@@ -78,6 +128,14 @@ class _ZeroClipper extends CustomClipper<Rect> {
 
 class _CustomSnapshotWidgetState extends State<CustomSnapshotWidget>
     implements Snapshotter {
+  BoxConstraintsTransform? _constrainTransformForType(SnapshotType type) {
+    if (widget.constraintsTransform == null) {
+      return null;
+    } else {
+      return (constraints) => widget.constraintsTransform!(constraints, type);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Builder(builder: (context) {
@@ -97,11 +155,14 @@ class _CustomSnapshotWidgetState extends State<CustomSnapshotWidget>
               ),
             ),
             for (final type in widget.supportedTypes)
-              ClipRect(
-                clipper: const _ZeroClipper(),
-                child: RepaintBoundary(
-                  key: _keys[type],
-                  child: widget.builder(context, type),
+              _SnapshotLayoutParentDataWidget(
+                constraintsTransform: _constrainTransformForType(type),
+                child: ClipRect(
+                  clipper: const _ZeroClipper(),
+                  child: RepaintBoundary(
+                    key: _keys[type],
+                    child: widget.builder(context, type),
+                  ),
                 ),
               ),
           ],
@@ -158,9 +219,18 @@ class _CustomSnapshotWidgetState extends State<CustomSnapshotWidget>
     }
 
     for (final s in _pendingSnapshots) {
+      final translation = s.type != null
+          ? (Rect rect, Offset offset) =>
+              widget.translation?.call(rect, offset, s.type!) ?? Offset.zero
+          : null;
       final renderObject = _getRenderObject(s.type);
       if (renderObject != null) {
-        s.completer.complete(_getSnapshot(context, renderObject));
+        s.completer.complete(_getSnapshot(
+          context,
+          renderObject,
+          s.location,
+          translation,
+        ));
       } else {
         s.completer.complete(null);
       }
@@ -170,9 +240,9 @@ class _CustomSnapshotWidgetState extends State<CustomSnapshotWidget>
   }
 
   @override
-  Future<TargettedImage?> getSnapshot(SnapshotType? type) {
+  Future<TargettedImage?> getSnapshot(Offset location, SnapshotType? type) {
     final completer = Completer<TargettedImage?>();
-    _pendingSnapshots.add(_PendingSnapshot(type, completer));
+    _pendingSnapshots.add(_PendingSnapshot(type, location, completer));
     _checkSnapshots();
     return completer.future;
   }
@@ -195,7 +265,7 @@ class _FallbackSnapshotWidgetState extends State<FallbackSnapshotWidget>
   final _contentKey = GlobalKey();
   final _repaintBoundaryKey = GlobalKey();
 
-  final _pendingSnapshots = <Completer<TargettedImage?>>[];
+  final _pendingSnapshots = <_PendingSnapshot>[];
 
   bool _armed = false;
 
@@ -215,30 +285,31 @@ class _FallbackSnapshotWidgetState extends State<FallbackSnapshotWidget>
   }
 
   @override
-  Future<TargettedImage?> getSnapshot(SnapshotType? type) {
+  Future<TargettedImage?> getSnapshot(Offset location, SnapshotType? type) {
     if (type != null) {
       return Future.value(null);
     }
 
-    final completer = Completer<TargettedImage>();
-    _pendingSnapshots.add(completer);
+    final snapshot =
+        _PendingSnapshot(null, location, Completer<TargettedImage>());
+    _pendingSnapshots.add(snapshot);
     _checkSnapshot();
-    return completer.future;
+    return snapshot.completer.future;
   }
 
   void _checkSnapshot() {
     if (!mounted) {
-      for (final completer in _pendingSnapshots) {
-        completer.complete(null);
+      for (final snapshot in _pendingSnapshots) {
+        snapshot.completer.complete(null);
       }
       _pendingSnapshots.clear();
       return;
     }
     final object = _repaintBoundaryKey.currentContext?.findRenderObject();
     if (object is RenderRepaintBoundary) {
-      final snapshot = _getSnapshot(context, object);
-      for (final completer in _pendingSnapshots) {
-        completer.complete(snapshot);
+      for (final snapshot in _pendingSnapshots) {
+        final image = _getSnapshot(context, object, snapshot.location, null);
+        snapshot.completer.complete(image);
       }
       _pendingSnapshots.clear();
       setState(() {});
@@ -273,7 +344,33 @@ class _SnapshotLayout extends MultiChildRenderObjectWidget {
   }
 }
 
-class _ParentData extends ContainerBoxParentData<RenderBox> {}
+class _ParentData extends ContainerBoxParentData<RenderBox> {
+  BoxConstraintsTransform? constraintsTransform;
+}
+
+class _SnapshotLayoutParentDataWidget extends ParentDataWidget<_ParentData> {
+  const _SnapshotLayoutParentDataWidget({
+    this.constraintsTransform,
+    required super.child,
+  });
+
+  final BoxConstraintsTransform? constraintsTransform;
+
+  @override
+  void applyParentData(RenderObject renderObject) {
+    final parentData = renderObject.parentData as _ParentData;
+    if (parentData.constraintsTransform != constraintsTransform) {
+      parentData.constraintsTransform = constraintsTransform;
+      final targetParent = renderObject.parent;
+      if (targetParent is RenderObject) {
+        targetParent.markNeedsLayout();
+      }
+    }
+  }
+
+  @override
+  Type get debugTypicalAncestorWidgetClass => _SnapshotLayout;
+}
 
 class _RenderSnapshotLayout extends RenderBox
     with
@@ -326,12 +423,15 @@ class _RenderSnapshotLayout extends RenderBox
       size = child.size;
 
       while (true) {
-        final parentData = child!.parentData as _ParentData;
-        child = parentData.nextSibling;
+        child = (child!.parentData as _ParentData).nextSibling;
 
         if (child == null) {
           break;
         } else {
+          final parentData = child.parentData as _ParentData;
+          final constraints =
+              parentData.constraintsTransform?.call(this.constraints) ??
+                  this.constraints;
           child.layout(constraints);
         }
       }

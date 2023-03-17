@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:super_clipboard/super_clipboard.dart';
@@ -32,7 +34,7 @@ class DragItem extends DataWriterItem {
           defaultTargetPlatform == TargetPlatform.windows ||
           defaultTargetPlatform == TargetPlatform.iOS);
 
-  final DragImage image;
+  final FutureOr<DragImage> image;
 
   /// Data associated with this drag item that can be only read when dropping
   /// within same application. The data must be serializable with
@@ -45,7 +47,7 @@ class DragItem extends DataWriterItem {
 class DragOptions {
   const DragOptions({
     this.animatesToStartingPositionOnCancelOrFail = true,
-    this.prefersFullSizePreviews = false,
+    this.prefersFullSizePreviews = true,
   });
 
   /// macOS specific
