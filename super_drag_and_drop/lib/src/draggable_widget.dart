@@ -1,35 +1,52 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
 import 'package:super_native_extensions/raw_drag_drop.dart' as raw;
+import 'package:super_native_extensions/widgets.dart';
 export 'package:super_native_extensions/raw_drag_drop.dart'
     show DropOperation, DragSession;
 
 import 'drag_configuration.dart';
 import 'base_draggable_widget.dart';
 
-typedef DragItemProvider = Future<DragItem?> Function(
+class DragItemRequest {
+  DragItemRequest({
+    required this.dragImage,
+    required this.location,
+    required this.session,
+  });
+
   /// Provides snapshot image of the containing [DragItemWidget].
-  AsyncValueGetter<DragImage> snapshot,
+  ///
+  /// If you want to customize the drag image you can wrap the [DragItemWidget]
+  /// in a [CustomSnapshotWidget].
+  ///
+  /// Note that using [dragImage] is optional, you can generate your own drag
+  /// image from scratch  when constructing [DragItem].
+  final Future<DragImage> Function() dragImage;
+
+  /// Drag location in global coordinates.
+  final Offset location;
 
   /// Current drag session.
-  raw.DragSession session,
-);
+  final raw.DragSession session;
+}
+
+typedef DragItemProvider = Future<DragItem?> Function(DragItemRequest);
 
 /// Widget that provides [DragItem] for a [DraggableWidget].
 ///
 /// Example usage
 /// ```dart
 /// DragItemWidget(
-///   dragItemProvider: (snapshot, session) async {
+///   dragItemProvider: (request) async {
 ///     // DragItem represents the content bein dragged.
 ///     final item = DragItem(
 ///       // snapshot() will return image snapshot of the DragItemWidget.
 ///       // You can use any other drag image if your wish.
-///       image: await snapshot(),
+///       image: request.dragImage(),
 ///       // This data is only accessible when dropping within same
 ///       // application. (optional)
 ///       localData: {'x': 3, 'y': 4},
@@ -79,34 +96,66 @@ class DragItemWidget extends StatefulWidget {
   State<StatefulWidget> createState() => DragItemWidgetState();
 }
 
-class DragItemWidgetState extends State<DragItemWidget> {
-  final repaintBoundary = GlobalKey();
+class _SnapshotException implements Exception {
+  _SnapshotException(this.message);
 
-  Future<DragImage> _getSnapshot() async {
-    final renderObject = repaintBoundary.currentContext?.findRenderObject()
-        as RenderRepaintBoundary;
-    final image = await renderObject.toImage(
-        pixelRatio: MediaQuery.of(context).devicePixelRatio);
-    final transform = renderObject.getTransformTo(null);
-    final r =
-        Rect.fromLTWH(0, 0, renderObject.size.width, renderObject.size.height);
-    final rect = MatrixUtils.transformRect(transform, r);
-    return DragImage(image, rect);
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
+class DragItemWidgetState extends State<DragItemWidget> {
+  Future<DragImage> _getSnapshot(Offset location) async {
+    final snapshotter = Snapshotter.of(_innerContext!)!;
+    final dragSnapshot =
+        await snapshotter.getSnapshot(location, SnapshotType.drag);
+    final snapshot =
+        dragSnapshot ?? await snapshotter.getSnapshot(location, null);
+
+    if (snapshot == null) {
+      // This might happen if widget is removed before snapshot is ready.
+      // TODO(knopp): Handle this better.
+      throw _SnapshotException('Failed get drag snapshot.');
+    }
+    raw.TargettedImage? liftImage;
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      liftImage = await snapshotter.getSnapshot(location, SnapshotType.lift);
+      // If there is no custom lift image but custom drag snapshot, use
+      // default image as lift image for smoother transition.
+      if (liftImage == null && dragSnapshot != null) {
+        liftImage = await snapshotter.getSnapshot(location, null);
+      }
+    }
+    return DragImage(image: snapshot, liftImage: liftImage);
   }
 
-  Future<DragItem?> createItem(raw.DragSession session) async {
-    return widget.dragItemProvider(_getSnapshot, session);
+  Future<DragItem?> createItem(Offset location, raw.DragSession session) async {
+    final request = DragItemRequest(
+      dragImage: () => _getSnapshot(location),
+      location: location,
+      session: session,
+    );
+    try {
+      return widget.dragItemProvider(request);
+    } on _SnapshotException {
+      return null;
+    }
   }
 
   Future<List<raw.DropOperation>> getAllowedOperations() async {
     return widget.allowedOperations();
   }
 
+  BuildContext? _innerContext;
+
   @override
   Widget build(BuildContext context) {
-    return RepaintBoundary(
-      key: repaintBoundary,
-      child: widget.child,
+    return FallbackSnapshotWidget(
+      child: Builder(builder: (context) {
+        _innerContext = context;
+        return widget.child;
+      }),
     );
   }
 }
@@ -166,7 +215,9 @@ class DraggableWidget extends StatelessWidget {
   }
 
   Future<DragConfiguration?> dragConfigurationForItems(
-      List<DragItemWidgetState> items, raw.DragSession session) async {
+      List<DragItemWidgetState> items,
+      Offset location,
+      raw.DragSession session) async {
     List<raw.DropOperation>? allowedOperations;
     for (final item in items) {
       if (allowedOperations == null) {
@@ -181,7 +232,7 @@ class DraggableWidget extends StatelessWidget {
     if (allowedOperations?.isNotEmpty == true) {
       final dragItems = <DragItem>[];
       for (final item in items) {
-        final dragItem = await item.createItem(session);
+        final dragItem = await item.createItem(location, session);
         if (dragItem != null) {
           dragItems.add(dragItem);
         }
@@ -199,12 +250,12 @@ class DraggableWidget extends StatelessWidget {
     return null;
   }
 
-  Future<List<DragItem>?> additionalItems(
-      List<DragItemWidgetState> items, raw.DragSession session) async {
+  Future<List<DragItem>?> additionalItems(List<DragItemWidgetState> items,
+      Offset location, raw.DragSession session) async {
     final dragItems = <DragItem>[];
     for (final item in items) {
       if (item.widget.canAddItemToExistingSession) {
-        final dragItem = await item.createItem(session);
+        final dragItem = await item.createItem(location, session);
         if (dragItem != null) {
           dragItems.add(dragItem);
         }
@@ -227,13 +278,13 @@ class DraggableWidget extends StatelessWidget {
       isLocationDraggable: isLocationDraggable,
       hitTestBehavior: hitTestBehavior,
       child: child,
-      dragConfiguration: (_, session) async {
+      dragConfiguration: (location, session) async {
         final items = dragItemsProvider(context);
-        return dragConfigurationForItems(items, session);
+        return dragConfigurationForItems(items, location, session);
       },
-      additionalItems: (_, session) async {
+      additionalItems: (location, session) async {
         final items = additionalDragItemsProvider(context);
-        return additionalItems(items, session);
+        return additionalItems(items, location, session);
       },
     );
   }

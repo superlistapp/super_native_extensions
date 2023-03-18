@@ -58,19 +58,18 @@ class DragableWidget extends StatefulWidget {
 class _DragableWidgetState extends State<DragableWidget> {
   bool _dragging = false;
 
-  Future<DragItem?> provideDragItem(
-      AsyncValueGetter<DragImage> snapshot, DragSession session) async {
-    final item = await widget.dragItemProvider(snapshot, session);
+  Future<DragItem?> provideDragItem(DragItemRequest request) async {
+    final item = await widget.dragItemProvider(request);
     if (item != null) {
       setState(() {
-        _dragging = session.dragging;
+        _dragging = request.session.dragging;
       });
-      session.dragStarted.addListener(() {
+      request.session.dragStarted.addListener(() {
         setState(() {
           _dragging = true;
         });
       });
-      session.dragCompleted.addListener(() {
+      request.session.dragCompleted.addListener(() {
         if (mounted) {
           setState(() {
             _dragging = false;
@@ -204,32 +203,26 @@ class _MyHomePageState extends State<MyHomePage> {
     );
   }
 
-  Future<DragItem?> textDragItem(
-    AsyncValueGetter<DragImage> dragImage,
-    DragSession session,
-  ) async {
+  Future<DragItem?> textDragItem(DragItemRequest request) async {
     // For multi drag on iOS check if this item is already in the session
-    if (await session.hasLocalData('text-item')) {
+    if (await request.session.hasLocalData('text-item')) {
       return null;
     }
     final item = DragItem(
-        image: await dragImage(),
+        image: request.dragImage(),
         localData: 'text-item',
         suggestedName: 'PlainText.txt');
     item.add(Formats.plainText('Plain Text Value'));
     return item;
   }
 
-  Future<DragItem?> imageDragItem(
-    AsyncValueGetter<DragImage> dragImage,
-    DragSession session,
-  ) async {
+  Future<DragItem?> imageDragItem(DragItemRequest request) async {
     // For multi drag on iOS check if this item is already in the session
-    if (await session.hasLocalData('image-item')) {
+    if (await request.session.hasLocalData('image-item')) {
       return null;
     }
     final item = DragItem(
-      image: await dragImage(),
+      image: request.dragImage(),
       localData: 'image-item',
       suggestedName: 'Green.png',
     );
@@ -237,16 +230,13 @@ class _MyHomePageState extends State<MyHomePage> {
     return item;
   }
 
-  Future<DragItem?> lazyImageDragItem(
-    AsyncValueGetter<DragImage> dragImage,
-    DragSession session,
-  ) async {
+  Future<DragItem?> lazyImageDragItem(DragItemRequest request) async {
     // For multi drag on iOS check if this item is already in the session
-    if (await session.hasLocalData('lazy-image-item')) {
+    if (await request.session.hasLocalData('lazy-image-item')) {
       return null;
     }
     final item = DragItem(
-      image: await dragImage(),
+      image: await request.dragImage(),
       localData: 'lazy-image-item',
       suggestedName: 'LazyBlue.png',
     );
@@ -257,16 +247,13 @@ class _MyHomePageState extends State<MyHomePage> {
     return item;
   }
 
-  Future<DragItem?> virtualFileDragItem(
-    AsyncValueGetter<DragImage> dragImage,
-    DragSession session,
-  ) async {
+  Future<DragItem?> virtualFileDragItem(DragItemRequest request) async {
     // For multi drag on iOS check if this item is already in the session
-    if (await session.hasLocalData('virtual-file-item')) {
+    if (await request.session.hasLocalData('virtual-file-item')) {
       return null;
     }
     final item = DragItem(
-      image: await dragImage(),
+      image: request.dragImage(),
       localData: 'virtual-file-item',
       suggestedName: 'VirtualFile.txt',
     );
@@ -290,15 +277,13 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   Future<DragItem?> multipleRepresentationsDragItem(
-    AsyncValueGetter<DragImage> dragImage,
-    DragSession session,
-  ) async {
+      DragItemRequest request) async {
     // For multi drag on iOS check if this item is already in the session
-    if (await session.hasLocalData('multiple-representations-item')) {
+    if (await request.session.hasLocalData('multiple-representations-item')) {
       return null;
     }
     final item = DragItem(
-      image: await dragImage(),
+      image: request.dragImage(),
       localData: 'multiple-representations-item',
     );
     item.add(Formats.png(await createImageData(Colors.pink)));

@@ -6,11 +6,10 @@ import 'drag_configuration.dart';
 import 'indexed.dart';
 
 extension DragImageIntoRaw on DragImage {
-  Future<raw.DragImage> intoRaw(double devicePixelRatio) async {
-    return raw.DragImage(
-      imageData: await raw.ImageData.fromImage(image,
-          devicePixelRatio: devicePixelRatio),
-      sourceRect: sourceRect,
+  Future<raw.DragImageData> intoRaw(double devicePixelRatio) async {
+    return raw.DragImageData(
+      image: await image.intoRaw(devicePixelRatio),
+      liftImage: await liftImage?.intoRaw(devicePixelRatio),
     );
   }
 }
@@ -29,10 +28,12 @@ extension DragItemsIntoRaw on List<DragItem> {
     }
     final items = <raw.DragItem>[];
     for (final item in indexed()) {
+      final image = item.value.image is Future
+          ? await item.value.image
+          : item.value.image as DragImage;
       items.add(raw.DragItem(
         dataProvider: handles[item.index],
-        liftImage: await item.value.liftImage?.intoRaw(devicePixelRatio),
-        image: await item.value.image.intoRaw(devicePixelRatio),
+        image: await image.intoRaw(devicePixelRatio),
         localData: item.value.localData,
       ));
     }

@@ -1,4 +1,4 @@
-import 'dart:ui' as ui;
+import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -6,22 +6,23 @@ import 'package:super_clipboard/super_clipboard.dart';
 import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 import 'package:super_native_extensions/raw_drag_drop.dart' as raw;
 
-/// Image representation of single [DragItem].
 class DragImage {
-  DragImage(this.image, this.sourceRect);
+  DragImage({
+    required this.image,
+    this.liftImage,
+  });
 
-  /// Image to be used as drag image.
-  final ui.Image image;
+  /// Image used while dragging
+  raw.TargettedImage image;
 
-  /// Initial position of drag image (in global coordinates).
-  final ui.Rect sourceRect;
+  /// If specified this image will be used for lift animation on iOS.
+  raw.TargettedImage? liftImage;
 }
 
 /// Represent single item being dragged in a [DragSession].
 class DragItem extends DataWriterItem {
   DragItem({
     super.suggestedName,
-    this.liftImage,
     required this.image,
     this.localData,
   });
@@ -33,11 +34,7 @@ class DragItem extends DataWriterItem {
           defaultTargetPlatform == TargetPlatform.windows ||
           defaultTargetPlatform == TargetPlatform.iOS);
 
-  /// If specified this image will be used for lift animation on iOS.
-  final DragImage? liftImage;
-
-  /// Image used while dragging
-  final DragImage image;
+  final FutureOr<DragImage> image;
 
   /// Data associated with this drag item that can be only read when dropping
   /// within same application. The data must be serializable with
@@ -50,7 +47,7 @@ class DragItem extends DataWriterItem {
 class DragOptions {
   const DragOptions({
     this.animatesToStartingPositionOnCancelOrFail = true,
-    this.prefersFullSizePreviews = false,
+    this.prefersFullSizePreviews = true,
   });
 
   /// macOS specific

@@ -126,7 +126,11 @@ abstract class _DragDetector extends StatelessWidget {
     required this.child,
   });
 
-  Drag? maybeStartDrag(int? pointer, Offset position, double devicePixelRatio) {
+  Drag? maybeStartDrag(
+      int? pointer, Offset position_, double devicePixelRatio) {
+    final position = Offset(
+        (position_.dx * devicePixelRatio).roundToDouble() / devicePixelRatio,
+        (position_.dy * devicePixelRatio).roundToDouble() / devicePixelRatio);
     final dragContext = _dragContext;
     if (dragContext != null) {
       final session = dragContext.newSession(pointer: pointer);
