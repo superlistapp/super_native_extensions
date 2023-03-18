@@ -141,11 +141,9 @@ pub fn image_data_to_hbitmap(image: &ImageData) -> NativeExtensionsResult<HBITMA
                     *src_line.offset(x + 3) as i32,
                 );
 
-                let (r, g, b) = if a == 0 {
-                    (0, 0, 0)
-                } else {
-                    (r * 255 / a, g * 255 / a, b * 255 / a)
-                };
+                // ByteFormat.rawStraightRgba already has unpremultiplied alpha
+                // but channel order is different.
+
                 *dst_line.offset(x) = b as u8;
                 *dst_line.offset(x + 1) = g as u8;
                 *dst_line.offset(x + 2) = r as u8;
