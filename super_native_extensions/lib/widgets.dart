@@ -3,5 +3,7 @@ export 'src/widgets/snapshot.dart'
         CustomSnapshotWidget,
         SnapshotType,
         SnapshotBuilder,
+        ConstraintsTransformProvider,
+        TranslationProvider,
         FallbackSnapshotWidget,
         Snapshotter;
