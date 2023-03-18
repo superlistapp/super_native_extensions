@@ -22,7 +22,8 @@ class ImageData {
     Image image, {
     double? devicePixelRatio,
   }) async {
-    final bytes = await image.toByteData(format: ImageByteFormat.rawRgba);
+    final bytes =
+        await image.toByteData(format: ImageByteFormat.rawStraightRgba);
     return ImageData(
         width: image.width,
         height: image.height,
