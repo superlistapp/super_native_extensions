@@ -332,7 +332,7 @@ class _FallbackSnapshotWidgetState extends State<FallbackSnapshotWidget>
 }
 
 class _SnapshotLayout extends MultiChildRenderObjectWidget {
-  const _SnapshotLayout({
+  _SnapshotLayout({
     // ignore: unused_element
     super.key,
     required super.children,
