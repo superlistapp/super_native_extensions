@@ -582,7 +582,7 @@ impl PlatformDataReader {
                 completer,
             );
             ReleaseStgMedium(&mut medium as *mut STGMEDIUM);
-            return future.await;
+            future.await
         }
     }
 }
