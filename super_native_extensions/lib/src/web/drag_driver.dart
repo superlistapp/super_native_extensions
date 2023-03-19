@@ -42,6 +42,12 @@ class DragDriver {
   bool _didReleasePointer = false;
 
   void _onPointerDataPacket(ui.PointerDataPacket packet) {
+    for (final data in packet.data) {
+      _onPointerDataPacketInner(ui.PointerDataPacket(data: [data]));
+    }
+  }
+
+  void _onPointerDataPacketInner(ui.PointerDataPacket packet) {
     // If this is not our packet pass it through.
     if (packet.data.any((element) => element.pointerIdentifier != pointer)) {
       _previousPointerDataPacketCallback?.call(packet);
