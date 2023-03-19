@@ -72,6 +72,7 @@ pub struct PlatformDataReader {
 struct FileDescriptor {
     name: String,
     format: String,
+    index: usize,
 }
 
 impl PlatformDataReader {
@@ -365,7 +366,8 @@ impl PlatformDataReader {
 
         let res: Vec<_> = files
             .iter()
-            .map(|f| {
+            .enumerate()
+            .map(|(index, f)| {
                 let file_name = f.cFileName;
                 let len = file_name
                     .iter()
@@ -374,7 +376,11 @@ impl PlatformDataReader {
                 let name = String::from_utf16_lossy(&file_name[0..len]);
                 let format = mime_from_name(&name);
                 let format = mime_to_windows(format);
-                FileDescriptor { name, format }
+                FileDescriptor {
+                    name,
+                    format,
+                    index,
+                }
             })
             .collect();
         Ok(res)
@@ -472,7 +478,7 @@ impl PlatformDataReader {
         _progress: Arc<ReadProgress>,
     ) -> NativeExtensionsResult<Option<Rc<dyn VirtualFileReader>>> {
         let descriptor = self.descriptor_for_virtual_file(item)?;
-        let mut medium = self.medium_for_virtual_file(item)?;
+        let mut medium = self.medium_for_virtual_file(&descriptor)?;
         let stream = Self::stream_from_medium(&medium);
         unsafe { ReleaseStgMedium(&mut medium as *mut STGMEDIUM) };
         let stream = stream?;
@@ -542,12 +548,15 @@ impl PlatformDataReader {
         Ok(descriptor.clone())
     }
 
-    fn medium_for_virtual_file(&self, item: i64) -> NativeExtensionsResult<STGMEDIUM> {
+    fn medium_for_virtual_file(
+        &self,
+        descriptor: &FileDescriptor,
+    ) -> NativeExtensionsResult<STGMEDIUM> {
         let format = unsafe { RegisterClipboardFormatW(CFSTR_FILECONTENTS) };
         let format = make_format_with_tymed_index(
             format,
             TYMED(TYMED_ISTREAM.0 | TYMED_HGLOBAL.0),
-            item as i32,
+            descriptor.index as i32,
         );
         if self.data_object.has_data_for_format(&format) {
             unsafe {
@@ -571,7 +580,7 @@ impl PlatformDataReader {
         progress: Arc<ReadProgress>,
     ) -> NativeExtensionsResult<PathBuf> {
         let descriptor = self.descriptor_for_virtual_file(item)?;
-        let mut medium = self.medium_for_virtual_file(item)?;
+        let mut medium = self.medium_for_virtual_file(&descriptor)?;
         unsafe {
             let (future, completer) = FutureCompleter::new();
             Self::do_copy_virtual_file(
