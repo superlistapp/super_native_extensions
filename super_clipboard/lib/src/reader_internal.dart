@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 import 'format.dart';
+import 'formats_base.dart';
 import 'reader_value.dart';
 import 'standard_formats.dart';
 import 'reader.dart';
@@ -131,12 +132,33 @@ class ItemDataReader extends ClipboardDataReader {
 
   @override
   ReadProgress? getFile(
-    FileFormat format,
+    FileFormat? format,
     AsyncValueChanged<DataReaderFile> onFile, {
     ValueChanged<Object>? onError,
     bool allowVirtualFiles = true,
     bool synthetizeFilesFromURIs = true,
   }) {
+    if (format == null &&
+        synthetizeFilesFromURIs &&
+        synthetizedFromURIFormat != null) {
+      format = SimpleFileFormat(fallbackFormats: [synthetizedFromURIFormat!]);
+    }
+
+    if (format == null && allowVirtualFiles && virtualReceivers.isNotEmpty) {
+      format = SimpleFileFormat(
+        fallbackFormats:
+            virtualReceivers.map((e) => e.format).toList(growable: false),
+      );
+    }
+
+    if (format == null && platformFormats.isNotEmpty) {
+      format = SimpleFileFormat(fallbackFormats: platformFormats);
+    }
+
+    if (format == null) {
+      return null;
+    }
+
     final handleError = onError ??
         (error) {
           Zone.current

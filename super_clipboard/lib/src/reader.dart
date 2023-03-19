@@ -92,7 +92,7 @@ abstract class DataReader {
   /// the end. On iOS the progress is bridged to underlying NSProgress object
   /// and should be more accurate and cancellable.
   raw.ReadProgress? getFile(
-    FileFormat format,
+    FileFormat? format,
     AsyncValueChanged<DataReaderFile> onFile, {
     ValueChanged<Object>? onError,
     bool allowVirtualFiles = true,
@@ -207,12 +207,15 @@ class ClipboardReader extends ClipboardDataReader {
 
   @override
   raw.ReadProgress? getFile(
-    FileFormat format,
+    FileFormat? format,
     AsyncValueChanged<DataReaderFile> onFile, {
     ValueChanged<Object>? onError,
     bool allowVirtualFiles = true,
     bool synthetizeFilesFromURIs = true,
   }) {
+    if (format == null) {
+      return null;
+    }
     final item =
         items.firstWhereOrNull((element) => element.canProvide(format));
     if (item != null) {
