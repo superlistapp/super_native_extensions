@@ -33,7 +33,7 @@ fn draw_shadow(image: &mut ImageData, radius: i32) {
 
     shadow.resize((image.width * image.height) as usize, 0);
     (0..data.len() / 4).for_each(|i| {
-        shadow[i] = (data[i * 4 + 3]) / 3;
+        shadow[i] = data[i * 4 + 3] / 3;
     });
 
     blur_image_data(
