@@ -37,18 +37,21 @@ void blurImageData(
   final radiusPlus1 = radius + 1;
   final sumFactor = radiusPlus1 * (radiusPlus1 + 1) ~/ 2;
 
-  final stackStart = _BlurStack();
-  var stack = stackStart;
-  late _BlurStack stackEnd;
-  for (int i = 1; i < div; i++) {
-    stack = stack.next = _BlurStack();
-    if (i == radiusPlus1) {
-      stackEnd = stack;
-    }
+  final stack = List<int>.filled(div, 0);
+
+  const stackStart = 0;
+  final stackEnd = radiusPlus1;
+
+  int stackIn = 0;
+  int stackOut = 0;
+
+  void nextStackIn() {
+    stackIn = (stackIn + 1) % stack.length;
   }
-  stack.next = stackStart;
-  late _BlurStack stackIn;
-  late _BlurStack stackOut;
+
+  void nextStackOut() {
+    stackOut = (stackOut + 1) % stack.length;
+  }
 
   final mulSum = _mulTable[radius];
   final shgSum = _shgTable[radius];
@@ -59,19 +62,16 @@ void blurImageData(
   for (var y = 0; y < height; y++) {
     var pr = pixels[yi], rOutSum = radiusPlus1 * pr, rSum = sumFactor * pr;
 
-    stack = stackStart;
-
     for (var i = 0; i < radiusPlus1; i++) {
-      stack.v = pr;
-      stack = stack.next;
+      stack[i] = pr;
     }
 
     var rInSum = 0;
     for (var i = 1; i < radiusPlus1; i++) {
       p = yi + ((widthMinus1 < i ? widthMinus1 : i));
-      rSum += (stack.v = (pr = pixels[p])) * (radiusPlus1 - i);
+      rSum +=
+          (stack[i - 1 + radiusPlus1] = (pr = pixels[p])) * (radiusPlus1 - i);
       rInSum += pr;
-      stack = stack.next;
     }
 
     stackIn = stackStart;
@@ -79,14 +79,14 @@ void blurImageData(
     for (var x = 0; x < width; x++) {
       pixels[yi] = (rSum * mulSum) >> shgSum;
       rSum -= rOutSum;
-      rOutSum -= stackIn.v;
+      rOutSum -= stack[stackIn];
       p = (yw + ((p = x + radius + 1) < widthMinus1 ? p : widthMinus1));
-      rInSum += (stackIn.v = pixels[p]);
+      rInSum += (stack[stackIn] = pixels[p]);
       rSum += rInSum;
-      stackIn = stackIn.next;
-      rOutSum += (pr = stackOut.v);
+      nextStackIn();
+      rOutSum += (pr = stack[stackOut]);
       rInSum -= pr;
-      stackOut = stackOut.next;
+      nextStackOut();
       yi += 1;
     }
     yw += width;
@@ -96,19 +96,16 @@ void blurImageData(
     yi = x;
     var pr = pixels[yi], rOutSum = radiusPlus1 * pr, rSum = sumFactor * pr;
 
-    stack = stackStart;
-
     for (var i = 0; i < radiusPlus1; i++) {
-      stack.v = pr;
-      stack = stack.next;
+      stack[i] = pr;
     }
 
     var rInSum = 0;
     for (var i = 1, yp = width; i <= radius; i++) {
       yi = (yp + x);
-      rSum += (stack.v = (pr = pixels[yi])) * (radiusPlus1 - i);
+      rSum +=
+          (stack[i - 1 + radiusPlus1] = (pr = pixels[yi])) * (radiusPlus1 - i);
       rInSum += pr;
-      stack = stack.next;
       if (i < heightMinus1) {
         yp += width;
       }
@@ -121,22 +118,17 @@ void blurImageData(
       p = yi;
       pixels[p] = (rSum * mulSum) >> shgSum;
       rSum -= rOutSum;
-      rOutSum -= stackIn.v;
+      rOutSum -= stack[stackIn];
       p = (x +
           (((p = y + radiusPlus1) < heightMinus1 ? p : heightMinus1) * width));
-      rSum += (rInSum += (stackIn.v = pixels[p]));
-      stackIn = stackIn.next;
-      rOutSum += (pr = stackOut.v);
+      rSum += (rInSum += (stack[stackIn] = pixels[p]));
+      nextStackIn();
+      rOutSum += (pr = stack[stackOut]);
       rInSum -= pr;
-      stackOut = stackOut.next;
+      nextStackOut();
       yi += width;
     }
   }
-}
-
-class _BlurStack {
-  int v = 0;
-  late _BlurStack next;
 }
 
 const _mulTable = [
