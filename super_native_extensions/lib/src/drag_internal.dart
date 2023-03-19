@@ -10,9 +10,9 @@ Future<TargettedImageData> combineDragImage(
   var combinedRect = Rect.zero;
   for (final item in configuration.items) {
     if (combinedRect.isEmpty) {
-      combinedRect = item.image.image.rect;
+      combinedRect = item.image.imageSource.rect;
     } else {
-      combinedRect = combinedRect.expandToInclude(item.image.image.rect);
+      combinedRect = combinedRect.expandToInclude(item.image.imageSource.rect);
     }
   }
   final scale =
@@ -24,9 +24,9 @@ Future<TargettedImageData> combineDragImage(
   final canvas = Canvas(recorder);
   canvas.scale(scale, scale);
   for (final item in configuration.items) {
-    final image = item.image.image.imageData.sourceImage;
+    final image = item.image.imageSource.image;
     final destinationRect =
-        item.image.image.rect.translate(-offset.dx, -offset.dy);
+        item.image.imageSource.rect.translate(-offset.dx, -offset.dy);
     canvas.drawImageRect(
         image,
         Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble()),

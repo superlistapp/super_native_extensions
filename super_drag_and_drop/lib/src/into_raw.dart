@@ -9,7 +9,9 @@ extension DragImageIntoRaw on DragImage {
   Future<raw.DragImageData> intoRaw(double devicePixelRatio) async {
     return raw.DragImageData(
       image: await image.intoRaw(devicePixelRatio),
+      imageSource: image,
       liftImage: await liftImage?.intoRaw(devicePixelRatio),
+      liftImageSource: liftImage,
     );
   }
 }

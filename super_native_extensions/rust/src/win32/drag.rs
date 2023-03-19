@@ -33,6 +33,7 @@ use crate::{
     error::{NativeExtensionsError, NativeExtensionsResult},
     log::OkLog,
     platform_impl::platform::data_object::DataObject,
+    shadow::WithShadow,
 };
 
 use super::{
@@ -181,6 +182,8 @@ impl PlatformDragContext {
         let drag_image = &request.combined_drag_image.ok_or_else(|| {
             NativeExtensionsError::OtherError("Missing combined drag image".into())
         })?;
+
+        let drag_image = drag_image.with_shadow(10);
 
         let data_object = DataObject::create(providers);
         let helper: IDragSourceHelper = create_instance(&CLSID_DragDropHelper)?;

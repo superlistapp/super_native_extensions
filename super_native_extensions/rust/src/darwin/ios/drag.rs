@@ -13,8 +13,10 @@ use cocoa::{
     base::{id, nil, BOOL, NO, YES},
     foundation::{NSArray, NSUInteger},
 };
+use core_foundation::base::TCFType;
 use core_graphics::{
     base::CGFloat,
+    color::CGColor,
     geometry::{CGPoint, CGRect, CGSize},
 };
 
@@ -236,7 +238,6 @@ impl Session {
                         let clear_color: id = msg_send![class!(UIColor), clearColor];
                         let () = msg_send![parameters, setBackgroundColor: clear_color];
 
-                        // TODO(knopp): Make this configurable
                         let shadow_path: id = msg_send![class!(UIBezierPath), bezierPathWithRect: CGRect{ origin: CGPoint { x: 0.0, y: 0.0 }, size: CGSize { width: 0.0, height: 0.0,} }];
                         let () = msg_send![parameters, setShadowPath: shadow_path];
 
@@ -280,16 +281,33 @@ impl Session {
                 } else {
                     item.lift_image.as_ref().unwrap_or(&item.image)
                 };
-                let image_view = image_view_from_data(drag_image.image_data.clone());
 
-                let () = msg_send![*self.view_container, addSubview:*image_view];
+                let inner = image_view_from_data(drag_image.image_data.clone());
 
+                let layer: id = msg_send![*inner, layer];
+                let () = msg_send![layer, setShadowOpacity: 0.5_f32];
+                // We can get away with larger radius for lift because it is not
+                // clipped by iOS.
+                let radius = if ty == ImageType::Drag { 2.0 } else { 3.5 };
+                let () = msg_send![layer, setShadowRadius: radius];
+                let () = msg_send![layer, setShadowOffset: CGSize::new(0.0, 0.0)];
+                let color = CGColor::rgb(0.0, 0.0, 0.0, 1.0);
+                let () = msg_send![layer, setShadowColor: color.as_concrete_TypeRef()];
+                let () = msg_send![layer, setMasksToBounds: NO];
+
+                let image_view: id = msg_send![class!(UIView), alloc];
                 let frame: CGRect = drag_image
                     .source_rect
                     .clone()
                     .translated(-100000.0, -100000.0)
+                    .inflated(4.0, 4.0)
                     .into();
-                let () = msg_send![*image_view, setFrame: frame];
+                let () = msg_send![image_view, initWithFrame: frame];
+                let image_view = StrongPtr::new(image_view);
+                let frame: CGRect = drag_image.source_rect.with_offset(5.0, 5.0).into();
+                let () = msg_send![*inner, setFrame: frame];
+                let () = msg_send![*image_view, addSubview:*inner];
+                let () = msg_send![*self.view_container, addSubview:*image_view];
 
                 image_view
             })
@@ -322,7 +340,6 @@ impl Session {
             let clear_color: id = msg_send![class!(UIColor), clearColor];
             let () = msg_send![parameters, setBackgroundColor: clear_color];
 
-            // TODO(knopp): Make this configurable
             let shadow_path: id = msg_send![class!(UIBezierPath), bezierPathWithRect: CGRect{ origin: CGPoint { x: 0.0, y: 0.0 }, size: CGSize { width: 0.0, height: 0.0,} }];
             let () = msg_send![parameters, setShadowPath: shadow_path];
 

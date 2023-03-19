@@ -13,6 +13,7 @@ use crate::{
     },
     error::{NativeExtensionsError, NativeExtensionsResult},
     log::OkLog,
+    shadow::WithShadow,
 };
 
 use super::{
@@ -135,6 +136,7 @@ impl PlatformDragContext {
         let image = &request.combined_drag_image.ok_or_else(|| {
             NativeExtensionsError::OtherError("Missing combined drag image".into())
         })?;
+        let image = image.with_shadow(10);
         let bitmap = Self::create_bitmap(&env, &image.image_data)?;
         let device_pixel_ratio = image.image_data.device_pixel_ratio.unwrap_or(1.0);
         let point_in_rect = Point {
