@@ -19,6 +19,7 @@ use irondash_message_channel::{irondash_init_message_channel_context, FunctionRe
 use reader_manager::GetDataReaderManager;
 
 mod api_model;
+mod blur;
 mod clipboard_reader;
 mod clipboard_writer;
 mod context;
@@ -30,6 +31,7 @@ mod hot_key_manager;
 mod keyboard_layout_manager;
 mod log;
 mod reader_manager;
+mod shadow;
 mod util;
 mod value_coerce;
 mod value_promise;

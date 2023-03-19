@@ -49,7 +49,7 @@ extension on ImageData {
       final a0 = a0_ / 255;
       final a1 = shadow[i] / 255;
 
-      final a = (a0 + a1 * (1 - a0));
+      final a = a0 + a1 * (1 - a0);
       final r = (r0 * a0) / a;
       final g = (g0 * a0) / a;
       final b = (b0 * a0) / a;

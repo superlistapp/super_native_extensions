@@ -60,7 +60,9 @@ void blurImageData(
   int yw = 0, yi = 0;
 
   for (var y = 0; y < height; y++) {
-    var pr = pixels[yi], rOutSum = radiusPlus1 * pr, rSum = sumFactor * pr;
+    var pr = pixels[yi];
+    var rOutSum = radiusPlus1 * pr;
+    var rSum = sumFactor * pr;
 
     for (var i = 0; i < radiusPlus1; i++) {
       stack[i] = pr;
@@ -94,7 +96,9 @@ void blurImageData(
 
   for (var x = 0; x < width; x++) {
     yi = x;
-    var pr = pixels[yi], rOutSum = radiusPlus1 * pr, rSum = sumFactor * pr;
+    var pr = pixels[yi];
+    var rOutSum = radiusPlus1 * pr;
+    var rSum = sumFactor * pr;
 
     for (var i = 0; i < radiusPlus1; i++) {
       stack[i] = pr;
