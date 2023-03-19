@@ -802,7 +802,29 @@ impl GetData for IDataObject {
     }
 
     unsafe fn do_query_get_data(&self, format: *const FORMATETC) -> HRESULT {
-        self.QueryGetData(format)
+        let res = self.QueryGetData(format);
+        // Workaround for Windows Explorer:
+        // When pasting data from Explorer QueryGetData will return DV_E_FORMATETC
+        // for CFSTR_FILECONTENTS when index is specified in format.
+        // This only affects QueryGetData, actually getting the data works as
+        // expected.
+        // https://github.com/superlistapp/super_native_extensions/issues/86
+        if res == DV_E_FORMATETC {
+            let format = unsafe { *format };
+            if format.lindex != -1
+                && format.cfFormat as u32 == unsafe { RegisterClipboardFormatW(CFSTR_FILECONTENTS) }
+            {
+                let format = FORMATETC {
+                    cfFormat: format.cfFormat,
+                    ptd: format.ptd,
+                    dwAspect: format.dwAspect,
+                    lindex: -1,
+                    tymed: format.tymed,
+                };
+                return self.QueryGetData(&format as *const _);
+            }
+        }
+        res
     }
 }
 
