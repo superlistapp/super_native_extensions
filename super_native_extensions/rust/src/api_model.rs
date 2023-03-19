@@ -10,10 +10,28 @@ pub struct Rect {
 }
 
 impl Rect {
+    pub fn xywh(x: f64, y: f64, width: f64, height: f64) -> Rect {
+        Rect {
+            x,
+            y,
+            width,
+            height,
+        }
+    }
+
     pub fn center(&self) -> Point {
         Point {
             x: self.x + self.width / 2.0,
             y: self.y + self.height / 2.0,
+        }
+    }
+
+    pub fn with_offset(&self, x: f64, y: f64) -> Rect {
+        Rect {
+            x,
+            y,
+            width: self.width,
+            height: self.height,
         }
     }
 
@@ -23,6 +41,15 @@ impl Rect {
             y: self.y + y,
             width: self.width,
             height: self.height,
+        }
+    }
+
+    pub fn inflated(&self, x: f64, y: f64) -> Rect {
+        Rect {
+            x: self.x - x,
+            y: self.y - y,
+            width: self.width + 2.0 * x,
+            height: self.height + 2.0 * y,
         }
     }
 }
