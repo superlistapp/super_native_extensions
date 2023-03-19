@@ -29,15 +29,19 @@ class DragConfiguration {
 class DragImageData {
   DragImageData({
     required this.image,
+    required this.imageSource,
     this.liftImage,
+    this.liftImageSource,
   });
 
   /// Image used while dragging.
   TargettedImageData image;
+  TargettedImage imageSource;
 
   /// Used on iPad during lift (before dragging starts). If not set normal
   /// drag image is used. This should closely resemble the widget being dragged.
   TargettedImageData? liftImage;
+  TargettedImage? liftImageSource;
 }
 
 class DragItem {

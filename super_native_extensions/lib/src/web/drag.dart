@@ -1,6 +1,7 @@
 import 'dart:html' as html;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
+import 'package:super_native_extensions/src/web/shadow.dart';
 import 'package:super_native_extensions/src/web/drag_driver.dart';
 
 import '../api_model.dart';
@@ -90,7 +91,7 @@ class _SessionState implements DragDriverDelegate {
     required ValueNotifier<Offset?> lastScreenLocation,
     required ValueNotifier<DropOperation?> dragCompleted,
   }) async {
-    final image = await combineDragImage(configuration);
+    final image = (await combineDragImage(configuration)).withShadow(14);
     final canvas = html.document.createElement('canvas') as html.CanvasElement;
     canvas.width = image.imageData.width;
     canvas.height = image.imageData.height;
@@ -103,9 +104,7 @@ class _SessionState implements DragDriverDelegate {
     html.document.body?.children.add(canvas);
     canvas.style.position = 'fixed';
     canvas.style.pointerEvents = 'none';
-    // TOOD(knopp): Disable box shadow for now; Need to be able to specify
-    // radius (same problem as on iOS)
-    // canvas.style.boxShadow = '0px 0px 14px #00000080';
+
     return _SessionState(
       configuration: configuration,
       image: image,

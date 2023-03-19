@@ -7,15 +7,27 @@ class ImageData {
     required this.height,
     required this.bytesPerRow,
     required this.data,
-    required this.sourceImage,
     this.devicePixelRatio,
   });
+
+  factory ImageData.allocate({
+    required int width,
+    required int height,
+    double? devicePixelRatio,
+  }) {
+    return ImageData(
+      width: width,
+      height: height,
+      bytesPerRow: width * 4,
+      data: Uint8List(width * height * 4),
+      devicePixelRatio: devicePixelRatio,
+    );
+  }
 
   final int width;
   final int height;
   final int bytesPerRow;
   final Uint8List data;
-  final Image sourceImage;
   final double? devicePixelRatio;
 
   static Future<ImageData> fromImage(
@@ -29,7 +41,6 @@ class ImageData {
         height: image.height,
         bytesPerRow: image.width * 4,
         data: bytes!.buffer.asUint8List(),
-        sourceImage: image,
         devicePixelRatio: devicePixelRatio);
   }
 }
