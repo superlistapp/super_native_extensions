@@ -52,7 +52,9 @@ class DragSessionImpl extends DragSession implements DragDriverDelegate {
 
   @override
   void update(Offset position) {
-    _state?.update(position);
+    if (!_ended) {
+      _state?.update(position);
+    }
   }
 
   bool _ended = false;
