@@ -225,11 +225,7 @@ impl Session {
                 let preview_provider: id = msg_send![item, previewProvider];
                 // If lift image is specified now create preview provider for dragging.
                 // If this is done when creating items the whole session leaks...
-                if preview_provider.is_null()
-                    && self.configuration.borrow().items[i as usize]
-                        .lift_image
-                        .is_some()
-                {
+                if preview_provider.is_null() {
                     let (index, _) = PlatformDragContext::item_info(item);
                     let image = self.image_view_for_item(index, ImageType::Drag);
                     let provider = ConcreteBlock::new(move || {
