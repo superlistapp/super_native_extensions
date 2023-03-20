@@ -210,7 +210,7 @@ impl IntoObjc for DragSessionId {
     }
 }
 
-pub fn image_view_from_data(image_data: ImageData) -> StrongPtr {
+pub fn image_from_image_data(image_data: ImageData) -> StrongPtr {
     let orientation_up: NSInteger = 0; // need to flip CGImage
     let pixel_ratio = image_data.device_pixel_ratio;
     let image = cg_image_from_image_data(image_data);
@@ -220,8 +220,13 @@ pub fn image_view_from_data(image_data: ImageData) -> StrongPtr {
         scale: pixel_ratio.unwrap_or(1.0) as CGFloat
         orientation: orientation_up]
     };
+    unsafe { StrongPtr::retain(image) }
+}
+
+pub fn image_view_from_data(image_data: ImageData) -> StrongPtr {
+    let image = image_from_image_data(image_data);
     let image_view: id = unsafe { msg_send![class!(UIImageView), alloc] };
-    unsafe { StrongPtr::new(msg_send![image_view, initWithImage: image]) }
+    unsafe { StrongPtr::new(msg_send![image_view, initWithImage: *image]) }
 }
 
 /// Ignores the notifications event while in scope.

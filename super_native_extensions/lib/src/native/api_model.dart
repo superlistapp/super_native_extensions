@@ -1,4 +1,5 @@
 import '../api_model.dart';
+import '../util.dart';
 
 extension ImageDataExt on ImageData {
   dynamic serialize() => {
@@ -7,5 +8,12 @@ extension ImageDataExt on ImageData {
         'bytesPerRow': bytesPerRow,
         'data': data,
         'devicePixelRatio': devicePixelRatio,
+      };
+}
+
+extension TargettedImageDataExt on TargetedImageData {
+  dynamic serialize() => {
+        'imageData': imageData.serialize(),
+        'rect': rect.serialize(),
       };
 }

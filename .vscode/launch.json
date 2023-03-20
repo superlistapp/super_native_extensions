@@ -94,5 +94,34 @@
                 "DISPLAY": ":0"
             }
         },
+        {
+            "name": "context menu example",
+            "cwd": "super_context_menu/example",
+            "request": "launch",
+            "type": "dart",
+            "env": {
+                "DISPLAY": ":0"
+            },
+        },
+        {
+            "name": "context menu example (profile mode)",
+            "cwd": "super_context_menu/example",
+            "request": "launch",
+            "flutterMode": "profile",
+            "type": "dart",
+            "env": {
+                "DISPLAY": ":0"
+            },
+        },
+        {
+            "name": "context menu example (release mode)",
+            "cwd": "super_context_menu/example",
+            "request": "launch",
+            "flutterMode": "release",
+            "type": "dart",
+            "env": {
+                "DISPLAY": ":0"
+            },
+        },
     ]
 }
