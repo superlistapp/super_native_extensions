@@ -34,7 +34,7 @@ use objc::{
 use once_cell::sync::Lazy;
 
 use crate::{
-    api_model::{DataProviderId, DragConfiguration, DragRequest, DropOperation, Point},
+    api_model::{DataProviderId, DragConfiguration, DragRequest, DropOperation, Point, Rect},
     data_provider_manager::DataProviderHandle,
     drag_manager::{
         DataProviderEntry, DragSessionId, GetAdditionalItemsResult, GetDragConfigurationResult,
@@ -144,6 +144,34 @@ impl Session {
             let drag_item: id = msg_send![drag_item, initWithItemProvider: item_provider];
             let drag_item: id = msg_send![drag_item, autorelease];
             let () = msg_send![drag_item, setLocalObject: local_object.into_objc().autorelease()];
+
+            if self.configuration.borrow().items[index]
+                .lift_image
+                .is_some()
+            {
+                let image = self.image_view_for_item(index, ImageType::Drag);
+                let provider = ConcreteBlock::new(move || {
+                    let parameters: id = msg_send![class!(UIDragPreviewParameters), new];
+                    let () = msg_send![parameters, autorelease];
+                    let clear_color: id = msg_send![class!(UIColor), clearColor];
+                    let () = msg_send![parameters, setBackgroundColor: clear_color];
+
+                    let empty_rect: CGRect = Rect::default().into();
+                    let shadow_path: id =
+                        msg_send![class!(UIBezierPath), bezierPathWithRect: empty_rect];
+                    let () = msg_send![parameters, setShadowPath: shadow_path];
+
+                    let image = image.clone().autorelease();
+                    let preview: id = msg_send![class!(UIDragPreview), alloc];
+                    let () = msg_send![preview, initWithView:image parameters: parameters];
+                    let () = msg_send![preview, autorelease];
+                    preview
+                });
+                let provider = provider.copy();
+
+                let () = msg_send![drag_item, setPreviewProvider: &*provider];
+            }
+
             drag_item
         }
     }
@@ -214,40 +242,9 @@ impl Session {
         self.in_progress.replace(true);
     }
 
-    fn did_move(&self, session: id, location: Point) {
+    fn did_move(&self, _session: id, location: Point) {
         if let Some(delegate) = self.context_delegate.upgrade() {
             delegate.drag_session_did_move_to_location(self.context_id, self.session_id, location);
-        }
-        unsafe {
-            let items: id = msg_send![session, items];
-            for i in 0..NSArray::count(items) {
-                let item = NSArray::objectAtIndex(items, i);
-                let preview_provider: id = msg_send![item, previewProvider];
-                // If lift image is specified now create preview provider for dragging.
-                // If this is done when creating items the whole session leaks...
-                if preview_provider.is_null() {
-                    let (index, _) = PlatformDragContext::item_info(item);
-                    let image = self.image_view_for_item(index, ImageType::Drag);
-                    let provider = ConcreteBlock::new(move || {
-                        let parameters: id = msg_send![class!(UIDragPreviewParameters), new];
-                        let () = msg_send![parameters, autorelease];
-                        let clear_color: id = msg_send![class!(UIColor), clearColor];
-                        let () = msg_send![parameters, setBackgroundColor: clear_color];
-
-                        let shadow_path: id = msg_send![class!(UIBezierPath), bezierPathWithRect: CGRect{ origin: CGPoint { x: 0.0, y: 0.0 }, size: CGSize { width: 0.0, height: 0.0,} }];
-                        let () = msg_send![parameters, setShadowPath: shadow_path];
-
-                        let image = image.clone().autorelease();
-                        let preview: id = msg_send![class!(UIDragPreview), alloc];
-                        let () = msg_send![preview, initWithView:image parameters: parameters];
-                        let () = msg_send![preview, autorelease];
-                        preview
-                    });
-                    let provider = provider.copy();
-
-                    let () = msg_send![item, setPreviewProvider: &*provider];
-                }
-            }
         }
     }
 
@@ -283,8 +280,13 @@ impl Session {
                 let layer: id = msg_send![*inner, layer];
                 let () = msg_send![layer, setShadowOpacity: 0.5_f32];
                 // We can get away with larger radius for lift because it is not
-                // clipped by iOS.
-                let radius = if ty == ImageType::Drag { 2.0 } else { 3.5 };
+                // clipped by iOS. But only if there is separate drag image
+                // (otherwise lift is used for drag image)
+                let radius = if ty == ImageType::Drag || item.lift_image.is_none() {
+                    2.2
+                } else {
+                    3.5
+                };
                 let () = msg_send![layer, setShadowRadius: radius];
                 let () = msg_send![layer, setShadowOffset: CGSize::new(0.0, 0.0)];
                 let color = CGColor::rgb(0.0, 0.0, 0.0, 1.0);
@@ -300,7 +302,7 @@ impl Session {
                     .into();
                 let () = msg_send![image_view, initWithFrame: frame];
                 let image_view = StrongPtr::new(image_view);
-                let frame: CGRect = drag_image.source_rect.with_offset(5.0, 5.0).into();
+                let frame: CGRect = drag_image.source_rect.with_offset(4.0, 4.0).into();
                 let () = msg_send![*inner, setFrame: frame];
                 let () = msg_send![*image_view, addSubview:*inner];
                 let () = msg_send![*self.view_container, addSubview:*image_view];
@@ -336,7 +338,8 @@ impl Session {
             let clear_color: id = msg_send![class!(UIColor), clearColor];
             let () = msg_send![parameters, setBackgroundColor: clear_color];
 
-            let shadow_path: id = msg_send![class!(UIBezierPath), bezierPathWithRect: CGRect{ origin: CGPoint { x: 0.0, y: 0.0 }, size: CGSize { width: 0.0, height: 0.0,} }];
+            let empty_rect: CGRect = Rect::default().into();
+            let shadow_path: id = msg_send![class!(UIBezierPath), bezierPathWithRect: empty_rect];
             let () = msg_send![parameters, setShadowPath: shadow_path];
 
             let target: id = msg_send![class!(UIPreviewTarget), alloc];
@@ -498,9 +501,6 @@ impl PlatformDragContext {
         // didEndWithOperation: and didTransferItems: are only called when session began drag,
         // but it is possible for lift to end without user actually dragging, which will
         // cancel the session; In which case we still want to cleanup the session state.
-        // Also note that there is a memory leak - if items have previewProvider set at the
-        // beginning the session will never get disposed :-/
-        // Setting previewProviders during dragging seems to work.
         let weak_self = self.weak_self.clone();
         let drop_notifier = Arc::new(DropNotifier::new(move || {
             if let Some(this) = weak_self.upgrade() {
