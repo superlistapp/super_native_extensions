@@ -23,7 +23,6 @@ use core_graphics::{
 use irondash_engine_context::EngineContext;
 use irondash_message_channel::{Late, Value};
 use irondash_run_loop::{platform::PollSession, RunLoop};
-use log::info;
 use objc::{
     class,
     declare::ClassDecl,
@@ -35,7 +34,7 @@ use objc::{
 use once_cell::sync::Lazy;
 
 use crate::{
-    api_model::{DataProviderId, DragConfiguration, DragRequest, DropOperation, Point},
+    api_model::{DataProviderId, DragConfiguration, DragRequest, DropOperation, Point, Rect},
     data_provider_manager::DataProviderHandle,
     drag_manager::{
         DataProviderEntry, DragSessionId, GetAdditionalItemsResult, GetDragConfigurationResult,
@@ -157,7 +156,9 @@ impl Session {
                     let clear_color: id = msg_send![class!(UIColor), clearColor];
                     let () = msg_send![parameters, setBackgroundColor: clear_color];
 
-                    let shadow_path: id = msg_send![class!(UIBezierPath), bezierPathWithRect: CGRect{ origin: CGPoint { x: 0.0, y: 0.0 }, size: CGSize { width: 0.0, height: 0.0,} }];
+                    let empty_rect: CGRect = Rect::default().into();
+                    let shadow_path: id =
+                        msg_send![class!(UIBezierPath), bezierPathWithRect: empty_rect];
                     let () = msg_send![parameters, setShadowPath: shadow_path];
 
                     let image = image.clone().autorelease();
@@ -337,7 +338,8 @@ impl Session {
             let clear_color: id = msg_send![class!(UIColor), clearColor];
             let () = msg_send![parameters, setBackgroundColor: clear_color];
 
-            let shadow_path: id = msg_send![class!(UIBezierPath), bezierPathWithRect: CGRect{ origin: CGPoint { x: 0.0, y: 0.0 }, size: CGSize { width: 0.0, height: 0.0,} }];
+            let empty_rect: CGRect = Rect::default().into();
+            let shadow_path: id = msg_send![class!(UIBezierPath), bezierPathWithRect: empty_rect];
             let () = msg_send![parameters, setShadowPath: shadow_path];
 
             let target: id = msg_send![class!(UIPreviewTarget), alloc];
