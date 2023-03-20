@@ -56,7 +56,7 @@ extension DurationExt on Duration {
 Future<T> handleError<T>(Future<T> Function() f, T Function() def) async {
   try {
     return await f();
-  } on Error catch (e, s) {
+  } catch (e, s) {
     Zone.current.handleUncaughtError(e, s);
     return def();
   }

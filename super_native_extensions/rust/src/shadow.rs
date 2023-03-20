@@ -1,5 +1,5 @@
 use crate::{
-    api_model::{DragImage, ImageData},
+    api_model::{ImageData, TargettedImage},
     blur::blur_image_data,
 };
 
@@ -81,15 +81,15 @@ pub trait WithShadow {
     fn with_shadow(&self, radius: i32) -> Self;
 }
 
-impl WithShadow for DragImage {
+impl WithShadow for TargettedImage {
     fn with_shadow(&self, radius: i32) -> Self {
         let adjusted_radius =
             ((radius as f64) * self.image_data.device_pixel_ratio.unwrap_or(1.0)) as i32;
         let mut image_data = inflate_image_data(&self.image_data, adjusted_radius);
         draw_shadow(&mut image_data, adjusted_radius);
-        DragImage {
+        TargettedImage {
             image_data,
-            source_rect: self.source_rect.inflated(radius as f64, radius as f64),
+            rect: self.rect.inflated(radius as f64, radius as f64),
         }
     }
 }

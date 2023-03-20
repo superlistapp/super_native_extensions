@@ -18,6 +18,9 @@ pub enum NativeExtensionsError {
     DragSessionNotFound,
     MouseEventNotFound,
     EngineContextError(irondash_engine_context::Error),
+    PlatformMenuNotFound,
+    InvalidMenuElement,
+    InvalidMenuConfigurationId,
 }
 
 pub type NativeExtensionsResult<T> = Result<T, NativeExtensionsError>;
@@ -47,6 +50,11 @@ impl Display for NativeExtensionsError {
             NativeExtensionsError::DragSessionNotFound => write!(f, "drag session not found"),
             NativeExtensionsError::MouseEventNotFound => write!(f, "mouse event not found"),
             NativeExtensionsError::EngineContextError(e) => e.fmt(f),
+            NativeExtensionsError::PlatformMenuNotFound => write!(f, "platform menu not found"),
+            NativeExtensionsError::InvalidMenuElement => write!(f, "invalid menu element"),
+            NativeExtensionsError::InvalidMenuConfigurationId => {
+                write!(f, "invalid menu configuration id")
+            }
         }
     }
 }
@@ -72,6 +80,11 @@ impl NativeExtensionsError {
             NativeExtensionsError::DragSessionNotFound => "dragSessionNotFound".into(),
             NativeExtensionsError::MouseEventNotFound => "mouseEventNotFound".into(),
             NativeExtensionsError::EngineContextError(_) => "engineContextError".into(),
+            NativeExtensionsError::PlatformMenuNotFound => "platformMenuNotFound".into(),
+            NativeExtensionsError::InvalidMenuElement => "invalidMenuElement".into(),
+            NativeExtensionsError::InvalidMenuConfigurationId => {
+                "invalidMenuConfigurationId".into()
+            }
         }
     }
 }

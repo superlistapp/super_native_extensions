@@ -320,7 +320,7 @@ class MobileDragDetector extends _DragDetector {
 bool _initialized = false;
 raw.DragContext? _dragContext;
 
-Future<void> _initializeIfNeeded() async {
+void _initializeIfNeeded() async {
   if (!_initialized) {
     _initialized = true;
     _dragContext = await raw.DragContext.instance();

@@ -1,4 +1,8 @@
+use std::rc::Rc;
+
 use irondash_message_channel::{IntoValue, TryFromValue, Value};
+
+use crate::platform_impl::platform::PlatformMenu;
 
 #[derive(Clone, Debug, Default, PartialEq, TryFromValue, IntoValue)]
 #[irondash(rename_all = "camelCase")]
@@ -157,9 +161,9 @@ pub enum VirtualFileStorage {
 
 #[derive(TryFromValue, Debug)]
 #[irondash(rename_all = "camelCase")]
-pub struct DragImage {
+pub struct TargettedImage {
     pub image_data: ImageData,
-    pub source_rect: Rect,
+    pub rect: Rect,
 }
 
 #[derive(TryFromValue, Debug)]
@@ -167,8 +171,8 @@ pub struct DragImage {
 pub struct DragItem {
     pub data_provider_id: DataProviderId,
     /// optionally used on iPad during lifting (before dragging start)
-    pub lift_image: Option<DragImage>,
-    pub image: DragImage,
+    pub lift_image: Option<TargettedImage>,
+    pub image: TargettedImage,
     pub local_data: Value,
 }
 
@@ -191,7 +195,7 @@ impl DragConfiguration {
 #[irondash(rename_all = "camelCase")]
 pub struct DragRequest {
     pub configuration: DragConfiguration,
-    pub combined_drag_image: Option<DragImage>,
+    pub combined_drag_image: Option<TargettedImage>,
     pub position: Point,
 }
 
@@ -204,4 +208,71 @@ pub enum DropOperation {
     Copy,          // macOS, iOS, Windows, Linux, Android
     Move,          // macOS, iOS (within same app), Windows, Linux
     Link,          // macOS, Windows, Linux
+}
+
+#[derive(TryFromValue, Debug)]
+#[irondash(rename_all = "camelCase")]
+pub struct MenuConfiguration {
+    pub configuration_id: i64,
+    pub image: TargettedImage,
+    pub lift_image: Option<TargettedImage>,
+    pub menu_handle: i64,
+    #[irondash(skip)]
+    pub menu: Option<Rc<PlatformMenu>>,
+}
+
+#[derive(TryFromValue, Debug)]
+#[irondash(rename_all = "camelCase")]
+pub struct DeferredMenuResponse {
+    pub elements: Vec<MenuElement>,
+}
+
+#[derive(TryFromValue, Debug)]
+#[irondash(rename_all = "camelCase")]
+pub struct MenuElementAttributes {
+    pub disabled: bool,
+    pub destructive: bool,
+}
+
+#[derive(TryFromValue, Debug)]
+#[irondash(rename_all = "camelCase")]
+pub struct Menu {
+    pub unique_id: i64,
+    pub identifier: Option<String>,
+    pub title: Option<String>,
+    pub subitle: Option<String>,
+    pub image: Option<ImageData>,
+    pub children: Vec<MenuElement>,
+}
+
+#[derive(TryFromValue, Debug)]
+#[irondash(rename_all = "camelCase")]
+pub struct MenuAction {
+    pub unique_id: i64,
+    pub identifier: Option<String>,
+    pub title: Option<String>,
+    pub subitle: Option<String>,
+    pub attributes: MenuElementAttributes,
+    pub image: Option<ImageData>,
+}
+
+#[derive(TryFromValue, Debug)]
+#[irondash(rename_all = "camelCase")]
+pub struct DeferredMenuElement {
+    pub unique_id: i64,
+}
+
+#[derive(TryFromValue, Debug)]
+#[irondash(rename_all = "camelCase")]
+pub struct MenuSeparator {
+    pub title: Option<String>,
+}
+
+#[derive(TryFromValue, Debug)]
+#[irondash(rename_all = "camelCase", tag = "type", content = "content")]
+pub enum MenuElement {
+    Action(MenuAction),
+    Menu(Menu),
+    Deferred(DeferredMenuElement),
+    Separator(MenuSeparator),
 }

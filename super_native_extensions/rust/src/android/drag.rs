@@ -140,8 +140,8 @@ impl PlatformDragContext {
         let bitmap = Self::create_bitmap(&env, &image.image_data)?;
         let device_pixel_ratio = image.image_data.device_pixel_ratio.unwrap_or(1.0);
         let point_in_rect = Point {
-            x: (request.position.x - image.source_rect.x) * device_pixel_ratio,
-            y: (request.position.y - image.source_rect.y) * device_pixel_ratio,
+            x: (request.position.x - image.rect.x) * device_pixel_ratio,
+            y: (request.position.y - image.rect.y) * device_pixel_ratio,
         };
 
         let mut sessions = self.sessions.borrow_mut();

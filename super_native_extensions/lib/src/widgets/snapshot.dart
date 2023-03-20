@@ -11,6 +11,9 @@ enum SnapshotType {
 
   /// Snapshot used during dragging.
   drag,
+
+  /// Snapshot for context menu.
+  menu,
 }
 
 typedef Translation = Offset Function(

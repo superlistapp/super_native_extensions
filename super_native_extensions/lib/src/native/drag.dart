@@ -33,13 +33,6 @@ extension DragItemExt on DragItem {
       };
 }
 
-extension DragImageExt on TargetedImageData {
-  dynamic serialize() => {
-        'imageData': imageData.serialize(),
-        'sourceRect': rect.serialize(),
-      };
-}
-
 extension DragRequestExt on DragRequest {
   dynamic serialize() => {
         'configuration': configuration.serialize(),

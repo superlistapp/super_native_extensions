@@ -146,7 +146,7 @@ impl PlatformDragContext {
                 let dragging_item: id = msg_send![dragging_item, autorelease];
 
                 let image = &item.image;
-                let mut rect: NSRect = image.source_rect.clone().into();
+                let mut rect: NSRect = image.rect.clone().into();
                 flip_rect(*self.view, &mut rect);
                 let snapshot = ns_image_from_image_data(vec![image.image_data.clone()]);
 
