@@ -13,10 +13,10 @@ class DragImage {
   });
 
   /// Image used while dragging
-  raw.TargettedImage image;
+  raw.TargetedImage image;
 
   /// If specified this image will be used for lift animation on iOS.
-  raw.TargettedImage? liftImage;
+  raw.TargetedImage? liftImage;
 }
 
 /// Represent single item being dragged in a [DragSession].

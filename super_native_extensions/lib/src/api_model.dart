@@ -46,8 +46,8 @@ class ImageData {
 }
 
 /// Image representation of part of user interface.
-class TargettedImage {
-  TargettedImage(this.image, this.rect);
+class TargetedImage {
+  TargetedImage(this.image, this.rect);
 
   /// Image to be used as avatar image.
   final Image image;
@@ -56,8 +56,8 @@ class TargettedImage {
   final Rect rect;
 }
 
-class TargettedImageData {
-  TargettedImageData({
+class TargetedImageData {
+  TargetedImageData({
     required this.imageData,
     required this.rect,
   });
@@ -66,9 +66,9 @@ class TargettedImageData {
   final Rect rect;
 }
 
-extension TargettedImageIntoRaw on TargettedImage {
-  Future<TargettedImageData> intoRaw(double devicePixelRatio) async {
-    return TargettedImageData(
+extension TargetedImageIntoRaw on TargetedImage {
+  Future<TargetedImageData> intoRaw(double devicePixelRatio) async {
+    return TargetedImageData(
       imageData:
           await ImageData.fromImage(image, devicePixelRatio: devicePixelRatio),
       rect: rect,
