@@ -81,7 +81,7 @@ class DragSessionImpl extends DragSession implements DragDriverDelegate {
 
 class _SessionState implements DragDriverDelegate {
   final DragConfiguration configuration;
-  final TargettedImageData image;
+  final TargetedImageData image;
   final Offset originalPosition;
   final html.CanvasElement canvas;
   final ValueNotifier<Offset?> lastScreenLocation;

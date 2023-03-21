@@ -79,7 +79,7 @@ abstract class Snapshotter {
 
   set armed(bool armed);
 
-  Future<TargettedImage?> getSnapshot(Offset location, SnapshotType? type);
+  Future<TargetedImage?> getSnapshot(Offset location, SnapshotType? type);
 }
 
 class _PendingSnapshot {
@@ -87,10 +87,10 @@ class _PendingSnapshot {
 
   final SnapshotType? type;
   final Offset location;
-  final Completer<TargettedImage?> completer;
+  final Completer<TargetedImage?> completer;
 }
 
-TargettedImage _getSnapshot(
+TargetedImage _getSnapshot(
     BuildContext context,
     RenderRepaintBoundary renderObject,
     Offset location,
@@ -109,7 +109,7 @@ TargettedImage _getSnapshot(
   }
 
   final rect = MatrixUtils.transformRect(transform, r.shift(offset));
-  return TargettedImage(image, rect);
+  return TargetedImage(image, rect);
 }
 
 class _ZeroClipper extends CustomClipper<Rect> {
@@ -240,8 +240,8 @@ class _CustomSnapshotWidgetState extends State<CustomSnapshotWidget>
   }
 
   @override
-  Future<TargettedImage?> getSnapshot(Offset location, SnapshotType? type) {
-    final completer = Completer<TargettedImage?>();
+  Future<TargetedImage?> getSnapshot(Offset location, SnapshotType? type) {
+    final completer = Completer<TargetedImage?>();
     _pendingSnapshots.add(_PendingSnapshot(type, location, completer));
     _checkSnapshots();
     return completer.future;
@@ -285,13 +285,13 @@ class _FallbackSnapshotWidgetState extends State<FallbackSnapshotWidget>
   }
 
   @override
-  Future<TargettedImage?> getSnapshot(Offset location, SnapshotType? type) {
+  Future<TargetedImage?> getSnapshot(Offset location, SnapshotType? type) {
     if (type != null) {
       return Future.value(null);
     }
 
     final snapshot =
-        _PendingSnapshot(null, location, Completer<TargettedImage>());
+        _PendingSnapshot(null, location, Completer<TargetedImage>());
     _pendingSnapshots.add(snapshot);
     _checkSnapshot();
     return snapshot.completer.future;

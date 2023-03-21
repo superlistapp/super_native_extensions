@@ -33,7 +33,7 @@ extension DragItemExt on DragItem {
       };
 }
 
-extension DragImageExt on TargettedImageData {
+extension DragImageExt on TargetedImageData {
   dynamic serialize() => {
         'imageData': imageData.serialize(),
         'sourceRect': rect.serialize(),

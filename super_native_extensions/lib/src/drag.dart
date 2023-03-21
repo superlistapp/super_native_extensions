@@ -35,13 +35,13 @@ class DragImageData {
   });
 
   /// Image used while dragging.
-  TargettedImageData image;
-  TargettedImage imageSource;
+  TargetedImageData image;
+  TargetedImage imageSource;
 
   /// Used on iPad during lift (before dragging starts). If not set normal
   /// drag image is used. This should closely resemble the widget being dragged.
-  TargettedImageData? liftImage;
-  TargettedImage? liftImageSource;
+  TargetedImageData? liftImage;
+  TargetedImage? liftImageSource;
 }
 
 class DragItem {
@@ -66,7 +66,7 @@ class DragRequest {
 
   final DragConfiguration configuration;
   final ui.Offset position;
-  final TargettedImageData? combinedDragImage;
+  final TargetedImageData? combinedDragImage;
 }
 
 /// Represents a drag session. Allows inspecting local drag data and

@@ -61,11 +61,11 @@ extension on ImageData {
   }
 }
 
-extension ImageDataShadow on TargettedImageData {
-  TargettedImageData withShadow(int radius) {
+extension ImageDataShadow on TargetedImageData {
+  TargetedImageData withShadow(int radius) {
     final adjustedRadius =
         (radius * (imageData.devicePixelRatio ?? 1.0)).round();
-    return TargettedImageData(
+    return TargetedImageData(
         imageData: imageData.inflate(adjustedRadius)
           ..drawShadow(adjustedRadius),
         rect: rect.inflate(radius.toDouble()));

@@ -118,7 +118,7 @@ class DragItemWidgetState extends State<DragItemWidget> {
       // TODO(knopp): Handle this better.
       throw _SnapshotException('Failed get drag snapshot.');
     }
-    raw.TargettedImage? liftImage;
+    raw.TargetedImage? liftImage;
     if (defaultTargetPlatform == TargetPlatform.iOS) {
       liftImage = await snapshotter.getSnapshot(location, SnapshotType.lift);
       // If there is no custom lift image but custom drag snapshot, use

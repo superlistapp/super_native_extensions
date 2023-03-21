@@ -5,7 +5,7 @@ import 'package:collection/collection.dart';
 import 'api_model.dart';
 import 'drag.dart';
 
-Future<TargettedImageData> combineDragImage(
+Future<TargetedImageData> combineDragImage(
     DragConfiguration configuration) async {
   var combinedRect = Rect.zero;
   for (final item in configuration.items) {
@@ -37,7 +37,7 @@ Future<TargettedImageData> combineDragImage(
   final image = await picture.toImage(
       (rect.width * scale).ceil(), (rect.height * scale).ceil());
 
-  return TargettedImageData(
+  return TargetedImageData(
     imageData: await ImageData.fromImage(image, devicePixelRatio: scale),
     rect: combinedRect,
   );
