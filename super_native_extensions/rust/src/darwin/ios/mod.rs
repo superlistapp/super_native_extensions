@@ -1,3 +1,4 @@
+mod alpha_to_path;
 mod data_provider;
 mod drag;
 mod drag_common;

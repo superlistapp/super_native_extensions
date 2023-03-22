@@ -13,11 +13,10 @@ use cocoa::{
     base::{id, nil, BOOL, NO, YES},
     foundation::{NSArray, NSUInteger},
 };
-use core_foundation::base::TCFType;
+
 use core_graphics::{
     base::CGFloat,
-    color::CGColor,
-    geometry::{CGPoint, CGRect, CGSize},
+    geometry::{CGPoint, CGRect},
 };
 
 use irondash_engine_context::EngineContext;
@@ -34,7 +33,7 @@ use objc::{
 use once_cell::sync::Lazy;
 
 use crate::{
-    api_model::{DataProviderId, DragConfiguration, DragRequest, DropOperation, Point, Rect},
+    api_model::{DataProviderId, DragConfiguration, DragRequest, DropOperation, Point},
     data_provider_manager::DataProviderHandle,
     drag_manager::{
         DataProviderEntry, DragSessionId, GetAdditionalItemsResult, GetDragConfigurationResult,
@@ -50,6 +49,7 @@ use crate::{
 };
 
 use super::{
+    alpha_to_path::bezier_path_for_alpha,
     drag_common::{DropOperationExt, UIDropOperation},
     util::{image_view_from_data, IntoObjc},
     DataProviderSessionDelegate, PlatformDataProvider,
@@ -145,21 +145,17 @@ impl Session {
             let drag_item: id = msg_send![drag_item, autorelease];
             let () = msg_send![drag_item, setLocalObject: local_object.into_objc().autorelease()];
 
-            if self.configuration.borrow().items[index]
-                .lift_image
-                .is_some()
-            {
+            let configuration = self.configuration.borrow();
+            let lift_image = configuration.items[index].lift_image.as_ref();
+            if let Some(lift_image) = lift_image {
                 let image = self.image_view_for_item(index, ImageType::Drag);
+                let shadow_path = bezier_path_for_alpha(&lift_image.image_data);
                 let provider = ConcreteBlock::new(move || {
                     let parameters: id = msg_send![class!(UIDragPreviewParameters), new];
                     let () = msg_send![parameters, autorelease];
                     let clear_color: id = msg_send![class!(UIColor), clearColor];
                     let () = msg_send![parameters, setBackgroundColor: clear_color];
-
-                    let empty_rect: CGRect = Rect::default().into();
-                    let shadow_path: id =
-                        msg_send![class!(UIBezierPath), bezierPathWithRect: empty_rect];
-                    let () = msg_send![parameters, setShadowPath: shadow_path];
+                    let () = msg_send![parameters, setShadowPath: *shadow_path];
 
                     let image = image.clone().autorelease();
                     let preview: id = msg_send![class!(UIDragPreview), alloc];
@@ -275,36 +271,14 @@ impl Session {
                     item.lift_image.as_ref().unwrap_or(&item.image)
                 };
 
-                let inner = image_view_from_data(drag_image.image_data.clone());
+                let image_view = image_view_from_data(drag_image.image_data.clone());
 
-                let layer: id = msg_send![*inner, layer];
-                let () = msg_send![layer, setShadowOpacity: 0.5_f32];
-                // We can get away with larger radius for lift because it is not
-                // clipped by iOS. But only if there is separate drag image
-                // (otherwise lift is used for drag image)
-                let radius = if ty == ImageType::Drag || item.lift_image.is_none() {
-                    2.2
-                } else {
-                    3.5
-                };
-                let () = msg_send![layer, setShadowRadius: radius];
-                let () = msg_send![layer, setShadowOffset: CGSize::new(0.0, 0.0)];
-                let color = CGColor::rgb(0.0, 0.0, 0.0, 1.0);
-                let () = msg_send![layer, setShadowColor: color.as_concrete_TypeRef()];
-                let () = msg_send![layer, setMasksToBounds: NO];
-
-                let image_view: id = msg_send![class!(UIView), alloc];
                 let frame: CGRect = drag_image
                     .source_rect
                     .clone()
                     .translated(-100000.0, -100000.0)
-                    .inflated(4.0, 4.0)
                     .into();
-                let () = msg_send![image_view, initWithFrame: frame];
-                let image_view = StrongPtr::new(image_view);
-                let frame: CGRect = drag_image.source_rect.with_offset(4.0, 4.0).into();
-                let () = msg_send![*inner, setFrame: frame];
-                let () = msg_send![*image_view, addSubview:*inner];
+                let () = msg_send![*image_view, setFrame: frame];
                 let () = msg_send![*self.view_container, addSubview:*image_view];
 
                 image_view
@@ -338,9 +312,8 @@ impl Session {
             let clear_color: id = msg_send![class!(UIColor), clearColor];
             let () = msg_send![parameters, setBackgroundColor: clear_color];
 
-            let empty_rect: CGRect = Rect::default().into();
-            let shadow_path: id = msg_send![class!(UIBezierPath), bezierPathWithRect: empty_rect];
-            let () = msg_send![parameters, setShadowPath: shadow_path];
+            let shadow_path = bezier_path_for_alpha(&drag_image.image_data);
+            let () = msg_send![parameters, setShadowPath: *shadow_path];
 
             let target: id = msg_send![class!(UIPreviewTarget), alloc];
             let center: CGPoint = drag_image.source_rect.center().into();
