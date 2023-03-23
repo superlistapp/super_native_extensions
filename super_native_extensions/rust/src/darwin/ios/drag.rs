@@ -146,10 +146,11 @@ impl Session {
             let () = msg_send![drag_item, setLocalObject: local_object.into_objc().autorelease()];
 
             let configuration = self.configuration.borrow();
-            let lift_image = configuration.items[index].lift_image.as_ref();
-            if let Some(lift_image) = lift_image {
+            let item = &configuration.items[index];
+            if item.lift_image.is_some() {
+                // separate lift image means we need to register preview provider for drag image
                 let image = self.image_view_for_item(index, ImageType::Drag);
-                let shadow_path = bezier_path_for_alpha(&lift_image.image_data);
+                let shadow_path = bezier_path_for_alpha(&item.image.image_data);
                 let provider = ConcreteBlock::new(move || {
                     let parameters: id = msg_send![class!(UIDragPreviewParameters), new];
                     let () = msg_send![parameters, autorelease];
