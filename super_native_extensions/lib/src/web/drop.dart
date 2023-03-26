@@ -330,13 +330,23 @@ class DropContextImpl extends DropContext {
     _onDragLeave();
   }
 
+  /// Last element received dragEnter event. We ignore all dragLeave events
+  /// from other elements becuase when using platform view the drag events
+  /// are not propagated to parent elements.
+  /// https://github.com/superlistapp/super_native_extensions/issues/98
+  html.EventTarget? _lastDragEnter;
+
   @override
   Future<void> initialize() async {
     html.document.addEventListener('dragenter', (event) {
+      final inProgress = _lastDragEnter != null;
+      _lastDragEnter = event.target;
       event.preventDefault();
-      final dataTransfer =
-          js_util.getProperty(event, 'dataTransfer') as html.DataTransfer;
-      _onDragEnter(dataTransfer, event as html.MouseEvent);
+      if (!inProgress) {
+        final dataTransfer =
+            js_util.getProperty(event, 'dataTransfer') as html.DataTransfer;
+        _onDragEnter(dataTransfer, event as html.MouseEvent);
+      }
     });
     html.document.addEventListener('dragover', (event) {
       event.preventDefault();
@@ -346,11 +356,17 @@ class DropContextImpl extends DropContext {
     });
     html.document.addEventListener('drop', (event) async {
       event.preventDefault();
+      _lastDragEnter = null;
       final dataTransfer =
           js_util.getProperty(event, 'dataTransfer') as html.DataTransfer;
       _onDrop(dataTransfer, event as html.MouseEvent);
     });
     html.document.addEventListener('dragleave', (event) {
+      if (_lastDragEnter != event.target) {
+        return;
+      } else {
+        _lastDragEnter = null;
+      }
       event.preventDefault();
       _onDragLeave();
     });
