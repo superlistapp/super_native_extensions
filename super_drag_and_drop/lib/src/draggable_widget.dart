@@ -110,24 +110,34 @@ class DragItemWidgetState extends State<DragItemWidget> {
     final snapshotter = Snapshotter.of(_innerContext!)!;
     final dragSnapshot =
         await snapshotter.getSnapshot(location, SnapshotType.drag);
-    final snapshot =
-        dragSnapshot ?? await snapshotter.getSnapshot(location, null);
+
+    raw.TargetedImage? liftSnapshot;
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      liftSnapshot = await snapshotter.getSnapshot(location, SnapshotType.lift);
+      // If there is no custom lift image but custom drag snapshot, use
+      // default image as lift image for smoother transition.
+      if (liftSnapshot == null && dragSnapshot != null) {
+        liftSnapshot = await snapshotter.getSnapshot(location, null);
+      }
+    }
+
+    final snapshot = dragSnapshot ??
+        liftSnapshot ??
+        await snapshotter.getSnapshot(location, null);
+
+    if (snapshot == liftSnapshot) {
+      // No need to pass two identical images to iOS, it would just look weird,
+      // because iOS would animate transition from lift to drag on same image.
+      liftSnapshot = null;
+    }
 
     if (snapshot == null) {
       // This might happen if widget is removed before snapshot is ready.
       // TODO(knopp): Handle this better.
       throw _SnapshotException('Failed get drag snapshot.');
     }
-    raw.TargetedImage? liftImage;
-    if (defaultTargetPlatform == TargetPlatform.iOS) {
-      liftImage = await snapshotter.getSnapshot(location, SnapshotType.lift);
-      // If there is no custom lift image but custom drag snapshot, use
-      // default image as lift image for smoother transition.
-      if (liftImage == null && dragSnapshot != null) {
-        liftImage = await snapshotter.getSnapshot(location, null);
-      }
-    }
-    return DragImage(image: snapshot, liftImage: liftImage);
+
+    return DragImage(image: snapshot, liftImage: liftSnapshot);
   }
 
   Future<DragItem?> createItem(Offset location, raw.DragSession session) async {
