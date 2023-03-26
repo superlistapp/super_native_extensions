@@ -13,22 +13,6 @@ enum SnapshotType {
   drag,
 }
 
-typedef TranslationProvider = Offset Function(
-  /// Snapshot rectangle in local coordinates.
-  Rect rect,
-
-  /// Drag position within the rectangle.
-  Offset dragPosition,
-
-  /// Type of snapshot.
-  SnapshotType type,
-);
-
-typedef ConstraintsTransformProvider = BoxConstraints Function(
-  BoxConstraints constraints,
-  SnapshotType type,
-);
-
 typedef SnapshotBuilder = Widget Function(
   BuildContext context,
 
@@ -37,14 +21,42 @@ typedef SnapshotBuilder = Widget Function(
   SnapshotType? type,
 );
 
+typedef Translation = Offset Function(
+  /// Snapshot rectangle in local coordinates.
+  Rect rect,
+
+  /// Drag position within the rectangle.
+  Offset dragPosition,
+);
+
+/// Wrapper widget that allows customizing snapshot settings.
+class SnapshotSettings extends StatefulWidget {
+  const SnapshotSettings({
+    super.key,
+    required this.child,
+    this.constraintsTransform,
+    this.translation,
+  });
+
+  final Widget child;
+
+  /// Allows to transform constraints for snapshot widget. The resulting
+  /// constraints may exceed parent constraints without causing an error.
+  final BoxConstraintsTransform? constraintsTransform;
+
+  /// Allows to transform snapshot location.
+  final Translation? translation;
+
+  @override
+  State<SnapshotSettings> createState() => _SnapshotSettingsState();
+}
+
 /// Widget that provides custom dragging snapshots.
 class CustomSnapshotWidget extends StatefulWidget {
   const CustomSnapshotWidget({
     super.key,
     this.supportedTypes = const {SnapshotType.drag},
     required this.builder,
-    this.translation,
-    this.constraintsTransform,
   });
 
   /// Set of supported snapshot types. The builder will be called
@@ -55,13 +67,6 @@ class CustomSnapshotWidget extends StatefulWidget {
   /// The builder will be called with `null` type when building normal
   /// child widget.
   final SnapshotBuilder builder;
-
-  /// Allows to transform snapshot location.
-  final TranslationProvider? translation;
-
-  /// Allows to transform constraints for snapshot widget. The resulting
-  /// constraints may exceed parent constraints without causing an error.
-  final ConstraintsTransformProvider? constraintsTransform;
 
   @override
   State<CustomSnapshotWidget> createState() => _CustomSnapshotWidgetState();
@@ -126,16 +131,40 @@ class _ZeroClipper extends CustomClipper<Rect> {
   }
 }
 
-class _CustomSnapshotWidgetState extends State<CustomSnapshotWidget>
-    implements Snapshotter {
-  BoxConstraintsTransform? _constrainTransformForType(SnapshotType type) {
-    if (widget.constraintsTransform == null) {
-      return null;
-    } else {
-      return (constraints) => widget.constraintsTransform!(constraints, type);
+class _SnapshotLayoutRenderObjectWidget extends SingleChildRenderObjectWidget {
+  const _SnapshotLayoutRenderObjectWidget({required super.child});
+
+  @override
+  RenderObject createRenderObject(BuildContext context) {
+    return _SnapshotLayoutRenderBox();
+  }
+}
+
+class _SnapshotLayoutRenderBox extends RenderProxyBox {}
+
+class _SnapshotSettingsState extends State<SnapshotSettings> {
+  @override
+  void initState() {
+    super.initState();
+    final settings =
+        context.findAncestorRenderObjectOfType<_SnapshotLayoutRenderBox>();
+    if (settings != null) {
+      final parentData = settings.parentData;
+      if (parentData is _ParentData) {
+        parentData.constraintsTransform = widget.constraintsTransform;
+        parentData.translation = widget.translation;
+      }
     }
   }
 
+  @override
+  Widget build(BuildContext context) {
+    return widget.child;
+  }
+}
+
+class _CustomSnapshotWidgetState extends State<CustomSnapshotWidget>
+    implements Snapshotter {
   @override
   Widget build(BuildContext context) {
     return Builder(builder: (context) {
@@ -155,8 +184,7 @@ class _CustomSnapshotWidgetState extends State<CustomSnapshotWidget>
               ),
             ),
             for (final type in widget.supportedTypes)
-              _SnapshotLayoutParentDataWidget(
-                constraintsTransform: _constrainTransformForType(type),
+              _SnapshotLayoutRenderObjectWidget(
                 child: ClipRect(
                   clipper: const _ZeroClipper(),
                   child: RepaintBoundary(
@@ -219,11 +247,17 @@ class _CustomSnapshotWidgetState extends State<CustomSnapshotWidget>
     }
 
     for (final s in _pendingSnapshots) {
-      final translation = s.type != null
-          ? (Rect rect, Offset offset) =>
-              widget.translation?.call(rect, offset, s.type!) ?? Offset.zero
-          : null;
+      Translation? translation;
       final renderObject = _getRenderObject(s.type);
+      if (s.type != null) {
+        final snapshotLayoutRenderBox = _keys[s.type]
+            ?.currentContext
+            ?.findAncestorRenderObjectOfType<_SnapshotLayoutRenderBox>();
+        final parentData = snapshotLayoutRenderBox?.parentData;
+        if (parentData is _ParentData) {
+          translation = parentData.translation;
+        }
+      }
       if (renderObject != null) {
         s.completer.complete(_getSnapshot(
           context,
@@ -346,30 +380,7 @@ class _SnapshotLayout extends MultiChildRenderObjectWidget {
 
 class _ParentData extends ContainerBoxParentData<RenderBox> {
   BoxConstraintsTransform? constraintsTransform;
-}
-
-class _SnapshotLayoutParentDataWidget extends ParentDataWidget<_ParentData> {
-  const _SnapshotLayoutParentDataWidget({
-    this.constraintsTransform,
-    required super.child,
-  });
-
-  final BoxConstraintsTransform? constraintsTransform;
-
-  @override
-  void applyParentData(RenderObject renderObject) {
-    final parentData = renderObject.parentData as _ParentData;
-    if (parentData.constraintsTransform != constraintsTransform) {
-      parentData.constraintsTransform = constraintsTransform;
-      final targetParent = renderObject.parent;
-      if (targetParent is RenderObject) {
-        targetParent.markNeedsLayout();
-      }
-    }
-  }
-
-  @override
-  Type get debugTypicalAncestorWidgetClass => _SnapshotLayout;
+  Translation? translation;
 }
 
 class _RenderSnapshotLayout extends RenderBox
