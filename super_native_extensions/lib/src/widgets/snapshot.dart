@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:collection/collection.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
@@ -13,12 +15,15 @@ enum SnapshotType {
   drag,
 }
 
-typedef SnapshotBuilder = Widget Function(
+typedef SnapshotBuilder = Widget? Function(
   BuildContext context,
+
+  /// Original child widget of [CustomSnapshot].
+  Widget child,
 
   /// Type of snapshot currently being built or `null` when building
   /// normal child widget.
-  SnapshotType? type,
+  SnapshotType type,
 );
 
 typedef Translation = Offset Function(
@@ -55,18 +60,15 @@ class SnapshotSettings extends StatefulWidget {
 class CustomSnapshotWidget extends StatefulWidget {
   const CustomSnapshotWidget({
     super.key,
-    this.supportedTypes = const {SnapshotType.drag},
-    required this.builder,
+    required this.child,
+    required this.snapshotBuilder,
   });
 
-  /// Set of supported snapshot types. The builder will be called
-  /// only for these types.
-  final Set<SnapshotType> supportedTypes;
+  final Widget child;
 
-  /// Builder that creates the widget that will be used as a snapshot.
-  /// The builder will be called with `null` type when building normal
-  /// child widget.
-  final SnapshotBuilder builder;
+  /// Builder that creates the widget that will be used as a snapshot for
+  /// given [SnapshotType].
+  final SnapshotBuilder snapshotBuilder;
 
   @override
   State<CustomSnapshotWidget> createState() => _CustomSnapshotWidgetState();
@@ -82,7 +84,7 @@ abstract class Snapshotter {
     }
   }
 
-  set armed(bool armed);
+  void prepareFor(Set<SnapshotType> types);
 
   Future<TargetedImage?> getSnapshot(Offset location, SnapshotType? type);
 }
@@ -168,38 +170,55 @@ class _CustomSnapshotWidgetState extends State<CustomSnapshotWidget>
   @override
   Widget build(BuildContext context) {
     return Builder(builder: (context) {
-      if (!_armed && _pendingSnapshots.isEmpty) {
+      if (_prepared.isEmpty && _pendingSnapshots.isEmpty) {
         return KeyedSubtree(
           key: _contentKey,
-          child: widget.builder(context, null),
+          child: widget.child,
         );
       } else {
+        final types = <SnapshotType>{};
+        for (final p in _prepared) {
+          types.add(p);
+        }
+        for (final p in _pendingSnapshots) {
+          if (p.type != null) {
+            types.add(p.type!);
+          }
+        }
+        Widget? typeToWidget(SnapshotType type) {
+          final w = widget.snapshotBuilder(context, widget.child, type);
+          if (w == null) {
+            return null;
+          }
+          return _SnapshotLayoutRenderObjectWidget(
+            child: ClipRect(
+              clipper: const _ZeroClipper(),
+              child: RepaintBoundary(
+                key: _keys[type],
+                child: w,
+              ),
+            ),
+          );
+        }
+
         return _SnapshotLayout(
           children: [
             RepaintBoundary(
               key: _defaultKey,
               child: KeyedSubtree(
                 key: _contentKey,
-                child: widget.builder(context, null),
+                child: widget.child,
               ),
             ),
-            for (final type in widget.supportedTypes)
-              _SnapshotLayoutRenderObjectWidget(
-                child: ClipRect(
-                  clipper: const _ZeroClipper(),
-                  child: RepaintBoundary(
-                    key: _keys[type],
-                    child: widget.builder(context, type),
-                  ),
-                ),
-              ),
+            ...types.map(typeToWidget).whereNotNull(),
           ],
         );
       }
     });
   }
 
-  bool _armed = false;
+  final _prepared = <SnapshotType>{};
+
   final _pendingSnapshots = <_PendingSnapshot>[];
 
   final _contentKey = GlobalKey();
@@ -219,12 +238,14 @@ class _CustomSnapshotWidgetState extends State<CustomSnapshotWidget>
   }
 
   @override
-  set armed(bool value) {
-    if (_armed != value) {
-      setState(() {
-        _armed = value;
-      });
+  void prepareFor(Set<SnapshotType> types) {
+    if (setEquals(_prepared, types)) {
+      return;
     }
+    setState(() {
+      _prepared.clear();
+      _prepared.addAll(types);
+    });
   }
 
   void _checkSnapshots() {
@@ -301,14 +322,14 @@ class _FallbackSnapshotWidgetState extends State<FallbackSnapshotWidget>
 
   final _pendingSnapshots = <_PendingSnapshot>[];
 
-  bool _armed = false;
+  bool _prepared = false;
 
   @override
   Widget build(BuildContext context) {
-    if (!_armed && _pendingSnapshots.isEmpty) {
+    if (!_prepared && _pendingSnapshots.isEmpty) {
       return KeyedSubtree(key: _contentKey, child: widget.child);
     }
-    if (_armed || _pendingSnapshots.isNotEmpty) {
+    if (_prepared || _pendingSnapshots.isNotEmpty) {
       return RepaintBoundary(
         key: _repaintBoundaryKey,
         child: KeyedSubtree(key: _contentKey, child: widget.child),
@@ -356,12 +377,14 @@ class _FallbackSnapshotWidgetState extends State<FallbackSnapshotWidget>
   }
 
   @override
-  set armed(bool value) {
-    if (_armed != value) {
-      setState(() {
-        _armed = value;
-      });
+  void prepareFor(Set<SnapshotType> types) {
+    final newPrepared = types.isNotEmpty;
+    if (newPrepared == _prepared) {
+      return;
     }
+    setState(() {
+      _prepared = newPrepared;
+    });
   }
 }
 
