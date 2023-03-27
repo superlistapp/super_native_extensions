@@ -1,11 +1,9 @@
 import 'dart:async';
 
-import 'package:collection/collection.dart';
-import 'package:flutter/foundation.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
 import '../api_model.dart';
+import 'snapshot_internal.dart';
 
 enum SnapshotType {
   /// Snapshot used for lift animation on iOS.
@@ -14,17 +12,6 @@ enum SnapshotType {
   /// Snapshot used during dragging.
   drag,
 }
-
-typedef SnapshotBuilder = Widget? Function(
-  BuildContext context,
-
-  /// Original child widget of [CustomSnapshot].
-  Widget child,
-
-  /// Type of snapshot currently being built or `null` when building
-  /// normal child widget.
-  SnapshotType type,
-);
 
 typedef Translation = Offset Function(
   /// Snapshot rectangle in local coordinates.
@@ -53,10 +40,27 @@ class SnapshotSettings extends StatefulWidget {
   final Translation? translation;
 
   @override
-  State<SnapshotSettings> createState() => _SnapshotSettingsState();
+  State<SnapshotSettings> createState() => SnapshotSettingsState();
 }
 
-/// Widget that provides custom dragging snapshots.
+typedef SnapshotBuilder = Widget? Function(
+  BuildContext context,
+
+  /// Original child widget of [CustomSnapshot].
+  Widget child,
+
+  /// Type of snapshot currently being built.
+  SnapshotType type,
+);
+
+/// Widget that provides customized dragging snapshots from widgets created by
+/// by [snapshotBuilder] the function.
+///
+/// To customize snapshot geometry and position you can wrap the snapshot with
+/// [SnapshotSettings] widget.
+///
+/// If you want to create completely custom dragging snapshot images from
+/// scratch you can use [RawCustomSnapshotWidget] instead.
 class CustomSnapshotWidget extends StatefulWidget {
   const CustomSnapshotWidget({
     super.key,
@@ -67,269 +71,58 @@ class CustomSnapshotWidget extends StatefulWidget {
   final Widget child;
 
   /// Builder that creates the widget that will be used as a snapshot for
-  /// given [SnapshotType].
+  /// provided [SnapshotType]s.
   final SnapshotBuilder snapshotBuilder;
 
   @override
-  State<CustomSnapshotWidget> createState() => _CustomSnapshotWidgetState();
+  State<CustomSnapshotWidget> createState() => CustomSnapshotWidgetState();
 }
+
+/// Widget that can be used to generate completely custom drag and drop
+/// snapshots.
+class RawCustomSnapshotWidget extends StatefulWidget {
+  /// This will be called when snapshot is requested.
+  /// `type` will be `null` when snapshot is requested as fallback in case
+  /// custom snapshot for particular type was not available.
+  final Future<TargetedImage?> Function(Offset location, SnapshotType? type)
+      onGetSnapshot;
+
+  /// This will be called before any snapshot is requested.
+  /// Implementation can use this to prepare snapshots for given types in order
+  /// to avoid delays when snapshot is requested.
+  final void Function(Set<SnapshotType> types) onPrepare;
+
+  final Widget child;
+
+  const RawCustomSnapshotWidget({
+    super.key,
+    required this.onGetSnapshot,
+    required this.onPrepare,
+    required this.child,
+  });
+
+  @override
+  State<StatefulWidget> createState() => RawCustomSnapshotWidgetState();
+}
+
+//
+//
+//
 
 abstract class Snapshotter {
   static Snapshotter? of(BuildContext context) {
-    final real = context.findAncestorStateOfType<_CustomSnapshotWidgetState>();
+    final real =
+        context.findAncestorStateOfType<RawCustomSnapshotWidgetState>();
     if (real != null) {
       return real;
     } else {
-      return context.findAncestorStateOfType<_FallbackSnapshotWidgetState>();
+      return context.findAncestorStateOfType<FallbackSnapshotWidgetState>();
     }
   }
 
-  void prepareFor(Set<SnapshotType> types);
+  void prepare(Set<SnapshotType> types);
 
   Future<TargetedImage?> getSnapshot(Offset location, SnapshotType? type);
-}
-
-class _PendingSnapshot {
-  _PendingSnapshot(this.type, this.location);
-
-  final SnapshotType? type;
-  final Offset location;
-  final completers = <Completer<TargetedImage?>>[];
-
-  void complete(Future<TargetedImage?> image) async {
-    // Weirdly simply calling completer.complete(image) will resolve the future
-    // synchronously, which is not expected and may result in another
-    // getSnapshot() call in the meanwhile thus concurrent modification exception.
-    try {
-      final value = await image;
-      for (final completer in completers) {
-        completer.complete(value);
-      }
-    } catch (e, st) {
-      for (final completer in completers) {
-        completer.completeError(e, st);
-      }
-    }
-  }
-}
-
-Future<TargetedImage> _getSnapshot(
-    BuildContext context,
-    RenderRepaintBoundary renderObject,
-    Offset location,
-    Offset Function(Rect rect, Offset offset)? translation) async {
-  final image = renderObject.toImageSync(
-      pixelRatio: MediaQuery.of(context).devicePixelRatio);
-  final transform = renderObject.getTransformTo(null);
-  final r =
-      Rect.fromLTWH(0, 0, renderObject.size.width, renderObject.size.height);
-
-  var offset = Offset.zero;
-  if (translation != null) {
-    final inverted = transform.clone()..invert();
-    final dragLocation = MatrixUtils.transformPoint(inverted, location);
-    offset = translation(r, dragLocation);
-  }
-
-  final rect = MatrixUtils.transformRect(transform, r.shift(offset));
-  return TargetedImage(image, rect);
-}
-
-class _ZeroClipper extends CustomClipper<Rect> {
-  const _ZeroClipper();
-
-  @override
-  Rect getClip(Size size) {
-    return Rect.zero;
-  }
-
-  @override
-  bool shouldReclip(covariant CustomClipper<Rect> oldClipper) {
-    return false;
-  }
-}
-
-class _SnapshotLayoutRenderObjectWidget extends SingleChildRenderObjectWidget {
-  const _SnapshotLayoutRenderObjectWidget({required super.child});
-
-  @override
-  RenderObject createRenderObject(BuildContext context) {
-    return _SnapshotLayoutRenderBox();
-  }
-}
-
-class _SnapshotLayoutRenderBox extends RenderProxyBox {}
-
-class _SnapshotSettingsState extends State<SnapshotSettings> {
-  @override
-  void initState() {
-    super.initState();
-    final settings =
-        context.findAncestorRenderObjectOfType<_SnapshotLayoutRenderBox>();
-    if (settings != null) {
-      final parentData = settings.parentData;
-      if (parentData is _ParentData) {
-        parentData.constraintsTransform = widget.constraintsTransform;
-        parentData.translation = widget.translation;
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return widget.child;
-  }
-}
-
-class _CustomSnapshotWidgetState extends State<CustomSnapshotWidget>
-    implements Snapshotter {
-  final _lastBuiltTypes = <SnapshotType>{};
-
-  @override
-  Widget build(BuildContext context) {
-    return Builder(builder: (context) {
-      _lastBuiltTypes.clear();
-      if (_prepared.isEmpty && _pendingSnapshots.isEmpty) {
-        return KeyedSubtree(
-          key: _contentKey,
-          child: widget.child,
-        );
-      } else {
-        for (final p in _prepared) {
-          _lastBuiltTypes.add(p);
-        }
-        for (final p in _pendingSnapshots) {
-          if (p.type != null) {
-            _lastBuiltTypes.add(p.type!);
-          }
-        }
-        Widget? typeToWidget(SnapshotType type) {
-          final w = widget.snapshotBuilder(context, widget.child, type);
-          if (w == null) {
-            return null;
-          }
-          return _SnapshotLayoutRenderObjectWidget(
-            child: ClipRect(
-              clipper: const _ZeroClipper(),
-              child: RepaintBoundary(
-                key: _keys[type],
-                child: w,
-              ),
-            ),
-          );
-        }
-
-        return _SnapshotLayout(
-          children: [
-            RepaintBoundary(
-              key: _defaultKey,
-              child: KeyedSubtree(
-                key: _contentKey,
-                child: widget.child,
-              ),
-            ),
-            ..._lastBuiltTypes.map(typeToWidget).whereNotNull(),
-          ],
-        );
-      }
-    });
-  }
-
-  final _prepared = <SnapshotType>{};
-
-  final _pendingSnapshots = <_PendingSnapshot>[];
-
-  final _contentKey = GlobalKey();
-
-  final _defaultKey = GlobalKey();
-
-  final _keys = {
-    for (final type in SnapshotType.values) type: GlobalKey(),
-  };
-
-  RenderRepaintBoundary? _getRenderObject(SnapshotType? type) {
-    final object = type != null
-        ? _keys[type]?.currentContext?.findRenderObject()
-        : _defaultKey.currentContext?.findRenderObject();
-    return object is RenderRepaintBoundary ? object : null;
-  }
-
-  @override
-  void prepareFor(Set<SnapshotType> types) {
-    if (setEquals(_prepared, types)) {
-      return;
-    }
-    setState(() {
-      _prepared.clear();
-      _prepared.addAll(types);
-    });
-  }
-
-  void _checkSnapshots() {
-    if (_pendingSnapshots.isEmpty) {
-      return;
-    }
-    if (!mounted) {
-      for (final snapshot in _pendingSnapshots) {
-        snapshot.complete(Future.value(null));
-      }
-      _pendingSnapshots.clear();
-      return;
-    }
-    // If we have pending snapshot of type for which we didn't try building
-    // a widget yet, we need to wait for the next frame.
-    if (_getRenderObject(null) == null ||
-        _pendingSnapshots.any(
-          (s) =>
-              s.type != null && //
-              !_lastBuiltTypes.contains(s.type),
-        )) {
-      setState(() {});
-      WidgetsBinding.instance.addPostFrameCallback((timeStamp) {
-        _checkSnapshots();
-      });
-      return;
-    }
-    for (final s in _pendingSnapshots) {
-      Translation? translation;
-      final renderObject = _getRenderObject(s.type);
-      if (s.type != null) {
-        final snapshotLayoutRenderBox = _keys[s.type]
-            ?.currentContext
-            ?.findAncestorRenderObjectOfType<_SnapshotLayoutRenderBox>();
-        final parentData = snapshotLayoutRenderBox?.parentData;
-        if (parentData is _ParentData) {
-          translation = parentData.translation;
-        }
-      }
-      if (renderObject != null) {
-        s.complete(_getSnapshot(
-          context,
-          renderObject,
-          s.location,
-          translation,
-        ));
-      } else {
-        s.complete(Future.value(null));
-      }
-    }
-    _pendingSnapshots.clear();
-    setState(() {});
-  }
-
-  @override
-  Future<TargetedImage?> getSnapshot(Offset location, SnapshotType? type) {
-    final completer = Completer<TargetedImage?>();
-    var snapshot = _pendingSnapshots.firstWhereOrNull((s) => s.type == type);
-    if (snapshot == null) {
-      snapshot = _PendingSnapshot(type, location);
-      _pendingSnapshots.add(snapshot);
-    }
-    snapshot.completers.add(completer);
-    // Let other sites request snapshot before checking for completion.
-    Future.microtask(_checkSnapshots);
-    return completer.future;
-  }
 }
 
 class FallbackSnapshotWidget extends StatefulWidget {
@@ -341,174 +134,5 @@ class FallbackSnapshotWidget extends StatefulWidget {
   final Widget child;
 
   @override
-  State<FallbackSnapshotWidget> createState() => _FallbackSnapshotWidgetState();
-}
-
-class _FallbackSnapshotWidgetState extends State<FallbackSnapshotWidget>
-    implements Snapshotter {
-  final _contentKey = GlobalKey();
-  final _repaintBoundaryKey = GlobalKey();
-
-  final _pendingSnapshots = <_PendingSnapshot>[];
-
-  bool _prepared = false;
-
-  @override
-  Widget build(BuildContext context) {
-    if (!_prepared && _pendingSnapshots.isEmpty) {
-      return KeyedSubtree(key: _contentKey, child: widget.child);
-    }
-    if (_prepared || _pendingSnapshots.isNotEmpty) {
-      return RepaintBoundary(
-        key: _repaintBoundaryKey,
-        child: KeyedSubtree(key: _contentKey, child: widget.child),
-      );
-    } else {
-      return KeyedSubtree(key: _contentKey, child: widget.child);
-    }
-  }
-
-  @override
-  Future<TargetedImage?> getSnapshot(Offset location, SnapshotType? type) {
-    if (type != null) {
-      return Future.value(null);
-    }
-
-    final completer = Completer<TargetedImage>();
-    var snapshot = _pendingSnapshots.firstWhereOrNull((s) => s.type == type);
-    if (snapshot == null) {
-      snapshot = _PendingSnapshot(type, location);
-      _pendingSnapshots.add(snapshot);
-    }
-    snapshot.completers.add(completer);
-    _checkSnapshot();
-    return completer.future;
-  }
-
-  void _checkSnapshot() {
-    if (!mounted) {
-      for (final snapshot in _pendingSnapshots) {
-        snapshot.complete(Future.value(null));
-      }
-      _pendingSnapshots.clear();
-      return;
-    }
-    final object = _repaintBoundaryKey.currentContext?.findRenderObject();
-    if (object is RenderRepaintBoundary) {
-      for (final snapshot in _pendingSnapshots) {
-        final image = _getSnapshot(context, object, snapshot.location, null);
-        snapshot.complete(image);
-      }
-      _pendingSnapshots.clear();
-      setState(() {});
-    } else {
-      setState(() {});
-      WidgetsBinding.instance.addPostFrameCallback((timeStamp) {
-        _checkSnapshot();
-      });
-    }
-  }
-
-  @override
-  void prepareFor(Set<SnapshotType> types) {
-    final newPrepared = types.isNotEmpty;
-    if (newPrepared == _prepared) {
-      return;
-    }
-    setState(() {
-      _prepared = newPrepared;
-    });
-  }
-}
-
-class _SnapshotLayout extends MultiChildRenderObjectWidget {
-  _SnapshotLayout({
-    // ignore: unused_element
-    super.key,
-    required super.children,
-  });
-
-  @override
-  RenderObject createRenderObject(BuildContext context) {
-    return _RenderSnapshotLayout();
-  }
-}
-
-class _ParentData extends ContainerBoxParentData<RenderBox> {
-  BoxConstraintsTransform? constraintsTransform;
-  Translation? translation;
-}
-
-class _RenderSnapshotLayout extends RenderBox
-    with
-        ContainerRenderObjectMixin<RenderBox,
-            ContainerBoxParentData<RenderBox>>,
-        RenderBoxContainerDefaultsMixin<RenderBox,
-            ContainerBoxParentData<RenderBox>> {
-  @override
-  void setupParentData(RenderBox child) {
-    if (child.parentData is! _ParentData) {
-      child.parentData = _ParentData();
-    }
-  }
-
-  @override
-  double computeMaxIntrinsicWidth(double height) {
-    return firstChild?.computeMaxIntrinsicWidth(height) ?? 0.0;
-  }
-
-  @override
-  double computeMinIntrinsicWidth(double height) {
-    return firstChild?.computeMinIntrinsicWidth(height) ?? 0.0;
-  }
-
-  @override
-  double computeMaxIntrinsicHeight(double width) {
-    return firstChild?.computeMaxIntrinsicHeight(width) ?? 0.0;
-  }
-
-  @override
-  double computeMinIntrinsicHeight(double width) {
-    return firstChild?.computeMinIntrinsicHeight(width) ?? 0.0;
-  }
-
-  @override
-  Size computeDryLayout(BoxConstraints constraints) {
-    return firstChild?.computeDryLayout(constraints) ?? Size.zero;
-  }
-
-  @override
-  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) {
-    return firstChild?.hitTest(result, position: position) ?? false;
-  }
-
-  @override
-  void performLayout() {
-    RenderBox? child = firstChild;
-    if (child != null) {
-      child.layout(constraints, parentUsesSize: true);
-      size = child.size;
-
-      while (true) {
-        child = (child!.parentData as _ParentData).nextSibling;
-
-        if (child == null) {
-          break;
-        } else {
-          final parentData = child.parentData as _ParentData;
-          final constraints =
-              parentData.constraintsTransform?.call(this.constraints) ??
-                  this.constraints;
-          child.layout(constraints);
-        }
-      }
-    } else {
-      size = Size.zero;
-    }
-  }
-
-  @override
-  void paint(PaintingContext context, Offset offset) {
-    defaultPaint(context, offset);
-  }
+  State<FallbackSnapshotWidget> createState() => FallbackSnapshotWidgetState();
 }

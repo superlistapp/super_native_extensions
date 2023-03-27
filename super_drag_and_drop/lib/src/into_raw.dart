@@ -16,27 +16,24 @@ extension DragImageIntoRaw on DragImage {
   }
 }
 
-extension DragItemsIntoRaw on List<DragItem> {
+extension DragItemsIntoRaw on List<DragConfigurationItem> {
   Future<List<raw.DragItem>> intoRaw(double devicePixelRatio) async {
     final providers = <raw.DataProvider>[];
     for (final item in this) {
-      providers.add(await item.asDataProvider());
+      providers.add(await item.item.asDataProvider());
     }
     final handles = <raw.DataProviderHandle>[];
     for (final item in indexed()) {
       final handle =
-          await item.value.registerWithDataProvider(providers[item.index]);
+          await item.value.item.registerWithDataProvider(providers[item.index]);
       handles.add(handle);
     }
     final items = <raw.DragItem>[];
     for (final item in indexed()) {
-      final image = item.value.image is Future
-          ? await item.value.image
-          : item.value.image as DragImage;
       items.add(raw.DragItem(
         dataProvider: handles[item.index],
-        image: await image.intoRaw(devicePixelRatio),
-        localData: item.value.localData,
+        image: await item.value.image.intoRaw(devicePixelRatio),
+        localData: item.value.item.localData,
       ));
     }
     return items;

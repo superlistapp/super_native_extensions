@@ -9,7 +9,7 @@ import 'drag_configuration.dart';
 typedef LocationIsDraggable = bool Function(Offset position);
 typedef DragConfigurationProvider = Future<DragConfiguration?> Function(
     Offset position, DragSession session);
-typedef AdditionalItemsProvider = Future<List<DragItem>?> Function(
+typedef AdditionalItemsProvider = Future<List<DragConfigurationItem>?> Function(
     Offset position, DragSession session);
 
 /// This is the most basic draggable widget. It gives you complete control
@@ -44,7 +44,7 @@ class BaseDraggableWidget extends StatelessWidget {
   /// dragging item for current session.
   final AdditionalItemsProvider additionalItems;
 
-  static Future<List<DragItem>?> _defaultAdditionalItems(
+  static Future<List<DragConfigurationItem>?> _defaultAdditionalItems(
       Offset position, DragSession session) async {
     return null;
   }
@@ -77,19 +77,19 @@ class BaseDraggableWidget extends StatelessWidget {
     child = Listener(
       behavior: HitTestBehavior.translucent,
       onPointerDown: (_) {
-        Snapshotter.of(context)?.prepareFor({
+        Snapshotter.of(context)?.prepare({
           SnapshotType.drag,
           if (defaultTargetPlatform == TargetPlatform.iOS) SnapshotType.lift,
         });
       },
       onPointerCancel: (_) {
         if (context.mounted) {
-          Snapshotter.of(context)?.prepareFor({});
+          Snapshotter.of(context)?.prepare({});
         }
       },
       onPointerUp: (_) {
         if (context.mounted) {
-          Snapshotter.of(context)?.prepareFor({});
+          Snapshotter.of(context)?.prepare({});
         }
       },
       child: child,

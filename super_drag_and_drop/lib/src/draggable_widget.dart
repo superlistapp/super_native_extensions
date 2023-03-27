@@ -13,19 +13,9 @@ import 'base_draggable_widget.dart';
 
 class DragItemRequest {
   DragItemRequest({
-    required this.dragImage,
     required this.location,
     required this.session,
   });
-
-  /// Provides snapshot image of the containing [DragItemWidget].
-  ///
-  /// If you want to customize the drag image you can wrap the [DragItemWidget]
-  /// in a [CustomSnapshotWidget].
-  ///
-  /// Note that using [dragImage] is optional, you can generate your own drag
-  /// image from scratch  when constructing [DragItem].
-  final Future<DragImage> Function() dragImage;
 
   /// Drag location in global coordinates.
   final Offset location;
@@ -34,7 +24,7 @@ class DragItemRequest {
   final raw.DragSession session;
 }
 
-typedef DragItemProvider = Future<DragItem?> Function(DragItemRequest);
+typedef DragItemProvider = FutureOr<DragItem?> Function(DragItemRequest);
 
 /// Widget that provides [DragItem] for a [DraggableWidget].
 ///
@@ -96,17 +86,8 @@ class DragItemWidget extends StatefulWidget {
   State<StatefulWidget> createState() => DragItemWidgetState();
 }
 
-class _SnapshotException implements Exception {
-  _SnapshotException(this.message);
-
-  final String message;
-
-  @override
-  String toString() => message;
-}
-
 class DragItemWidgetState extends State<DragItemWidget> {
-  Future<DragImage> _getSnapshot(Offset location) async {
+  Future<DragImage?> _getSnapshot(Offset location) async {
     final snapshotter = Snapshotter.of(_innerContext!)!;
     final dragSnapshot =
         await snapshotter.getSnapshot(location, SnapshotType.drag);
@@ -132,25 +113,30 @@ class DragItemWidgetState extends State<DragItemWidget> {
     }
 
     if (snapshot == null) {
-      // This might happen if widget is removed before snapshot is ready.
-      // TODO(knopp): Handle this better.
-      throw _SnapshotException('Failed get drag snapshot.');
+      return null;
     }
 
     return DragImage(image: snapshot, liftImage: liftSnapshot);
   }
 
-  Future<DragItem?> createItem(Offset location, raw.DragSession session) async {
+  Future<DragConfigurationItem?> createItem(
+      Offset location, raw.DragSession session) async {
     final request = DragItemRequest(
-      dragImage: () => _getSnapshot(location),
       location: location,
       session: session,
     );
-    try {
-      return widget.dragItemProvider(request);
-    } on _SnapshotException {
-      return null;
+
+    final item = await widget.dragItemProvider(request);
+    if (item != null) {
+      final image = await _getSnapshot(location);
+      if (image != null) {
+        return DragConfigurationItem(
+          item: item,
+          image: image,
+        );
+      }
     }
+    return null;
   }
 
   Future<List<raw.DropOperation>> getAllowedOperations() async {
@@ -176,8 +162,8 @@ typedef DragItemsProvider = List<DragItemWidgetState> Function(
 typedef OnDragConfiguration = FutureOr<DragConfiguration?> Function(
     DragConfiguration configuration, raw.DragSession session);
 
-typedef OnAdditonalItems = FutureOr<List<DragItem>?> Function(
-    List<DragItem> items, raw.DragSession session);
+typedef OnAdditonalItems = FutureOr<List<DragConfigurationItem>?> Function(
+    List<DragConfigurationItem> items, raw.DragSession session);
 
 /// Widget that represents user-draggable area.
 
@@ -240,7 +226,7 @@ class DraggableWidget extends StatelessWidget {
     }
 
     if (allowedOperations?.isNotEmpty == true) {
-      final dragItems = <DragItem>[];
+      final dragItems = <DragConfigurationItem>[];
       for (final item in items) {
         final dragItem = await item.createItem(location, session);
         if (dragItem != null) {
@@ -249,7 +235,9 @@ class DraggableWidget extends StatelessWidget {
       }
       if (dragItems.isNotEmpty) {
         final configuration = DragConfiguration(
-            items: dragItems, allowedOperations: allowedOperations!);
+          items: dragItems,
+          allowedOperations: allowedOperations!,
+        );
         if (onDragConfiguration != null) {
           return onDragConfiguration!(configuration, session);
         } else {
@@ -260,9 +248,11 @@ class DraggableWidget extends StatelessWidget {
     return null;
   }
 
-  Future<List<DragItem>?> additionalItems(List<DragItemWidgetState> items,
-      Offset location, raw.DragSession session) async {
-    final dragItems = <DragItem>[];
+  Future<List<DragConfigurationItem>?> additionalItems(
+      List<DragItemWidgetState> items,
+      Offset location,
+      raw.DragSession session) async {
+    final dragItems = <DragConfigurationItem>[];
     for (final item in items) {
       if (item.widget.canAddItemToExistingSession) {
         final dragItem = await item.createItem(location, session);
