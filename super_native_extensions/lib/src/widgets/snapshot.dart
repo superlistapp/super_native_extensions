@@ -96,18 +96,28 @@ class _PendingSnapshot {
   final Offset location;
   final completers = <Completer<TargetedImage?>>[];
 
-  void complete(TargetedImage? image) {
-    for (final completer in completers) {
-      completer.complete(image);
+  void complete(Future<TargetedImage?> image) async {
+    // Weirdly simply calling completer.complete(image) will resolve the future
+    // synchronously, which is not expected and may result in another
+    // getSnapshot() call in the meanwhile thus concurrent modification exception.
+    try {
+      final value = await image;
+      for (final completer in completers) {
+        completer.complete(value);
+      }
+    } catch (e, st) {
+      for (final completer in completers) {
+        completer.completeError(e, st);
+      }
     }
   }
 }
 
-TargetedImage _getSnapshot(
+Future<TargetedImage> _getSnapshot(
     BuildContext context,
     RenderRepaintBoundary renderObject,
     Offset location,
-    Offset Function(Rect rect, Offset offset)? translation) {
+    Offset Function(Rect rect, Offset offset)? translation) async {
   final image = renderObject.toImageSync(
       pixelRatio: MediaQuery.of(context).devicePixelRatio);
   final transform = renderObject.getTransformTo(null);
@@ -261,7 +271,7 @@ class _CustomSnapshotWidgetState extends State<CustomSnapshotWidget>
     }
     if (!mounted) {
       for (final snapshot in _pendingSnapshots) {
-        snapshot.complete(null);
+        snapshot.complete(Future.value(null));
       }
       _pendingSnapshots.clear();
       return;
@@ -300,7 +310,7 @@ class _CustomSnapshotWidgetState extends State<CustomSnapshotWidget>
           translation,
         ));
       } else {
-        s.complete(null);
+        s.complete(Future.value(null));
       }
     }
     _pendingSnapshots.clear();
@@ -378,7 +388,7 @@ class _FallbackSnapshotWidgetState extends State<FallbackSnapshotWidget>
   void _checkSnapshot() {
     if (!mounted) {
       for (final snapshot in _pendingSnapshots) {
-        snapshot.complete(null);
+        snapshot.complete(Future.value(null));
       }
       _pendingSnapshots.clear();
       return;
