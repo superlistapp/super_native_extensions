@@ -145,28 +145,11 @@ impl Session {
             let drag_item: id = msg_send![drag_item, autorelease];
             let () = msg_send![drag_item, setLocalObject: local_object.into_objc().autorelease()];
 
-            let configuration = self.configuration.borrow();
-            let item = &configuration.items[index];
-            if item.lift_image.is_some() {
-                // separate lift image means we need to register preview provider for drag image
-                let image = self.image_view_for_item(index, ImageType::Drag);
-                let shadow_path = bezier_path_for_alpha(&item.image.image_data);
-                let provider = ConcreteBlock::new(move || {
-                    let parameters: id = msg_send![class!(UIDragPreviewParameters), new];
-                    let () = msg_send![parameters, autorelease];
-                    let clear_color: id = msg_send![class!(UIColor), clearColor];
-                    let () = msg_send![parameters, setBackgroundColor: clear_color];
-                    let () = msg_send![parameters, setShadowPath: *shadow_path];
-
-                    let image = image.clone().autorelease();
-                    let preview: id = msg_send![class!(UIDragPreview), alloc];
-                    let () = msg_send![preview, initWithView:image parameters: parameters];
-                    let () = msg_send![preview, autorelease];
-                    preview
-                });
-                let provider = provider.copy();
-
-                let () = msg_send![drag_item, setPreviewProvider: &*provider];
+            // Setting preview provider here leaks entire session if drag is cancelled before
+            // lift is complete. So instead we set it later in `will_begin`. After `will_begin`
+            // it is safe to set preview provider as it will be picked immediately and won't leak.
+            if self.in_progress.get() {
+                self.set_preview_provider(drag_item);
             }
 
             drag_item
@@ -235,8 +218,47 @@ impl Session {
         }
     }
 
-    fn drag_will_begin(&self) {
+    unsafe fn set_preview_provider(&self, item: id) {
+        let preview_provider: id = msg_send![item, previewProvider];
+        // If lift image is specified now create preview provider for dragging.
+        // If this is done when creating items the whole session leaks...
+        if preview_provider.is_null() {
+            let (index, _) = PlatformDragContext::item_info(item);
+            let configuration = self.configuration.borrow();
+            let drag_item = &configuration.items[index];
+            if drag_item.lift_image.is_none() {
+                return;
+            }
+            let image = self.image_view_for_item(index, ImageType::Drag);
+            let shadow_path = bezier_path_for_alpha(&drag_item.image.image_data);
+            let provider = ConcreteBlock::new(move || {
+                let parameters: id = msg_send![class!(UIDragPreviewParameters), new];
+                let () = msg_send![parameters, autorelease];
+                let clear_color: id = msg_send![class!(UIColor), clearColor];
+                let () = msg_send![parameters, setBackgroundColor: clear_color];
+                let () = msg_send![parameters, setShadowPath: *shadow_path];
+                let image = image.clone().autorelease();
+                let preview: id = msg_send![class!(UIDragPreview), alloc];
+                let () = msg_send![preview, initWithView:image parameters: parameters];
+                let () = msg_send![preview, autorelease];
+                preview
+            });
+            let provider = provider.copy();
+
+            let () = msg_send![item, setPreviewProvider: &*provider];
+        }
+    }
+
+    fn drag_will_begin(&self, session: id) {
         self.in_progress.replace(true);
+        unsafe {
+            // workaround for memory leak, see [create_item].
+            let items: id = msg_send![session, items];
+            for i in 0..NSArray::count(items) {
+                let item = NSArray::objectAtIndex(items, i);
+                self.set_preview_provider(item);
+            }
+        }
     }
 
     fn did_move(&self, _session: id, location: Point) {
@@ -300,13 +322,14 @@ impl Session {
         }
     }
 
-    fn preview_for_item(&self, index: usize) -> id {
+    fn preview_for_item_type(&self, index: usize, ty: ImageType) -> id {
         let configuration = self.configuration.borrow();
-        let drag_image = configuration.items[index]
-            .lift_image
-            .as_ref()
-            .unwrap_or(&configuration.items[index].image);
-        let image_view = self.image_view_for_item(index, ImageType::Lift);
+        let item = &configuration.items[index];
+        let drag_image = match ty {
+            ImageType::Lift => item.lift_image.as_ref().unwrap_or(&item.image),
+            ImageType::Drag => &item.image,
+        };
+        let image_view = self.image_view_for_item(index, ty);
         unsafe {
             let parameters: id = msg_send![class!(UIDragPreviewParameters), new];
             let () = msg_send![parameters, autorelease];
@@ -327,6 +350,10 @@ impl Session {
             let () = msg_send![preview, autorelease];
             preview
         }
+    }
+
+    fn preview_for_item(&self, index: usize) -> id {
+        self.preview_for_item_type(index, ImageType::Lift)
     }
 
     fn preview_for_canceling(&self, index: usize) -> id {
@@ -360,7 +387,7 @@ impl Session {
             })
             .detach();
 
-        self.preview_for_item(index)
+        self.preview_for_item_type(index, ImageType::Lift)
     }
 }
 
@@ -552,9 +579,9 @@ impl PlatformDragContext {
         Self::get_session_id(session).and_then(|id| self.sessions.borrow().get(&id).cloned())
     }
 
-    fn drag_will_begin(&self, _interaction: id, session: id) {
-        if let Some(session) = self.get_session(session) {
-            session.drag_will_begin();
+    fn drag_will_begin(&self, _interaction: id, platform_session: id) {
+        if let Some(session) = self.get_session(platform_session) {
+            session.drag_will_begin(platform_session);
         }
     }
 
