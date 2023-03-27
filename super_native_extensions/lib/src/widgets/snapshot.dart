@@ -90,11 +90,17 @@ abstract class Snapshotter {
 }
 
 class _PendingSnapshot {
-  _PendingSnapshot(this.type, this.location, this.completer);
+  _PendingSnapshot(this.type, this.location);
 
   final SnapshotType? type;
   final Offset location;
-  final Completer<TargetedImage?> completer;
+  final completers = <Completer<TargetedImage?>>[];
+
+  void complete(TargetedImage? image) {
+    for (final completer in completers) {
+      completer.complete(image);
+    }
+  }
 }
 
 TargetedImage _getSnapshot(
@@ -167,22 +173,24 @@ class _SnapshotSettingsState extends State<SnapshotSettings> {
 
 class _CustomSnapshotWidgetState extends State<CustomSnapshotWidget>
     implements Snapshotter {
+  final _lastBuiltTypes = <SnapshotType>{};
+
   @override
   Widget build(BuildContext context) {
     return Builder(builder: (context) {
+      _lastBuiltTypes.clear();
       if (_prepared.isEmpty && _pendingSnapshots.isEmpty) {
         return KeyedSubtree(
           key: _contentKey,
           child: widget.child,
         );
       } else {
-        final types = <SnapshotType>{};
         for (final p in _prepared) {
-          types.add(p);
+          _lastBuiltTypes.add(p);
         }
         for (final p in _pendingSnapshots) {
           if (p.type != null) {
-            types.add(p.type!);
+            _lastBuiltTypes.add(p.type!);
           }
         }
         Widget? typeToWidget(SnapshotType type) {
@@ -210,7 +218,7 @@ class _CustomSnapshotWidgetState extends State<CustomSnapshotWidget>
                 child: widget.child,
               ),
             ),
-            ...types.map(typeToWidget).whereNotNull(),
+            ..._lastBuiltTypes.map(typeToWidget).whereNotNull(),
           ],
         );
       }
@@ -226,8 +234,7 @@ class _CustomSnapshotWidgetState extends State<CustomSnapshotWidget>
   final _defaultKey = GlobalKey();
 
   final _keys = {
-    SnapshotType.lift: GlobalKey(),
-    SnapshotType.drag: GlobalKey(),
+    for (final type in SnapshotType.values) type: GlobalKey(),
   };
 
   RenderRepaintBoundary? _getRenderObject(SnapshotType? type) {
@@ -254,19 +261,25 @@ class _CustomSnapshotWidgetState extends State<CustomSnapshotWidget>
     }
     if (!mounted) {
       for (final snapshot in _pendingSnapshots) {
-        snapshot.completer.complete(null);
+        snapshot.complete(null);
       }
       _pendingSnapshots.clear();
       return;
     }
-    if (_getRenderObject(null) == null) {
+    // If we have pending snapshot of type for which we didn't try building
+    // a widget yet, we need to wait for the next frame.
+    if (_getRenderObject(null) == null ||
+        _pendingSnapshots.any(
+          (s) =>
+              s.type != null && //
+              !_lastBuiltTypes.contains(s.type),
+        )) {
       setState(() {});
       WidgetsBinding.instance.addPostFrameCallback((timeStamp) {
         _checkSnapshots();
       });
       return;
     }
-
     for (final s in _pendingSnapshots) {
       Translation? translation;
       final renderObject = _getRenderObject(s.type);
@@ -280,14 +293,14 @@ class _CustomSnapshotWidgetState extends State<CustomSnapshotWidget>
         }
       }
       if (renderObject != null) {
-        s.completer.complete(_getSnapshot(
+        s.complete(_getSnapshot(
           context,
           renderObject,
           s.location,
           translation,
         ));
       } else {
-        s.completer.complete(null);
+        s.complete(null);
       }
     }
     _pendingSnapshots.clear();
@@ -297,8 +310,14 @@ class _CustomSnapshotWidgetState extends State<CustomSnapshotWidget>
   @override
   Future<TargetedImage?> getSnapshot(Offset location, SnapshotType? type) {
     final completer = Completer<TargetedImage?>();
-    _pendingSnapshots.add(_PendingSnapshot(type, location, completer));
-    _checkSnapshots();
+    var snapshot = _pendingSnapshots.firstWhereOrNull((s) => s.type == type);
+    if (snapshot == null) {
+      snapshot = _PendingSnapshot(type, location);
+      _pendingSnapshots.add(snapshot);
+    }
+    snapshot.completers.add(completer);
+    // Let other sites request snapshot before checking for completion.
+    Future.microtask(_checkSnapshots);
     return completer.future;
   }
 }
@@ -345,17 +364,21 @@ class _FallbackSnapshotWidgetState extends State<FallbackSnapshotWidget>
       return Future.value(null);
     }
 
-    final snapshot =
-        _PendingSnapshot(null, location, Completer<TargetedImage>());
-    _pendingSnapshots.add(snapshot);
+    final completer = Completer<TargetedImage>();
+    var snapshot = _pendingSnapshots.firstWhereOrNull((s) => s.type == type);
+    if (snapshot == null) {
+      snapshot = _PendingSnapshot(type, location);
+      _pendingSnapshots.add(snapshot);
+    }
+    snapshot.completers.add(completer);
     _checkSnapshot();
-    return snapshot.completer.future;
+    return completer.future;
   }
 
   void _checkSnapshot() {
     if (!mounted) {
       for (final snapshot in _pendingSnapshots) {
-        snapshot.completer.complete(null);
+        snapshot.complete(null);
       }
       _pendingSnapshots.clear();
       return;
@@ -364,7 +387,7 @@ class _FallbackSnapshotWidgetState extends State<FallbackSnapshotWidget>
     if (object is RenderRepaintBoundary) {
       for (final snapshot in _pendingSnapshots) {
         final image = _getSnapshot(context, object, snapshot.location, null);
-        snapshot.completer.complete(image);
+        snapshot.complete(image);
       }
       _pendingSnapshots.clear();
       setState(() {});
