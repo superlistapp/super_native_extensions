@@ -9,10 +9,19 @@ class Formats {
   Formats._();
 
   static const List<DataFormat> standardFormats = [
+    //
+    // Value formats
+    //
     plainText,
     htmlText,
-    fileUri,
     uri,
+    fileUri,
+
+    //
+    // File formats
+    //
+    plainTextFile,
+    htmlFile,
     jpeg,
     png,
     svg,
@@ -63,7 +72,6 @@ class Formats {
     exe,
     msi,
     dll,
-    plainTextFile,
     webUnknown,
   ];
 
@@ -92,9 +100,13 @@ class Formats {
     ),
   );
 
-  /// Key for rich text in form of html snippet. Make sure to include `formatPlainText`
+  /// Key for rich text in form of html snippet. Make sure to include [plainText]
   /// version in clipboard as well, otherwise setting the content may fail on some
   /// platforms (i.e. Android).
+  //.
+  /// Note that if you wish to receive dropped HTML files use [htmlFile] format
+  /// instead. `htmlText` is mostly meant for copying and pasting HTML snippets
+  /// (which on some platforms require additional conversion).
   static const htmlText = SimpleValueFormat<String>(
     ios: SimplePlatformCodec<String>(
       formats: ['public.html'],
@@ -493,6 +505,13 @@ class Formats {
   static const plainTextFile = SimpleFileFormat(
     uniformTypeIdentifiers: ['public.utf8-plain-text', 'public.plain-text'],
     mimeTypes: ['text/plain'],
+  );
+
+  /// Used when dropping a HTML file (not a HTML snippet). Client is responsible for dealing
+  /// with file encoding.
+  static const htmlFile = SimpleFileFormat(
+    uniformTypeIdentifiers: ['public.html'],
+    mimeTypes: ['text/html'],
   );
 
   /// Deprecated. Original name was misleading because the UTF8 encoding is not
