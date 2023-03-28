@@ -73,7 +73,8 @@ class _DragContextDelegate implements raw.DragContextDelegate {
     GestureBinding.instance.hitTest(hitTest, location);
     for (final item in hitTest.path) {
       final target = item.target;
-      if (target is _RenderBaseDraggable) {
+      if (target is _RenderBaseDraggable &&
+          target.isLocationDraggable(location)) {
         final configuration = await target.getDragConfiguration(
           location,
           session,
