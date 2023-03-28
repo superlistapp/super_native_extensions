@@ -211,25 +211,53 @@ When it comes to providing and receiving drag data, `super_drag_and_drop` builds
 
 Virtual files are files that do not physically exist at the moment of drag. On drop the application gets notified and will start producing file content. This is useful when dragging content that is displayed in application but actually exist on a remote location (cloud).
 
-```dart
-// TODO(knopp): Example
-```
-
-### Dragging multiple items on iPad
+Virtual files are supported on iOS, macOS and Windows.
 
 ```dart
-// TODO(knopp): Example
+  final item = DragItem();
+  item.addVirtualFile(
+    format: Formats.plainTextFile,
+    provider: (sinkProvider, progress) {
+      final line = utf8.encode('Line in virtual file\n');
+      const lines = 10;
+      final sink = sinkProvider(fileSize: line.length * lines);
+      for (var i = 0; i < lines; ++i) {
+        sink.add(line);
+      }
+      sink.close();
+    },
+  );
 ```
 
-## Synthetized files
+### Dragging multiple items on iOS
 
-On desktop platform, dropping files usually puts the file URL or path into the
-payload. This is diffrent from mobile and web, where you can receive the actual
-file data.
+To allow dragging multiple items on iOS (as in the example video above), create the
+`DragItemWidget` with `canAddItemToExistingSession` set to `true`.
 
-To streamline this, `super_drag_and_drop` will synthesize a file stream for the dropped file path. This way you can always receive the file content as a stream, regardless of platform.
+In the `dragItemProvider` callback, return `null` if if the drag session already
+has local drag data associated with the item. Otherwise the item can be added to
+session multiple times.
 
-## Receiving virtual files
+```dart
+  return DragItemWidget(
+    allowedOperations: () => [DropOperation.copy],
+    canAddItemToExistingSession: true,
+    dragItemProvider: (request) async {
+      // For multi drag on iOS check if this item is already in the session
+      if (await request.session.hasLocalData('image-item')) {
+        return null;
+      }
+      final item = DragItem(
+        localData: 'image-item',
+        suggestedName: 'Green.png',
+      );
+      item.add(Formats.png(await createImageData(Colors.green)));
+      return item;
+    }
+  );
+```
+
+### Receiving virtual files
 
 Receving virtual files doesn't require any special handling. You can consume the content of virtual file just like any other stream:
 
@@ -240,6 +268,58 @@ Receving virtual files doesn't require any special handling. You can consume the
   });
 })
 ```
+
+### Customized drag image
+
+The default drag image is simply a snapshot of the `DragItemWidget` child. To customize drag image you can wrap the `DragItemWidget` in a `CustomSnapshotWidget`:
+
+```dart
+  // Add red background when dragging
+  CustomSnapshotWidget(
+    // `child` is the child passed to CustomSnapshotWidget.
+    // You can use it when building the snapshot or ignore it.
+    snapshotBuilder: (context, child, snapshotType) {
+      return Container(color: Colors.red, child: child);
+    }
+    child: DragItemWidget(...),
+  );
+```
+
+Custom snapshot can have size that is different (even larger) than the original widget. You can modify the constraints used to layout custom snapshot as well as
+the snapshot position relative to original child using a `SnapshotSettings` widget:
+
+```dart
+   // Snapshot will add 1px border around the origin widget.
+   CustomSnapshotWidget(
+    snapshotBuilder: (BuildContext context, Widget child, SnapshotType type) {
+      return SnapshotSettings(
+        // To ensure that the snapshot matches the original widget position we
+        // need to shift it by -2 pixels (1px border + 1px padding)
+        translation: (rect, dragPosition) => const Offset(-2, -2),
+        // Inflate the constraints by two pixels to account for border and padding.
+        constraintsTransform: (constraints) =>
+            constraints.deflate(const EdgeInsets.all(-2)),
+        // Decorate the widget by 1px border and 1px padding.
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(5),
+            border: Border.all(color: Colors.black, width: 1),
+          ),
+          padding: const EdgeInsets.all(1),
+          child: child,
+        ),
+      );
+    },
+    child: DragItemWidget(...)
+```
+
+## Synthetized files
+
+On desktop platform, dropping files usually puts the file URL or path into the
+payload. This is diffrent from mobile and web, where you can receive the actual
+file data.
+
+To streamline this, `super_drag_and_drop` will synthesize a file stream for the dropped file path. This way you can always receive the file content as a stream, regardless of platform.
 
 ## Running the example
 
