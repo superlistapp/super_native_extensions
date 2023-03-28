@@ -4,6 +4,7 @@ export 'package:super_clipboard/src/format.dart';
 export 'package:super_clipboard/src/standard_formats.dart';
 export 'package:super_native_extensions/widgets.dart'
     show
+        RawCustomSnapshotWidget,
         CustomSnapshotWidget,
         SnapshotType,
         SnapshotBuilder,

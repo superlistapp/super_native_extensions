@@ -209,9 +209,9 @@ class _MyHomePageState extends State<MyHomePage> {
       return null;
     }
     final item = DragItem(
-        image: request.dragImage(),
-        localData: 'text-item',
-        suggestedName: 'PlainText.txt');
+      localData: 'text-item',
+      suggestedName: 'PlainText.txt',
+    );
     item.add(Formats.plainText('Plain Text Value'));
     return item;
   }
@@ -222,7 +222,6 @@ class _MyHomePageState extends State<MyHomePage> {
       return null;
     }
     final item = DragItem(
-      image: request.dragImage(),
       localData: 'image-item',
       suggestedName: 'Green.png',
     );
@@ -236,7 +235,6 @@ class _MyHomePageState extends State<MyHomePage> {
       return null;
     }
     final item = DragItem(
-      image: await request.dragImage(),
       localData: 'lazy-image-item',
       suggestedName: 'LazyBlue.png',
     );
@@ -253,7 +251,6 @@ class _MyHomePageState extends State<MyHomePage> {
       return null;
     }
     final item = DragItem(
-      image: request.dragImage(),
       localData: 'virtual-file-item',
       suggestedName: 'VirtualFile.txt',
     );
@@ -283,7 +280,6 @@ class _MyHomePageState extends State<MyHomePage> {
       return null;
     }
     final item = DragItem(
-      image: request.dragImage(),
       localData: 'multiple-representations-item',
     );
     item.add(Formats.png(await createImageData(Colors.pink)));

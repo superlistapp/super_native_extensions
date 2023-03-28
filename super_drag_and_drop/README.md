@@ -86,9 +86,6 @@ class MyDraggableWidget extends StatelessWidget {
       dragItemProvider: (request) async {
         // DragItem represents the content bein dragged.
         final item = DragItem(
-          // snapshot() will return image snapshot of the DragItemWidget.
-          // You can use any other drag image if your wish.
-          image: request.dragImage(),
           // This data is only accessible when dropping within same
           // application. (optional)
           localData: {'x': 3, 'y': 4},
