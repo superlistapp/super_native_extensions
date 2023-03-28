@@ -316,7 +316,7 @@ the snapshot position relative to original child using a `SnapshotSettings` widg
 ## Synthetized files
 
 On desktop platform, dropping files usually puts the file URL or path into the
-payload. This is diffrent from mobile and web, where you can receive the actual
+payload. This is different from mobile and web, where you can receive the actual
 file data.
 
 To streamline this, `super_drag_and_drop` will synthesize a file stream for the dropped file path. This way you can always receive the file content as a stream, regardless of platform.
