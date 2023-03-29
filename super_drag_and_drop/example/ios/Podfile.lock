@@ -21,7 +21,7 @@ EXTERNAL SOURCES:
 SPEC CHECKSUMS:
   Flutter: f04841e97a9d0b0a8025694d0796dd46242b2854
   irondash_engine_context: 3458bf979b90d616ffb8ae03a150bafe2e860cc9
-  super_native_extensions: 9b3405f4eb887e18eba5683847e8fc35f28af9e0
+  super_native_extensions: a31bf7ed9468a4f5d27e251be52753937e10e96a
 
 PODFILE CHECKSUM: ef19549a9bc3046e7bb7d2fab4d021637c0c58a3
 

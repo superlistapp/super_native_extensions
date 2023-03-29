@@ -100,18 +100,18 @@ packages:
     dependency: transitive
     description:
       name: irondash_engine_context
-      sha256: "18c1636c1fe53032862cdbfabb28b1a1bffaed4cf143118308618f63784b757b"
+      sha256: "086fbbcaef07b821b304b0371e472c687715f326219b69b18dc5c962dab09b55"
       url: "https://pub.dev"
     source: hosted
-    version: "0.1.0"
+    version: "0.1.1"
   irondash_message_channel:
     dependency: transitive
     description:
       name: irondash_message_channel
-      sha256: a35566b1e7c8747b7ff6c64e43f8d8fe68b6f9a9d79158d6e4147b46ab4e43b4
+      sha256: "081ff9631a2c6782a47ef4fdf9c97206053af1bb174e2a25851692b04f3bc126"
       url: "https://pub.dev"
     source: hosted
-    version: "0.1.0"
+    version: "0.1.1"
   js:
     dependency: transitive
     description:

@@ -1,5 +1,7 @@
 package com.superlist.super_native_extensions;
 
+import androidx.annotation.Keep;
+
 import android.content.ClipData;
 import android.content.Intent;
 import android.graphics.Bitmap;
@@ -9,8 +11,6 @@ import android.graphics.Paint;
 import android.graphics.Point;
 import android.view.DragEvent;
 import android.view.View;
-
-import io.flutter.embedding.android.FlutterView;
 
 // Wrap drag sessionId in typed object so that we can safely ignore possible local data
 // from sessions not created by super_native_extensions.
@@ -23,6 +23,7 @@ class SessionId {
 }
 
 // used from JNI
+@Keep
 @SuppressWarnings("UnusedDeclaration")
 public class DragDropHelper {
     public static native boolean onDrag(DragEvent event, long dropHandlerId);
@@ -39,19 +40,17 @@ public class DragDropHelper {
         @Override
         public void onProvideShadowMetrics(Point outShadowSize, Point outShadowTouchPoint) {
             outShadowSize.set(bitmap.getWidth() + 20, bitmap.getHeight() + 20);
-            outShadowTouchPoint.set(touchPoint.x + 10, touchPoint.y + 10);
+            outShadowTouchPoint.set(touchPoint.x, touchPoint.y);
         }
 
         @Override
         public void onDrawShadow(Canvas canvas) {
             Paint shadowPaint = new Paint();
-            shadowPaint.setShadowLayer(5, 0, 0, Color.BLACK);
-            // TODO(knopp): Actual shadow
             canvas.drawBitmap(bitmap, 10, 10, shadowPaint);
         }
     }
 
-    void startDrag(FlutterView view, long dragSessionId, ClipData clipData, Bitmap bitmap, int touchPointX, int touchPointY) {
+    void startDrag(View view, long dragSessionId, ClipData clipData, Bitmap bitmap, int touchPointX, int touchPointY) {
         final int DRAG_FLAG_GLOBAL = 1 << 8;
         final int DRAG_FLAG_GLOBAL_URI_READ = Intent.FLAG_GRANT_READ_URI_PERMISSION;
         if (view != null) {
@@ -71,7 +70,7 @@ public class DragDropHelper {
         }
     }
 
-    void registerDropHandler(FlutterView view, long handlerId) {
+    void registerDropHandler(View view, long handlerId) {
         if (view != null) {
             view.setOnDragListener((v, event) -> onDrag(event, handlerId));
         }
