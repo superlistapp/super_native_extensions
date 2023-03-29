@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:collection/collection.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
@@ -23,6 +22,11 @@ class RawCustomSnapshotWidgetState extends State<RawCustomSnapshotWidget>
   @override
   void prepare(Set<SnapshotType> types) {
     return widget.onPrepare(types);
+  }
+
+  @override
+  void unprepare() {
+    widget.onUnprepare();
   }
 }
 
@@ -126,6 +130,7 @@ class CustomSnapshotWidgetState extends State<CustomSnapshotWidget> {
     return RawCustomSnapshotWidget(
       onGetSnapshot: getSnapshot,
       onPrepare: prepare,
+      onUnprepare: unprepare,
       child: Builder(builder: (context) {
         _lastBuiltTypes.clear();
         if (_prepared.isEmpty && _pendingSnapshots.isEmpty) {
@@ -195,12 +200,20 @@ class CustomSnapshotWidgetState extends State<CustomSnapshotWidget> {
   }
 
   void prepare(Set<SnapshotType> types) {
-    if (setEquals(_prepared, types)) {
+    if (_prepared.containsAll(types)) {
+      return;
+    }
+    setState(() {
+      _prepared.addAll(types);
+    });
+  }
+
+  void unprepare() {
+    if (_prepared.isEmpty) {
       return;
     }
     setState(() {
       _prepared.clear();
-      _prepared.addAll(types);
     });
   }
 
@@ -337,12 +350,21 @@ class FallbackSnapshotWidgetState extends State<FallbackSnapshotWidget>
 
   @override
   void prepare(Set<SnapshotType> types) {
-    final newPrepared = types.isNotEmpty;
-    if (newPrepared == _prepared) {
+    if (_prepared) {
       return;
     }
     setState(() {
-      _prepared = newPrepared;
+      _prepared = true;
+    });
+  }
+
+  @override
+  void unprepare() {
+    if (!_prepared) {
+      return;
+    }
+    setState(() {
+      _prepared = false;
     });
   }
 }
