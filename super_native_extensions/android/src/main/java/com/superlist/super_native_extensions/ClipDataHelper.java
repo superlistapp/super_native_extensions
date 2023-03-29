@@ -13,6 +13,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 
+import androidx.annotation.Keep;
 import androidx.annotation.Nullable;
 
 import java.io.ByteArrayOutputStream;
@@ -27,6 +28,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 // used from JNI
+@Keep
 @SuppressWarnings("UnusedDeclaration")
 public final class ClipDataHelper {
 

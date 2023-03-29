@@ -77,7 +77,7 @@ impl PlatformDropContext {
         env.call_method(
             DRAG_DROP_HELPER.get().unwrap().as_obj(),
             "registerDropHandler",
-            "(Lio/flutter/embedding/android/FlutterView;J)V",
+            "(Landroid/view/View;J)V",
             &[view.as_obj().into(), self.id.0.into()],
         )?;
         Ok(())

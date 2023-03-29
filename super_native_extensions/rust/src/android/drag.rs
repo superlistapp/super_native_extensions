@@ -161,7 +161,7 @@ impl PlatformDragContext {
         env.call_method(
             DRAG_DROP_HELPER.get().unwrap().as_obj(),
             "startDrag",
-            "(Lio/flutter/embedding/android/FlutterView;JLandroid/content/ClipData;Landroid/graphics/Bitmap;II)V",
+            "(Landroid/view/View;JLandroid/content/ClipData;Landroid/graphics/Bitmap;II)V",
             &[
                 view.as_obj().into(),
                 session_id.into(),

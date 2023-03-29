@@ -37,7 +37,7 @@ NDK is required to use `super_clipboard`. You can use Android Studio *SDK Manage
 
     Preferences -> Android SDK -> SDK Tools -> NDK (Side by Side).
 
-NDK version your project expects is specified in `build.gradle`.
+NDK version your project expects is specified in `android/app/build.gradle`.
 
 ```groovy
 android {
