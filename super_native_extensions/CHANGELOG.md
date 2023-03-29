@@ -1,3 +1,22 @@
+## 0.3.0
+
+ - **FIX**: [android] build failing with proguard enabled (#114).
+ - **FIX**: custom snapshot should propagate exception from renderbox (#104).
+ - **FIX**: [ios] revert memory leak fix removal (#103).
+ - **FIX**: [web] dropping over platform views not working (#99).
+ - **FIX**: [ios] use shadow path from correct image (#97).
+ - **FIX**: [ios] force separate drag image to account for shadow difference (#92).
+ - **FIX**: [web] dragging ocasionally getting stuck (#89).
+ - **FIX**: [windows] pasting files from explorer (#88).
+ - **FIX**: use unpremultiplied alpha for encoding image data (#85).
+ - **FEAT**: allow merging of snapshot prepare requests (#110).
+ - **FEAT**: snapshot optimization (#102).
+ - **FEAT**: improve snapshot API (#101).
+ - **FEAT**: use widget to customize snapshot setting (#100).
+ - **FEAT**: [ios] use real shadow path instead of layer shadow (#95).
+ - **FEAT**: [ios] remove drag item provider memory leak workaround (#93).
+ - **FEAT**: implement drag shadow on all platforms (#87).
+
 ## 0.2.4
 
  - **FEAT**: [macos] receiving virtual files from outlook attachments (#81).

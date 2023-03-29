@@ -1,3 +1,16 @@
+## 0.3.0
+
+ - **FIX**: [android] build failing with proguard enabled (#114).
+ - **FIX**: [ios] respect isLocationDraggable check (#109).
+ - **FIX**: super_drag_and_drop should reexport Format (#83).
+ - **FEAT**: allow merging of snapshot prepare requests (#110).
+ - **FEAT**: simplify lift snapshot logic on iOS (#108).
+ - **FEAT**: improve snapshot API (#101).
+ - **FEAT**: use widget to customize snapshot setting (#100).
+ - **FEAT**: implement drag shadow on all platforms (#87).
+ - **DOCS**: fix typo.
+ - **DOCS**: improve super_drag_and_drop documentation (#106).
+
 ## 0.2.3+1
 
  - Update a dependency to the latest release.

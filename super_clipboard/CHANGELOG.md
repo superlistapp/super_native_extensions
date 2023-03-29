@@ -1,3 +1,9 @@
+## 0.3.0
+
+ - **FIX**: [android] build failing with proguard enabled (#114).
+ - **FEAT**: add htmlFile format (#107).
+ - **FEAT**: make format in DataReader.getFile optional (#90).
+
 ## 0.2.3+1
 
  - Update a dependency to the latest release.

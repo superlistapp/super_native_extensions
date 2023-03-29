@@ -1,3 +1,7 @@
+## 0.3.0
+
+ - **FIX**: [android] build failing with proguard enabled (#114).
+
 ## 0.2.1+1
 
  - Update a dependency to the latest release.
