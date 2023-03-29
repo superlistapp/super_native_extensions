@@ -81,6 +81,14 @@ class CustomSnapshotWidget extends StatefulWidget {
 /// Widget that can be used to generate completely custom drag and drop
 /// snapshots.
 class RawCustomSnapshotWidget extends StatefulWidget {
+  const RawCustomSnapshotWidget({
+    super.key,
+    required this.onGetSnapshot,
+    required this.onPrepare,
+    required this.child,
+    required this.onUnprepare,
+  });
+
   /// This will be called when snapshot is requested.
   /// `type` will be `null` when snapshot is requested as fallback in case
   /// custom snapshot for particular type was not available.
@@ -92,14 +100,10 @@ class RawCustomSnapshotWidget extends StatefulWidget {
   /// to avoid delays when snapshot is requested.
   final void Function(Set<SnapshotType> types) onPrepare;
 
-  final Widget child;
+  /// After this call it is unlikely for a snapshot to be requested.
+  final void Function() onUnprepare;
 
-  const RawCustomSnapshotWidget({
-    super.key,
-    required this.onGetSnapshot,
-    required this.onPrepare,
-    required this.child,
-  });
+  final Widget child;
 
   @override
   State<StatefulWidget> createState() => RawCustomSnapshotWidgetState();
@@ -121,6 +125,8 @@ abstract class Snapshotter {
   }
 
   void prepare(Set<SnapshotType> types);
+
+  void unprepare();
 
   Future<TargetedImage?> getSnapshot(Offset location, SnapshotType? type);
 }

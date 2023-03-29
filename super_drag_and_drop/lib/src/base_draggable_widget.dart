@@ -84,12 +84,12 @@ class BaseDraggableWidget extends StatelessWidget {
       },
       onPointerCancel: (_) {
         if (context.mounted) {
-          Snapshotter.of(context)?.prepare({});
+          Snapshotter.of(context)?.unprepare();
         }
       },
       onPointerUp: (_) {
         if (context.mounted) {
-          Snapshotter.of(context)?.prepare({});
+          Snapshotter.of(context)?.unprepare();
         }
       },
       child: child,
