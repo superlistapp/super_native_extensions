@@ -139,22 +139,28 @@ impl PlatformDropContext {
                 // be number or local items (if any), or 1. Each item will have types
                 // from clip description set.
                 let clip_description = event.get_clip_description(env)?;
-                let mime_type_count = env
-                    .call_method(clip_description, "getMimeTypeCount", "()I", &[])?
-                    .i()?;
-                let mut mime_types = Vec::<String>::new();
-                for i in 0..mime_type_count {
-                    let mime_type = env
-                        .call_method(
-                            clip_description,
-                            "getMimeType",
-                            "(I)Ljava/lang/String;",
-                            &[i.into()],
-                        )?
-                        .l()?;
-                    let mime_type = env.get_string(mime_type.into())?;
-                    mime_types.push(mime_type.into());
-                }
+                let mime_types = if env.is_same_object(clip_description, JObject::null())? {
+                    Vec::default()
+                } else {
+                    let mime_type_count = env
+                        .call_method(clip_description, "getMimeTypeCount", "()I", &[])?
+                        .i()?;
+                    let mut mime_types = Vec::<String>::new();
+                    for i in 0..mime_type_count {
+                        let mime_type = env
+                            .call_method(
+                                clip_description,
+                                "getMimeType",
+                                "(I)Ljava/lang/String;",
+                                &[i.into()],
+                            )?
+                            .l()?;
+                        let mime_type = env.get_string(mime_type.into())?;
+                        mime_types.push(mime_type.into());
+                    }
+                    mime_types
+                };
+
                 if local_data.is_empty() {
                     local_data.push(Value::Null);
                 }
@@ -304,30 +310,37 @@ impl PlatformDropContext {
                     {
                         let local_data = get_local_data();
                         let clip_data = event.get_clip_data(env)?;
-                        // If this is local data make sure to extend the lifetime
-                        // with the reader.
-                        let data_provider_handles = get_data_provider_handles();
 
-                        let permission_notifier =
-                            self.request_drag_drop_permissions(env, event.0)?;
+                        let reader = if env.is_same_object(clip_data, JObject::null())? {
+                            None
+                        } else {
+                            // If this is local data make sure to extend the lifetime
+                            // with the reader.
+                            let data_provider_handles = get_data_provider_handles();
 
-                        let reader = PlatformDataReader::from_clip_data(
-                            env,
-                            clip_data,
-                            Some(Arc::new(DropNotifier::new(move || {
-                                let _data_provider_handles = data_provider_handles;
-                                let _permission_notifier = permission_notifier;
-                            }))),
-                        )?;
-                        let registered_reader =
-                            delegate.register_platform_reader(self.id, reader.clone());
+                            let permission_notifier =
+                                self.request_drag_drop_permissions(env, event.0)?;
+
+                            let reader = PlatformDataReader::from_clip_data(
+                                env,
+                                clip_data,
+                                Some(Arc::new(DropNotifier::new(move || {
+                                    let _data_provider_handles = data_provider_handles;
+                                    let _permission_notifier = permission_notifier;
+                                }))),
+                            )?;
+                            let registered_reader =
+                                delegate.register_platform_reader(self.id, reader.clone());
+                            Some((reader, registered_reader))
+                        };
+
                         let event = Self::translate_drop_event(
                             event,
                             current_session.id,
                             env,
                             local_data,
                             Some(accepted_operation),
-                            Some((reader, registered_reader)),
+                            reader,
                         )?;
                         let done = Rc::new(Cell::new(false));
                         let done_clone = done.clone();
