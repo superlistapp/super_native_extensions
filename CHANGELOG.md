@@ -3,6 +3,40 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## 2023-03-30
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - There are no breaking changes in this release.
+
+Packages with other changes:
+
+ - [`super_native_extensions` - `v0.3.0+1`](#super_native_extensions---v0301)
+ - [`super_clipboard` - `v0.3.0+1`](#super_clipboard---v0301)
+ - [`super_drag_and_drop` - `v0.3.0+1`](#super_drag_and_drop---v0301)
+ - [`super_keyboard_layout` - `v0.3.0+1`](#super_keyboard_layout---v0301)
+ - [`super_hot_key` - `v0.3.0+1`](#super_hot_key---v0301)
+
+Packages with dependency updates only:
+
+> Packages listed below depend on other packages in this workspace that have had changes. Their versions have been incremented to bump the minimum dependency versions of the packages they depend upon in this project.
+
+ - `super_clipboard` - `v0.3.0+1`
+ - `super_drag_and_drop` - `v0.3.0+1`
+ - `super_keyboard_layout` - `v0.3.0+1`
+ - `super_hot_key` - `v0.3.0+1`
+
+---
+
+#### `super_native_extensions` - `v0.3.0+1`
+
+ - **FIX**: [android] local data only dragging not working (#115).
+
+
 ## 2023-03-29
 
 ### Changes

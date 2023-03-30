@@ -1,3 +1,7 @@
+## 0.3.0+1
+
+ - **FIX**: [android] local data only dragging not working (#115).
+
 ## 0.3.0
 
  - **FIX**: [android] build failing with proguard enabled (#114).
