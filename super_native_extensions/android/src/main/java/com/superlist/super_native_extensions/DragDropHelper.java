@@ -53,10 +53,11 @@ public class DragDropHelper {
     void startDrag(View view, long dragSessionId, ClipData clipData, Bitmap bitmap, int touchPointX, int touchPointY) {
         final int DRAG_FLAG_GLOBAL = 1 << 8;
         final int DRAG_FLAG_GLOBAL_URI_READ = Intent.FLAG_GRANT_READ_URI_PERMISSION;
+        final int flags = clipData != null ? DRAG_FLAG_GLOBAL | DRAG_FLAG_GLOBAL_URI_READ : 0;
         if (view != null) {
             view.startDrag(clipData,
                     new DragShadowBuilder(bitmap, new Point(touchPointX, touchPointY)), new SessionId(dragSessionId),
-                    DRAG_FLAG_GLOBAL | DRAG_FLAG_GLOBAL_URI_READ
+                    flags
             );
         }
     }
