@@ -1,3 +1,7 @@
+## 0.3.0+2
+
+ - **FIX**: [win] rewind OLE streams before reading (#117).
+
 ## 0.3.0+1
 
  - **FIX**: [android] local data only dragging not working (#115).
