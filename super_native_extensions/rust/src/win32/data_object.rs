@@ -21,7 +21,8 @@ use windows::{
         System::{
             Com::{
                 IBindCtx, IDataObject, IDataObject_Impl, IStream, DATADIR_GET, FORMATETC,
-                STGMEDIUM, STGMEDIUM_0, STREAM_SEEK_END, TYMED, TYMED_HGLOBAL, TYMED_ISTREAM,
+                STGMEDIUM, STGMEDIUM_0, STREAM_SEEK_END, STREAM_SEEK_SET, TYMED, TYMED_HGLOBAL,
+                TYMED_ISTREAM,
             },
             DataExchange::RegisterClipboardFormatW,
             Memory::{
@@ -638,6 +639,7 @@ impl IDataObject_Impl for DataObject {
                 let stream = medium.Anonymous.pstm.as_ref().cloned();
 
                 let stream_data = if let Some(stream) = stream {
+                    stream.Seek(0, STREAM_SEEK_SET, None)?;
                     read_stream_fully(stream)
                 } else {
                     Vec::new()
@@ -735,6 +737,8 @@ pub trait GetData {
             let res = if medium.tymed == TYMED_ISTREAM {
                 let stream = medium.Anonymous.pstm.as_ref().cloned();
                 if let Some(stream) = stream {
+                    // IDataObject streams need to be rewound
+                    stream.Seek(0, STREAM_SEEK_SET, None)?;
                     Ok(read_stream_fully(stream))
                 } else {
                     Ok(Vec::new())
