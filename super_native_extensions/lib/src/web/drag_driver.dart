@@ -61,7 +61,7 @@ class DragDriver {
         final newData = ui.PointerData(
           buttons: 0,
           pointerIdentifier: data.pointerIdentifier,
-          change: ui.PointerChange.up,
+          change: ui.PointerChange.cancel,
           kind: data.kind,
           timeStamp: data.timeStamp,
           physicalX: data.physicalX,

@@ -20,6 +20,7 @@ dependencies:
   uuid: ^3.0.7
   irondash_engine_context: ^0.1.1
   irondash_message_channel: ^0.1.1
+  device_info_plus: ^8.2.0
 
 dev_dependencies:
   flutter_test:

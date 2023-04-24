@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
-import 'package:super_native_extensions/widgets.dart';
 
 import 'drag_internal.dart';
 import 'draggable_widget.dart';
@@ -74,26 +73,6 @@ class BaseDraggableWidget extends StatelessWidget {
         child: child,
       );
     }
-    child = Listener(
-      behavior: HitTestBehavior.translucent,
-      onPointerDown: (_) {
-        Snapshotter.of(context)?.prepare({
-          SnapshotType.drag,
-          if (defaultTargetPlatform == TargetPlatform.iOS) SnapshotType.lift,
-        });
-      },
-      onPointerCancel: (_) {
-        if (context.mounted) {
-          Snapshotter.of(context)?.unprepare();
-        }
-      },
-      onPointerUp: (_) {
-        if (context.mounted) {
-          Snapshotter.of(context)?.unprepare();
-        }
-      },
-      child: child,
-    );
     return BaseDraggableRenderWidget(
       hitTestBehavior: hitTestBehavior,
       getDragConfiguration: dragConfiguration,

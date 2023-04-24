@@ -1,6 +1,5 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:super_native_extensions/raw_drag_drop.dart' as raw;
 
@@ -155,8 +154,6 @@ abstract class _DragDetector extends StatelessWidget {
     }
   }
 
-  void onDraggingStarted() {}
-
   void _maybeStartDragWithSession(
     raw.DragContext context,
     Offset position,
@@ -169,7 +166,6 @@ abstract class _DragDetector extends StatelessWidget {
           session: session,
           configuration: await dragConfiguration.intoRaw(devicePixelRatio),
           position: position);
-      onDraggingStarted();
     }
   }
 }
@@ -196,31 +192,6 @@ class _ImmediateMultiDragGestureRecognizer
         event.buttons != kPrimaryMouseButton) {
       return false;
     }
-    if (!isLocationDraggable(event.position)) {
-      return false;
-    }
-    return super.isPointerAllowed(event);
-  }
-}
-
-class _DelayedMultiDragGestureRecognizer
-    extends DelayedMultiDragGestureRecognizer {
-  int? lastPointer;
-
-  final LocationIsDraggable isLocationDraggable;
-
-  _DelayedMultiDragGestureRecognizer({
-    required this.isLocationDraggable,
-  });
-
-  @override
-  void acceptGesture(int pointer) {
-    lastPointer = pointer;
-    super.acceptGesture(pointer);
-  }
-
-  @override
-  bool isPointerAllowed(PointerDownEvent event) {
     if (!isLocationDraggable(event.position)) {
       return false;
     }
@@ -294,37 +265,40 @@ class MobileDragDetector extends _DragDetector {
 
   @override
   Widget build(BuildContext context) {
-    final devicePixelRatio = MediaQuery.of(context).devicePixelRatio;
     return RawGestureDetector(
       gestures: {
-        _DelayedMultiDragGestureRecognizer:
+        raw.SingleDragDelayedGestureRecognizer:
             GestureRecognizerFactoryWithHandlers<
-                    _DelayedMultiDragGestureRecognizer>(
-                () => _DelayedMultiDragGestureRecognizer(
-                      isLocationDraggable: isLocationDraggable,
+                    raw.SingleDragDelayedGestureRecognizer>(
+                () => raw.SingleDragDelayedGestureRecognizer(
+                      beginDuration: const Duration(milliseconds: 150),
+                      duration: const Duration(milliseconds: 300),
                     ), (recognizer) {
-          recognizer.onStart = (offset) =>
-              maybeStartDrag(recognizer.lastPointer, offset, devicePixelRatio);
-        })
+          recognizer.shouldAcceptTouchAtPosition = isLocationDraggable;
+          recognizer.onDragStart = (globalPosition) {
+            return _longPressHandler?.dragGestureForPosition(
+              context: context,
+              position: globalPosition,
+              pointer: recognizer.lastPointer!,
+            );
+          };
+        }),
       },
       child: child,
     );
-  }
-
-  @override
-  void onDraggingStarted() {
-    HapticFeedback.mediumImpact();
   }
 }
 
 bool _initialized = false;
 raw.DragContext? _dragContext;
+raw.LongPressHandler? _longPressHandler;
 
 void _initializeIfNeeded() async {
   if (!_initialized) {
     _initialized = true;
     _dragContext = await raw.DragContext.instance();
     _dragContext!.delegate = _DragContextDelegate();
+    _longPressHandler = await raw.LongPressHandler.create();
     // needed on some platforms (i.e. Android for drop end notifications)
     await raw.DropContext.instance();
   }

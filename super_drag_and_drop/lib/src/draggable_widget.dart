@@ -1,15 +1,16 @@
 import 'dart:async';
 
+import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
 import 'package:super_native_extensions/raw_drag_drop.dart' as raw;
-import 'package:super_native_extensions/widgets.dart';
+import 'package:super_native_extensions/widget_snapshotter.dart';
+
+import 'base_draggable_widget.dart';
+import 'drag_configuration.dart';
 export 'package:super_native_extensions/raw_drag_drop.dart'
     show DropOperation, DragSession;
-
-import 'drag_configuration.dart';
-import 'base_draggable_widget.dart';
 
 class DragItemRequest {
   DragItemRequest({
@@ -62,8 +63,18 @@ class DragItemWidget extends StatefulWidget {
     required this.child,
     required this.dragItemProvider,
     required this.allowedOperations,
+    this.liftBuilder,
+    this.dragBuilder,
     this.canAddItemToExistingSession = false,
   });
+
+  /// Allows customizing lift preview image. Used on iOS and Android during
+  /// the lift animation (start of long press of drag handle until the long
+  /// press is recognized).
+  final Widget? Function(BuildContext context, Widget child)? liftBuilder;
+
+  /// Allows customizing drag image for this item.
+  final Widget? Function(BuildContext context, Widget child)? dragBuilder;
 
   final Widget child;
 
@@ -86,26 +97,49 @@ class DragItemWidget extends StatefulWidget {
   State<StatefulWidget> createState() => DragItemWidgetState();
 }
 
+class _DragImage {
+  _DragImage({
+    required this.image,
+    this.liftImage,
+  });
+
+  final raw.TargetedImage image;
+  final raw.TargetedImage? liftImage;
+}
+
+class _SnapshotKey {
+  _SnapshotKey(this.debugName);
+
+  @override
+  String toString() {
+    return "SnapshotKey('$debugName') ${identityHashCode(this)}";
+  }
+
+  final String debugName;
+}
+
+final _keyLift = _SnapshotKey('Lift');
+final _keyDrag = _SnapshotKey('Preview');
+
 class DragItemWidgetState extends State<DragItemWidget> {
-  Future<DragImage?> _getSnapshot(Offset location) async {
-    final snapshotter = Snapshotter.of(_innerContext!)!;
-    final dragSnapshot =
-        await snapshotter.getSnapshot(location, SnapshotType.drag);
+  Future<_DragImage?> _getSnapshot(Offset location) async {
+    final snapshotter = _snapshotterKey.currentState!;
 
     raw.TargetedImage? liftSnapshot;
-    if (defaultTargetPlatform == TargetPlatform.iOS) {
-      liftSnapshot = await snapshotter.getSnapshot(location, SnapshotType.lift);
+    if (defaultTargetPlatform == TargetPlatform.iOS ||
+        defaultTargetPlatform == TargetPlatform.android) {
+      liftSnapshot = await snapshotter.getSnapshot(location, _keyLift,
+          () => widget.liftBuilder?.call(context, widget.child));
     }
 
-    final snapshot = dragSnapshot ??
-        liftSnapshot ??
-        await snapshotter.getSnapshot(location, null);
+    final snapshot = await snapshotter.getSnapshot(location, _keyDrag,
+        () => widget.dragBuilder?.call(context, widget.child));
 
     if (snapshot == null) {
       return null;
     }
 
-    return DragImage(image: snapshot, liftImage: liftSnapshot);
+    return _DragImage(image: snapshot, liftImage: liftSnapshot);
   }
 
   Future<DragConfigurationItem?> createItem(
@@ -120,9 +154,7 @@ class DragItemWidgetState extends State<DragItemWidget> {
       final image = await _getSnapshot(location);
       if (image != null) {
         return DragConfigurationItem(
-          item: item,
-          image: image,
-        );
+            item: item, image: image.image, liftImage: image.liftImage);
       }
     }
     return null;
@@ -132,15 +164,13 @@ class DragItemWidgetState extends State<DragItemWidget> {
     return widget.allowedOperations();
   }
 
-  BuildContext? _innerContext;
+  final _snapshotterKey = GlobalKey<WidgetSnapshotterState>();
 
   @override
   Widget build(BuildContext context) {
-    return FallbackSnapshotWidget(
-      child: Builder(builder: (context) {
-        _innerContext = context;
-        return widget.child;
-      }),
+    return WidgetSnapshotter(
+      key: _snapshotterKey,
+      child: widget.child,
     );
   }
 }
@@ -261,20 +291,55 @@ class DraggableWidget extends StatelessWidget {
     }
   }
 
+  Iterable<WidgetSnapshotterState> _getSnapshotters(BuildContext context) {
+    final items = dragItemsProvider(context);
+    return items.map((e) => e._snapshotterKey.currentState).whereNotNull();
+  }
+
   @override
   Widget build(BuildContext context) {
-    return BaseDraggableWidget(
-      isLocationDraggable: isLocationDraggable,
-      hitTestBehavior: hitTestBehavior,
-      child: child,
-      dragConfiguration: (location, session) async {
-        final items = dragItemsProvider(context);
-        return dragConfigurationForItems(items, location, session);
+    return Listener(
+      onPointerDown: (_) {
+        for (final item in dragItemsProvider(context)) {
+          final snapshotter = item._snapshotterKey.currentState;
+          if (item.mounted && snapshotter != null) {
+            if (defaultTargetPlatform == TargetPlatform.iOS ||
+                defaultTargetPlatform == TargetPlatform.android) {
+              snapshotter.registerWidget(
+                  _keyLift,
+                  item.widget.liftBuilder
+                      ?.call(item.context, item.widget.child));
+            }
+            snapshotter.registerWidget(_keyDrag,
+                item.widget.dragBuilder?.call(item.context, item.widget.child));
+          }
+        }
       },
-      additionalItems: (location, session) async {
-        final items = additionalDragItemsProvider(context);
-        return additionalItems(items, location, session);
+      onPointerCancel: (_) {
+        for (final item in dragItemsProvider(context)) {
+          item._snapshotterKey.currentState?.unregisterWidget(_keyLift);
+          item._snapshotterKey.currentState?.unregisterWidget(_keyDrag);
+        }
       },
+      onPointerUp: (_) {
+        for (final item in dragItemsProvider(context)) {
+          item._snapshotterKey.currentState?.unregisterWidget(_keyLift);
+          item._snapshotterKey.currentState?.unregisterWidget(_keyDrag);
+        }
+      },
+      child: BaseDraggableWidget(
+        isLocationDraggable: isLocationDraggable,
+        hitTestBehavior: hitTestBehavior,
+        child: child,
+        dragConfiguration: (location, session) async {
+          final items = dragItemsProvider(context);
+          return dragConfigurationForItems(items, location, session);
+        },
+        additionalItems: (location, session) async {
+          final items = additionalDragItemsProvider(context);
+          return additionalItems(items, location, session);
+        },
+      ),
     );
   }
 }

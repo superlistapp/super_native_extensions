@@ -220,7 +220,6 @@ class DropRegion extends SingleChildRenderObjectWidget {
     renderObject_.onPerformDrop = onPerformDrop;
     renderObject_.onDropEnded = onDropEnded;
     renderObject_.onGetDropItemPreview = onGetDropItemPreview;
-    renderObject_.devicePixelRatio = MediaQuery.of(context).devicePixelRatio;
   }
 }
 

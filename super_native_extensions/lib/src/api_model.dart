@@ -1,5 +1,8 @@
+import 'dart:async';
 import 'dart:typed_data';
 import 'dart:ui';
+
+import 'image.dart';
 
 class ImageData {
   ImageData({
@@ -31,17 +34,34 @@ class ImageData {
   final double? devicePixelRatio;
 
   static Future<ImageData> fromImage(
-    Image image, {
-    double? devicePixelRatio,
-  }) async {
+    Image image,
+  ) async {
     final bytes =
         await image.toByteData(format: ImageByteFormat.rawStraightRgba);
     return ImageData(
-        width: image.width,
-        height: image.height,
-        bytesPerRow: image.width * 4,
-        data: bytes!.buffer.asUint8List(),
-        devicePixelRatio: devicePixelRatio);
+      width: image.width,
+      height: image.height,
+      bytesPerRow: image.width * 4,
+      data: bytes!.buffer.asUint8List(),
+      devicePixelRatio: image.devicePixelRatio,
+    );
+  }
+
+  Future<Image> toImage() {
+    final completer = Completer<Image>();
+    decodeImageFromPixels(
+      data,
+      width,
+      height,
+      PixelFormat.rgba8888,
+      rowBytes: bytesPerRow,
+      (result) {
+        completer.complete(result);
+      },
+    );
+    return completer.future.then(
+      (value) => value..devicePixelRatio = devicePixelRatio,
+    );
   }
 }
 
@@ -67,18 +87,13 @@ class TargetedImageData {
 }
 
 extension TargetedImageIntoRaw on TargetedImage {
-  Future<TargetedImageData> intoRaw(double devicePixelRatio) async {
+  Future<TargetedImageData> intoRaw() async {
     return TargetedImageData(
-      imageData:
-          await ImageData.fromImage(image, devicePixelRatio: devicePixelRatio),
+      imageData: await ImageData.fromImage(image),
       rect: rect,
     );
   }
 }
-
-//
-// Drag
-//
 
 /// Represents result of a drag & drop operation.
 enum DropOperation {

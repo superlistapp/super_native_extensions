@@ -118,6 +118,7 @@ impl PlatformDropContext {
         session_id: DropSessionId,
         env: &JNIEnv<'a>,
         mut local_data: Vec<Value>,
+        allowed_operations: Vec<DropOperation>,
         accepted_operation: Option<DropOperation>,
         reader: Option<(Rc<PlatformDataReader>, RegisteredDataReader)>,
     ) -> NativeExtensionsResult<DropEvent> {
@@ -183,7 +184,7 @@ impl PlatformDropContext {
                 x: event.get_x(env)? as f64 / density,
                 y: event.get_y(env)? as f64 / density,
             },
-            allowed_operations: vec![DropOperation::Copy],
+            allowed_operations,
             items,
             accepted_operation,
             reader: reader.map(|r| r.1),
@@ -253,21 +254,38 @@ impl PlatformDropContext {
                     .clone()
             };
 
+            let session_id = event.get_session_id(env)?;
+
             let get_local_data = || {
-                drag_contexts
-                    .iter()
-                    .map(|c| c.get_local_data(env, event))
-                    .find(|c| c.is_some())
-                    .flatten()
+                session_id
+                    .and_then(|session_id| {
+                        drag_contexts
+                            .iter()
+                            .filter_map(|c| c.get_local_data_for_session_id(session_id).ok())
+                            .next()
+                    })
                     .unwrap_or_default()
             };
 
+            let get_allowed_operations = || {
+                session_id
+                    .and_then(|session_id| {
+                        drag_contexts
+                            .iter()
+                            .filter_map(|c| c.get_allowed_operations(session_id))
+                            .next()
+                    })
+                    .unwrap_or_else(|| vec![DropOperation::Copy])
+            };
+
             let get_data_provider_handles = || {
-                drag_contexts
-                    .iter()
-                    .map(|c| c.get_data_provider_handles(env, event))
-                    .find(|c| c.is_some())
-                    .flatten()
+                session_id
+                    .and_then(|session_id| {
+                        drag_contexts
+                            .iter()
+                            .filter_map(|c| c.get_data_provider_handles(session_id))
+                            .next()
+                    })
                     .unwrap_or_default()
             };
 
@@ -279,16 +297,24 @@ impl PlatformDropContext {
                         current_session.id,
                         env,
                         get_local_data(),
+                        get_allowed_operations(),
                         None, // accepted operation
                         None, // reader
                     )?;
+                    let weak_delegate = self.delegate.clone();
                     delegate.send_drop_update(
                         self.id,
                         event,
                         Box::new(move |res| {
-                            current_session
-                                .last_operation
-                                .replace(res.ok_log().unwrap_or(DropOperation::None));
+                            let operation = res.ok_log().unwrap_or(DropOperation::None);
+                            if let (Some(session_id), Some(delegate)) =
+                                (session_id, weak_delegate.upgrade())
+                            {
+                                delegate.get_platform_drag_contexts().iter().for_each(|d| {
+                                    d.replace_last_operation(session_id, operation)
+                                });
+                            }
+                            current_session.last_operation.replace(operation);
                         }),
                     );
                     Ok(true)
@@ -339,6 +365,7 @@ impl PlatformDropContext {
                             current_session.id,
                             env,
                             local_data,
+                            get_allowed_operations(),
                             Some(accepted_operation),
                             reader,
                         )?;
@@ -382,6 +409,32 @@ impl Drop for PlatformDropContext {
     fn drop(&mut self) {
         CONTEXTS.with(|c| c.borrow_mut().remove(&self.id));
     }
+}
+
+fn update_last_touch_point<'a>(
+    env: &JNIEnv<'a>,
+    view_root: JObject<'a>,
+    event: JObject<'a>,
+) -> NativeExtensionsResult<()> {
+    env.call_method(
+        view_root,
+        "enqueueInputEvent",
+        "(Landroid/view/InputEvent;Landroid/view/InputEventReceiver;IZ)V",
+        &[event.into(), JObject::null().into(), 1.into(), true.into()],
+    )?;
+    Ok(())
+}
+
+#[no_mangle]
+#[allow(non_snake_case)]
+pub extern "C" fn Java_com_superlist_super_1native_1extensions_DragDropHelper_updateLastTouchPoint(
+    env: JNIEnv,
+    _class: JClass,
+    view_root: JObject,
+
+    event: JObject,
+) {
+    update_last_touch_point(&env, view_root, event).ok_log();
 }
 
 #[no_mangle]

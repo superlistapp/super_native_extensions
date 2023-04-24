@@ -14,7 +14,7 @@ use irondash_run_loop::spawn;
 use log::warn;
 
 use crate::{
-    api_model::{DeferredMenuResponse, MenuConfiguration, MenuElement, Point},
+    api_model::{DeferredMenuResponse, ImageData, MenuConfiguration, MenuElement, Point},
     context::Context,
     error::{NativeExtensionsError, NativeExtensionsResult},
     log::{OkLog, OkLogUnexpected},
@@ -75,6 +75,13 @@ struct MenuContextInitRequest {
     engine_handle: i64,
 }
 
+#[derive(TryFromValue)]
+#[irondash(rename_all = "camelCase")]
+struct UpdatePreviewImageRequest {
+    configuration_id: i64,
+    image: ImageData,
+}
+
 impl MenuManager {
     pub fn new() -> RegisteredAsyncMethodHandler<Self> {
         Self {
@@ -128,6 +135,19 @@ impl MenuManager {
 
     async fn dispose_menu(&self, id: i64) -> NativeExtensionsResult<()> {
         self.menus.borrow_mut().remove(&id);
+        Ok(())
+    }
+
+    fn update_preview_image(
+        &self,
+        request: UpdatePreviewImageRequest,
+        isolate_id: IsolateId,
+    ) -> NativeExtensionsResult<()> {
+        let contexts = self.contexts.borrow();
+        let context = contexts.get(&isolate_id);
+        if let Some(context) = context {
+            context.update_preview_image(request.configuration_id, request.image)?;
+        }
         Ok(())
     }
 
@@ -279,6 +299,10 @@ impl AsyncMethodHandler for MenuManager {
             }
             "disposeMenu" => {
                 self.dispose_menu(call.args.try_into()?).await?;
+                Ok(Value::Null)
+            }
+            "updatePreviewImage" => {
+                self.update_preview_image(call.args.try_into()?, call.isolate)?;
                 Ok(Value::Null)
             }
             _ => Ok(Value::Null),

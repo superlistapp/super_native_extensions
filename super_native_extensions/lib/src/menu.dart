@@ -2,10 +2,45 @@ import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 
 import 'api_model.dart';
+import 'cancellation_token.dart';
+import 'default_menu_image.dart';
 import 'mutex.dart';
-import 'native/menu.dart';
+
+import 'native/menu.dart' if (dart.library.js) 'web/menu.dart';
+import 'menu_flutter.dart';
+import 'widgets/menu_widget/menu_widget_builder.dart';
+
+abstract class MenuImage {
+  /// If possible, returns the menu image represented as Widget.
+  Widget? asWidget(IconThemeData theme);
+
+  /// Returns image representation of the menu image.
+  FutureOr<ui.Image?> asImage(
+    IconThemeData theme,
+    double devicePixelRatio,
+  );
+
+  MenuImage();
+
+  /// Creates menu image for specified icon data.
+  factory MenuImage.icon(IconData icon) => IconMenuImage(icon);
+
+  /// Creates platform-specific image with given name.
+  /// This currently works on iOS for SF symbol names
+  /// (i.e. [UIImage systemImageNamed:]).
+  factory MenuImage.system(String systemImageName) =>
+      SystemMenuImage(systemImageName);
+
+  /// Creates menu image from specified image provider function.
+  factory MenuImage.withImage(
+    FutureOr<ui.Image?>? Function(IconThemeData theme, int devicePixelRatio)
+        imageProvider,
+  ) =>
+      ImageProviderMenuImage(imageProvider);
+}
 
 class MenuElement {
   MenuElement({
@@ -18,7 +53,7 @@ class MenuElement {
   final String? identifier;
   final String? title;
   final String? subtitle;
-  final FutureOr<ui.Image?>? image;
+  final MenuImage? image;
   final int uniqueId;
 
   MenuElement? find({int? uniqueId, String? identifier}) {
@@ -64,8 +99,8 @@ class Menu extends MenuElement {
   }
 }
 
-class MenuElementAttributes {
-  const MenuElementAttributes({
+class MenuActionAttributes {
+  const MenuActionAttributes({
     this.disabled = false,
     this.destructive = false,
   });
@@ -74,46 +109,77 @@ class MenuElementAttributes {
   final bool destructive;
 }
 
+enum MenuActionState {
+  none,
+
+  /// Checked status, supported on all platforms.
+  checkOn,
+
+  /// Should be used for unchecked checkbox as some platforms have special
+  /// menu widget for checkable items that render differently to normal items.
+  checkOff,
+
+  /// Mixed check state, supported on iOS, Android and macOS.
+  checkMixed,
+
+  /// Supported on Windows, Android and Linux. Otherwise renders as [checkOn].
+  radioOn,
+
+  /// Unchecked radio item.
+  radioOff,
+}
+
 class MenuAction extends MenuElement {
   MenuAction({
     super.title,
     super.image,
     super.identifier,
     required this.callback,
-    this.attributes = const MenuElementAttributes(),
+    this.attributes = const MenuActionAttributes(),
+    this.state = MenuActionState.none,
   });
 
   final VoidCallback callback;
-  final MenuElementAttributes attributes;
+  final MenuActionAttributes attributes;
+  final MenuActionState state;
 }
 
 class DeferredMenuElement extends MenuElement {
   DeferredMenuElement(this.provider);
 
-  final AsyncValueGetter<List<MenuElement>> provider;
+  final Future<List<MenuElement>> Function(CancellationToken) provider;
 }
 
 class MenuConfiguration {
   final int configurationId;
-  final TargetedImageData image;
-  final TargetedImageData? liftImage;
+  final TargetedImage liftImage;
+  final ui.Image? previewImage;
+  final ui.Size? previewSize;
   final MenuHandle handle;
+  final MenuWidgetBuilder menuWidgetBuilder;
+  final IconThemeData iconTheme;
 
   MenuConfiguration({
     required this.configurationId,
-    required this.image,
+    required this.liftImage,
+    this.previewImage,
+    this.previewSize,
     required this.handle,
-    this.liftImage,
-  });
+    required this.menuWidgetBuilder,
+    required this.iconTheme,
+  }) : assert(previewImage == null || previewSize == null,
+            'previewImage and previewSize are mutually exclusive');
 }
 
 class MenuConfigurationRequest {
   final int configurationId;
   final ui.Offset location;
+  final ValueSetter<ui.Image> previewImageSetter;
 
   MenuConfigurationRequest({
     required this.configurationId,
     required this.location,
+    required this.previewImageSetter,
   });
 }
 
@@ -127,22 +193,42 @@ abstract class MenuContextDelegate {
 }
 
 abstract class MenuHandle {
+  Menu get menu;
   void dispose();
+}
+
+class MenuSerializationOptions {
+  MenuSerializationOptions(
+    this.iconTheme,
+    this.devicePixelRatio,
+  );
+
+  final IconThemeData iconTheme;
+  final double devicePixelRatio;
 }
 
 abstract class MenuContext {
   static final _mutex = Mutex();
 
-  static MenuContextImpl? _instance;
+  static MenuContext? _instance;
 
   MenuContextDelegate? delegate;
 
-  Future<MenuHandle> registerMenu(Menu menu);
+  Future<void> initialize();
+
+  Future<MenuHandle> registerMenu(
+    Menu menu,
+    MenuSerializationOptions options,
+  );
 
   static Future<MenuContext> instance() {
     return _mutex.protect(() async {
       if (_instance == null) {
-        _instance = MenuContextImpl();
+        if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+          _instance = FlutterMenuContext();
+        } else {
+          _instance = MenuContextImpl();
+        }
         await _instance!.initialize();
       }
       return _instance!;

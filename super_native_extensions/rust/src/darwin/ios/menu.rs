@@ -10,7 +10,7 @@ use std::{
 use block::{Block, ConcreteBlock, RcBlock};
 use cocoa::{
     base::{id, nil, BOOL, NO},
-    foundation::{NSArray, NSUInteger},
+    foundation::{NSArray, NSInteger, NSUInteger},
 };
 
 use core_graphics::geometry::{CGPoint, CGRect, CGSize};
@@ -29,7 +29,9 @@ use objc::{
 use once_cell::sync::Lazy;
 
 use crate::{
-    api_model::{ImageData, Menu, MenuConfiguration, MenuElement},
+    api_model::{
+        ImageData, Menu, MenuActionState, MenuConfiguration, MenuElement, MenuImage, Rect,
+    },
     error::NativeExtensionsResult,
     menu_manager::{PlatformMenuContextDelegate, PlatformMenuContextId, PlatformMenuDelegate},
     platform_impl::platform::{
@@ -82,9 +84,15 @@ impl PlatformMenu {
         }
     }
 
-    unsafe fn convert_image(image: &Option<ImageData>) -> StrongPtr {
+    unsafe fn convert_image(image: &Option<MenuImage>) -> StrongPtr {
         match image {
-            Some(image) => image_from_image_data(image.clone()),
+            // Some(image) => image_from_image_data(image.clone()),
+            Some(MenuImage::Image { data }) => image_from_image_data(data.clone()),
+            Some(MenuImage::System { name }) => {
+                let name = to_nsstring(name);
+                let res: id = msg_send![class!(UIImage), systemImageNamed: *name];
+                StrongPtr::retain(res)
+            }
             None => StrongPtr::new(nil),
         }
     }
@@ -177,6 +185,19 @@ impl PlatformMenu {
                     let _: () = msg_send![res, setAttributes: options];
                 }
 
+                let state: NSUInteger = match action.state {
+                    MenuActionState::None => 0,
+                    MenuActionState::CheckOff => 0,
+                    MenuActionState::RadioOff => 0,
+                    MenuActionState::CheckOn => 1,
+                    MenuActionState::RadioOn => 1,
+                    MenuActionState::CheckMixed => 2,
+                };
+
+                unsafe {
+                    let _: () = msg_send![res, setState: state];
+                }
+
                 Ok(StrongPtr::retain(res))
             }
             MenuElement::Menu(menu) => {
@@ -242,7 +263,33 @@ impl PlatformMenu {
 struct MenuSession {
     _id: StrongPtr,
     view_container: StrongPtr,
+    view_controller: StrongPtr,
     configuration: MenuConfiguration,
+}
+
+impl MenuSession {
+    fn update_preview_image(&self, image: ImageData) {
+        let preview_view = image_view_from_data(image);
+        unsafe {
+            let view: id = msg_send![*self.view_controller, view];
+            let sub_views: id = msg_send![view, subviews];
+            let prev_subview = StrongPtr::retain(NSArray::objectAtIndex(sub_views, 0));
+            let () = msg_send![view, addSubview:*preview_view];
+            let () = msg_send![*preview_view, setAlpha: 0.0];
+
+            let prev_copy = prev_subview.clone();
+            let animation = ConcreteBlock::new(move || {
+                let () = msg_send![*preview_view, setAlpha: 1.0];
+                let () = msg_send![*prev_copy, setAlpha: 0.0];
+            });
+            let animation = animation.copy();
+            let completion = ConcreteBlock::new(move |_: BOOL| {
+                let () = msg_send![*prev_subview, removeFromSuperview];
+            });
+            let completion = completion.copy();
+            let () = msg_send![class!(UIView), animateWithDuration:0.25 animations:&*animation completion:&*completion];
+        }
+    }
 }
 
 impl PlatformMenuContext {
@@ -281,35 +328,103 @@ impl PlatformMenuContext {
         !self.sessions.borrow().is_empty()
     }
 
+    pub fn update_preview_image(
+        &self,
+        configuration_id: i64,
+        image_data: ImageData,
+    ) -> NativeExtensionsResult<()> {
+        let sessions = self.sessions.borrow();
+        let session = sessions
+            .values()
+            .find(|s| s.configuration.configuration_id == configuration_id);
+        if let Some(session) = session {
+            session.update_preview_image(image_data);
+        }
+        Ok(())
+    }
+
     fn _configuration_for_menu_at_location(
         &self,
         _interaction: id,
         menu_configuration: MenuConfiguration,
     ) -> id {
+        let view_controller = unsafe {
+            let res: id = msg_send![class!(UIViewController), alloc];
+            StrongPtr::new(msg_send![res, init])
+        };
+
         let menu = menu_configuration.menu.as_ref().unwrap().ui_menu.clone();
         let configuration = unsafe {
             let action_provider = ConcreteBlock::new(move |_: id| *menu);
             let action_provider = action_provider.copy();
 
-            let preview_view = image_view_from_data(menu_configuration.image.image_data.clone());
+            let preview_provider = match (
+                menu_configuration.preview_image.as_ref(),
+                menu_configuration.preview_size.as_ref(),
+            ) {
+                (Some(preview_image), None) => {
+                    let preview_view = image_view_from_data(preview_image.clone());
+                    let size = CGSize {
+                        width: preview_image.point_width(),
+                        height: preview_image.point_height(),
+                    };
+                    let controller = view_controller.clone();
+                    let preview_provider = ConcreteBlock::new(move || {
+                        let () = msg_send![*controller, setView: *preview_view];
+                        let () = msg_send![*controller, setPreferredContentSize: size];
+                        controller.clone().autorelease()
+                    });
+                    let preview_provider = preview_provider.copy();
+                    Some(preview_provider)
+                }
+                (None, Some(size)) => {
+                    let controller = view_controller.clone();
+                    let size: CGSize = size.clone().into();
+                    let preview_provider = ConcreteBlock::new(move || {
+                        let () = msg_send![*controller, setPreferredContentSize: size];
+                        let view: id = msg_send![class!(UIView), alloc];
+                        let view = StrongPtr::new(msg_send![
+                            view,
+                            initWithFrame: CGRect::from(Rect::default())
+                        ]);
+                        let activity_indicator = {
+                            let res: id = msg_send![class!(UIActivityIndicatorView), alloc];
+                            let res =
+                                StrongPtr::new(msg_send![res, initWithActivityIndicatorStyle:
+                                    100 as NSInteger]);
+                            let () = msg_send![*res, startAnimating];
+                            let () = msg_send![*res, setCenter: CGPoint {
+                                x: size.width / 2.0,
+                                y: size.height / 2.0,
+                            }];
+                            let white: id = msg_send![class!(UIColor), whiteColor];
+                            let () = msg_send![*res, setColor: white];
+                            res
+                        };
+                        let () = msg_send![*view, addSubview:*activity_indicator];
+                        let () = msg_send![*controller, setView: *view];
+                        controller.clone().autorelease()
+                    });
+                    let preview_provider = preview_provider.copy();
+                    Some(preview_provider)
+                }
+                _ => None,
+            };
 
-            let preview_provider = ConcreteBlock::new(move || {
-                let res: id = msg_send![class!(UIViewController), alloc];
-                let res = StrongPtr::new(msg_send![res, init]);
-                let () = msg_send![*res, setView: *preview_view];
-                let size = CGSize {
-                    width: menu_configuration.image.rect.width * 1.1,
-                    height: menu_configuration.image.rect.height * 1.1,
-                };
-                let () = msg_send![*res, setPreferredContentSize: size];
-                res.autorelease()
-            });
-            let preview_provider = preview_provider.copy();
-
-            let conf: id = msg_send![class!(UIContextMenuConfiguration),
-                    configurationWithIdentifier:nil
-                    previewProvider:&*preview_provider
-                    actionProvider:&*action_provider];
+            let conf: id = match preview_provider {
+                Some(preview_provider) => {
+                    msg_send![class!(UIContextMenuConfiguration),
+                        configurationWithIdentifier:nil
+                        previewProvider:preview_provider
+                        actionProvider:&*action_provider]
+                }
+                None => {
+                    msg_send![class!(UIContextMenuConfiguration),
+                        configurationWithIdentifier:nil
+                        previewProvider:nil
+                        actionProvider:&*action_provider]
+                }
+            };
             StrongPtr::retain(conf)
         };
         let view_container = unsafe {
@@ -325,6 +440,7 @@ impl PlatformMenuContext {
             _id: configuration.clone(),
             view_container,
             configuration: menu_configuration,
+            view_controller,
         };
         self.sessions
             .borrow_mut()
@@ -369,11 +485,7 @@ impl PlatformMenuContext {
         let session = sessions.get(&(configuration as usize));
         match session {
             Some(session) => unsafe {
-                let image = session
-                    .configuration
-                    .lift_image
-                    .as_ref()
-                    .unwrap_or(&session.configuration.image);
+                let image = &session.configuration.lift_image;
 
                 let lift_image = image_view_from_data(image.image_data.clone());
 

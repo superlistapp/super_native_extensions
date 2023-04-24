@@ -48,12 +48,18 @@ class DragItem {
   DragItem({
     required this.dataProvider,
     required this.image,
+    required this.liftImage,
     this.localData,
   });
 
   final DataProviderHandle dataProvider;
 
-  final DragImageData image;
+  /// Image used while dragging
+  TargetedImage image;
+
+  /// If specified this image will be used for lift animation on iOS and Android.
+  TargetedImage? liftImage;
+
   final Object? localData;
 }
 
@@ -94,7 +100,7 @@ abstract class DragSession {
 }
 
 abstract class DragContextDelegate {
-  Future<DragConfiguration?> getConfigurationForDragRequest({
+  Future<DragConfiguration?>? getConfigurationForDragRequest({
     required ui.Offset location,
     // session will be unused if null handle is returned
     required DragSession session,
@@ -134,5 +140,6 @@ abstract class DragContext {
     required DragSession session,
     required DragConfiguration configuration,
     required ui.Offset position,
+    TargetedImageData? combinedDragImage,
   });
 }

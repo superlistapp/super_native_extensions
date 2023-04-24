@@ -30,9 +30,9 @@ MessageChannelContext get superNativeExtensionsContext =>
     _contextOverride ?? _nativeContext;
 
 DynamicLibrary openNativeLibrary() {
-  final dylib = defaultTargetPlatform == TargetPlatform.android
+  final dylib = Platform.isAndroid
       ? DynamicLibrary.open("libsuper_native_extensions.so")
-      : (defaultTargetPlatform == TargetPlatform.windows
+      : (Platform.isWindows
           ? DynamicLibrary.open("super_native_extensions.dll")
           : DynamicLibrary.process());
   return dylib;

@@ -83,6 +83,16 @@ pub struct ImageData {
     pub device_pixel_ratio: Option<f64>,
 }
 
+impl ImageData {
+    pub fn point_width(&self) -> f64 {
+        self.width as f64 / self.device_pixel_ratio.unwrap_or(1.0)
+    }
+
+    pub fn point_height(&self) -> f64 {
+        self.height as f64 / self.device_pixel_ratio.unwrap_or(1.0)
+    }
+}
+
 //
 // Data Provider
 //
@@ -214,8 +224,9 @@ pub enum DropOperation {
 #[irondash(rename_all = "camelCase")]
 pub struct MenuConfiguration {
     pub configuration_id: i64,
-    pub image: TargettedImage,
-    pub lift_image: Option<TargettedImage>,
+    pub preview_image: Option<ImageData>,
+    pub preview_size: Option<Size>,
+    pub lift_image: TargettedImage,
     pub menu_handle: i64,
     #[irondash(skip)]
     pub menu: Option<Rc<PlatformMenu>>,
@@ -229,9 +240,27 @@ pub struct DeferredMenuResponse {
 
 #[derive(TryFromValue, Debug)]
 #[irondash(rename_all = "camelCase")]
-pub struct MenuElementAttributes {
+pub struct MenuActionAttributes {
     pub disabled: bool,
     pub destructive: bool,
+}
+
+#[derive(TryFromValue, Debug)]
+#[irondash(rename_all = "camelCase")]
+pub enum MenuActionState {
+    None,
+    CheckOn,
+    CheckOff,
+    CheckMixed,
+    RadioOn,
+    RadioOff,
+}
+
+#[derive(TryFromValue, Debug)]
+#[irondash(rename_all = "camelCase", tag = "type")]
+pub enum MenuImage {
+    Image { data: ImageData },
+    System { name: String },
 }
 
 #[derive(TryFromValue, Debug)]
@@ -241,7 +270,7 @@ pub struct Menu {
     pub identifier: Option<String>,
     pub title: Option<String>,
     pub subitle: Option<String>,
-    pub image: Option<ImageData>,
+    pub image: Option<MenuImage>,
     pub children: Vec<MenuElement>,
 }
 
@@ -251,9 +280,10 @@ pub struct MenuAction {
     pub unique_id: i64,
     pub identifier: Option<String>,
     pub title: Option<String>,
+    pub image: Option<MenuImage>,
     pub subitle: Option<String>,
-    pub attributes: MenuElementAttributes,
-    pub image: Option<ImageData>,
+    pub attributes: MenuActionAttributes,
+    pub state: MenuActionState,
 }
 
 #[derive(TryFromValue, Debug)]

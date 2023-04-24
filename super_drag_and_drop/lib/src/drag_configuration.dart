@@ -25,29 +25,18 @@ class DragItem extends DataWriterItem {
   final Object? localData;
 }
 
-class DragImage {
-  DragImage({
-    required this.image,
-    this.liftImage,
-  });
-
-  /// Image used while dragging
-  raw.TargetedImage image;
-
-  /// If specified this image will be used for lift animation on iOS.
-  raw.TargetedImage? liftImage;
-}
-
 /// Single item of [DragConfiguration] consisting of drag item and coresponing
 /// image.
 class DragConfigurationItem {
   DragConfigurationItem({
     required this.item,
     required this.image,
+    this.liftImage,
   });
 
   final DragItem item;
-  final DragImage image;
+  final raw.TargetedImage image;
+  final raw.TargetedImage? liftImage;
 }
 
 /// Addtional options for drag session.

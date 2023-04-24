@@ -1,5 +1,5 @@
-import 'package:super_native_extensions/src/keyboard_layout.dart';
-import 'package:super_native_extensions/src/util.dart';
+import '../keyboard_layout.dart';
+import '../util.dart';
 
 class KeyboardLayoutManagerImpl extends KeyboardLayoutManager {
   static final _instance = KeyboardLayoutManagerImpl();

@@ -66,6 +66,15 @@ impl From<CGSize> for Size {
     }
 }
 
+impl From<Size> for CGSize {
+    fn from(s: Size) -> Self {
+        CGSize {
+            width: s.width,
+            height: s.height,
+        }
+    }
+}
+
 pub fn value_to_nsdata(value: &Value) -> StrongPtr {
     fn is_map_or_list(value: &Value) -> bool {
         matches!(value, Value::Map(_) | Value::List(_))

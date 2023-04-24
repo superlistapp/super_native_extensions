@@ -5,17 +5,6 @@ import 'package:super_clipboard/super_clipboard_internal.dart';
 import 'drag_configuration.dart';
 import 'indexed.dart';
 
-extension DragImageIntoRaw on DragImage {
-  Future<raw.DragImageData> intoRaw(double devicePixelRatio) async {
-    return raw.DragImageData(
-      image: await image.intoRaw(devicePixelRatio),
-      imageSource: image,
-      liftImage: await liftImage?.intoRaw(devicePixelRatio),
-      liftImageSource: liftImage,
-    );
-  }
-}
-
 extension DragItemsIntoRaw on List<DragConfigurationItem> {
   Future<List<raw.DragItem>> intoRaw(double devicePixelRatio) async {
     final providers = <raw.DataProvider>[];
@@ -32,7 +21,8 @@ extension DragItemsIntoRaw on List<DragConfigurationItem> {
     for (final item in indexed()) {
       items.add(raw.DragItem(
         dataProvider: handles[item.index],
-        image: await item.value.image.intoRaw(devicePixelRatio),
+        image: item.value.image,
+        liftImage: item.value.liftImage,
         localData: item.value.item.localData,
       ));
     }

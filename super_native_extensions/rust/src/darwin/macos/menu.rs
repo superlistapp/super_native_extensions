@@ -3,7 +3,7 @@ use std::rc::{Rc, Weak};
 use irondash_message_channel::IsolateId;
 
 use crate::{
-    api_model::Menu,
+    api_model::{Menu, ImageData},
     error::NativeExtensionsResult,
     menu_manager::{PlatformMenuContextDelegate, PlatformMenuContextId, PlatformMenuDelegate},
 };
@@ -30,6 +30,14 @@ impl PlatformMenuContext {
         _delegate: Weak<dyn PlatformMenuContextDelegate>,
     ) -> NativeExtensionsResult<Self> {
         Ok(Self {})
+    }
+
+    pub fn update_preview_image(
+        &self,
+        _configuration_id: i64,
+        _image_data: ImageData,
+    ) -> NativeExtensionsResult<()> {
+        Ok(())
     }
 
     pub fn assign_weak_self(&self, _weak_self: Weak<Self>) {}

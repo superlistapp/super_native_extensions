@@ -1,14 +1,14 @@
 import 'dart:html' as html;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
-import 'package:super_native_extensions/src/web/shadow.dart';
-import 'package:super_native_extensions/src/web/drag_driver.dart';
 
+import '../shadow.dart';
 import '../api_model.dart';
 import '../drag.dart';
 import '../drag_internal.dart';
 import '../util.dart';
 import 'drop.dart';
+import 'drag_driver.dart';
 
 class DragSessionImpl extends DragSession implements DragDriverDelegate {
   DragSessionImpl({required int pointer}) {
@@ -60,12 +60,16 @@ class DragSessionImpl extends DragSession implements DragDriverDelegate {
   bool _ended = false;
 
   Future<void> init(
-      DragConfiguration configuration, Offset originalPosition) async {
+    DragConfiguration configuration,
+    Offset originalPosition,
+    TargetedImageData? combinedDragImage,
+  ) async {
     _state = await _SessionState.create(
       configuration: configuration,
       originalPosition: originalPosition,
       lastScreenLocation: _lastScreenLocation,
       dragCompleted: _dragCompleted,
+      combinedDragImage: combinedDragImage,
     );
     if (_ended) {
       _state?.cancel();
@@ -92,8 +96,10 @@ class _SessionState implements DragDriverDelegate {
     required Offset originalPosition,
     required ValueNotifier<Offset?> lastScreenLocation,
     required ValueNotifier<DropOperation?> dragCompleted,
+    required TargetedImageData? combinedDragImage,
   }) async {
-    final image = (await combineDragImage(configuration)).withShadow(14);
+    final image = combinedDragImage ??
+        (await combineDragImage(configuration)).withShadow(14);
     final canvas = html.document.createElement('canvas') as html.CanvasElement;
     canvas.width = image.imageData.width;
     canvas.height = image.imageData.height;
@@ -128,17 +134,24 @@ class _SessionState implements DragDriverDelegate {
     updatePosition(originalPosition);
   }
 
-  void _moveCanvas(Offset position) {
-    canvas.style.left =
-        '${image.rect.left + position.dx - originalPosition.dx}px';
-    canvas.style.top =
-        '${image.rect.top + position.dy - originalPosition.dy}px';
+  void _moveCanvas(Offset position, bool isUserInteraction) {
+    if (isUserInteraction &&
+        (defaultTargetPlatform == TargetPlatform.iOS ||
+            defaultTargetPlatform == TargetPlatform.android)) {
+      canvas.style.left = '${position.dx - image.rect.width / 2.0}px';
+      canvas.style.top = '${position.dy - image.rect.height / 2.0}px';
+    } else {
+      canvas.style.left =
+          '${image.rect.left + position.dx - originalPosition.dx}px';
+      canvas.style.top =
+          '${image.rect.top + position.dy - originalPosition.dy}px';
+    }
     canvas.style.width = '${image.rect.width}px';
     canvas.style.height = '${image.rect.height}px';
   }
 
   void updatePosition(Offset position) async {
-    _moveCanvas(position);
+    _moveCanvas(position, true);
     lastScreenLocation.value = position;
 
     _lastOperation = await DropContextImpl.instance
@@ -196,7 +209,7 @@ class _SessionState implements DragDriverDelegate {
       }
       canvas.style.transitionProperty = 'left, top';
       canvas.style.transitionDuration = '${movementDuration}s';
-      _moveCanvas(originalPosition);
+      _moveCanvas(originalPosition, false);
       Future.delayed(Duration(milliseconds: (movementDuration * 1000).round()),
           () {
         canvas.style.transitionProperty = 'opacity';
@@ -235,8 +248,13 @@ class DragContextImpl extends DragContext {
     required DragSession session,
     required DragConfiguration configuration,
     required Offset position,
+    TargetedImageData? combinedDragImage,
   }) async {
     final session_ = session as DragSessionImpl;
-    await session_.init(configuration, position);
+    await session_.init(
+      configuration,
+      position,
+      combinedDragImage,
+    );
   }
 }
