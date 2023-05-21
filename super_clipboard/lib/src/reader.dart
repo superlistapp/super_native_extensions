@@ -7,8 +7,7 @@ import 'package:super_native_extensions/raw_clipboard.dart' as raw;
 import 'format.dart';
 import 'reader_internal.dart';
 import 'standard_formats.dart';
-export 'package:super_native_extensions/raw_clipboard.dart'
-    show VirtualFileReceiver, Pair, ReadProgress;
+import 'reader_model.dart';
 
 abstract class DataReaderFile {
   /// Returns file name for the file, if available. File name at this
@@ -73,7 +72,7 @@ abstract class DataReader {
   /// file and regular URI have same type on some platforms, so when receiving
   /// [Formats.fileUri] the decoder will have to fetch the value and will return
   /// null if URI is not a file uri.
-  raw.ReadProgress? getValue<T extends Object>(
+  ReadProgress? getValue<T extends Object>(
     ValueFormat<T> format,
     AsyncValueChanged<T?> onValue, {
     ValueChanged<Object>? onError,
@@ -91,7 +90,7 @@ abstract class DataReader {
   /// On most platform the progress will be indeterminate followed by 1.0 at
   /// the end. On iOS the progress is bridged to underlying NSProgress object
   /// and should be more accurate and cancellable.
-  raw.ReadProgress? getFile(
+  ReadProgress? getFile(
     FileFormat? format,
     AsyncValueChanged<DataReaderFile> onFile, {
     ValueChanged<Object>? onError,
@@ -125,7 +124,7 @@ abstract class DataReader {
   ///
   /// Usually it is not needed to call this method directly, as [getFile]
   /// will automatically call it if virtual data is available.
-  Future<raw.VirtualFileReceiver?> getVirtualFileReceiver({
+  Future<VirtualFileReceiver?> getVirtualFileReceiver({
     FileFormat? format,
   });
 
@@ -187,7 +186,7 @@ class ClipboardReader extends ClipboardDataReader {
   }
 
   @override
-  raw.ReadProgress? getValue<T extends Object>(
+  ReadProgress? getValue<T extends Object>(
     ValueFormat<T> format,
     AsyncValueChanged<T?> onValue, {
     ValueChanged<Object>? onError,
@@ -206,7 +205,7 @@ class ClipboardReader extends ClipboardDataReader {
   }
 
   @override
-  raw.ReadProgress? getFile(
+  ReadProgress? getFile(
     FileFormat? format,
     AsyncValueChanged<DataReaderFile> onFile, {
     ValueChanged<Object>? onError,
@@ -246,7 +245,7 @@ class ClipboardReader extends ClipboardDataReader {
   }
 
   @override
-  Future<raw.VirtualFileReceiver?> getVirtualFileReceiver({
+  Future<VirtualFileReceiver?> getVirtualFileReceiver({
     FileFormat? format,
   }) async {
     for (final item in items) {

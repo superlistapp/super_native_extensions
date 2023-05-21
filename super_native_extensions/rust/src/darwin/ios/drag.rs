@@ -40,10 +40,7 @@ use crate::{
         PlatformDragContextDelegate, PlatformDragContextId,
     },
     error::{NativeExtensionsError, NativeExtensionsResult},
-    platform_impl::platform::{
-        common::{superclass, to_nsstring},
-        os::util::IgnoreInteractionEvents,
-    },
+    platform_impl::platform::{common::to_nsstring, os::util::IgnoreInteractionEvents},
     util::DropNotifier,
     value_promise::PromiseResult,
 };
@@ -251,12 +248,17 @@ impl Session {
 
     fn drag_will_begin(&self, session: id) {
         self.in_progress.replace(true);
-        unsafe {
-            // workaround for memory leak, see [create_item].
-            let items: id = msg_send![session, items];
-            for i in 0..NSArray::count(items) {
-                let item = NSArray::objectAtIndex(items, i);
-                self.set_preview_provider(item);
+        // Only set preview providers when not transitioning from menu.
+        // when transitioning for menu the items created during menu being
+        // have already drag items images set for preview (instead of lift).
+        if !self.menu_active() {
+            unsafe {
+                // workaround for memory leak, see [create_item].
+                let items: id = msg_send![session, items];
+                for i in 0..NSArray::count(items) {
+                    let item = NSArray::objectAtIndex(items, i);
+                    self.set_preview_provider(item);
+                }
             }
         }
     }
@@ -297,7 +299,7 @@ impl Session {
                 let image_view = image_view_from_data(drag_image.image_data.clone());
 
                 let frame: CGRect = drag_image
-                    .source_rect
+                    .rect
                     .clone()
                     .translated(-100000.0, -100000.0)
                     .into();
@@ -340,7 +342,7 @@ impl Session {
             let () = msg_send![parameters, setShadowPath: *shadow_path];
 
             let target: id = msg_send![class!(UIPreviewTarget), alloc];
-            let center: CGPoint = drag_image.source_rect.center().into();
+            let center: CGPoint = drag_image.rect.center().into();
             let () = msg_send![target, initWithContainer:*self.view_container center:center];
             let () = msg_send![target, autorelease];
 
@@ -352,8 +354,27 @@ impl Session {
         }
     }
 
+    fn menu_active(&self) -> bool {
+        if let Some(menu_contexts) = self
+            .context_delegate
+            .upgrade()
+            .map(|d| d.get_platform_menu_contexts())
+        {
+            return menu_contexts.iter().any(|c| c.menu_active());
+        }
+        false
+    }
+
     fn preview_for_item(&self, index: usize) -> id {
-        self.preview_for_item_type(index, ImageType::Lift)
+        // while menu is active (and we're not dragging yet) create items
+        // immediately with drag image instead of lift. This will alleviate
+        // the issue of showing lift image for a moment after menu transitions
+        // to drag.
+        if self.menu_active() && !self.in_progress.get() {
+            self.preview_for_item_type(index, ImageType::Drag)
+        } else {
+            self.preview_for_item_type(index, ImageType::Lift)
+        }
     }
 
     fn preview_for_canceling(&self, index: usize) -> id {
@@ -708,8 +729,7 @@ extern "C" fn dealloc(this: &Object, _sel: Sel) {
         };
         Weak::from_raw(context_ptr);
 
-        let superclass = superclass(this);
-        let () = msg_send![super(this, superclass), dealloc];
+        let () = msg_send![super(this, *SUPERCLASS), dealloc];
     }
 }
 
@@ -854,9 +874,10 @@ unsafe impl Encode for _CGPoint {
     }
 }
 
+static SUPERCLASS: Lazy<&'static Class> = Lazy::new(|| class!(NSObject));
+
 static DELEGATE_CLASS: Lazy<&'static Class> = Lazy::new(|| unsafe {
-    let superclass = class!(NSObject);
-    let mut decl = ClassDecl::new("SNEDragInteractionDelegate", superclass).unwrap();
+    let mut decl = ClassDecl::new("SNEDragInteractionDelegate", *SUPERCLASS).unwrap();
     decl.add_protocol(Protocol::get("UIDragInteractionDelegate").unwrap());
     decl.add_ivar::<*mut c_void>("context");
     decl.add_method(sel!(dealloc), dealloc as extern "C" fn(&Object, Sel));

@@ -1,4 +1,4 @@
-import 'package:super_native_extensions/src/hot_key.dart';
+import '../hot_key.dart';
 
 class HotKeyManagerImpl extends HotKeyManager {
   @override

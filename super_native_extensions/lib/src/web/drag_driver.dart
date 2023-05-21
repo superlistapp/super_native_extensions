@@ -10,7 +10,11 @@ abstract class DragDriverDelegate {
 }
 
 class DragDriver {
-  DragDriver(this.pointer, this.delegate) {
+  DragDriver({
+    required this.pointer,
+    required this.delegate,
+    required this.devicePixelRatio,
+  }) {
     html.document.addEventListener('keydown', _keyDown = _onKeyDown, true);
     // During drag all pointer events to Flutter need to be postponed
     // in order to be consistent with how drag&drop works on desktop platforms.
@@ -22,6 +26,7 @@ class DragDriver {
     ui.PlatformDispatcher.instance.onPointerDataPacket = _onPointerDataPacket;
   }
 
+  final double devicePixelRatio;
   final int pointer;
   late ui.PointerDataPacketCallback? _previousPointerDataPacketCallback;
   late html.EventListener _keyDown;
@@ -61,7 +66,8 @@ class DragDriver {
         final newData = ui.PointerData(
           buttons: 0,
           pointerIdentifier: data.pointerIdentifier,
-          change: ui.PointerChange.up,
+          device: data.device,
+          change: ui.PointerChange.cancel,
           kind: data.kind,
           timeStamp: data.timeStamp,
           physicalX: data.physicalX,
@@ -76,8 +82,8 @@ class DragDriver {
       }
       _didReleasePointer = true;
     }
-    final offset = ui.Offset(data.physicalX / ui.window.devicePixelRatio,
-        data.physicalY / ui.window.devicePixelRatio);
+    final offset = ui.Offset(
+        data.physicalX / devicePixelRatio, data.physicalY / devicePixelRatio);
     delegate.update(offset);
     if (data.change == ui.PointerChange.up ||
         data.change == ui.PointerChange.cancel ||
@@ -87,7 +93,8 @@ class DragDriver {
       if (data.kind == PointerDeviceKind.mouse) {
         final newData = ui.PointerData(
           buttons: 0,
-          pointerIdentifier: 0,
+          device: data.device,
+          pointerIdentifier: data.pointerIdentifier,
           change: ui.PointerChange.hover,
           kind: data.kind,
           timeStamp: data.timeStamp,

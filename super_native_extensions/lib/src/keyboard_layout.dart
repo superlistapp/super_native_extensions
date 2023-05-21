@@ -1,7 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'package:super_native_extensions/src/native/keyboard_layout.dart'
-    if (dart.library.js) 'package:super_native_extensions/src/web/keyboard_layout.dart';
+
+import 'native/keyboard_layout.dart'
+    if (dart.library.js) 'web/keyboard_layout.dart';
 
 import 'keyboard_layout_model.dart' as model;
 

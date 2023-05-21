@@ -22,12 +22,7 @@ use core_graphics::{
     image::CGImage,
 };
 
-use objc::{
-    class, msg_send,
-    rc::StrongPtr,
-    runtime::{Class, Object},
-    sel, sel_impl,
-};
+use objc::{class, msg_send, rc::StrongPtr, runtime::Object, sel, sel_impl};
 
 use crate::api_model::ImageData;
 
@@ -136,11 +131,6 @@ extern "C" {
 
 extern "C" {
     pub static NSURLTypeIdentifierKey: id;
-}
-
-pub unsafe fn superclass(this: &Object) -> &Class {
-    let superclass: id = msg_send![this, superclass];
-    &*(superclass as *const _)
 }
 
 #[link(name = "CoreServices", kind = "framework")]

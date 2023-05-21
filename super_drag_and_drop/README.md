@@ -271,17 +271,20 @@ Receving virtual files doesn't require any special handling. You can consume the
 
 ### Customized drag image
 
-The default drag image is simply a snapshot of the `DragItemWidget` child. To customize drag image you can wrap the `DragItemWidget` in a `CustomSnapshotWidget`:
+The default drag image is simply a snapshot of the `DragItemWidget` child. To customize drag image use the `liftBuilder` and `dragBuilder` properties on `DragItemWidget`.
 
 ```dart
-  // Add red background when dragging
-  CustomSnapshotWidget(
-    // `child` is the child passed to CustomSnapshotWidget.
+  // Add red background when dragging, blue background during lift.
+  DragItemWidget(
+    // `child` is the child passed to DragItemWidget.
     // You can use it when building the snapshot or ignore it.
-    snapshotBuilder: (context, child, snapshotType) {
+    liftBuilder: (context, child) {
+      return Container(color: Colors.blue, child: child);
+    }
+    dragBuilder: (context, child) {
       return Container(color: Colors.red, child: child);
     }
-    child: DragItemWidget(...),
+    ...,
   );
 ```
 
@@ -290,8 +293,8 @@ the snapshot position relative to original child using a `SnapshotSettings` widg
 
 ```dart
    // Snapshot will add 1px border around the origin widget.
-   CustomSnapshotWidget(
-    snapshotBuilder: (BuildContext context, Widget child, SnapshotType type) {
+   DragItemWidget(
+    dragBuilder: (BuildContext context, Widget child) {
       return SnapshotSettings(
         // To ensure that the snapshot matches the original widget position we
         // need to shift it by -2 pixels (1px border + 1px padding)
@@ -310,7 +313,7 @@ the snapshot position relative to original child using a `SnapshotSettings` widg
         ),
       );
     },
-    child: DragItemWidget(...)
+    ...
 ```
 
 ## Synthetized files

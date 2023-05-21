@@ -39,9 +39,7 @@ use crate::{
     },
     error::NativeExtensionsResult,
     log::OkLog,
-    platform_impl::platform::common::{
-        from_nsstring, path_from_url, superclass, to_nserror, to_nsstring,
-    },
+    platform_impl::platform::common::{from_nsstring, path_from_url, to_nserror, to_nsstring},
     value_promise::ValuePromiseResult,
 };
 
@@ -469,14 +467,14 @@ extern "C" fn dealloc(this: &Object, _sel: Sel) {
         };
         Rc::from_raw(state_ptr);
 
-        let superclass = superclass(this);
-        let () = msg_send![super(this, superclass), dealloc];
+        let () = msg_send![super(this, *SUPERCLASS), dealloc];
     }
 }
 
+static SUPERCLASS: Lazy<&'static Class> = Lazy::new(|| class!(NSObject));
+
 static PASTEBOARD_WRITER_CLASS: Lazy<&'static Class> = Lazy::new(|| unsafe {
-    let superclass = class!(NSObject);
-    let mut decl = ClassDecl::new("SNEPasteboardWriter", superclass).unwrap();
+    let mut decl = ClassDecl::new("SNEPasteboardWriter", *SUPERCLASS).unwrap();
     decl.add_ivar::<*mut c_void>("sneState");
     if let Some(protocol) = Protocol::get("NSPasteboardWriting") {
         decl.add_protocol(protocol);

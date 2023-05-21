@@ -1,12 +1,15 @@
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 
-import 'api_model.dart';
 import 'data_provider.dart';
+import 'drop.dart';
+import 'image_data.dart';
 import 'mutex.dart';
 
 import 'native/drag.dart' if (dart.library.js) 'web/drag.dart';
+import 'widget_snapshot/widget_snapshot.dart';
 
 class DragConfiguration {
   DragConfiguration({
@@ -24,37 +27,46 @@ class DragConfiguration {
 
   /// iOS specific
   final bool prefersFullSizePreviews;
-}
 
-class DragImageData {
-  DragImageData({
-    required this.image,
-    required this.imageSource,
-    this.liftImage,
-    this.liftImageSource,
-  });
+  DragConfiguration clone() {
+    return DragConfiguration(
+      items: items.map((e) => e).toList(),
+      allowedOperations: allowedOperations,
+      animatesToStartingPositionOnCancelOrFail:
+          animatesToStartingPositionOnCancelOrFail,
+      prefersFullSizePreviews: prefersFullSizePreviews,
+    );
+  }
 
-  /// Image used while dragging.
-  TargetedImageData image;
-  TargetedImage imageSource;
-
-  /// Used on iPad during lift (before dragging starts). If not set normal
-  /// drag image is used. This should closely resemble the widget being dragged.
-  TargetedImageData? liftImage;
-  TargetedImage? liftImageSource;
+  void disposeImages() {
+    for (final item in items) {
+      item.disposeImages();
+    }
+  }
 }
 
 class DragItem {
   DragItem({
     required this.dataProvider,
     required this.image,
+    required this.liftImage,
     this.localData,
   });
 
   final DataProviderHandle dataProvider;
 
-  final DragImageData image;
+  /// Image used while dragging
+  TargetedWidgetSnapshot image;
+
+  /// If specified this image will be used for lift animation on iOS and Android.
+  TargetedWidgetSnapshot? liftImage;
+
   final Object? localData;
+
+  void disposeImages() {
+    image.dispose();
+    liftImage?.dispose();
+  }
 }
 
 class DragRequest {
@@ -72,11 +84,12 @@ class DragRequest {
 /// Represents a drag session. Allows inspecting local drag data and
 /// provides notifications about drag state changes.
 abstract class DragSession {
-  /// Fired when session dragging started.
-  Listenable get dragStarted;
+  /// Whether the drag session is in progress. False before drag started
+  /// and after drag completed.
+  ValueListenable<bool> get dragging;
 
-  /// True when session is already in progress.
-  bool get dragging;
+  /// True when drag session has started.
+  bool get dragStarted => dragging.value || dragCompleted.value != null;
 
   /// Fired on drag completion. The value will contain drop operation that the
   /// drag finished with.
@@ -94,7 +107,7 @@ abstract class DragSession {
 }
 
 abstract class DragContextDelegate {
-  Future<DragConfiguration?> getConfigurationForDragRequest({
+  Future<DragConfiguration?>? getConfigurationForDragRequest({
     required ui.Offset location,
     // session will be unused if null handle is returned
     required DragSession session,
@@ -110,6 +123,8 @@ abstract class DragContextDelegate {
 
 abstract class DragContext {
   static final _mutex = Mutex();
+
+  static bool get isTouchDevice => DragContextImpl.isTouchDevice;
 
   static DragContext? _instance;
 
@@ -131,8 +146,10 @@ abstract class DragContext {
   DragSession newSession({int? pointer});
 
   Future<void> startDrag({
+    required BuildContext buildContext,
     required DragSession session,
     required DragConfiguration configuration,
     required ui.Offset position,
+    TargetedWidgetSnapshot? combinedDragImage,
   });
 }

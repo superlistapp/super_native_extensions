@@ -24,7 +24,7 @@ use super::{
 };
 use cocoa::{
     appkit::{
-        NSApplication, NSEvent,
+        NSApplication, NSEvent, NSEventPhase,
         NSEventType::{self, NSLeftMouseDown, NSMouseMoved, NSRightMouseDown},
         NSView, NSWindow,
     },
@@ -32,7 +32,7 @@ use cocoa::{
     foundation::{NSArray, NSInteger, NSPoint, NSProcessInfo, NSRect},
 };
 use core_foundation::base::CFRelease;
-use core_graphics::event::CGEventType;
+use core_graphics::event::{CGEventField, CGEventType};
 
 use irondash_engine_context::EngineContext;
 use irondash_message_channel::Value;
@@ -47,6 +47,11 @@ use objc::{
 extern "C" {
     fn CGEventSetType(event: core_graphics::sys::CGEventRef, eventType: CGEventType);
     fn CGEventCreateCopy(event: core_graphics::sys::CGEventRef) -> core_graphics::sys::CGEventRef;
+    fn CGEventSetIntegerValueField(
+        event: core_graphics::sys::CGEventRef,
+        field: CGEventField,
+        value: i64,
+    );
 }
 
 struct DragSession {
@@ -58,9 +63,10 @@ struct DragSession {
 pub struct PlatformDragContext {
     id: PlatformDragContextId,
     delegate: Weak<dyn PlatformDragContextDelegate>,
-    view: StrongPtr,
-    last_mouse_down: RefCell<Option<StrongPtr>>,
-    last_mouse_up: RefCell<Option<StrongPtr>>,
+    pub view: StrongPtr,
+    last_mouse_down_event: RefCell<Option<StrongPtr>>,
+    last_mouse_up_event: RefCell<Option<StrongPtr>>,
+    last_momentum_event: RefCell<Option<StrongPtr>>,
     sessions: RefCell<HashMap<NSInteger /* draggingSequenceNumber */, DragSession>>,
 }
 
@@ -82,8 +88,9 @@ impl PlatformDragContext {
             id,
             delegate,
             view: unsafe { StrongPtr::retain(view) },
-            last_mouse_down: RefCell::new(None),
-            last_mouse_up: RefCell::new(None),
+            last_mouse_down_event: RefCell::new(None),
+            last_mouse_up_event: RefCell::new(None),
+            last_momentum_event: RefCell::new(None),
             sessions: RefCell::new(HashMap::new()),
         })
     }
@@ -94,8 +101,37 @@ impl PlatformDragContext {
         });
     }
 
-    unsafe fn synthetize_mouse_up_event(&self) {
-        if let Some(event) = self.last_mouse_down.borrow().as_ref().cloned() {
+    unsafe fn finish_momentum_events(&self) {
+        let event = { self.last_momentum_event.borrow().as_ref().cloned() };
+        // Unfinished momentum events will cause pan gesture recognizer
+        // stuck since Flutter 3.3
+        if let Some(event) = event {
+            let phase = event.phase();
+            if phase != NSEventPhase::NSEventPhaseNone
+                && phase != NSEventPhase::NSEventPhaseEnded
+                && phase != NSEventPhase::NSEventPhaseCancelled
+            {
+                let event = NSEvent::CGEvent(*event) as core_graphics::sys::CGEventRef;
+                let event = CGEventCreateCopy(event);
+                CGEventSetIntegerValueField(
+                    event, //
+                    99,    // kCGScrollWheelEventScrollPhase
+                    NSEventPhase::NSEventPhaseEnded.bits() as i64,
+                );
+
+                let synthetized: id = msg_send![class!(NSEvent), eventWithCGEvent: event];
+                CFRelease(event as *mut _);
+
+                let window: id = msg_send![*self.view, window];
+                let _: () = msg_send![window, sendEvent: synthetized];
+            }
+        }
+    }
+
+    pub unsafe fn synthetize_mouse_up_event(&self) {
+        self.finish_momentum_events();
+
+        if let Some(event) = self.last_mouse_down_event.borrow().as_ref().cloned() {
             let opposite = match event.eventType() {
                 NSLeftMouseDown => CGEventType::LeftMouseUp,
                 NSRightMouseDown => CGEventType::RightMouseUp,
@@ -146,7 +182,7 @@ impl PlatformDragContext {
                 let dragging_item: id = msg_send![dragging_item, autorelease];
 
                 let image = &item.image;
-                let mut rect: NSRect = image.source_rect.clone().into();
+                let mut rect: NSRect = image.rect.clone().into();
                 flip_rect(*self.view, &mut rect);
                 let snapshot = ns_image_from_image_data(vec![image.image_data.clone()]);
 
@@ -154,7 +190,7 @@ impl PlatformDragContext {
                 dragging_items.push(dragging_item);
             }
             let event = self
-                .last_mouse_down
+                .last_mouse_down_event
                 .borrow()
                 .as_ref()
                 .cloned()
@@ -196,13 +232,36 @@ impl PlatformDragContext {
 
     fn on_mouse_down(&self, event: id) {
         unsafe {
-            self.last_mouse_down.replace(Some(StrongPtr::retain(event)));
+            self.last_mouse_down_event
+                .replace(Some(StrongPtr::retain(event)));
         }
     }
 
     fn on_mouse_up(&self, event: id) {
         unsafe {
-            self.last_mouse_up.replace(Some(StrongPtr::retain(event)));
+            self.last_mouse_up_event
+                .replace(Some(StrongPtr::retain(event)));
+        }
+    }
+
+    fn on_right_mouse_down(&self, event: id) {
+        unsafe {
+            self.last_mouse_down_event
+                .replace(Some(StrongPtr::retain(event)));
+        }
+    }
+
+    fn on_right_mouse_up(&self, event: id) {
+        unsafe {
+            self.last_mouse_up_event
+                .replace(Some(StrongPtr::retain(event)));
+        }
+    }
+
+    fn on_momentum_event(&self, event: id) {
+        unsafe {
+            self.last_momentum_event
+                .replace(Some(StrongPtr::retain(event)));
         }
     }
 
@@ -426,6 +485,26 @@ fn prepare_flutter() {
             mouse_up as extern "C" fn(&mut Object, Sel, id) -> (),
         );
         class.add_method(
+            sel!(rightMouseDown:),
+            right_mouse_down as extern "C" fn(&mut Object, Sel, id) -> (),
+        );
+        class.add_method(
+            sel!(rightMouseUp:),
+            right_mouse_up as extern "C" fn(&mut Object, Sel, id) -> (),
+        );
+        class.add_method(
+            sel!(scrollWheel:),
+            scroll_wheel as extern "C" fn(&mut Object, Sel, id) -> (),
+        );
+        class.add_method(
+            sel!(magnifyWithEvent:),
+            magnify_with_event as extern "C" fn(&mut Object, Sel, id) -> (),
+        );
+        class.add_method(
+            sel!(rotateWithEvent:),
+            rotate_with_event as extern "C" fn(&mut Object, Sel, id) -> (),
+        );
+        class.add_method(
             sel!(shouldDelayWindowOrderingForEvent:),
             should_delay_window_ordering as extern "C" fn(&mut Object, Sel, id) -> BOOL,
         )
@@ -464,6 +543,45 @@ extern "C" fn mouse_up(this: &mut Object, _sel: Sel, event: id) {
 
     unsafe {
         let _: () = msg_send![super(this, class!(NSView)), mouseUp: event];
+    }
+}
+
+extern "C" fn right_mouse_down(this: &mut Object, _sel: Sel, event: id) {
+    with_state(this, |state| state.on_right_mouse_down(event), || ());
+
+    unsafe {
+        let _: () = msg_send![super(this, class!(NSView)), rightMouseDown: event];
+    }
+}
+
+extern "C" fn right_mouse_up(this: &mut Object, _sel: Sel, event: id) {
+    with_state(this, |state| state.on_right_mouse_up(event), || ());
+
+    unsafe {
+        let _: () = msg_send![super(this, class!(NSView)), rightMouseUp: event];
+    }
+}
+
+extern "C" fn scroll_wheel(this: &mut Object, _sel: Sel, event: id) {
+    with_state(this, |state| state.on_momentum_event(event), || ());
+    unsafe {
+        let _: () = msg_send![super(this, class!(NSView)), scrollWheel: event];
+    }
+}
+
+extern "C" fn magnify_with_event(this: &mut Object, _sel: Sel, event: id) {
+    with_state(this, |state| state.on_momentum_event(event), || ());
+
+    unsafe {
+        let _: () = msg_send![super(this, class!(NSView)), magnifyWithEvent: event];
+    }
+}
+
+extern "C" fn rotate_with_event(this: &mut Object, _sel: Sel, event: id) {
+    with_state(this, |state| state.on_momentum_event(event), || ());
+
+    unsafe {
+        let _: () = msg_send![super(this, class!(NSView)), rotateWithEvent: event];
     }
 }
 

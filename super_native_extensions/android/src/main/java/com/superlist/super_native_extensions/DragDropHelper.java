@@ -9,8 +9,13 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Point;
+import android.os.SystemClock;
+import android.util.Log;
 import android.view.DragEvent;
+import android.view.InputDevice;
+import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewParent;
 
 // Wrap drag sessionId in typed object so that we can safely ignore possible local data
 // from sessions not created by super_native_extensions.
@@ -50,11 +55,29 @@ public class DragDropHelper {
         }
     }
 
-    void startDrag(View view, long dragSessionId, ClipData clipData, Bitmap bitmap, int touchPointX, int touchPointY) {
+    native void updateLastTouchPoint(ViewParent rootView, MotionEvent event);
+
+    void startDrag(View view, long dragSessionId, ClipData clipData, Bitmap bitmap,
+                   int touchPointX, int touchPointY, int lastTouchEventX, int lastTouchEventY) {
         final int DRAG_FLAG_GLOBAL = 1 << 8;
         final int DRAG_FLAG_GLOBAL_URI_READ = Intent.FLAG_GRANT_READ_URI_PERMISSION;
         final int flags = clipData != null ? DRAG_FLAG_GLOBAL | DRAG_FLAG_GLOBAL_URI_READ : 0;
         if (view != null) {
+            ViewParent parent = view.getParent();
+            while (parent.getParent() != null) {
+                parent = parent.getParent();
+            }
+            int viewLocation[] = new int[2];
+            view.getLocationOnScreen(viewLocation);
+            MotionEvent event = MotionEvent.obtain(SystemClock.uptimeMillis(), SystemClock.uptimeMillis(),
+                                                   MotionEvent.ACTION_MOVE,
+                                                   lastTouchEventX + viewLocation[0],
+                                                   lastTouchEventY + viewLocation[1],
+                                                   0);
+            event.setSource(InputDevice.SOURCE_CLASS_POINTER);
+            // Simulate touch event before starting drag which will be the return position
+            // on failed drop
+            updateLastTouchPoint(parent, event);
             view.startDrag(clipData,
                     new DragShadowBuilder(bitmap, new Point(touchPointX, touchPointY)), new SessionId(dragSessionId),
                     flags

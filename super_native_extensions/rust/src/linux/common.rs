@@ -61,7 +61,9 @@ impl TargetListExt for TargetList {
     }
 }
 
-pub fn surface_from_image_data(image: ImageData) -> ImageSurface {
+pub fn surface_from_image_data(image: ImageData, opacity: f64) -> ImageSurface {
+    let factor: i32 = (opacity * 255.0) as i32;
+
     let mut data = image.data;
     for offset in (0..data.len()).step_by(4) {
         let (r, g, b, a) = (
@@ -70,9 +72,17 @@ pub fn surface_from_image_data(image: ImageData) -> ImageSurface {
             data[offset + 2],
             data[offset + 3],
         );
-        data[offset] = b;
-        data[offset + 1] = g;
-        data[offset + 2] = r;
+
+        let a = if factor == 255 {
+            a
+        } else {
+            (a as i32 * factor / 255) as u8
+        };
+
+        // Premultiply alpha
+        data[offset] = (b as i32 * a as i32 / 255) as u8;
+        data[offset + 1] = (g as i32 * a as i32 / 255) as u8;
+        data[offset + 2] = (r as i32 * a as i32 / 255) as u8;
         data[offset + 3] = a;
     }
     let surface = ImageSurface::create_for_data(

@@ -21,7 +21,10 @@ use crate::{
     drop_manager::GetDropManager,
     error::{NativeExtensionsError, NativeExtensionsResult},
     log::{OkLog, OkLogUnexpected},
-    platform_impl::platform::{PlatformDataProvider, PlatformDragContext, PlatformDropContext},
+    menu_manager::GetMenuManager,
+    platform_impl::platform::{
+        PlatformDataProvider, PlatformDragContext, PlatformDropContext, PlatformMenuContext,
+    },
     util::{DropNotifier, NextId},
     value_promise::{Promise, PromiseResult},
 };
@@ -47,6 +50,8 @@ pub struct GetAdditionalItemsResult {
 
 pub trait PlatformDragContextDelegate {
     fn get_platform_drop_contexts(&self) -> Vec<Rc<PlatformDropContext>>;
+
+    fn get_platform_menu_contexts(&self) -> Vec<Rc<PlatformMenuContext>>;
 
     fn get_drag_configuration_for_location(
         &self,
@@ -379,6 +384,10 @@ impl AsyncMethodHandler for DragManager {
 impl PlatformDragContextDelegate for DragManager {
     fn get_platform_drop_contexts(&self) -> Vec<Rc<PlatformDropContext>> {
         Context::get().drop_manager().get_platform_drop_contexts()
+    }
+
+    fn get_platform_menu_contexts(&self) -> Vec<Rc<PlatformMenuContext>> {
+        Context::get().menu_manager().get_platform_menu_contexts()
     }
 
     fn get_drag_configuration_for_location(

@@ -61,21 +61,14 @@ class _DragableWidgetState extends State<DragableWidget> {
   Future<DragItem?> provideDragItem(DragItemRequest request) async {
     final item = await widget.dragItemProvider(request);
     if (item != null) {
-      setState(() {
-        _dragging = request.session.dragging;
-      });
-      request.session.dragStarted.addListener(() {
+      void updateDraggingState() {
         setState(() {
-          _dragging = true;
+          _dragging = request.session.dragging.value;
         });
-      });
-      request.session.dragCompleted.addListener(() {
-        if (mounted) {
-          setState(() {
-            _dragging = false;
-          });
-        }
-      });
+      }
+
+      request.session.dragging.addListener(updateDraggingState);
+      updateDraggingState();
     }
     return item;
   }

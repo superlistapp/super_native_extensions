@@ -4,13 +4,13 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:irondash_message_channel/irondash_message_channel.dart';
 
-import '../api_model.dart';
 import '../drop.dart';
+import '../image_data.dart';
 import '../mutex.dart';
 import '../reader.dart';
 import '../util.dart';
-import 'api_model.dart';
 import 'context.dart';
+import 'image_data.dart';
 import 'reader_manager.dart';
 
 final _channel =
@@ -22,9 +22,11 @@ class Session {
 }
 
 extension ItemPreviewExt on ItemPreview {
-  dynamic serialize() => {
+  Future<dynamic> serialize() async => {
         'destinationRect': destinationRect.serialize(),
-        'destinationImage': destinationImage?.serialize(),
+        'destinationImage': destinationImage != null
+            ? (await ImageData.fromImage(destinationImage!)).serialize()
+            : null,
         'fadeOutDelay': fadeOutDelay?.inSecondsDouble,
         'fadeOutDuration': fadeOutDuration?.inSecondsDouble,
       };
@@ -181,7 +183,7 @@ class DropContextImpl extends DropContext {
           return session.mutex.protect(() async {
             final preview = await delegate?.onGetItemPreview(request);
             return {
-              'preview': preview?.serialize(),
+              'preview': await preview?.serialize(),
             };
           });
         } else {

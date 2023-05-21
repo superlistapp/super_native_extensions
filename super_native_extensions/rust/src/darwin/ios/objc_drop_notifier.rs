@@ -11,7 +11,7 @@ use objc::{
 };
 use once_cell::sync::Lazy;
 
-use crate::{platform_impl::platform::common::superclass, util::DropNotifier};
+use crate::util::DropNotifier;
 
 use super::util::IntoObjc;
 
@@ -23,14 +23,14 @@ extern "C" fn dealloc(this: &Object, _sel: Sel) {
         };
         Arc::from_raw(state_ptr);
 
-        let superclass = superclass(this);
-        let () = msg_send![super(this, superclass), dealloc];
+        let () = msg_send![super(this, *SUPERCLASS), dealloc];
     }
 }
 
+static SUPERCLASS: Lazy<&'static Class> = Lazy::new(|| class!(NSObject));
+
 static DROP_NOTIFIER_CLASS: Lazy<&'static Class> = Lazy::new(|| unsafe {
-    let superclass = class!(NSObject);
-    let mut decl = ClassDecl::new("SNEDropNotifier", superclass).unwrap();
+    let mut decl = ClassDecl::new("SNEDropNotifier", *SUPERCLASS).unwrap();
 
     decl.add_ivar::<*mut c_void>("state");
     decl.add_method(sel!(dealloc), dealloc as extern "C" fn(&Object, Sel));

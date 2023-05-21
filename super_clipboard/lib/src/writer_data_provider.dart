@@ -20,10 +20,14 @@ extension ClipboardWriterItemDataProvider on DataWriterItem {
   Future<raw.DataProviderHandle> registerWithDataProvider(
       raw.DataProvider provider) async {
     final handle = await provider.register();
+    final onDisposed = this.onDisposed as SimpleNotifier;
+    final onRegistered = this.onRegistered as SimpleNotifier;
     handle.onDispose.addListener(() {
-      (onDisposed as SimpleNotifier).notify();
+      onDisposed.notify();
+      onDisposed.dispose();
+      onRegistered.dispose();
     });
-    (onRegistered as SimpleNotifier).notify();
+    onRegistered.notify();
     return handle;
   }
 }

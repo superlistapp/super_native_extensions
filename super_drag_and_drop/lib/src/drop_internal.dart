@@ -182,15 +182,9 @@ class _DropSession extends DropSession {
       final response =
           await _currentDropRegion?.onGetDropItemPreview?.call(this, req);
       if (response != null) {
-        final ratio = _currentDropRegion!.devicePixelRatio;
         return raw.ItemPreview(
           destinationRect: response.destinationRect,
-          destinationImage: response.destinationImage != null
-              ? await raw.ImageData.fromImage(
-                  response.destinationImage!,
-                  devicePixelRatio: ratio,
-                )
-              : null,
+          destinationImage: response.destinationImage,
           fadeOutDelay: response.fadeOutDelay,
           fadeOutDuration: response.fadeOutDuration,
         );
@@ -351,7 +345,6 @@ mixin RenderDropRegion on RenderObject {
   late Future<void> Function(PerformDropEvent) onPerformDrop;
   void Function(DropEvent)? onDropEnded;
   OnGetDropItemPreview? onGetDropItemPreview;
-  late double devicePixelRatio;
 
   DropFormatRegistration? _formatRegistration;
 
@@ -368,7 +361,6 @@ mixin RenderDropRegion on RenderObject {
     required Future<void> Function(PerformDropEvent) onPerformDrop,
     required void Function(DropEvent)? onDropEnded,
     required OnGetDropItemPreview? onGetDropItemPreview,
-    required double devicePixelRatio,
   }) {
     updateFormats(formats);
     this.onDropOver = onDropOver;
@@ -377,7 +369,6 @@ mixin RenderDropRegion on RenderObject {
     this.onPerformDrop = onPerformDrop;
     this.onDropEnded = onDropEnded;
     this.onGetDropItemPreview = onGetDropItemPreview;
-    this.devicePixelRatio = devicePixelRatio;
   }
 
   @override
@@ -408,7 +399,6 @@ class RenderDropRegionBox extends RenderProxyBoxWithHitTestBehavior
       onPerformDrop: onPerformDrop,
       onDropEnded: onDropEnded,
       onGetDropItemPreview: onGetDropItemPreview,
-      devicePixelRatio: devicePixelRatio,
     );
   }
 }
@@ -432,7 +422,6 @@ class RenderDropRegionSliver extends RenderProxySliver with RenderDropRegion {
       onPerformDrop: onPerformDrop,
       onDropEnded: onDropEnded,
       onGetDropItemPreview: onGetDropItemPreview,
-      devicePixelRatio: devicePixelRatio,
     );
   }
 }

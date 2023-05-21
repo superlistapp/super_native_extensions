@@ -2,12 +2,36 @@ import 'package:flutter/widgets.dart';
 
 import 'dart:ui' as ui;
 
-import 'api_model.dart';
 import 'mutex.dart';
 import 'reader.dart';
 import 'util.dart';
 
 import 'native/drop.dart' if (dart.library.js) 'web/drop.dart';
+
+/// Represents result of a drag & drop operation.
+enum DropOperation {
+  /// No drop operation performed.
+  none,
+
+  /// Drag cancelled by user pressing escape key.
+  ///
+  /// Supported on: macOS, Windows, Linux.
+  userCancelled,
+
+  /// Drag operation is generally supported but forbidden in this instance.
+  ///
+  /// Supported on: iOS; Maps to [none] on other platforms.
+  forbidden,
+
+  /// Supported on: macOS, iOS, Windows, Linux, Android, Web.
+  copy,
+
+  /// Supported on: macOS, iOS (only within same app), Windows, Linux.
+  move,
+
+  /// Supported on: macOS, Windows, Linux.
+  link
+}
 
 class BaseDropEvent {
   BaseDropEvent({
@@ -85,7 +109,7 @@ class ItemPreview {
 
   /// Destination image to which the drag image will morph. If not provided,
   /// drag image will be used.
-  final ImageData? destinationImage;
+  final ui.Image? destinationImage;
 
   /// Override fade out delay
   final Duration? fadeOutDelay;
