@@ -1,0 +1,2 @@
+CompileFlags:
+    Add: [-D_SILENCE_CLANG_COROUTINE_MESSAGE, -std=c++17]
