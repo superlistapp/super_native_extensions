@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
+import 'package:pixel_snap/pixel_snap.dart';
 
 class DisableableScrollController extends ScrollController {
   DisableableScrollController(this.canScrollListenable);
@@ -27,7 +28,7 @@ class DisableableScrollController extends ScrollController {
   }
 }
 
-class _ScrollPositionWithSingleContext extends ScrollPositionWithSingleContext {
+class _ScrollPositionWithSingleContext extends PixelSnapScrollPosition {
   _ScrollPositionWithSingleContext({
     required this.canScrollListenable,
     required super.physics,

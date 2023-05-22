@@ -13,7 +13,7 @@ dependencies:
   super_native_extensions: ^0.2.3
   collection: ^1.16.0
   device_info_plus: ^8.2.0
-  pixel_snap: ^0.1.0+2
+  pixel_snap: ^0.1.1
 
 dev_dependencies:
   flutter_test:

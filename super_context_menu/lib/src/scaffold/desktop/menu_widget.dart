@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:collection/collection.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
+import 'package:pixel_snap/pixel_snap.dart';
 
 import '../../menu_model.dart';
 import '../common/deferred_menu_items.dart';
@@ -93,6 +94,8 @@ class MenuWidgetState extends State<MenuWidget>
 
   bool _pendingFocusApply = true;
 
+  final _scrollController = PixelSnapScrollController();
+
   @override
   void initState() {
     initDeferredElements(widget.menu.children, widget.cache);
@@ -116,6 +119,7 @@ class MenuWidgetState extends State<MenuWidget>
     for (final item in resolvedChildren) {
       item.dispose();
     }
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -255,32 +259,30 @@ class MenuWidgetState extends State<MenuWidget>
                 DirectionalFocusIntent(TraversalDirection.down),
           },
           child: SingleChildScrollView(
-            // Repaint boundary is needed for PixelSnap to work.
-            child: RepaintBoundary(
-              child: IntrinsicWidth(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    for (final item in resolvedChildren)
-                      if (item.element is MenuSeparator)
-                        _SeparatorWidget(
-                          delegate: this,
-                          menuInfo: menuInfo,
-                          menuWidgetBuilder: widget.menuWidgetBuilder,
-                          separator: item.element as MenuSeparator,
-                        )
-                      else
-                        _MenuItemWidget(
-                          delegate: this,
-                          key: item.key,
-                          innerKey: item.innerKey,
-                          menuInfo: menuInfo,
-                          menuWidgetBuilder: widget.menuWidgetBuilder,
-                          isSelected: _isSelected(item),
-                          entry: item,
-                        )
-                  ],
-                ),
+            controller: _scrollController,
+            child: IntrinsicWidth(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (final item in resolvedChildren)
+                    if (item.element is MenuSeparator)
+                      _SeparatorWidget(
+                        delegate: this,
+                        menuInfo: menuInfo,
+                        menuWidgetBuilder: widget.menuWidgetBuilder,
+                        separator: item.element as MenuSeparator,
+                      )
+                    else
+                      _MenuItemWidget(
+                        delegate: this,
+                        key: item.key,
+                        innerKey: item.innerKey,
+                        menuInfo: menuInfo,
+                        menuWidgetBuilder: widget.menuWidgetBuilder,
+                        isSelected: _isSelected(item),
+                        entry: item,
+                      )
+                ],
               ),
             ),
           ),

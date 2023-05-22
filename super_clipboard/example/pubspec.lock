@@ -196,10 +196,10 @@ packages:
     dependency: transitive
     description:
       name: pixel_snap
-      sha256: "396b2d5f1ab14117696db4ded1c8a6551807fd4e8816757eb2b83e97c5b4bc33"
+      sha256: "43d583f6677bdc49c6705988c74b0ef369c17e22d726ddca3183e4ccafb85e56"
       url: "https://pub.dev"
     source: hosted
-    version: "0.1.0+2"
+    version: "0.1.1"
   plugin_platform_interface:
     dependency: transitive
     description:
