@@ -4,7 +4,7 @@
 
 - Single context menu widget that works accross all desktop platforms, mobile platforms and web
 
-- Can transition to Native Drag & Drop on Android & iOS
+- Can transition to native drag & drop on Android & iOS
 
 ![1-mobile](https://github.com/superlistapp/super_native_extensions/assets/96958/05cf793e-d848-4244-8685-dab4059e3940)
 
