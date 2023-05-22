@@ -1,3 +1,7 @@
+## 0.4.0
+
+ - Bump "super_native_extensions" to `0.4.0`.
+
 ## 0.3.0+2
 
  - **FIX**: [win] rewind OLE streams before reading (#117).

@@ -1,3 +1,7 @@
+## 0.4.0
+
+ - Bump "super_clipboard" to `0.4.0`.
+
 ## 0.3.0+2
 
  - Update a dependency to the latest release.

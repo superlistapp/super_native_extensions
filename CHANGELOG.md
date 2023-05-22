@@ -3,6 +3,52 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## 2023-05-22
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - There are no breaking changes in this release.
+
+Packages with other changes:
+
+ - [`super_clipboard` - `v0.4.0`](#super_clipboard---v040)
+ - [`super_drag_and_drop` - `v0.4.0`](#super_drag_and_drop---v040)
+ - [`super_native_extensions` - `v0.4.0`](#super_native_extensions---v040)
+ - [`super_keyboard_layout` - `v0.4.0`](#super_keyboard_layout---v040)
+ - [`super_hot_key` - `v0.4.0`](#super_hot_key---v040)
+ - [`super_context_menu` - `v0.1.0`](#super_context_menu---v010)
+
+---
+
+#### `super_clipboard` - `v0.4.0`
+
+ - Bump "super_clipboard" to `0.4.0`.
+
+#### `super_drag_and_drop` - `v0.4.0`
+
+ - Bump "super_drag_and_drop" to `0.4.0`.
+
+#### `super_native_extensions` - `v0.4.0`
+
+ - Bump "super_native_extensions" to `0.4.0`.
+
+#### `super_keyboard_layout` - `v0.4.0`
+
+ - Bump "super_keyboard_layout" to `0.4.0`.
+
+#### `super_hot_key` - `v0.4.0`
+
+ - Bump "super_hot_key" to `0.4.0`.
+
+#### `super_context_menu` - `v0.1.0`
+
+ - Bump "super_context_menu" to `0.1.0`.
+
+
 ## 2023-04-03
 
 ### Changes
