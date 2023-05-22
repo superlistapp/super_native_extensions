@@ -34,7 +34,7 @@ use crate::{
     },
     error::{NativeExtensionsError, NativeExtensionsResult},
     log::OkLog,
-    platform_impl::platform::common::{from_nsstring, superclass, CGAffineTransformMakeScale},
+    platform_impl::platform::common::{from_nsstring, CGAffineTransformMakeScale},
     value_promise::PromiseResult,
 };
 
@@ -476,8 +476,7 @@ extern "C" fn dealloc(this: &Object, _sel: Sel) {
         };
         Weak::from_raw(context_ptr);
 
-        let superclass = superclass(this);
-        let () = msg_send![super(this, superclass), dealloc];
+        let () = msg_send![super(this, *SUPERCLASS), dealloc];
     }
 }
 
@@ -546,9 +545,10 @@ extern "C" fn preview_for_dropping_item(
     )
 }
 
+static SUPERCLASS: Lazy<&'static Class> = Lazy::new(|| class!(NSObject));
+
 static DELEGATE_CLASS: Lazy<&'static Class> = Lazy::new(|| unsafe {
-    let superclass = class!(NSObject);
-    let mut decl = ClassDecl::new("SNEDropInteractionDelegate", superclass).unwrap();
+    let mut decl = ClassDecl::new("SNEDropInteractionDelegate", *SUPERCLASS).unwrap();
     decl.add_protocol(Protocol::get("UIDropInteractionDelegate").unwrap());
     decl.add_ivar::<*mut c_void>("context");
     decl.add_method(sel!(dealloc), dealloc as extern "C" fn(&Object, Sel));

@@ -1,32 +1,30 @@
 import 'dart:html' as html;
-import 'package:flutter/foundation.dart';
-import 'package:flutter/gestures.dart';
-import 'package:super_native_extensions/src/web/shadow.dart';
-import 'package:super_native_extensions/src/web/drag_driver.dart';
+import 'dart:ui' as ui;
 
-import '../api_model.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
+
 import '../drag.dart';
-import '../drag_internal.dart';
-import '../util.dart';
+import '../drop.dart';
+import '../widget_snapshot/widget_snapshot.dart';
+import 'drag_overlay.dart';
 import 'drop.dart';
+import 'drag_driver.dart';
 
 class DragSessionImpl extends DragSession implements DragDriverDelegate {
-  DragSessionImpl({required int pointer}) {
-    DragDriver(pointer, this);
-  }
+  DragSessionImpl({required this.pointer});
+
+  final int pointer;
+
+  final _dragCompleted = ValueNotifier<DropOperation?>(null);
+
+  final _dragging = ValueNotifier<bool>(false);
 
   @override
   ValueListenable<DropOperation?> get dragCompleted => _dragCompleted;
 
-  final _dragCompleted = ValueNotifier<DropOperation?>(null);
-
   @override
-  Listenable get dragStarted => _dragStarted;
-
-  @override
-  bool get dragging => _state != null;
-
-  final _dragStarted = SimpleNotifier();
+  ValueNotifier<bool> get dragging => _dragging;
 
   @override
   Future<List<Object?>?> getLocalData() async {
@@ -40,14 +38,18 @@ class DragSessionImpl extends DragSession implements DragDriverDelegate {
 
   @override
   void cancel() {
-    _ended = true;
-    _state?.cancel();
+    if (!_ended) {
+      _ended = true;
+      _state?.cancel();
+    }
   }
 
   @override
   void end(Offset position) {
-    _ended = true;
-    _state?.end(position);
+    if (!_ended) {
+      _ended = true;
+      _state?.end(position);
+    }
   }
 
   @override
@@ -59,21 +61,41 @@ class DragSessionImpl extends DragSession implements DragDriverDelegate {
 
   bool _ended = false;
 
-  Future<void> init(
-      DragConfiguration configuration, Offset originalPosition) async {
-    _state = await _SessionState.create(
+  void init(
+    BuildContext buildContext,
+    DragConfiguration configuration,
+    Offset originalPosition,
+    TargetedWidgetSnapshot? combinedDragImage,
+  ) {
+    DragDriver(
+      pointer: pointer,
+      devicePixelRatio: MediaQuery.of(buildContext).devicePixelRatio,
+      delegate: this,
+    );
+    _state = _SessionState(
+      buildContext: buildContext,
       configuration: configuration,
       originalPosition: originalPosition,
       lastScreenLocation: _lastScreenLocation,
       dragCompleted: _dragCompleted,
+      combinedDragImage: combinedDragImage,
     );
+    _dragging.value = true;
+    _dragCompleted.addListener(() {
+      _dragging.value = false;
+      _state = null;
+      Future.microtask(() {
+        _dragCompleted.dispose();
+        _dragging.dispose();
+        _lastScreenLocation.dispose();
+        for (final item in configuration.items) {
+          item.dataProvider.dispose();
+        }
+      });
+    });
     if (_ended) {
       _state?.cancel();
     }
-    _dragStarted.notify();
-    _dragCompleted.addListener(() {
-      _state = null;
-    });
   }
 
   _SessionState? _state;
@@ -81,64 +103,47 @@ class DragSessionImpl extends DragSession implements DragDriverDelegate {
 
 class _SessionState implements DragDriverDelegate {
   final DragConfiguration configuration;
-  final TargetedImageData image;
   final Offset originalPosition;
-  final html.CanvasElement canvas;
   final ValueNotifier<Offset?> lastScreenLocation;
   final ValueNotifier<DropOperation?> dragCompleted;
 
-  static Future<_SessionState> create({
-    required DragConfiguration configuration,
-    required Offset originalPosition,
-    required ValueNotifier<Offset?> lastScreenLocation,
-    required ValueNotifier<DropOperation?> dragCompleted,
-  }) async {
-    final image = (await combineDragImage(configuration)).withShadow(14);
-    final canvas = html.document.createElement('canvas') as html.CanvasElement;
-    canvas.width = image.imageData.width;
-    canvas.height = image.imageData.height;
-    final ctx = canvas.getContext('2d') as html.CanvasRenderingContext2D;
-    final imageData =
-        ctx.createImageData(image.imageData.width, image.imageData.height);
-    imageData.data.setAll(0, image.imageData.data);
-    ctx.putImageData(imageData, 0, 0);
-    originalPosition = originalPosition;
-    html.document.body?.children.add(canvas);
-    canvas.style.position = 'fixed';
-    canvas.style.pointerEvents = 'none';
-
-    return _SessionState(
-      configuration: configuration,
-      image: image,
-      originalPosition: originalPosition,
-      canvas: canvas,
-      lastScreenLocation: lastScreenLocation,
-      dragCompleted: dragCompleted,
-    );
-  }
+  final dragOverlayKey = GlobalKey<DragOverlayState>();
+  late OverlayEntry overlayEntry;
 
   _SessionState({
+    required BuildContext buildContext,
+    TargetedWidgetSnapshot? combinedDragImage,
     required this.configuration,
-    required this.image,
     required this.originalPosition,
-    required this.canvas,
     required this.lastScreenLocation,
     required this.dragCompleted,
   }) {
+    final overlay = Overlay.of(buildContext);
+    overlayEntry = OverlayEntry(
+      builder: (context) {
+        if (combinedDragImage != null) {
+          return DragOverlayMobile(
+            key: dragOverlayKey,
+            snapshot: combinedDragImage,
+            initialPosition: originalPosition,
+          );
+        } else {
+          return DragOverlayDesktop(
+            key: dragOverlayKey,
+            initialPosition: originalPosition,
+            snapshots:
+                configuration.items.map((e) => e.image).toList(growable: false),
+          );
+        }
+      },
+    );
+    overlay.insert(overlayEntry);
+
     updatePosition(originalPosition);
   }
 
-  void _moveCanvas(Offset position) {
-    canvas.style.left =
-        '${image.rect.left + position.dx - originalPosition.dx}px';
-    canvas.style.top =
-        '${image.rect.top + position.dy - originalPosition.dy}px';
-    canvas.style.width = '${image.rect.width}px';
-    canvas.style.height = '${image.rect.height}px';
-  }
-
   void updatePosition(Offset position) async {
-    _moveCanvas(position);
+    dragOverlayKey.currentState?.updatePosition(position);
     lastScreenLocation.value = position;
 
     _lastOperation = await DropContextImpl.instance
@@ -158,9 +163,12 @@ class _SessionState implements DragDriverDelegate {
 
   @override
   void cancel() {
-    _removeCanvas(cancelled: true);
-    dragCompleted.value = DropOperation.userCancelled;
-    _cleanup();
+    _removeCanvas(
+        cancelled: true,
+        onCompleted: () {
+          dragCompleted.value = DropOperation.userCancelled;
+          _cleanup();
+        });
   }
 
   @override
@@ -170,49 +178,49 @@ class _SessionState implements DragDriverDelegate {
       await DropContextImpl.instance
           ?.localSessionDrop(configuration, location, _lastOperation);
     }
-    dragCompleted.value = _lastOperation;
     _removeCanvas(
       cancelled: _lastOperation == DropOperation.none ||
           _lastOperation == DropOperation.userCancelled ||
           _lastOperation == DropOperation.forbidden,
+      onCompleted: () {
+        dragCompleted.value = _lastOperation;
+        _cleanup();
+      },
     );
-    _cleanup();
   }
+
+  bool _removed = false;
 
   void _removeCanvas({
     required bool cancelled,
+    required VoidCallback onCompleted,
   }) {
+    assert(!_removed);
+    _removed = true;
+    void completion() {
+      overlayEntry.remove();
+      onCompleted();
+    }
+
     if (cancelled) {
-      double movementDuration;
+      int movementDuration;
       double distance =
           ((lastScreenLocation.value ?? originalPosition) - originalPosition)
               .distance;
       if (distance == 0) {
         movementDuration = 0;
       } else if (distance < 50) {
-        movementDuration = 0.2;
+        movementDuration = 200;
       } else {
-        movementDuration = 0.4;
+        movementDuration = 400;
       }
-      canvas.style.transitionProperty = 'left, top';
-      canvas.style.transitionDuration = '${movementDuration}s';
-      _moveCanvas(originalPosition);
-      Future.delayed(Duration(milliseconds: (movementDuration * 1000).round()),
-          () {
-        canvas.style.transitionProperty = 'opacity';
-        canvas.style.transitionDuration = '0.2s';
-        canvas.style.opacity = '0';
-        Future.delayed(const Duration(milliseconds: 200), () {
-          canvas.remove();
-        });
-      });
+      dragOverlayKey.currentState?.animateHome(
+          Duration(
+            milliseconds: movementDuration,
+          ),
+          completion);
     } else {
-      canvas.style.transitionProperty = 'opacity';
-      canvas.style.transitionDuration = '0.2s';
-      canvas.style.opacity = '0';
-      Future.delayed(const Duration(milliseconds: 200), () {
-        canvas.remove();
-      });
+      completion();
     }
   }
 
@@ -223,8 +231,22 @@ class _SessionState implements DragDriverDelegate {
 }
 
 class DragContextImpl extends DragContext {
+  static bool get isTouchDevice => html.window.navigator.maxTouchPoints != 0;
+
   @override
-  Future<void> initialize() async {}
+  Future<void> initialize() async {
+    // Long press draggable requires disabling context menu.
+    if (html.window.navigator.maxTouchPoints != 0) {
+      html.document.addEventListener('contextmenu', (event) {
+        final offset_ = (event as html.MouseEvent).offset;
+        final offset = ui.Offset(offset_.x.toDouble(), offset_.y.toDouble());
+        final draggable = delegate?.isLocationDraggable(offset) ?? false;
+        if (draggable) {
+          event.preventDefault();
+        }
+      });
+    }
+  }
 
   @override
   DragSession newSession({int? pointer}) =>
@@ -232,11 +254,18 @@ class DragContextImpl extends DragContext {
 
   @override
   Future<void> startDrag({
+    required BuildContext buildContext,
     required DragSession session,
     required DragConfiguration configuration,
     required Offset position,
+    TargetedWidgetSnapshot? combinedDragImage,
   }) async {
     final session_ = session as DragSessionImpl;
-    await session_.init(configuration, position);
+    session_.init(
+      buildContext,
+      configuration,
+      position,
+      combinedDragImage,
+    );
   }
 }

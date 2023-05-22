@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 
 import 'format.dart';
 import 'formats_base.dart';
+import 'reader_model.dart';
 import 'reader_value.dart';
 import 'standard_formats.dart';
 import 'reader.dart';

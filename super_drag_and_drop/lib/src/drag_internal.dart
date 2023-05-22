@@ -1,6 +1,5 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:super_native_extensions/raw_drag_drop.dart' as raw;
 
@@ -128,7 +127,11 @@ abstract class _DragDetector extends StatelessWidget {
   });
 
   Drag? maybeStartDrag(
-      int? pointer, Offset position_, double devicePixelRatio) {
+    BuildContext buildContext,
+    int? pointer,
+    Offset position_,
+    double devicePixelRatio,
+  ) {
     final position = Offset(
         (position_.dx * devicePixelRatio).roundToDouble() / devicePixelRatio,
         (position_.dy * devicePixelRatio).roundToDouble() / devicePixelRatio);
@@ -139,7 +142,7 @@ abstract class _DragDetector extends StatelessWidget {
         // Hide hover during dragging. The delay is here because there may
         // be some move events received until system drag starts)
         Future.delayed(const Duration(milliseconds: 50), () {
-          if (session.dragging) {
+          if (session.dragging.value) {
             final event = PointerRemovedEvent(
                 pointer: pointer, kind: PointerDeviceKind.mouse);
             RendererBinding.instance.mouseTracker
@@ -148,28 +151,41 @@ abstract class _DragDetector extends StatelessWidget {
         });
       }
       _maybeStartDragWithSession(
-          dragContext, position, session, devicePixelRatio);
+        dragContext,
+        buildContext,
+        position,
+        session,
+        devicePixelRatio,
+      );
       return null;
     } else {
       return null;
     }
   }
 
-  void onDraggingStarted() {}
-
   void _maybeStartDragWithSession(
     raw.DragContext context,
+    BuildContext buildContext,
     Offset position,
     raw.DragSession session,
     double devicePixelRatio,
   ) async {
     final dragConfiguration = await this.dragConfiguration(position, session);
     if (dragConfiguration != null) {
-      context.startDrag(
-          session: session,
-          configuration: await dragConfiguration.intoRaw(devicePixelRatio),
-          position: position);
-      onDraggingStarted();
+      final rawConfiguration =
+          await dragConfiguration.intoRaw(devicePixelRatio);
+      if (buildContext.mounted) {
+        session.dragCompleted.addListener(() {
+          rawConfiguration.disposeImages();
+        });
+        await context.startDrag(
+            buildContext: buildContext,
+            session: session,
+            configuration: rawConfiguration,
+            position: position);
+      } else {
+        rawConfiguration.disposeImages();
+      }
     }
   }
 }
@@ -203,39 +219,16 @@ class _ImmediateMultiDragGestureRecognizer
   }
 }
 
-class _DelayedMultiDragGestureRecognizer
-    extends DelayedMultiDragGestureRecognizer {
-  int? lastPointer;
-
-  final LocationIsDraggable isLocationDraggable;
-
-  _DelayedMultiDragGestureRecognizer({
-    required this.isLocationDraggable,
-  });
-
-  @override
-  void acceptGesture(int pointer) {
-    lastPointer = pointer;
-    super.acceptGesture(pointer);
-  }
-
-  @override
-  bool isPointerAllowed(PointerDownEvent event) {
-    if (!isLocationDraggable(event.position)) {
-      return false;
-    }
-    return super.isPointerAllowed(event);
-  }
-}
-
 class DesktopDragDetector extends _DragDetector {
   const DesktopDragDetector({
     super.key,
     required super.dragConfiguration,
     required this.isLocationDraggable,
+    required this.hitTestBehavior,
     required super.child,
   });
 
+  final HitTestBehavior hitTestBehavior;
   final LocationIsDraggable isLocationDraggable;
 
   @override
@@ -248,8 +241,12 @@ class DesktopDragDetector extends _DragDetector {
                     _ImmediateMultiDragGestureRecognizer>(
                 () => _ImmediateMultiDragGestureRecognizer(
                     isLocationDraggable: isLocationDraggable), (recognizer) {
-          recognizer.onStart = (offset) =>
-              maybeStartDrag(recognizer.lastPointer, offset, devicePixelRatio);
+          recognizer.onStart = (offset) => maybeStartDrag(
+                context,
+                recognizer.lastPointer,
+                offset,
+                devicePixelRatio,
+              );
         })
       },
       child: child,
@@ -285,46 +282,52 @@ class DummyDragDetector extends StatelessWidget {
 class MobileDragDetector extends _DragDetector {
   const MobileDragDetector({
     super.key,
+    required this.hitTestBehavior,
     required super.dragConfiguration,
     required this.isLocationDraggable,
     required super.child,
   });
 
+  final HitTestBehavior hitTestBehavior;
   final LocationIsDraggable isLocationDraggable;
 
   @override
   Widget build(BuildContext context) {
-    final devicePixelRatio = MediaQuery.of(context).devicePixelRatio;
     return RawGestureDetector(
+      behavior: hitTestBehavior,
       gestures: {
-        _DelayedMultiDragGestureRecognizer:
+        raw.SingleDragDelayedGestureRecognizer:
             GestureRecognizerFactoryWithHandlers<
-                    _DelayedMultiDragGestureRecognizer>(
-                () => _DelayedMultiDragGestureRecognizer(
-                      isLocationDraggable: isLocationDraggable,
+                    raw.SingleDragDelayedGestureRecognizer>(
+                () => raw.SingleDragDelayedGestureRecognizer(
+                      beginDuration: const Duration(milliseconds: 150),
+                      duration: const Duration(milliseconds: 300),
                     ), (recognizer) {
-          recognizer.onStart = (offset) =>
-              maybeStartDrag(recognizer.lastPointer, offset, devicePixelRatio);
-        })
+          recognizer.shouldAcceptTouchAtPosition = isLocationDraggable;
+          recognizer.onDragStart = (globalPosition) {
+            return _longPressHandler?.dragGestureForPosition(
+              context: context,
+              position: globalPosition,
+              pointer: recognizer.lastPointer!,
+            );
+          };
+        }),
       },
       child: child,
     );
-  }
-
-  @override
-  void onDraggingStarted() {
-    HapticFeedback.mediumImpact();
   }
 }
 
 bool _initialized = false;
 raw.DragContext? _dragContext;
+raw.LongPressHandler? _longPressHandler;
 
-Future<void> _initializeIfNeeded() async {
+void _initializeIfNeeded() async {
   if (!_initialized) {
     _initialized = true;
     _dragContext = await raw.DragContext.instance();
     _dragContext!.delegate = _DragContextDelegate();
+    _longPressHandler = await raw.LongPressHandler.create();
     // needed on some platforms (i.e. Android for drop end notifications)
     await raw.DropContext.instance();
   }

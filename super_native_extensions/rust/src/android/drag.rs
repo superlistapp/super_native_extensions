@@ -1,4 +1,9 @@
-use std::{cell::RefCell, collections::HashMap, rc::Weak, sync::Arc};
+use std::{
+    cell::{Cell, RefCell},
+    collections::HashMap,
+    rc::Weak,
+    sync::Arc,
+};
 
 use irondash_engine_context::EngineContext;
 use irondash_message_channel::Value;
@@ -12,8 +17,6 @@ use crate::{
         DataProviderEntry, DragSessionId, PlatformDragContextDelegate, PlatformDragContextId,
     },
     error::{NativeExtensionsError, NativeExtensionsResult},
-    log::OkLog,
-    shadow::WithShadow,
 };
 
 use super::{
@@ -33,6 +36,7 @@ struct DragSession {
     configuration: DragConfiguration,
     platform_context_delegate: Weak<dyn PlatformDragContextDelegate>,
     data_providers: Vec<Arc<DataProviderHandle>>,
+    last_drop_operation: Cell<Option<DropOperation>>,
 }
 
 thread_local! {
@@ -136,12 +140,15 @@ impl PlatformDragContext {
         let image = &request.combined_drag_image.ok_or_else(|| {
             NativeExtensionsError::OtherError("Missing combined drag image".into())
         })?;
-        let image = image.with_shadow(10);
         let bitmap = Self::create_bitmap(&env, &image.image_data)?;
         let device_pixel_ratio = image.image_data.device_pixel_ratio.unwrap_or(1.0);
         let point_in_rect = Point {
-            x: (request.position.x - image.source_rect.x) * device_pixel_ratio,
-            y: (request.position.y - image.source_rect.y) * device_pixel_ratio,
+            x: (image.rect.width / 2.0 + 4.0) * device_pixel_ratio,
+            y: (image.rect.height / 2.0 + 4.0) * device_pixel_ratio,
+        };
+        let return_point = Point {
+            x: image.rect.center().x * device_pixel_ratio,
+            y: image.rect.center().y * device_pixel_ratio,
         };
 
         let mut sessions = self.sessions.borrow_mut();
@@ -152,6 +159,7 @@ impl PlatformDragContext {
                 platform_context_id: self.id,
                 platform_context_delegate: self.delegate.clone(),
                 data_providers: provider_handles,
+                last_drop_operation: Cell::new(None),
             },
         );
 
@@ -161,7 +169,7 @@ impl PlatformDragContext {
         env.call_method(
             DRAG_DROP_HELPER.get().unwrap().as_obj(),
             "startDrag",
-            "(Landroid/view/View;JLandroid/content/ClipData;Landroid/graphics/Bitmap;II)V",
+            "(Landroid/view/View;JLandroid/content/ClipData;Landroid/graphics/Bitmap;IIII)V",
             &[
                 view.as_obj().into(),
                 session_id.into(),
@@ -169,6 +177,8 @@ impl PlatformDragContext {
                 bitmap.into(),
                 (point_in_rect.x.round() as i32).into(),
                 (point_in_rect.y.round() as i32).into(),
+                (return_point.x.round() as i32).into(),
+                (return_point.y.round() as i32).into(),
             ],
         )?;
 
@@ -193,12 +203,18 @@ impl PlatformDragContext {
         Ok(())
     }
 
-    pub fn get_local_data<'a>(&self, env: &JNIEnv<'a>, event: DragEvent<'a>) -> Option<Vec<Value>> {
+    pub fn get_allowed_operations(&self, session_id: DragSessionId) -> Option<Vec<DropOperation>> {
         let sessions = self.sessions.borrow();
-        let session_id = event.get_session_id(env).ok_log()?;
-        let session = session_id.and_then(|id| sessions.get(&id));
+        let session = sessions.get(&session_id);
+        session.map(|s| s.configuration.allowed_operations.clone())
+    }
 
-        session.map(|s| s.configuration.get_local_data())
+    pub fn replace_last_operation(&self, session_id: DragSessionId, operation: DropOperation) {
+        let sessions = self.sessions.borrow();
+        let session = sessions.get(&session_id);
+        if let Some(session) = session {
+            session.last_drop_operation.replace(Some(operation));
+        }
     }
 
     pub fn get_local_data_for_session_id(
@@ -212,20 +228,13 @@ impl PlatformDragContext {
         Ok(session.configuration.get_local_data())
     }
 
-    pub fn get_data_provider_handles<'a>(
+    pub fn get_data_provider_handles(
         &self,
-        env: &JNIEnv<'a>,
-        event: DragEvent<'a>,
+        session_id: DragSessionId,
     ) -> Option<Vec<Arc<DataProviderHandle>>> {
-        let session_id = event.get_session_id(env).ok_log()?;
-        match session_id {
-            Some(session_id) => {
-                let sessions = self.sessions.borrow();
-                let session = sessions.get(&session_id);
-                session.map(|s| s.data_providers.clone())
-            }
-            None => None,
-        }
+        let sessions = self.sessions.borrow();
+        let session = sessions.get(&session_id);
+        session.map(|s| s.data_providers.clone())
     }
 }
 
@@ -259,7 +268,10 @@ impl DragSession {
             if let Some(delegate) = self.platform_context_delegate.upgrade() {
                 let result = event.get_result(env)?;
                 let operation = match result {
-                    true => DropOperation::Copy, // TODO(knopp): Move?
+                    true => self
+                        .last_drop_operation
+                        .get()
+                        .unwrap_or(DropOperation::Copy),
                     false => DropOperation::None,
                 };
                 delegate.drag_session_did_end_with_operation(

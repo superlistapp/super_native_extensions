@@ -3,6 +3,8 @@ name: super_native_extensions
 packages:
   - super_clipboard
   - super_clipboard/example
+  - super_context_menu
+  - super_context_menu/example
   - super_drag_and_drop
   - super_drag_and_drop/example
   - super_hot_key

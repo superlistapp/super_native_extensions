@@ -4,10 +4,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 import 'package:super_clipboard/super_clipboard.dart';
-import 'package:super_drag_and_drop/super_drag_and_drop.dart';
-import 'package:super_native_extensions/raw_drag_drop.dart' as raw;
 
 import 'drop_internal.dart';
+import 'model.dart';
 
 /// Single item being dropped in a [DropSession].
 abstract class DropItem with Diagnosticable {
@@ -48,7 +47,7 @@ abstract class DropSession with Diagnosticable {
   Listenable get onDisposed;
 
   /// Drop operations that the drag source allows.
-  Set<raw.DropOperation> get allowedOperations;
+  Set<DropOperation> get allowedOperations;
 }
 
 /// Position for drop event.
@@ -112,7 +111,7 @@ class PerformDropEvent {
   final DropPosition position;
 
   /// Accepted operation from last [DropOverEvent].
-  final raw.DropOperation acceptedOperation;
+  final DropOperation acceptedOperation;
 
   PerformDropEvent({
     required this.session,
@@ -160,7 +159,7 @@ class DropRegion extends SingleChildRenderObjectWidget {
   /// Invoked when dragging happens over this region. Implementation should
   /// inspect the drag session from event and return a drop operation
   /// that it can support (or [DropOperation.none]).
-  final FutureOr<raw.DropOperation> Function(DropOverEvent) onDropOver;
+  final FutureOr<DropOperation> Function(DropOverEvent) onDropOver;
 
   /// Invoked when user performs drop on this region.
   final Future<void> Function(PerformDropEvent) onPerformDrop;
@@ -220,7 +219,6 @@ class DropRegion extends SingleChildRenderObjectWidget {
     renderObject_.onPerformDrop = onPerformDrop;
     renderObject_.onDropEnded = onDropEnded;
     renderObject_.onGetDropItemPreview = onGetDropItemPreview;
-    renderObject_.devicePixelRatio = MediaQuery.of(context).devicePixelRatio;
   }
 }
 

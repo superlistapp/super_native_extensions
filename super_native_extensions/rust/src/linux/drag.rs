@@ -9,6 +9,7 @@ use std::{
 use gdk::{
     glib::{translate::from_glib_none, WeakRef},
     prelude::StaticType,
+    traits::{DeviceExt, SeatExt},
     Display, DragAction, DragCancelReason, DragContext, Event,
 };
 
@@ -26,6 +27,7 @@ use crate::{
     error::{NativeExtensionsError, NativeExtensionsResult},
     log::OkLog,
     platform_impl::platform::drag_common::DropOperationExt,
+    shadow::WithShadow,
 };
 
 use super::{
@@ -38,9 +40,9 @@ pub struct PlatformDragContext {
     id: PlatformDragContextId,
     delegate: Weak<dyn PlatformDragContextDelegate>,
     weak_self: Late<Weak<Self>>,
-    view: WeakRef<Widget>,
+    pub(crate) view: WeakRef<Widget>,
     button_press_hook: Late<c_ulong>,
-    last_button_press_event: RefCell<Option<Event>>,
+    pub(crate) last_button_press_event: RefCell<Option<Event>>,
     sessions: RefCell<HashMap<DragContext, Rc<Session>>>,
 }
 
@@ -137,9 +139,7 @@ impl PlatformDragContext {
         unsafe { gtk::set_initialized() };
 
         let view = EngineContext::get()?.get_flutter_view(engine_handle)?;
-
         let view: Widget = unsafe { from_glib_none(view as *mut GtkWidget) };
-
         let weak = WeakRef::new();
         weak.set(Some(&view));
 
@@ -238,11 +238,12 @@ impl PlatformDragContext {
         );
         if let Some(context) = context {
             if let Some(image) = request.combined_drag_image {
+                let image = image.with_shadow(10);
                 let scale = image.image_data.device_pixel_ratio.unwrap_or(1.0);
-                let surface = surface_from_image_data(image.image_data);
+                let surface = surface_from_image_data(image.image_data, 0.8);
                 surface.set_device_offset(
-                    (image.source_rect.x - request.position.x) * scale,
-                    (image.source_rect.y - request.position.y) * scale,
+                    (image.rect.x - request.position.x) * scale,
+                    (image.rect.y - request.position.y) * scale,
                 );
                 context.drag_set_icon_surface(&surface)
             }

@@ -23,8 +23,6 @@ use crate::{
     util::Movable,
 };
 
-use super::common::superclass;
-
 static POLICY_KEY: char = 'k';
 
 /// Bridges NSPRogress to ReadProgress. Will retain ReadProgress for as long as the
@@ -37,7 +35,11 @@ pub unsafe fn bridge_progress(ns_progress: id, read_progress: Arc<ReadProgress>)
         ns_progress,
         read_progress: read_progress.clone(),
     });
-    (**bridge).set_ivar("state", Rc::into_raw(state) as *const c_void);
+    {
+        // Workaround for false need-mut positive in Rust analyzer
+        let bridge = *bridge;
+        (*bridge).set_ivar("state", Rc::into_raw(state) as *const c_void);
+    }
     #[allow(non_upper_case_globals)]
     const NSKeyValueObservingOptionInitial: NSUInteger = 0x04;
     let () = msg_send![ns_progress,
@@ -78,8 +80,7 @@ extern "C" fn dealloc(this: &Object, _sel: Sel) {
                 removeObserver: this
                 forKeyPath:*to_nsstring("fractionCompleted")
                 context:nil];
-        let superclass = superclass(this);
-        let () = msg_send![super(this, superclass), dealloc];
+        let () = msg_send![super(this, *SUPERCLASS), dealloc];
     }
 }
 
@@ -100,9 +101,10 @@ extern "C" fn observe_value_for_key_path(
     state.read_progress.report_progress(Some(completed));
 }
 
+static SUPERCLASS: Lazy<&'static Class> = Lazy::new(|| class!(NSObject));
+
 static PROGRESS_BRIDGE_CLASS: Lazy<&'static Class> = Lazy::new(|| unsafe {
-    let superclass = class!(NSObject);
-    let mut decl = ClassDecl::new("SNEProgressBridge", superclass).unwrap();
+    let mut decl = ClassDecl::new("SNEProgressBridge", *SUPERCLASS).unwrap();
 
     decl.add_ivar::<*mut c_void>("state");
     decl.add_method(sel!(dealloc), dealloc as extern "C" fn(&Object, Sel));

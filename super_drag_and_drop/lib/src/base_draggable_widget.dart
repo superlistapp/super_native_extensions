@@ -1,10 +1,11 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
-import 'package:super_native_extensions/widgets.dart';
+import 'package:super_native_extensions/raw_drag_drop.dart' as raw;
 
 import 'drag_internal.dart';
 import 'draggable_widget.dart';
 import 'drag_configuration.dart';
+import 'model.dart';
 
 typedef LocationIsDraggable = bool Function(Offset position);
 typedef DragConfigurationProvider = Future<DragConfiguration?> Function(
@@ -60,40 +61,21 @@ class BaseDraggableWidget extends StatelessWidget {
       // otherwise the scroll activity disables user interaction too early
       // and the hit test fails.
       child = DummyDragDetector(child: child);
-    } else if (defaultTargetPlatform == TargetPlatform.android ||
-        defaultTargetPlatform == TargetPlatform.iOS) {
+    } else if (raw.DragContext.isTouchDevice) {
       child = MobileDragDetector(
+        hitTestBehavior: hitTestBehavior,
         dragConfiguration: dragConfiguration,
         isLocationDraggable: isLocationDraggable,
         child: child,
       );
     } else {
       child = DesktopDragDetector(
+        hitTestBehavior: hitTestBehavior,
         dragConfiguration: dragConfiguration,
         isLocationDraggable: isLocationDraggable,
         child: child,
       );
     }
-    child = Listener(
-      behavior: HitTestBehavior.translucent,
-      onPointerDown: (_) {
-        Snapshotter.of(context)?.prepare({
-          SnapshotType.drag,
-          if (defaultTargetPlatform == TargetPlatform.iOS) SnapshotType.lift,
-        });
-      },
-      onPointerCancel: (_) {
-        if (context.mounted) {
-          Snapshotter.of(context)?.unprepare();
-        }
-      },
-      onPointerUp: (_) {
-        if (context.mounted) {
-          Snapshotter.of(context)?.unprepare();
-        }
-      },
-      child: child,
-    );
     return BaseDraggableRenderWidget(
       hitTestBehavior: hitTestBehavior,
       getDragConfiguration: dragConfiguration,

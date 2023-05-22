@@ -4,6 +4,7 @@ See individual packages for details:
 
 - [super_clipboard](super_clipboard)
 - [super_drag_and_drop](super_drag_and_drop)
+- [super_context_menu](super_context_menu)
 - [super_keyboard_layout](super_keyboard_layout)
 - [super_hot_key](super_hot_key)
 

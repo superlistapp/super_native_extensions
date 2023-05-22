@@ -165,6 +165,7 @@ class DataProviderHandle {
     if (!_disposed) {
       _disposed = true;
       _onDispose.notify();
+      _onDispose.dispose();
       await DataProviderManager.instance.unregisterDataProvider(id);
     }
   }

@@ -14,6 +14,7 @@ use drag_manager::GetDragManager;
 use drop_manager::GetDropManager;
 use hot_key_manager::GetHotKeyManager;
 use keyboard_layout_manager::GetKeyboardLayoutDelegate;
+use menu_manager::GetMenuManager;
 
 use irondash_message_channel::{irondash_init_message_channel_context, FunctionResult};
 use reader_manager::GetDataReaderManager;
@@ -30,6 +31,7 @@ mod error;
 mod hot_key_manager;
 mod keyboard_layout_manager;
 mod log;
+mod menu_manager;
 mod reader_manager;
 mod shadow;
 mod util;
@@ -86,6 +88,7 @@ impl DataTransferPlugin {
         context.drop_manager();
         context.keyboard_map_manager();
         context.hot_key_manager();
+        context.menu_manager();
         DataTransferPlugin { _context: context }
     }
 }

@@ -7,7 +7,6 @@ import 'package:collection/collection.dart';
 import 'package:flutter/widgets.dart';
 
 import '../mutex.dart';
-import '../api_model.dart';
 import '../data_provider.dart';
 import '../drag.dart';
 import '../drop.dart';

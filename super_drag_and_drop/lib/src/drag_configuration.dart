@@ -1,8 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:super_clipboard/super_clipboard.dart';
-import 'package:super_drag_and_drop/super_drag_and_drop.dart';
-import 'package:super_native_extensions/raw_drag_drop.dart' as raw;
+
+import 'model.dart';
 
 /// Represent single item being dragged in a [DragSession].
 class DragItem extends DataWriterItem {
@@ -25,29 +25,18 @@ class DragItem extends DataWriterItem {
   final Object? localData;
 }
 
-class DragImage {
-  DragImage({
-    required this.image,
-    this.liftImage,
-  });
-
-  /// Image used while dragging
-  raw.TargetedImage image;
-
-  /// If specified this image will be used for lift animation on iOS.
-  raw.TargetedImage? liftImage;
-}
-
 /// Single item of [DragConfiguration] consisting of drag item and coresponing
 /// image.
 class DragConfigurationItem {
   DragConfigurationItem({
     required this.item,
     required this.image,
+    this.liftImage,
   });
 
   final DragItem item;
-  final DragImage image;
+  final TargetedWidgetSnapshot image;
+  final TargetedWidgetSnapshot? liftImage;
 }
 
 /// Addtional options for drag session.
@@ -76,7 +65,7 @@ class DragConfiguration {
   final List<DragConfigurationItem> items;
 
   /// Allowed drop operation for this session.
-  final List<raw.DropOperation> allowedOperations;
+  final List<DropOperation> allowedOperations;
 
   /// Additonal platform sepcific options.
   final DragOptions options;

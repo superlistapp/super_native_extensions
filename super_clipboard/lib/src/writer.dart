@@ -10,6 +10,7 @@ export 'package:super_native_extensions/raw_clipboard.dart'
         WriteProgress,
         VirtualFileStorage;
 
+import 'reader_model.dart';
 import 'util.dart';
 import 'writer_data_provider.dart';
 

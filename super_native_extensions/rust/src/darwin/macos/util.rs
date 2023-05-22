@@ -39,6 +39,12 @@ impl From<NSPoint> for Point {
     }
 }
 
+impl From<Point> for NSPoint {
+    fn from(point: Point) -> Self {
+        NSPoint::new(point.x, point.y)
+    }
+}
+
 impl From<Rect> for NSRect {
     fn from(rect: Rect) -> Self {
         NSRect::new(
@@ -87,5 +93,32 @@ pub fn ns_image_from_image_data(images: Vec<ImageData>) -> StrongPtr {
             NSImage::addRepresentation_(*res, *rep);
         }
         res
+    }
+}
+
+fn is_grayscale(image: &ImageData) -> bool {
+    for pixel in image.data.chunks_exact(4) {
+        if pixel[0] != pixel[1] || pixel[1] != pixel[2] {
+            return false;
+        }
+    }
+    true
+}
+
+pub fn ns_image_for_menu_item(image: ImageData) -> StrongPtr {
+    let is_grayscale = is_grayscale(&image);
+    let size = NSSize::new(image.point_width(), image.point_height());
+    let image = ns_image_from_image_data(vec![image]);
+    unsafe {
+        let _: () = msg_send![*image, setSize: size];
+        let _: () = msg_send![*image, setTemplate: is_grayscale];
+    }
+    image
+}
+
+pub(super) unsafe fn flip_position(view: id, position: &mut NSPoint) {
+    let flipped: bool = msg_send![view, isFlipped];
+    if !flipped {
+        position.y = NSView::bounds(view).size.height - position.y;
     }
 }
