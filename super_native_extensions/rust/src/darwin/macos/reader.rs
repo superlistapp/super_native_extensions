@@ -30,6 +30,7 @@ use crate::{
     log::OkLog,
     platform_impl::platform::common::{
         format_from_url, from_nsstring, nserror_description, path_from_url, to_nsdata, to_nsstring,
+        uti_conforms_to,
     },
     reader_manager::{ReadProgress, VirtualFileReader},
 };
@@ -330,9 +331,14 @@ impl PlatformDataReader {
                     if item < NSArray::count(items) as i64 {
                         let item = NSArray::objectAtIndex(items, item as NSUInteger);
                         let is_file_url = data_type == "public.file-url";
+                        let is_text = uti_conforms_to(&data_type, "public.text");
                         let data_type = to_nsstring(&data_type);
                         // Try to get property list first, otherwise fallback to Data
-                        let mut data = NSPasteboardItem::propertyListForType(item, *data_type);
+                        let mut data = if is_text {
+                            NSPasteboardItem::stringForType(item, *data_type)
+                        } else {
+                            NSPasteboardItem::propertyListForType(item, *data_type)
+                        };
                         if data.is_null() {
                             // Ask for data here. It's better for Appkit to convert String to data,
                             // then trying to convert data to String.

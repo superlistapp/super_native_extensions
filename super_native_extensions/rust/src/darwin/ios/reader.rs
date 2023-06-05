@@ -15,7 +15,6 @@ use cocoa::{
     foundation::{NSArray, NSUInteger, NSURL},
 };
 
-use core_foundation::{base::TCFType, string::CFString};
 use irondash_message_channel::{value_darwin::ValueObjcConversion, Value};
 use irondash_run_loop::{
     util::{Capsule, FutureCompleter},
@@ -34,7 +33,7 @@ use crate::{
     platform_impl::platform::{
         common::{
             format_from_url, from_nsstring, nserror_description, path_from_url, to_nsstring,
-            UTTypeConformsTo,
+            uti_conforms_to,
         },
         progress_bridge::bridge_progress,
     },
@@ -216,17 +215,6 @@ impl PlatformDataReader {
         Ok(false)
     }
 
-    fn uti_conforms_to(uti: &str, conforms_to: &str) -> bool {
-        let uti = CFString::new(uti);
-        let conforms_to = CFString::new(conforms_to);
-
-        let conforms_to = unsafe {
-            UTTypeConformsTo(uti.as_concrete_TypeRef(), conforms_to.as_concrete_TypeRef())
-        };
-
-        conforms_to != 0
-    }
-
     pub async fn can_copy_virtual_file_for_item(
         &self,
         item: i64,
@@ -237,11 +225,11 @@ impl PlatformDataReader {
         // to avoid creating a potential temporary file for text, composite content, images
         // and URLS. The assumption here is that they are small enough to be
         // to be all loaded in memory.
-        if Self::uti_conforms_to(format, "public.composite-content")
-            || Self::uti_conforms_to(format, "public.text")
-            || Self::uti_conforms_to(format, "public.image")
-            || Self::uti_conforms_to(format, "public.url")
-            || Self::uti_conforms_to(format, "com.apple.property-list")
+        if uti_conforms_to(format, "public.composite-content")
+            || uti_conforms_to(format, "public.text")
+            || uti_conforms_to(format, "public.image")
+            || uti_conforms_to(format, "public.url")
+            || uti_conforms_to(format, "com.apple.property-list")
         {
             return Ok(false);
         }
