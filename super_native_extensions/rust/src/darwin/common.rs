@@ -13,7 +13,10 @@ use cocoa::{
     base::{id, nil, BOOL, YES},
     foundation::{NSDictionary, NSInteger, NSString},
 };
-use core_foundation::{base::Boolean, string::CFStringRef};
+use core_foundation::{
+    base::{Boolean, TCFType},
+    string::{CFString, CFStringRef},
+};
 use core_graphics::{
     base::{kCGBitmapByteOrderDefault, kCGImageAlphaLast, kCGRenderingIntentDefault, CGFloat},
     color_space::{kCGColorSpaceSRGB, CGColorSpace},
@@ -136,4 +139,14 @@ extern "C" {
 #[link(name = "CoreServices", kind = "framework")]
 extern "C" {
     pub fn UTTypeConformsTo(name: CFStringRef, inConformsToUTI: CFStringRef) -> Boolean;
+}
+
+pub fn uti_conforms_to(uti: &str, conforms_to: &str) -> bool {
+    let uti = CFString::new(uti);
+    let conforms_to = CFString::new(conforms_to);
+
+    let conforms_to =
+        unsafe { UTTypeConformsTo(uti.as_concrete_TypeRef(), conforms_to.as_concrete_TypeRef()) };
+
+    conforms_to != 0
 }
