@@ -51,7 +51,11 @@ pub struct PlatformDataProvider {
 }
 
 // Compare mime type against another type or pattern; Use existing implementation for compatibility
-fn compare_mime_types(env: &JNIEnv, concrete_type: &str, desired_type: &str) -> JniResult<bool> {
+fn compare_mime_types(
+    env: &mut JNIEnv,
+    concrete_type: &str,
+    desired_type: &str,
+) -> JniResult<bool> {
     if concrete_type == desired_type {
         return Ok(true);
     }
@@ -60,8 +64,8 @@ fn compare_mime_types(env: &JNIEnv, concrete_type: &str, desired_type: &str) -> 
         "compareMimeTypes",
         "(Ljava/lang/String;Ljava/lang/String;)Z",
         &[
-            env.new_string(concrete_type)?.into(),
-            env.new_string(desired_type)?.into(),
+            (&env.new_string(concrete_type)?).into(),
+            (&env.new_string(desired_type)?).into(),
         ],
     )?
     .z()
@@ -110,7 +114,7 @@ impl PlatformDataProvider {
     }
 
     fn content_provider_uri<'a>(
-        env: &JNIEnv<'a>,
+        env: &mut JNIEnv<'a>,
         data_source_id: i64,
     ) -> NativeExtensionsResult<JObject<'a>> {
         let context = CONTEXT
@@ -120,20 +124,20 @@ impl PlatformDataProvider {
         let package_name = env
             .call_method(context, "getPackageName", "()Ljava/lang/String;", &[])?
             .l()?;
-        let package_name: String = env.get_string(package_name.into())?.into();
+        let package_name: String = env.get_string((&package_name).into())?.into();
         let uri = format!("content://{package_name}.SuperClipboardDataProvider/{data_source_id}",);
         Ok(uri_from_string(env, &uri)?)
     }
 
     fn create_clip_item_for_data_provider<'a>(
-        env: &JNIEnv<'a>,
+        env: &mut JNIEnv<'a>,
         data_provider_id: i64,
         data_provider: &DataProvider,
         clipboard_mime_types: &mut Vec<String>,
     ) -> NativeExtensionsResult<Option<JObject<'a>>> {
-        let mut text = None::<JObject>;
-        let mut text_html = None::<JObject>;
-        let mut uri = None::<JObject>;
+        let mut text = None::<JObject<'a>>;
+        let mut text_html = None::<JObject<'a>>;
+        let mut uri = None::<JObject<'a>>;
 
         for repr in &data_provider.representations {
             match repr {
@@ -191,10 +195,10 @@ impl PlatformDataProvider {
                 "android/content/ClipData$Item",
                 "(Ljava/lang/CharSequence;Ljava/lang/String;Landroid/content/Intent;Landroid/net/Uri;)V",
                 &[
-                    text.unwrap_or_else(JObject::null).into(),
-                    text_html.unwrap_or_else(JObject::null).into(),
-                    JObject::null().into(),
-                    uri.unwrap_or_else(JObject::null).into()
+                    (&text.unwrap_or_default()).into(),
+                    (&text_html.unwrap_or_default()).into(),
+                    (&JObject::null()).into(),
+                    (&uri.unwrap_or_default()).into()
                 ])?;
             Ok(Some(obj))
         } else {
@@ -203,7 +207,7 @@ impl PlatformDataProvider {
     }
 
     pub fn create_clip_data_for_data_providers<'a>(
-        env: &JNIEnv<'a>,
+        env: &mut JNIEnv<'a>,
         providers: Vec<Rc<PlatformDataProvider>>,
     ) -> NativeExtensionsResult<JObject<'a>> {
         let data_providers = DATA_PROVIDERS.lock().unwrap();
@@ -220,7 +224,7 @@ impl PlatformDataProvider {
     }
 
     fn _create_clip_data_for_data_providers<'a>(
-        env: &JNIEnv<'a>,
+        env: &mut JNIEnv<'a>,
         providers: Vec<(i64, &DataProvider)>,
     ) -> NativeExtensionsResult<JObject<'a>> {
         let mut clipboard_mime_types = Vec::<String>::new();
@@ -243,30 +247,30 @@ impl PlatformDataProvider {
             JObject::null(),
         )?;
         for (i, ty) in clipboard_mime_types.iter().enumerate() {
-            env.set_object_array_element(types, i as i32, env.new_string(ty)?)?;
+            env.set_object_array_element(&types, i as i32, env.new_string(ty)?)?;
         }
 
         let clip_description = env.new_object(
             "android/content/ClipDescription",
             "(Ljava/lang/CharSequence;[Ljava/lang/String;)V",
-            &[env.new_string("Clip")?.into(), types.into()],
+            &[(&env.new_string("Clip")?).into(), (&types).into()],
         )?;
 
         let mut clip_data = JObject::null();
 
         for item in items {
-            if env.is_same_object(clip_data, JObject::null())? {
+            if env.is_same_object(&clip_data, &JObject::null())? {
                 clip_data = env.new_object(
                     "android/content/ClipData",
                     "(Landroid/content/ClipDescription;Landroid/content/ClipData$Item;)V",
-                    &[clip_description.into(), item.into()],
+                    &[(&clip_description).into(), (&item).into()],
                 )?;
             } else {
                 env.call_method(
-                    clip_data,
+                    &clip_data,
                     "addItem",
                     "(Landroid/content/ClipData$Item;)V",
-                    &[item.into()],
+                    &[(&item).into()],
                 )?;
             }
         }
@@ -287,34 +291,31 @@ impl PlatformDataProvider {
         // keep the data awake until the clip is replaced.
         CURRENT_CLIP.with(|r| r.replace(handles));
 
-        let env = JAVA_VM
+        let mut env = JAVA_VM
             .get()
             .ok_or_else(|| NativeExtensionsError::OtherError("JAVA_VM not set".into()))?
             .attach_current_thread()?;
 
-        let clip_data = Self::create_clip_data_for_data_providers(&env, providers)?;
+        let clip_data = Self::create_clip_data_for_data_providers(&mut env, providers)?;
 
         let context = CONTEXT.get().unwrap().as_obj();
+        let context_class = env.find_class("android/content/Context")?;
         let clipboard_service = env
-            .get_static_field(
-                env.find_class("android/content/Context")?,
-                "CLIPBOARD_SERVICE",
-                "Ljava/lang/String;",
-            )?
+            .get_static_field(context_class, "CLIPBOARD_SERVICE", "Ljava/lang/String;")?
             .l()?;
         let clipboard_manager = env
             .call_method(
                 context,
                 "getSystemService",
                 "(Ljava/lang/String;)Ljava/lang/Object;",
-                &[clipboard_service.into()],
+                &[(&clipboard_service).into()],
             )?
             .l()?;
         env.call_method(
             clipboard_manager,
             "setPrimaryClip",
             "(Landroid/content/ClipData;)V",
-            &[clip_data.into()],
+            &[(&clip_data).into()],
         )?;
 
         Ok(())
@@ -334,8 +335,8 @@ struct UriInfo {
 }
 
 impl UriInfo {
-    fn parse(env: &JNIEnv, uri_string: JString) -> Option<UriInfo> {
-        let uri = env.get_string(uri_string).ok()?;
+    fn parse(env: &mut JNIEnv, uri_string: JString) -> Option<UriInfo> {
+        let uri = env.get_string(&uri_string).ok()?;
         let uri = Url::parse(&uri.to_string_lossy()).ok()?;
         let mut path_segments = uri.path_segments()?;
 
@@ -349,14 +350,14 @@ impl UriInfo {
 }
 
 fn get_mime_types_for_uri<'a>(
-    env: &JNIEnv<'a>,
+    env: &mut JNIEnv<'a>,
     uri_string: JString,
     filter: JString,
 ) -> NativeExtensionsResult<JObject<'a>> {
     let info = UriInfo::parse(env, uri_string)
         .ok_or_else(|| NativeExtensionsError::OtherError("Malformed URI".into()))?;
 
-    let filter = env.get_string(filter)?;
+    let filter = env.get_string(&filter)?;
     let filter = filter.to_string_lossy();
 
     let mut mime_types = Vec::<String>::new();
@@ -381,21 +382,20 @@ fn get_mime_types_for_uri<'a>(
         }
     }
 
-    let res: JObject = env
+    let res = env
         .new_object_array(
             mime_types.len() as jsize,
             "java/lang/String",
             JObject::null(),
         )
-        .expect("Failed to create String[]")
-        .into();
+        .expect("Failed to create String[]");
 
     for (i, str) in mime_types.iter().enumerate() {
         let string = env.new_string(str).expect("Failed to create String");
-        env.set_object_array_element(*res, i as i32, string)
+        env.set_object_array_element(&res, i as i32, string)
             .unwrap();
     }
-    Ok(res)
+    Ok(res.into())
 }
 
 fn get_value(promise: Arc<ValuePromise>) -> NativeExtensionsResult<ValuePromiseResult> {
@@ -412,7 +412,7 @@ fn get_value(promise: Arc<ValuePromise>) -> NativeExtensionsResult<ValuePromiseR
 }
 
 fn get_data_for_uri<'a>(
-    env: &JNIEnv<'a>,
+    env: &mut JNIEnv<'a>,
     _this: JClass,
     uri_string: JString,
     mime_type: JString,
@@ -422,16 +422,16 @@ fn get_data_for_uri<'a>(
         value: &Value,
     ) -> NativeExtensionsResult<JObject<'a>> {
         let data = value.coerce_to_data(StringFormat::Utf8).unwrap_or_default();
-        let res: JObject = env.new_byte_array(data.len() as i32).unwrap().into();
+        let res = env.new_byte_array(data.len() as i32).unwrap();
         let data: &[u8] = &data;
-        env.set_byte_array_region(*res, 0, unsafe { std::mem::transmute(data) })?;
-        Ok(res)
+        env.set_byte_array_region(&res, 0, unsafe { std::mem::transmute(data) })?;
+        Ok(res.into())
     }
 
     let info = UriInfo::parse(env, uri_string)
         .ok_or_else(|| NativeExtensionsError::OtherError("Malformed URI".into()))?;
 
-    let mime_type = env.get_string(mime_type)?;
+    let mime_type = env.get_string(&mime_type)?;
     let mime_type: String = mime_type.to_string_lossy().into();
 
     let data_providers = DATA_PROVIDERS.lock().unwrap();
@@ -482,17 +482,17 @@ fn get_data_for_uri<'a>(
 #[no_mangle]
 #[allow(non_snake_case)]
 pub extern "C" fn Java_com_superlist_super_1native_1extensions_DataProvider_getAllMimeTypesForURI(
-    env: JNIEnv,
+    mut env: JNIEnv,
     _this: JClass,
     uri_string: JString,
     filter: JString,
 ) -> jobject {
-    let res = get_mime_types_for_uri(&env, uri_string, filter);
+    let res = get_mime_types_for_uri(&mut env, uri_string, filter);
     match res {
-        Ok(res) => res.into_inner(),
+        Ok(res) => res.as_raw(),
         Err(err) => {
             log::error!("{}", err);
-            JObject::null().into_inner()
+            JObject::null().as_raw()
         }
     }
 }
@@ -500,17 +500,17 @@ pub extern "C" fn Java_com_superlist_super_1native_1extensions_DataProvider_getA
 #[no_mangle]
 #[allow(non_snake_case)]
 pub extern "C" fn Java_com_superlist_super_1native_1extensions_DataProvider_getDataForURI(
-    env: JNIEnv,
+    mut env: JNIEnv,
     this: JClass,
     uri_string: JString,
     mime_type: JString,
 ) -> jobject {
-    let res = get_data_for_uri(&env, this, uri_string, mime_type);
+    let res = get_data_for_uri(&mut env, this, uri_string, mime_type);
     match res {
-        Ok(res) => res.into_inner(),
+        Ok(res) => res.as_raw(),
         Err(err) => {
             log::error!("{}", err);
-            JObject::null().into_inner()
+            JObject::null().as_raw()
         }
     }
 }

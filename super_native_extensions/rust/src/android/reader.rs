@@ -9,7 +9,7 @@ use std::{
 use irondash_message_channel::Value;
 use irondash_run_loop::{util::FutureCompleter, RunLoop};
 use jni::{
-    objects::{GlobalRef, JObject},
+    objects::{GlobalRef, JByteArray, JObject, JObjectArray, JString},
     sys::{jbyte, jint},
     AttachGuard, JNIEnv,
 };
@@ -38,7 +38,8 @@ impl PlatformDataReader {
         Ok(None)
     }
 
-    fn get_env_and_context() -> NativeExtensionsResult<(AttachGuard<'static>, JObject<'static>)> {
+    fn get_env_and_context(
+    ) -> NativeExtensionsResult<(AttachGuard<'static>, &'static JObject<'static>)> {
         let env = JAVA_VM
             .get()
             .ok_or_else(|| NativeExtensionsError::OtherError("JAVA_VM not set".into()))?
@@ -50,7 +51,7 @@ impl PlatformDataReader {
     pub fn get_items_sync(&self) -> NativeExtensionsResult<Vec<i64>> {
         match &self.clip_data {
             Some(clip_data) => {
-                let (env, _) = Self::get_env_and_context()?;
+                let (mut env, _) = Self::get_env_and_context()?;
                 let count = env
                     .call_method(clip_data.as_obj(), "getItemCount", "()I", &[])?
                     .i()?;
@@ -67,22 +68,24 @@ impl PlatformDataReader {
     pub fn get_formats_for_item_sync(&self, item: i64) -> NativeExtensionsResult<Vec<String>> {
         match &self.clip_data {
             Some(clip_data) => {
-                let (env, context) = Self::get_env_and_context()?;
-                let formats = env
+                let (mut env, context) = Self::get_env_and_context()?;
+                let formats: JObjectArray = env
                     .call_method(
                         CLIP_DATA_HELPER.get().unwrap().as_obj(),
                         "getFormats",
                         "(Landroid/content/ClipData;ILandroid/content/Context;)[Ljava/lang/String;",
-                        &[clip_data.as_obj().into(), item.into(), context.into()],
+                        &[(&clip_data).into(), (item as i32).into(), (&context).into()],
                     )?
-                    .l()?;
-                if env.is_same_object(formats, JObject::null())? {
+                    .l()?
+                    .into();
+                if env.is_same_object(&formats, JObject::null())? {
                     Ok(Vec::new())
                 } else {
-                    (0..env.get_array_length(*formats)?)
+                    (0..env.get_array_length(&formats)?)
                         .map(|i| {
-                            let obj = env.get_object_array_element(*formats, i)?;
-                            Ok(env.get_string(obj.into())?.into())
+                            let obj: JString = env.get_object_array_element(&formats, i)?.into();
+                            let obj = env.get_string(&obj)?;
+                            Ok(obj.into())
                         })
                         .collect()
                 }
@@ -125,27 +128,27 @@ impl PlatformDataReader {
     #[no_mangle]
     #[allow(non_snake_case)]
     pub extern "C" fn Java_com_superlist_super_1native_1extensions_ClipDataHelper_onData(
-        env: jni::JNIEnv,
+        mut env: jni::JNIEnv,
         _class: jni::objects::JClass,
         handle: jint,
         data: jni::objects::JObject,
     ) {
         let sender = RunLoop::sender_for_main_thread();
         unsafe fn transform_slice_mut<T>(s: &mut [T]) -> &mut [jbyte] {
-            std::slice::from_raw_parts_mut(
-                s.as_mut_ptr() as *mut jbyte,
-                s.len() * std::mem::size_of::<T>(),
-            )
+            std::slice::from_raw_parts_mut(s.as_mut_ptr() as *mut jbyte, std::mem::size_of_val(s))
         }
         let data = move || {
-            if env.is_same_object(data, JObject::null())? {
+            if env.is_same_object(&data, JObject::null())? {
                 Ok(Value::Null)
-            } else if env.is_instance_of(data, "java/lang/CharSequence")? {
-                Ok(Value::String(env.get_string(data.into())?.into()))
+            } else if env.is_instance_of(&data, "java/lang/CharSequence")? {
+                let data: JString = data.into();
+                let data = env.get_string(&data)?;
+                Ok(Value::String(data.into()))
             } else {
                 let mut res = Vec::new();
-                res.resize(env.get_array_length(*data)? as usize, 0);
-                env.get_byte_array_region(*data, 0, unsafe { transform_slice_mut(&mut res) })?;
+                let data: JByteArray = data.into();
+                res.resize(env.get_array_length(&data)? as usize, 0);
+                env.get_byte_array_region(&data, 0, unsafe { transform_slice_mut(&mut res) })?;
                 Ok(Value::U8List(res))
             }
         };
@@ -168,7 +171,7 @@ impl PlatformDataReader {
         match &self.clip_data {
             Some(clip_data) => {
                 let (future, completer) = FutureCompleter::new();
-                let (env, context) = Self::get_env_and_context()?;
+                let (mut env, context) = Self::get_env_and_context()?;
 
                 let handle = Self::NEXT_HANDLE.with(|h| {
                     let res = h.get();
@@ -177,16 +180,17 @@ impl PlatformDataReader {
                 });
                 Self::PENDING.with(|m| m.borrow_mut().insert(handle, completer));
 
+                let format_string = env.new_string(&format)?;
                 env.call_method(
                     CLIP_DATA_HELPER.get().unwrap().as_obj(),
                     "getData",
                     "(Landroid/content/ClipData;ILjava/lang/String;Landroid/content/Context;I)V",
                     &[
                         clip_data.as_obj().into(),
-                        item.into(),
-                        env.new_string(format)?.into(),
+                        (item as i32).into(),
+                        (&format_string).into(),
                         context.into(),
-                        handle.into(),
+                        (handle as i32).into(),
                     ],
                 )?;
 
@@ -201,7 +205,7 @@ impl PlatformDataReader {
         clip_data: JObject<'a>,
         source_drop_notifier: Option<Arc<DropNotifier>>,
     ) -> NativeExtensionsResult<Rc<Self>> {
-        let clip_data = if env.is_same_object(clip_data, JObject::null())? {
+        let clip_data = if env.is_same_object(&clip_data, JObject::null())? {
             None
         } else {
             Some(env.new_global_ref(clip_data)?)
@@ -213,7 +217,7 @@ impl PlatformDataReader {
     }
 
     pub fn new_clipboard_reader() -> NativeExtensionsResult<Rc<Self>> {
-        let (env, context) = Self::get_env_and_context()?;
+        let (mut env, context) = Self::get_env_and_context()?;
         let clipboard_service = env
             .get_static_field(
                 "android/content/Context",
@@ -226,7 +230,7 @@ impl PlatformDataReader {
                 context,
                 "getSystemService",
                 "(Ljava/lang/String;)Ljava/lang/Object;",
-                &[clipboard_service.into()],
+                &[(&clipboard_service).into()],
             )?
             .l()?;
         let clip_data = env

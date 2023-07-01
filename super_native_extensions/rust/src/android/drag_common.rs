@@ -16,11 +16,11 @@ pub enum DragAction {
     DragExited,
 }
 
-#[derive(Clone, Copy, Debug)]
-pub struct DragEvent<'a>(pub JObject<'a>);
+#[derive(Debug)]
+pub struct DragEvent<'a, 'b>(pub &'b JObject<'a>);
 
-impl<'a> DragEvent<'a> {
-    pub fn get_action(&self, env: &JNIEnv<'a>) -> NativeExtensionsResult<DragAction> {
+impl<'a, 'b> DragEvent<'a, 'b> {
+    pub fn get_action(&self, env: &mut JNIEnv<'a>) -> NativeExtensionsResult<DragAction> {
         let action = env.call_method(self.0, "getAction", "()I", &[])?.i()?;
         match action {
             0x01 => Ok(DragAction::DragStarted),
@@ -35,19 +35,22 @@ impl<'a> DragEvent<'a> {
         }
     }
 
-    pub fn get_result(&self, env: &JNIEnv<'a>) -> NativeExtensionsResult<bool> {
+    pub fn get_result(&self, env: &mut JNIEnv<'a>) -> NativeExtensionsResult<bool> {
         Ok(env.call_method(self.0, "getResult", "()Z", &[])?.z()?)
     }
 
-    pub fn get_x(&self, env: &JNIEnv<'a>) -> NativeExtensionsResult<f32> {
+    pub fn get_x(&self, env: &mut JNIEnv<'a>) -> NativeExtensionsResult<f32> {
         Ok(env.call_method(self.0, "getX", "()F", &[])?.f()?)
     }
 
-    pub fn get_y(&self, env: &JNIEnv<'a>) -> NativeExtensionsResult<f32> {
+    pub fn get_y(&self, env: &mut JNIEnv<'a>) -> NativeExtensionsResult<f32> {
         Ok(env.call_method(self.0, "getY", "()F", &[])?.f()?)
     }
 
-    pub fn get_clip_description(&self, env: &JNIEnv<'a>) -> NativeExtensionsResult<JObject<'a>> {
+    pub fn get_clip_description(
+        &self,
+        env: &mut JNIEnv<'a>,
+    ) -> NativeExtensionsResult<JObject<'a>> {
         Ok(env
             .call_method(
                 self.0,
@@ -58,7 +61,7 @@ impl<'a> DragEvent<'a> {
             .l()?)
     }
 
-    pub fn get_clip_data(&self, env: &JNIEnv<'a>) -> NativeExtensionsResult<JObject<'a>> {
+    pub fn get_clip_data(&self, env: &mut JNIEnv<'a>) -> NativeExtensionsResult<JObject<'a>> {
         Ok(env
             .call_method(self.0, "getClipData", "()Landroid/content/ClipData;", &[])?
             .l()?)
@@ -66,17 +69,17 @@ impl<'a> DragEvent<'a> {
 
     pub fn get_session_id(
         &self,
-        env: &JNIEnv<'a>,
+        env: &mut JNIEnv<'a>,
     ) -> NativeExtensionsResult<Option<DragSessionId>> {
         let res = env
             .call_method(
                 DRAG_DROP_HELPER.get().unwrap().as_obj(),
                 "getSessionId",
                 "(Landroid/view/DragEvent;)Ljava/lang/Long;",
-                &[self.0.into()],
+                &[(&self.0).into()],
             )?
             .l()?;
-        if env.is_same_object(res, JObject::null())? {
+        if env.is_same_object(&res, JObject::null())? {
             Ok(None)
         } else {
             let session_id = env.call_method(res, "longValue", "()J", &[])?.j()?;

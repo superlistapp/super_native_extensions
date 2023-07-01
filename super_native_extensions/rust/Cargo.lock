@@ -671,9 +671,9 @@ dependencies = [
 
 [[package]]
 name = "irondash_engine_context"
-version = "0.1.3"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "faf2708c24a45b9d97bbb04f6c645708cb281846d75704b8abe3ea9f7934e382"
+checksum = "45f7daffd5abf4a8751956d71e893aee6baa5c02edad5b981bb2c3d8c833cc90"
 dependencies = [
  "android_logger",
  "cocoa",
@@ -687,9 +687,9 @@ dependencies = [
 
 [[package]]
 name = "irondash_jni_context"
-version = "0.1.2"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0bb2e838d39257c0b1d2e1aa9b8018b96a32a103e1b416c833d7835ab4876d68"
+checksum = "6a502998428d44dad7cb09331747d595c063be22372403a403d15a6c30b6a422"
 dependencies = [
  "jni",
  "once_cell",
@@ -697,9 +697,9 @@ dependencies = [
 
 [[package]]
 name = "irondash_message_channel"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "08e56fddb698a35b2a7e76a054e0835bc307a68a5fbc5348eab2293582fcc5f7"
+checksum = "fec6da9c7646518f7ae23eec9fdb12509bea4d0e7bf0a7da3d88bfcc01be4c99"
 dependencies = [
  "async-trait",
  "core-foundation",
@@ -724,9 +724,9 @@ dependencies = [
 
 [[package]]
 name = "irondash_run_loop"
-version = "0.1.2"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fceb1f49f89287dcb1c10ba640f250c2da0a2262c8cc1a2ce0d19a803ca52116"
+checksum = "89307a9b74e7318c688bd7ccd2667cf9795f88cc4567a615a6572c663cddb7f2"
 dependencies = [
  "core-foundation",
  "futures",
@@ -744,16 +744,18 @@ checksum = "1aab8fc367588b89dcee83ab0fd66b72b50b72fa1904d7095045ace2b0c81c35"
 
 [[package]]
 name = "jni"
-version = "0.19.0"
+version = "0.21.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c6df18c2e3db7e453d3c6ac5b3e9d5182664d28788126d39b91f2d1e22b017ec"
+checksum = "1a87aa2bb7d2af34197c04845522473242e1aa17c12f4935d5856491a7fb8c97"
 dependencies = [
  "cesu8",
+ "cfg-if",
  "combine",
  "jni-sys",
  "log",
  "thiserror",
  "walkdir",
+ "windows-sys 0.45.0",
 ]
 
 [[package]]
@@ -919,7 +921,7 @@ dependencies = [
  "libc",
  "redox_syscall",
  "smallvec",
- "windows-sys",
+ "windows-sys 0.36.1",
 ]
 
 [[package]]
@@ -1488,6 +1490,15 @@ dependencies = [
  "windows_i686_msvc 0.36.1",
  "windows_x86_64_gnu 0.36.1",
  "windows_x86_64_msvc 0.36.1",
+]
+
+[[package]]
+name = "windows-sys"
+version = "0.45.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "75283be5efb2831d37ea142365f009c02ec203cd29a3ebecbc093d52315b66d0"
+dependencies = [
+ "windows-targets",
 ]
 
 [[package]]

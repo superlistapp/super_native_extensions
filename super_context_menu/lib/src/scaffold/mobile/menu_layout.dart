@@ -137,9 +137,7 @@ class _MenuLayoutParentData extends ContainerBoxParentData<RenderBox> {
 }
 
 class MenuLayout extends MultiChildRenderObjectWidget {
-  // TODO(knopp): Remove when migrated to 3.10
-  // ignore: prefer_const_constructors_in_immutables
-  MenuLayout({
+  const MenuLayout({
     super.key,
     super.children,
   });

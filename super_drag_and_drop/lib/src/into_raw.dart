@@ -3,7 +3,6 @@ import 'package:super_native_extensions/raw_drag_drop.dart' as raw;
 import 'package:super_clipboard/super_clipboard_internal.dart';
 
 import 'drag_configuration.dart';
-import 'indexed.dart';
 
 extension DragItemsIntoRaw on List<DragConfigurationItem> {
   Future<List<raw.DragItem>> intoRaw(double devicePixelRatio) async {
@@ -12,18 +11,17 @@ extension DragItemsIntoRaw on List<DragConfigurationItem> {
       providers.add(await item.item.asDataProvider());
     }
     final handles = <raw.DataProviderHandle>[];
-    for (final item in indexed()) {
-      final handle =
-          await item.value.item.registerWithDataProvider(providers[item.index]);
+    for (final (index, item) in indexed) {
+      final handle = await item.item.registerWithDataProvider(providers[index]);
       handles.add(handle);
     }
     final items = <raw.DragItem>[];
-    for (final item in indexed()) {
+    for (final (index, item) in indexed) {
       items.add(raw.DragItem(
-        dataProvider: handles[item.index],
-        image: item.value.image,
-        liftImage: item.value.liftImage,
-        localData: item.value.item.localData,
+        dataProvider: handles[index],
+        image: item.image,
+        liftImage: item.liftImage,
+        localData: item.item.localData,
       ));
     }
     return items;
