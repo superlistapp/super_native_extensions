@@ -251,7 +251,7 @@ class _NativeFunctions {
   final void Function(int handle, bool delete) streamClose;
 }
 
-class _VirtualFileSink extends EventSink<Uint8List> {
+class _VirtualFileSink implements EventSink<Uint8List> {
   bool _closed = false;
   final _VirtualSession session;
   final int handle;

@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:meta/meta.dart';
 
 import 'data_provider_manager.dart';
 import 'util.dart';
@@ -24,8 +23,7 @@ class DataProvider {
   final String? suggestedName;
 }
 
-@sealed
-abstract class DataRepresentation {
+sealed class DataRepresentation {
   static DataRepresentationSimple simple({
     required String format,
     required Object? data,
@@ -79,7 +77,7 @@ class DataRepresentationSimple extends DataRepresentation {
   final Object? data;
 }
 
-/// Single reprsentation of data source item. Useful when data is generated
+/// Single representation of data source item. Useful when data is generated
 /// on demand.
 class DataRepresentationLazy extends DataRepresentation {
   DataRepresentationLazy._({
@@ -100,7 +98,7 @@ class DataRepresentationLazy extends DataRepresentation {
   final FutureOr<Object?> Function() dataProvider;
 }
 
-/// Progress of a write opreration.
+/// Progress of a write operation.
 abstract class WriteProgress {
   /// Manually updates progress of a write operation. If not called,
   /// progress is determined automatically based on total size and size written.

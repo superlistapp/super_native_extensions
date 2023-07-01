@@ -9,7 +9,7 @@ use irondash_engine_context::EngineContext;
 use irondash_message_channel::{IsolateId, Value};
 use irondash_run_loop::RunLoop;
 use jni::{
-    objects::{GlobalRef, JClass, JObject, JValue},
+    objects::{GlobalRef, JClass, JObject, JString, JValue},
     sys::{jlong, jvalue},
     JNIEnv,
 };
@@ -67,7 +67,7 @@ impl PlatformDropContext {
     fn _assign_weak_self(&self, weak_self: Weak<Self>) -> NativeExtensionsResult<()> {
         CONTEXTS.with(|c| c.borrow_mut().insert(self.id, weak_self));
 
-        let env = JAVA_VM
+        let mut env = JAVA_VM
             .get()
             .ok_or_else(|| NativeExtensionsError::OtherError("JAVA_VM not set".into()))?
             .attach_current_thread()?;
@@ -91,7 +91,7 @@ impl PlatformDropContext {
         Ok(())
     }
 
-    fn get_display_density(env: &JNIEnv) -> NativeExtensionsResult<f64> {
+    fn get_display_density(env: &mut JNIEnv) -> NativeExtensionsResult<f64> {
         let context = CONTEXT.get().unwrap().as_obj();
         let resources = env
             .call_method(
@@ -114,9 +114,9 @@ impl PlatformDropContext {
     }
 
     fn translate_drop_event<'a>(
-        event: DragEvent<'a>,
+        event: &DragEvent<'a, '_>,
         session_id: DropSessionId,
-        env: &JNIEnv<'a>,
+        env: &mut JNIEnv<'a>,
         mut local_data: Vec<Value>,
         allowed_operations: Vec<DropOperation>,
         accepted_operation: Option<DropOperation>,
@@ -124,7 +124,7 @@ impl PlatformDropContext {
     ) -> NativeExtensionsResult<DropEvent> {
         let items = match reader.as_ref() {
             Some((reader, _)) => {
-                // we have access to actual clipdata so use it to build items
+                // we have access to actual clip data so use it to build items
                 let mut items = Vec::new();
                 for (index, item) in reader.get_items_sync()?.iter().enumerate() {
                     items.push(DropItem {
@@ -140,23 +140,24 @@ impl PlatformDropContext {
                 // be number or local items (if any), or 1. Each item will have types
                 // from clip description set.
                 let clip_description = event.get_clip_description(env)?;
-                let mime_types = if env.is_same_object(clip_description, JObject::null())? {
+                let mime_types = if env.is_same_object(&clip_description, &JObject::null())? {
                     Vec::default()
                 } else {
                     let mime_type_count = env
-                        .call_method(clip_description, "getMimeTypeCount", "()I", &[])?
+                        .call_method(&clip_description, "getMimeTypeCount", "()I", &[])?
                         .i()?;
                     let mut mime_types = Vec::<String>::new();
                     for i in 0..mime_type_count {
-                        let mime_type = env
+                        let mime_type: JString = env
                             .call_method(
-                                clip_description,
+                                &clip_description,
                                 "getMimeType",
                                 "(I)Ljava/lang/String;",
                                 &[i.into()],
                             )?
-                            .l()?;
-                        let mime_type = env.get_string(mime_type.into())?;
+                            .l()?
+                            .into();
+                        let mime_type = env.get_string(&mime_type)?;
                         mime_types.push(mime_type.into());
                     }
                     mime_types
@@ -192,7 +193,7 @@ impl PlatformDropContext {
     }
 
     fn release_permissions(permissions: GlobalRef) -> NativeExtensionsResult<()> {
-        let env = JAVA_VM
+        let mut env = JAVA_VM
             .get()
             .ok_or_else(|| NativeExtensionsError::OtherError("JAVA_VM not set".into()))?
             .attach_current_thread()?;
@@ -202,11 +203,11 @@ impl PlatformDropContext {
     }
 
     /// Request drag and drop permissions for the event. The permissions will
-    /// be released when the drop notifier is droppped
+    /// be released when the drop notifier is dropped
     fn request_drag_drop_permissions<'a>(
         &self,
-        env: &JNIEnv<'a>,
-        event: JObject<'a>,
+        env: &mut JNIEnv<'a>,
+        event: &JObject<'a>,
     ) -> NativeExtensionsResult<Arc<DropNotifier>> {
         let activity = EngineContext::get()?.get_activity(self.engine_handle)?;
         let permission = env
@@ -214,7 +215,7 @@ impl PlatformDropContext {
                 activity.as_obj(),
                 "requestDragAndDropPermissions",
                 "(Landroid/view/DragEvent;)Landroid/view/DragAndDropPermissions;",
-                &[event.into()],
+                &[(&event).into()],
             )?
             .l()?;
         let permissions = env.new_global_ref(permission)?;
@@ -225,20 +226,20 @@ impl PlatformDropContext {
 
     fn on_drag_event<'a>(
         &self,
-        env: &JNIEnv<'a>,
-        event: JObject<'a>,
+        env: &mut JNIEnv<'a>,
+        event: &JObject<'a>,
     ) -> NativeExtensionsResult<bool> {
         let event = DragEvent(event);
         if let Some(delegate) = self.delegate.upgrade() {
             // We're conflating drag and drop context ids here. However it works
             // because at this point there are both IsolateId. In future with
-            // flutter multiview they should probably be based in view handle
+            // flutter multi-view they should probably be based in view handle
             let drag_contexts = delegate.get_platform_drag_contexts();
 
             for drag_context in &drag_contexts {
                 // forward the event to drag context. Necessary to know when current
                 // drag session ends for example.
-                drag_context.on_drop_event(env, event)?;
+                drag_context.on_drop_event(env, &event)?;
             }
 
             let current_session = {
@@ -293,7 +294,7 @@ impl PlatformDropContext {
             match action {
                 DragAction::DragLocation => {
                     let event = Self::translate_drop_event(
-                        event,
+                        &event,
                         current_session.id,
                         env,
                         get_local_data(),
@@ -338,7 +339,7 @@ impl PlatformDropContext {
                         let local_data = get_local_data();
                         let clip_data = event.get_clip_data(env)?;
 
-                        let reader = if env.is_same_object(clip_data, JObject::null())? {
+                        let reader = if env.is_same_object(&clip_data, &JObject::null())? {
                             None
                         } else {
                             // If this is local data make sure to extend the lifetime
@@ -362,7 +363,7 @@ impl PlatformDropContext {
                         };
 
                         let event = Self::translate_drop_event(
-                            event,
+                            &event,
                             current_session.id,
                             env,
                             local_data,
@@ -413,37 +414,43 @@ impl Drop for PlatformDropContext {
 }
 
 fn update_last_touch_point<'a>(
-    env: &JNIEnv<'a>,
+    env: &mut JNIEnv<'a>,
     view_root: JObject<'a>,
-    event: JObject<'a>,
+    event: &JObject<'a>,
 ) -> NativeExtensionsResult<()> {
     env.call_method(
         view_root,
         "enqueueInputEvent",
         "(Landroid/view/InputEvent;Landroid/view/InputEventReceiver;IZ)V",
-        &[event.into(), JObject::null().into(), 1.into(), true.into()],
+        &[
+            (&event).into(),
+            (&JObject::null()).into(),
+            1.into(),
+            true.into(),
+        ],
     )?;
     Ok(())
 }
 
 #[no_mangle]
 #[allow(non_snake_case)]
-pub extern "C" fn Java_com_superlist_super_1native_1extensions_DragDropHelper_updateLastTouchPoint(
-    env: JNIEnv,
+pub extern "C" fn Java_com_superlist_super_1native_1extensions_DragDropHelper_updateLastTouchPoint<
+    'a,
+>(
+    mut env: JNIEnv<'a>,
     _class: JClass,
-    view_root: JObject,
-
-    event: JObject,
+    view_root: JObject<'a>,
+    event: JObject<'a>,
 ) {
-    update_last_touch_point(&env, view_root, event).ok_log();
+    update_last_touch_point(&mut env, view_root, &event).ok_log();
 }
 
 #[no_mangle]
 #[allow(non_snake_case)]
-pub extern "C" fn Java_com_superlist_super_1native_1extensions_DragDropHelper_onDrag(
-    env: JNIEnv,
+pub extern "C" fn Java_com_superlist_super_1native_1extensions_DragDropHelper_onDrag<'a>(
+    mut env: JNIEnv<'a>,
     _class: JClass,
-    event: JObject,
+    event: JObject<'a>,
     drag_context: jlong,
 ) -> jvalue {
     let context = CONTEXTS
@@ -451,9 +458,12 @@ pub extern "C" fn Java_com_superlist_super_1native_1extensions_DragDropHelper_on
         .and_then(|v| v.upgrade());
     match context {
         Some(context) => {
-            let res = context.on_drag_event(&env, event).ok_log().unwrap_or(false);
-            JValue::from(res).into()
+            let res = context
+                .on_drag_event(&mut env, &event)
+                .ok_log()
+                .unwrap_or(false);
+            JValue::from(res).as_jni()
         }
-        None => JValue::from(false).into(),
+        None => JValue::from(false).as_jni(),
     }
 }

@@ -62,7 +62,7 @@ impl PlatformDragContext {
     }
 
     fn create_bitmap<'a>(
-        env: &JNIEnv<'a>,
+        env: &mut JNIEnv<'a>,
         image: &ImageData,
     ) -> NativeExtensionsResult<JObject<'a>> {
         let mut tmp = Vec::<i32>::new();
@@ -83,13 +83,13 @@ impl PlatformDragContext {
         }
 
         let colors = env.new_int_array(tmp.len() as jsize)?;
-        env.set_int_array_region(colors, 0, &tmp)?;
+        env.set_int_array_region(&colors, 0, &tmp)?;
         let config = env
             .call_static_method(
                 "android/graphics/Bitmap$Config",
                 "valueOf",
                 "(Ljava/lang/String;)Landroid/graphics/Bitmap$Config;",
-                &[env.new_string("ARGB_8888")?.into()],
+                &[(&env.new_string("ARGB_8888")?).into()],
             )?
             .l()?;
 
@@ -99,12 +99,12 @@ impl PlatformDragContext {
                 "createBitmap",
                 "([IIIIILandroid/graphics/Bitmap$Config;)Landroid/graphics/Bitmap;",
                 &[
-                    colors.into(),
+                    (&colors).into(),
                     0.into(),           // offset
                     image.width.into(), // stride
                     image.width.into(),
                     image.height.into(),
-                    config.into(),
+                    (&config).into(),
                 ],
             )?
             .l()?;
@@ -121,7 +121,7 @@ impl PlatformDragContext {
         providers: HashMap<DataProviderId, DataProviderEntry>,
         session_id: DragSessionId,
     ) -> NativeExtensionsResult<()> {
-        let env = JAVA_VM
+        let mut env = JAVA_VM
             .get()
             .ok_or_else(|| NativeExtensionsError::OtherError("JAVA_VM not set".into()))?
             .attach_current_thread()?;
@@ -135,12 +135,12 @@ impl PlatformDragContext {
             .map(|item| providers[&item.data_provider_id].provider.clone())
             .collect();
 
-        let data = PlatformDataProvider::create_clip_data_for_data_providers(&env, providers)?;
+        let data = PlatformDataProvider::create_clip_data_for_data_providers(&mut env, providers)?;
 
         let image = &request.combined_drag_image.ok_or_else(|| {
             NativeExtensionsError::OtherError("Missing combined drag image".into())
         })?;
-        let bitmap = Self::create_bitmap(&env, &image.image_data)?;
+        let bitmap = Self::create_bitmap(&mut env, &image.image_data)?;
         let device_pixel_ratio = image.image_data.device_pixel_ratio.unwrap_or(1.0);
         let point_in_rect = Point {
             x: (image.rect.width / 2.0 + 4.0) * device_pixel_ratio,
@@ -173,8 +173,8 @@ impl PlatformDragContext {
             &[
                 view.as_obj().into(),
                 session_id.into(),
-                data.into(),
-                bitmap.into(),
+                (&data).into(),
+                (&bitmap).into(),
                 (point_in_rect.x.round() as i32).into(),
                 (point_in_rect.y.round() as i32).into(),
                 (return_point.x.round() as i32).into(),
@@ -187,8 +187,8 @@ impl PlatformDragContext {
 
     pub fn on_drop_event<'a>(
         &self,
-        env: &JNIEnv<'a>,
-        event: DragEvent<'a>,
+        env: &mut JNIEnv<'a>,
+        event: &DragEvent<'a, '_>,
     ) -> NativeExtensionsResult<()> {
         let session_id = event.get_session_id(env)?;
         if let Some(session_id) = session_id {
@@ -245,11 +245,11 @@ enum HandleEventResult {
 }
 
 impl DragSession {
-    fn handle_event(
+    fn handle_event<'a>(
         &self,
         session_id: DragSessionId,
-        env: &JNIEnv,
-        event: DragEvent,
+        env: &mut JNIEnv<'a>,
+        event: &DragEvent<'a, '_>,
     ) -> NativeExtensionsResult<HandleEventResult> {
         let action = event.get_action(env)?;
         if action == DragAction::DragLocation {

@@ -4,7 +4,7 @@ version: 0.1.0
 homepage: https://github.com/superlistapp/super_native_extensions
 
 environment:
-  sdk: ">=2.19.2 <3.0.0"
+  sdk: '>=3.0.0 <4.0.0'
   flutter: ">=1.17.0"
 
 dependencies:
@@ -12,7 +12,7 @@ dependencies:
     sdk: flutter
   super_native_extensions: ^0.4.0
   collection: ^1.16.0
-  device_info_plus: ^8.2.0
+  device_info_plus: ^9.0.2
   pixel_snap: ^0.1.1
 
 dev_dependencies:
