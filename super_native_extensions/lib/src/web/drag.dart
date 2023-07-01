@@ -118,7 +118,7 @@ class _SessionState implements DragDriverDelegate {
     required this.lastScreenLocation,
     required this.dragCompleted,
   }) {
-    final overlay = Overlay.of(buildContext);
+    final overlay = Overlay.of(buildContext, rootOverlay: true);
     overlayEntry = OverlayEntry(
       builder: (context) {
         if (combinedDragImage != null) {
