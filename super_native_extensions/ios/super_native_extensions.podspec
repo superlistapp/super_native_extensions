@@ -30,7 +30,7 @@ A new Flutter plugin project.
     # Flutter.framework does not contain a i386 slice.
     'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'i386',
     # Rust can't produce armv7 and it's being removed from Flutter as well
-    'EXCLUDED_ARCHS' => 'armv7',\
+    'EXCLUDED_ARCHS' => 'armv7',
     # We use `-force_load` instead of `-l` since Xcode strips out unused symbols from static libraries.
     'OTHER_LDFLAGS' => '-force_load ${BUILT_PRODUCTS_DIR}/libsuper_native_extensions.a -framework CoreServices',
   }
