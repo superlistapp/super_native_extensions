@@ -31,9 +31,8 @@ A new Flutter plugin project.
   }
   s.pod_target_xcconfig = {
     'DEFINES_MODULE' => 'YES',
-    # For static lib we need better control of re-exported symbols
-    'EXPORTED_SYMBOLS_FILE' => '$PODS_TARGET_SRCROOT/../rust/symbols.txt',
-    'OTHER_LDFLAGS' => '-lsuper_native_extensions',
+    # We use `-force_load` instead of `-l` since Xcode strips out unused symbols from static libraries.
+    'OTHER_LDFLAGS' => '-force_load ${BUILT_PRODUCTS_DIR}/libsuper_native_extensions.a',
     'DEAD_CODE_STRIPPING' => 'YES',
     'STRIP_INSTALLED_PRODUCT[config=Release][sdk=*][arch=*]' => "YES",
     'STRIP_STYLE[config=Release][sdk=*][arch=*]' => "non-global",
