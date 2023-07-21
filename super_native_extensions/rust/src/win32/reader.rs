@@ -663,7 +663,7 @@ impl StreamReader {
         }
         let mut buf = Vec::<u8>::new();
         buf.resize(1024 * 1024, 0);
-        let mut state = state.as_mut().unwrap();
+        let state = state.as_mut().unwrap();
         let to_read = (length - state.num_read).min(buf.len() as u64) as u32;
         if to_read == 0 {
             Ok(Vec::new())
