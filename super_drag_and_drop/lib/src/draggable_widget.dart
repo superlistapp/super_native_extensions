@@ -291,9 +291,12 @@ class DraggableWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final List<DragItemWidgetState> activeItems = [];
     return Listener(
       onPointerDown: (_) {
-        for (final item in dragItemsProvider(context)) {
+        assert(activeItems.isEmpty);
+        activeItems.addAll(dragItemsProvider(context));
+        for (final item in activeItems) {
           final snapshotter = item._snapshotterKey.currentState;
           if (item.mounted && snapshotter != null) {
             if (defaultTargetPlatform == TargetPlatform.iOS ||
@@ -309,16 +312,18 @@ class DraggableWidget extends StatelessWidget {
         }
       },
       onPointerCancel: (_) {
-        for (final item in dragItemsProvider(context)) {
+        for (final item in activeItems) {
           item._snapshotterKey.currentState?.unregisterWidget(_keyLift);
           item._snapshotterKey.currentState?.unregisterWidget(_keyDrag);
         }
+        activeItems.clear();
       },
       onPointerUp: (_) {
-        for (final item in dragItemsProvider(context)) {
+        for (final item in activeItems) {
           item._snapshotterKey.currentState?.unregisterWidget(_keyLift);
           item._snapshotterKey.currentState?.unregisterWidget(_keyDrag);
         }
+        activeItems.clear();
       },
       child: BaseDraggableWidget(
         isLocationDraggable: isLocationDraggable,
