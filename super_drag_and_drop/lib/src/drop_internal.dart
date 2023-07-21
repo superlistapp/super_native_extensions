@@ -97,7 +97,7 @@ class _DropSession extends DropSession {
 
     for (final item in hitTest.path) {
       final target = item.target;
-      if (target is RenderDropRegion && dropRegion == null) {
+      if (target is RenderDropRegion && target.attached && dropRegion == null) {
         res = await target.onDropOver(DropOverEvent(
           session: this,
           position: DropPosition.forRenderObject(position, target),
@@ -106,14 +106,16 @@ class _DropSession extends DropSession {
           dropRegion = target;
         }
       }
-      if (target is RenderDropMonitor) {
+      if (target is RenderDropMonitor && target.attached) {
         monitorsInHitTest.add(target);
       }
     }
 
     if (_currentDropRegion != dropRegion) {
       dropRegion?.onDropEnter?.call(DropEvent(session: this));
-      _currentDropRegion?.onDropLeave?.call(DropEvent(session: this));
+      if (_currentDropRegion?.attached == true) {
+        _currentDropRegion?.onDropLeave?.call(DropEvent(session: this));
+      }
     }
     _currentDropRegion = dropRegion;
     if (_currentDropRegion != null) {
@@ -139,7 +141,7 @@ class _DropSession extends DropSession {
     required ui.Offset location,
     required raw.DropOperation acceptedOperation,
   }) async {
-    if (_currentDropRegion != null) {
+    if (_currentDropRegion?.attached == true) {
       await _currentDropRegion?.onPerformDrop(PerformDropEvent(
           session: this,
           position: DropPosition.forRenderObject(location, _currentDropRegion!),
@@ -148,7 +150,9 @@ class _DropSession extends DropSession {
   }
 
   void leave() {
-    _currentDropRegion?.onDropLeave?.call(DropEvent(session: this));
+    if (_currentDropRegion?.attached == true) {
+      _currentDropRegion?.onDropLeave?.call(DropEvent(session: this));
+    }
     _currentDropRegion = null;
     _inside = false;
     _allowedOperations.clear();
