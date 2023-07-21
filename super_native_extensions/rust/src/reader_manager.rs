@@ -97,7 +97,7 @@ impl ReadProgress {
     pub fn set_cancellation_handler(self: &Arc<Self>, handler: Option<Box<dyn FnOnce() + Send>>) {
         if Context::current().is_some() {
             let mut inner = self.inner.lock().unwrap();
-            let mut inner = inner.get_mut().unwrap();
+            let inner = inner.get_mut().unwrap();
             (inner.on_set_cancellation_handler)(handler.is_some());
             inner.cancellation_handler = handler;
         } else {
