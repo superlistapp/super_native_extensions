@@ -282,7 +282,14 @@ class _LongPressDetector extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
-      return child; // handled by iOS
+      // Context menu is handled by iOS, but we need this gesture detector to
+      // prevent listview pan detector immediately recognizing pan and setting
+      // ignore pointer.
+      return GestureDetector(
+        behavior: hitTestBehavior,
+        onTapDown: (_) {},
+        child: child,
+      );
     } else {
       return RawGestureDetector(
         behavior: hitTestBehavior,
