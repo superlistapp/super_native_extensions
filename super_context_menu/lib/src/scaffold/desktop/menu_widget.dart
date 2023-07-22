@@ -16,6 +16,7 @@ abstract class MenuWidgetDelegate {
     required BuildContext context,
     required MenuWidgetFocusMode focusMode,
   });
+  RenderBox? getMenuRenderBox(Menu menu);
   TextDirection getDirectionalityForMenu(Menu menu);
   void popUntil(Menu? menu);
   void hide({
@@ -27,6 +28,14 @@ enum MenuWidgetFocusMode {
   none,
   menu,
   firstItem,
+}
+
+class MenuWidgetItemMetaData {
+  MenuWidgetItemMetaData({
+    required this.submenuRenderBox,
+  });
+
+  final ValueGetter<RenderBox?> submenuRenderBox;
 }
 
 class MenuWidget extends StatefulWidget {
@@ -135,7 +144,7 @@ class MenuWidgetState extends State<MenuWidget>
   DesktopMenuInfo _menuInfo() {
     final bool focused;
     // Focus has one frame latency. We know we'll be focused in one frame
-    // so set focused to true immediatelly to prevent flicker.
+    // so set focused to true immediately to prevent flicker.
     if (_pendingFocusApply) {
       focused = widget.focusMode == MenuWidgetFocusMode.firstItem ||
           widget.focusMode == MenuWidgetFocusMode.menu;
@@ -273,14 +282,26 @@ class MenuWidgetState extends State<MenuWidget>
                         separator: item.element as MenuSeparator,
                       )
                     else
-                      _MenuItemWidget(
-                        delegate: this,
-                        key: item.key,
-                        innerKey: item.innerKey,
-                        menuInfo: menuInfo,
-                        menuWidgetBuilder: widget.menuWidgetBuilder,
-                        isSelected: _isSelected(item),
-                        entry: item,
+                      MetaData(
+                        metaData: MenuWidgetItemMetaData(
+                          submenuRenderBox: () {
+                            if (item.element is Menu) {
+                              return widget.delegate
+                                  .getMenuRenderBox(item.element as Menu);
+                            } else {
+                              return null;
+                            }
+                          },
+                        ),
+                        child: _MenuItemWidget(
+                          delegate: this,
+                          key: item.key,
+                          innerKey: item.innerKey,
+                          menuInfo: menuInfo,
+                          menuWidgetBuilder: widget.menuWidgetBuilder,
+                          isSelected: _isSelected(item),
+                          entry: item,
+                        ),
                       )
                 ],
               ),

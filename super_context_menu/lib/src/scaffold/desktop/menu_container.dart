@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:collection/collection.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 import 'package:super_context_menu/src/scaffold/common/deferred_menu_items.dart';
 
@@ -140,16 +143,19 @@ class _MenuContainerState extends State<MenuContainer>
             primaryEdge: entry.primaryEdge,
             secondaryPosition: entry.secondaryPosition,
             secondaryEdge: entry.secondaryEdge,
-            child: RepaintBoundary(
-              child: MenuWidget(
-                key: entry.menuWidgetKey,
-                menuWidgetBuilder: widget.menuWidgetBuilder,
-                focusMode: entry.focusMode,
-                parentMenu: _parentMenu(entry),
-                menu: entry.menu,
-                iconTheme: widget.iconTheme,
-                delegate: this,
-                cache: _deferredMenuElementCache,
+            child: _MenuSafeTriangleHitTestWidget(
+              menuStateProvider: () => entry.menuWidgetKey.currentState!,
+              child: RepaintBoundary(
+                child: MenuWidget(
+                  key: entry.menuWidgetKey,
+                  menuWidgetBuilder: widget.menuWidgetBuilder,
+                  focusMode: entry.focusMode,
+                  parentMenu: _parentMenu(entry),
+                  menu: entry.menu,
+                  iconTheme: widget.iconTheme,
+                  delegate: this,
+                  cache: _deferredMenuElementCache,
+                ),
               ),
             ),
           ),
@@ -262,6 +268,19 @@ class _MenuContainerState extends State<MenuContainer>
   }
 
   @override
+  RenderBox? getMenuRenderBox(Menu menu) {
+    final entry = _menuEntries.firstWhereOrNull((e) => e.menu == menu);
+    if (entry != null) {
+      final renderObject =
+          entry.menuWidgetKey.currentContext?.findRenderObject();
+      if (renderObject is RenderBox) {
+        return renderObject;
+      }
+    }
+    return null;
+  }
+
+  @override
   void pushMenu({
     required Menu parent,
     required Menu menu,
@@ -316,5 +335,159 @@ class _MenuContainerState extends State<MenuContainer>
     }
 
     setState(() {});
+  }
+}
+
+/// Implements safe triangle for transition between menu and submenu.
+/// https://bjk5.com/post/44698559168/breaking-down-amazons-mega-dropdown
+/// https://height.app/blog/guide-to-build-context-menus
+class _MenuSafeTriangleHitTestWidget extends SingleChildRenderObjectWidget {
+  final ValueGetter<MenuWidgetState> menuStateProvider;
+
+  const _MenuSafeTriangleHitTestWidget({
+    required this.menuStateProvider,
+    required super.child,
+  });
+
+  @override
+  RenderObject createRenderObject(BuildContext context) {
+    return _RenderMenuSafeaTriangleWidget(menuStateProvider);
+  }
+
+  @override
+  void updateRenderObject(BuildContext context,
+      covariant _RenderMenuSafeaTriangleWidget renderObject) {
+    renderObject.menuStateProvider = menuStateProvider;
+  }
+}
+
+class _OpenedSubmenuPosition {
+  final Offset position;
+  final RenderBox submenuRenderBox;
+  final Stopwatch _timestamp;
+
+  Duration get elapsed => _timestamp.elapsed;
+
+  _OpenedSubmenuPosition({
+    required this.position,
+    required this.submenuRenderBox,
+  }) : _timestamp = Stopwatch()..start();
+}
+
+class _RenderMenuSafeaTriangleWidget extends RenderProxyBox {
+  ValueGetter<MenuWidgetState> menuStateProvider;
+
+  _RenderMenuSafeaTriangleWidget(this.menuStateProvider);
+
+  _OpenedSubmenuPosition? _openedSubmenuPosition;
+
+  static bool _offsetWithinTriangle(
+      Offset offset, Offset a, Offset b, Offset c) {
+    // barycentric coordinate method
+    double denominator =
+        ((b.dy - c.dy) * (a.dx - c.dx) + (c.dx - b.dx) * (a.dy - c.dy));
+    double bA = ((b.dy - c.dy) * (offset.dx - c.dx) +
+            (c.dx - b.dx) * (offset.dy - c.dy)) /
+        denominator;
+    double bB = ((c.dy - a.dy) * (offset.dx - c.dx) +
+            (a.dx - c.dx) * (offset.dy - c.dy)) /
+        denominator;
+    double bC = 1 - bA - bB;
+    return bA >= 0 && bB >= 0 && bC >= 0;
+  }
+
+  bool _offsetInSafeArea(Offset offset, Offset a, RenderBox menuBox) {
+    // Transform all coordinates to parent space
+    final transformOurs = getTransformTo(parent as RenderObject);
+    final transformTheirs = menuBox.getTransformTo(parent as RenderObject);
+    offset = MatrixUtils.transformPoint(transformOurs, offset);
+    a = MatrixUtils.transformPoint(transformOurs, a);
+    final menuRect =
+        MatrixUtils.transformRect(transformTheirs, Offset.zero & menuBox.size);
+
+    // determine menu edge coordinate
+    double menuX;
+    if (menuRect.right < a.dx) {
+      menuX = menuRect.right;
+    } else if (menuRect.left > a.dx) {
+      menuX = menuRect.left;
+    } else {
+      return false; // overlapping?
+    }
+
+    final b = Offset(menuX, menuRect.top);
+    final c = Offset(menuX, menuRect.bottom);
+
+    return _offsetWithinTriangle(offset, a, b, c);
+  }
+
+  Timer? _cleanupTimer;
+
+  void _cleanup() {
+    if (_openedSubmenuPosition != null) {
+      // TODO(knopp): Uncomment the code below once MouseTracker.updateAllDevices() (without arguments) is available in stable
+      // WidgetsBinding.instance.scheduleFrameCallback((timeStamp) {
+      //   WidgetsBinding.instance.mouseTracker.updateAllDevices();
+      // });
+    }
+    _openedSubmenuPosition = null;
+    _cleanupTimer?.cancel();
+    _cleanupTimer = null;
+  }
+
+  @override
+  bool hitTest(BoxHitTestResult result, {required Offset position}) {
+    // Cleanup leftover position if render box was detached in the meanwhile
+    if (_openedSubmenuPosition?.submenuRenderBox.attached != true) {
+      _openedSubmenuPosition = null;
+    }
+
+    RenderBox? getSubmenuRenderBox(HitTestEntry entry) {
+      if (entry.target is RenderMetaData) {
+        final data = (entry.target as RenderMetaData).metaData;
+        if (data is MenuWidgetItemMetaData) {
+          return data.submenuRenderBox();
+        }
+      }
+      return null;
+    }
+
+    final tempResult = BoxHitTestResult();
+    hitTestChildren(tempResult, position: position);
+    for (final entry in tempResult.path) {
+      RenderBox? renderBox = getSubmenuRenderBox(entry);
+      if (renderBox != null) {
+        _openedSubmenuPosition = _OpenedSubmenuPosition(
+          submenuRenderBox: renderBox,
+          position: position,
+        );
+        _cleanupTimer?.cancel();
+        _cleanupTimer = Timer(const Duration(milliseconds: 500), _cleanup);
+        break;
+      }
+    }
+
+    final openedSubmenuPositon = _openedSubmenuPosition;
+
+    if (openedSubmenuPositon != null) {
+      // if offset is within safe area reuse last position recorded while over
+      // selected item
+      if (_offsetInSafeArea(position, openedSubmenuPositon.position,
+          openedSubmenuPositon.submenuRenderBox)) {
+        position = openedSubmenuPositon.position;
+      }
+    }
+
+    if (size.contains(position)) {
+      final res = hitTestChildren(result, position: position);
+      if (result.path.none((e) => getSubmenuRenderBox(e) != null)) {
+        _openedSubmenuPosition = null;
+      }
+      if (res || hitTestSelf(position)) {
+        result.add(BoxHitTestEntry(this, position));
+        return true;
+      }
+    }
+    return false;
   }
 }
