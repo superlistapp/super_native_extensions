@@ -29,27 +29,18 @@ In case you have Rust already installed, make sure to update it to latest versio
 rustup update
 ```
 
-That is it. The build integration will automatically install required Rust toolchains and other dependencies. This also means that first build might take a little bit longer.
+That is it. The build integration will automatically install required Rust targets and other dependencies (NDK). This also means that first build might take a little bit longer.
 
 ### Android support
 
-NDK is required to use `super_clipboard`. You can use Android Studio *SDK Manager* to install the NDK:
+NDK is required to use `super_clipboard`. If not present it will be automatically installed during first build. The NDK is a large download (~1GB) so it might take a while to install.
 
-    Preferences -> Android SDK -> SDK Tools -> NDK (Side by Side).
-
-NDK version your project expects is specified in `android/app/build.gradle`.
+The NDK version used is specified in `android/app/build.gradle` of your Flutter project.
 
 ```groovy
 android {
     // by default the project uses NDK version from flutter plugin.
     ndkVersion flutter.ndkVersion
-```
-You can find the current value of `flutter.ndkVersion` in Flutter source code ([stable](https://github.com/flutter/flutter/blob/stable/packages/flutter_tools/gradle/flutter.gradle), [master](https://github.com/flutter/flutter/blob/master/packages/flutter_tools/gradle/flutter.gradle)).
-
-```java
-class FlutterExtension {
-    // ...
-    static String ndkVersion = ....
 ```
 
 To be able to write images and other custom data to Android clipboard you need
