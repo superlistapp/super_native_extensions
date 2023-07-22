@@ -2,7 +2,7 @@ use std::rc::{Rc, Weak};
 
 use block::ConcreteBlock;
 use cocoa::{
-    appkit::{NSEventModifierFlags, NSMenuItem},
+    appkit::{NSEvent, NSEventModifierFlags, NSEventType, NSMenuItem},
     base::{id, nil},
     foundation::{NSInteger, NSPoint},
 };
@@ -12,7 +12,7 @@ use irondash_run_loop::{spawn, util::FutureCompleter, RunLoop};
 use objc::{
     class, msg_send,
     rc::StrongPtr,
-    runtime::{Sel, BOOL, YES},
+    runtime::{Sel, BOOL, NO, YES},
     sel, sel_impl,
 };
 
@@ -284,12 +284,31 @@ impl PlatformMenuContext {
         let menu = request.menu.unwrap().menu.clone();
         let view = self.view.clone();
 
+        // remember the modifier flags before showing the popup menu
+        let flags_before: NSEventModifierFlags =
+            unsafe { msg_send![class!(NSEvent), modifierFlags] };
+
         self.synthetize_mouse_up_event();
 
         let cb = move || {
             let item_selected: BOOL = unsafe {
                 msg_send![*menu, popUpMenuPositioningItem:nil atLocation:position inView:*view]
             };
+            // If the the popup menu was shown because of control + click and the
+            // control is no longe pressed after menu is closed we need to let Flutter
+            // know otherwise it will end up with control stuck.
+            unsafe {
+                let modifier_flags: NSEventModifierFlags =
+                    msg_send![class!(NSEvent), modifierFlags];
+                if flags_before.contains(NSEventModifierFlags::NSControlKeyMask)
+                    && !modifier_flags.contains(NSEventModifierFlags::NSControlKeyMask)
+                {
+                    let event = NSEvent::keyEventWithType_location_modifierFlags_timestamp_windowNumber_context_characters_charactersIgnoringModifiers_isARepeat_keyCode_( //
+                        nil, NSEventType::NSFlagsChanged, NSPoint::new(0.0, 0.0),  NSEventModifierFlags::empty(),0.0, 0, nil, nil,nil, NO, 0);
+                    let window: id = msg_send![*view, window];
+                    let _: () = msg_send![window, sendEvent: event];
+                }
+            }
             completer.complete(Ok(ShowContextMenuResponse {
                 item_selected: item_selected == YES,
             }));
