@@ -2,7 +2,7 @@ use std::{mem::size_of, os::raw::c_void, ptr::null_mut};
 
 use once_cell::sync::Lazy;
 use windows::{
-    core::{Interface, GUID, HRESULT, HSTRING},
+    core::{ComInterface, GUID, HRESULT, HSTRING},
     s,
     Win32::{
         Foundation::{E_UNEXPECTED, HANDLE, HWND, S_OK},
@@ -97,7 +97,7 @@ pub fn image_data_to_hbitmap(image: &ImageData) -> NativeExtensionsResult<HBITMA
             biHeight: image.height,
             biPlanes: 1,
             biBitCount: 32,
-            biCompression: BI_RGB,
+            biCompression: BI_RGB.0 as u32,
             biSizeImage: (image.width * image.height * 4) as u32,
             biXPelsPerMeter: 0,
             biYPelsPerMeter: 0,
@@ -157,7 +157,7 @@ pub fn image_data_to_hbitmap(image: &ImageData) -> NativeExtensionsResult<HBITMA
     }
 }
 
-pub fn create_instance<T: Interface>(clsid: &GUID) -> windows::core::Result<T> {
+pub fn create_instance<T: ComInterface>(clsid: &GUID) -> windows::core::Result<T> {
     unsafe { CoCreateInstance(clsid, None, CLSCTX_ALL) }
 }
 

@@ -3,7 +3,7 @@ use std::{ptr::null_mut, slice};
 use windows::{
     core::PWSTR,
     Win32::{
-        Foundation::VARIANT_BOOL,
+        Foundation::{HGLOBAL, VARIANT_BOOL},
         Graphics::Imaging::{
             CLSID_WICImagingFactory, GUID_ContainerFormatBmp, GUID_ContainerFormatPng,
             IWICBitmapFrameEncode, IWICImagingFactory, WICBitmapEncoderNoCache,
@@ -31,7 +31,7 @@ pub fn convert_to_png(input_stream: IStream) -> windows::core::Result<Vec<u8>> {
         let decoder =
             factory.CreateDecoderFromStream(&input_stream, null_mut(), Default::default())?;
         let encoder = factory.CreateEncoder(&GUID_ContainerFormatPng, null_mut())?;
-        let output_stream = CreateStreamOnHGlobal(0, true)?;
+        let output_stream = CreateStreamOnHGlobal(HGLOBAL(0), true)?;
         encoder.Initialize(&output_stream, WICBitmapEncoderNoCache)?;
         let frame = decoder.GetFrame(0)?;
         let mut encoder_frame = Option::<IWICBitmapFrameEncode>::None;
@@ -61,7 +61,7 @@ pub fn convert_to_dib(input_stream: IStream, use_v5: bool) -> windows::core::Res
         let decoder =
             factory.CreateDecoderFromStream(&input_stream, null_mut(), Default::default())?;
         let encoder = factory.CreateEncoder(&GUID_ContainerFormatBmp, null_mut())?;
-        let output_stream = CreateStreamOnHGlobal(0, true)?;
+        let output_stream = CreateStreamOnHGlobal(HGLOBAL(0), true)?;
         encoder.Initialize(&output_stream, WICBitmapEncoderNoCache)?;
         let frame = decoder.GetFrame(0)?;
         let mut encoder_frame = Option::<IWICBitmapFrameEncode>::None;

@@ -10,7 +10,7 @@ use irondash_message_channel::{Late, Value};
 use irondash_run_loop::{platform::PollSession, RunLoop};
 use log::warn;
 use windows::{
-    core::{implement, Interface, PCWSTR},
+    core::{implement, ComInterface, PCWSTR},
     Win32::{
         Foundation::{E_OUTOFMEMORY, HWND, POINT, POINTL, S_OK},
         Graphics::Gdi::ScreenToClient,
@@ -263,7 +263,7 @@ impl PlatformDropContext {
 
     fn on_drag_enter(
         &self,
-        pdataobj: &Option<IDataObject>,
+        pdataobj: Option<&IDataObject>,
         grfkeystate: MODIFIERKEYS_FLAGS,
         pt: &POINTL,
         pdweffect: *mut DROPEFFECT,
@@ -387,7 +387,7 @@ impl PlatformDropContext {
 
     fn on_drop(
         &self,
-        _pdataobj: &Option<IDataObject>,
+        _pdataobj: Option<&IDataObject>,
         grfkeystate: MODIFIERKEYS_FLAGS,
         pt: &POINTL,
         pdweffect: *mut DROPEFFECT,
@@ -467,10 +467,11 @@ impl DropTarget {
     }
 }
 
+#[allow(non_snake_case)]
 impl IDropTarget_Impl for DropTarget {
     fn DragEnter(
         &self,
-        pdataobj: &Option<IDataObject>,
+        pdataobj: Option<&IDataObject>,
         grfkeystate: MODIFIERKEYS_FLAGS,
         pt: &POINTL,
         pdweffect: *mut DROPEFFECT,
@@ -480,7 +481,7 @@ impl IDropTarget_Impl for DropTarget {
                 drop_target_helper
                     .DragEnter(
                         self.hwnd,
-                        &pdataobj.clone().unwrap(),
+                        pdataobj.unwrap(),
                         pt as *const POINTL as *const _,
                         *pdweffect,
                     )
@@ -528,7 +529,7 @@ impl IDropTarget_Impl for DropTarget {
 
     fn Drop(
         &self,
-        pdataobj: &Option<IDataObject>,
+        pdataobj: Option<&IDataObject>,
         grfkeystate: MODIFIERKEYS_FLAGS,
         pt: &POINTL,
         pdweffect: *mut DROPEFFECT,
@@ -537,7 +538,7 @@ impl IDropTarget_Impl for DropTarget {
             unsafe {
                 drop_target_helper
                     .Drop(
-                        &pdataobj.clone().unwrap(),
+                        pdataobj.unwrap(),
                         pt as *const POINTL as *const _,
                         *pdweffect,
                     )
