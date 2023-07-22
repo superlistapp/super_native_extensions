@@ -15,14 +15,14 @@ use windows::{
     core::{implement, HRESULT, HSTRING},
     Win32::{
         Foundation::{
-            BOOL, DATA_S_SAMEFORMATETC, DV_E_FORMATETC, E_NOTIMPL, E_OUTOFMEMORY,
+            BOOL, DATA_S_SAMEFORMATETC, DV_E_FORMATETC, E_NOTIMPL, E_OUTOFMEMORY, HGLOBAL,
             OLE_E_ADVISENOTSUPPORTED, POINT, S_FALSE, S_OK,
         },
         System::{
             Com::{
-                IBindCtx, IDataObject, IDataObject_Impl, IStream, DATADIR_GET, FORMATETC,
-                STGMEDIUM, STGMEDIUM_0, STREAM_SEEK_END, STREAM_SEEK_SET, TYMED, TYMED_HGLOBAL,
-                TYMED_ISTREAM,
+                IAdviseSink, IBindCtx, IDataObject, IDataObject_Impl, IStream, DATADIR_GET,
+                FORMATETC, STGMEDIUM, STGMEDIUM_0, STREAM_SEEK_END, STREAM_SEEK_SET, TYMED,
+                TYMED_HGLOBAL, TYMED_ISTREAM,
             },
             DataExchange::RegisterClipboardFormatW,
             Memory::{
@@ -102,12 +102,12 @@ impl DataObject {
         data_object.into()
     }
 
-    fn global_from_data(&self, data: &[u8]) -> windows::core::Result<isize> {
+    fn global_from_data(&self, data: &[u8]) -> windows::core::Result<HGLOBAL> {
         unsafe {
-            let global = GlobalAlloc(GLOBAL_ALLOC_FLAGS(0), data.len());
+            let global = GlobalAlloc(GLOBAL_ALLOC_FLAGS(0), data.len())?;
             let global_data = GlobalLock(global);
             if global_data.is_null() {
-                GlobalFree(global);
+                GlobalFree(global)?;
                 Err(E_OUTOFMEMORY.into())
             } else {
                 std::ptr::copy_nonoverlapping(data.as_ptr(), global_data as *mut u8, data.len());
@@ -487,6 +487,7 @@ impl Drop for DataObject {
     }
 }
 
+#[allow(non_snake_case)]
 impl IDataObject_Impl for DataObject {
     fn GetData(&self, pformatetcin: *const FORMATETC) -> windows::core::Result<STGMEDIUM> {
         let format = unsafe { &*pformatetcin };
@@ -501,7 +502,7 @@ impl IDataObject_Impl for DataObject {
                 Anonymous: STGMEDIUM_0 {
                     pstm: ManuallyDrop::new(stream),
                 },
-                pUnkForRelease: windows::core::ManuallyDrop::none(),
+                pUnkForRelease: ManuallyDrop::new(None),
             });
         }
 
@@ -535,7 +536,7 @@ impl IDataObject_Impl for DataObject {
                     Ok(STGMEDIUM {
                         tymed: TYMED_HGLOBAL,
                         Anonymous: STGMEDIUM_0 { hGlobal: global },
-                        pUnkForRelease: windows::core::ManuallyDrop::none(),
+                        pUnkForRelease: ManuallyDrop::new(None),
                     })
                 } else if (format.tymed & TYMED_ISTREAM.0 as u32) != 0 {
                     let stream = unsafe { SHCreateMemStream(Some(&data)) };
@@ -549,7 +550,7 @@ impl IDataObject_Impl for DataObject {
                         Anonymous: STGMEDIUM_0 {
                             pstm: ManuallyDrop::new(Some(stream)),
                         },
-                        pUnkForRelease: windows::core::ManuallyDrop::none(),
+                        pUnkForRelease: ManuallyDrop::new(None),
                     })
                 } else {
                     Err(DV_E_FORMATETC.into())
@@ -673,10 +674,10 @@ impl IDataObject_Impl for DataObject {
 
     fn DAdvise(
         &self,
-        _pformatetc: *const windows::Win32::System::Com::FORMATETC,
+        _pformatetc: *const FORMATETC,
         _advf: u32,
-        _padvsink: &core::option::Option<windows::Win32::System::Com::IAdviseSink>,
-    ) -> windows::core::Result<u32> {
+        _padvsink: Option<&IAdviseSink>,
+    ) -> ::windows::core::Result<u32> {
         Err(OLE_E_ADVISENOTSUPPORTED.into())
     }
 
@@ -689,6 +690,7 @@ impl IDataObject_Impl for DataObject {
     }
 }
 
+#[allow(non_snake_case)]
 impl IDataObjectAsyncCapability_Impl for DataObject {
     fn SetAsyncMode(&self, _fdoopasync: BOOL) -> windows::core::Result<()> {
         Ok(())
@@ -698,10 +700,7 @@ impl IDataObjectAsyncCapability_Impl for DataObject {
         Ok(true.into())
     }
 
-    fn StartOperation(
-        &self,
-        _pbcreserved: &core::option::Option<IBindCtx>,
-    ) -> windows::core::Result<()> {
+    fn StartOperation(&self, _pbcreserved: Option<&IBindCtx>) -> windows::core::Result<()> {
         self.in_operation.replace(true);
         Ok(())
     }
@@ -713,7 +712,7 @@ impl IDataObjectAsyncCapability_Impl for DataObject {
     fn EndOperation(
         &self,
         _hresult: windows::core::HRESULT,
-        _pbcreserved: &core::option::Option<IBindCtx>,
+        _pbcreserved: Option<&IBindCtx>,
         _dweffects: u32,
     ) -> windows::core::Result<()> {
         self.in_operation.replace(false);

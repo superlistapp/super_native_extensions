@@ -7,7 +7,7 @@ use std::{
 use irondash_run_loop::{util::Capsule, RunLoop, RunLoopSender};
 use threadpool::ThreadPool;
 use windows::{
-    core::{implement, Interface},
+    core::{implement, ComInterface},
     Win32::{
         Foundation::{E_FAIL, E_NOTIMPL, S_FALSE, S_OK},
         System::Com::{
@@ -277,6 +277,7 @@ impl VirtualFileStream {
     }
 }
 
+#[allow(non_snake_case)]
 impl ISequentialStream_Impl for VirtualFileStream {
     fn Read(
         &self,
@@ -297,6 +298,7 @@ impl ISequentialStream_Impl for VirtualFileStream {
     }
 }
 
+#[allow(non_snake_case)]
 impl IStream_Impl for VirtualFileStream {
     fn Seek(
         &self,
@@ -318,7 +320,7 @@ impl IStream_Impl for VirtualFileStream {
 
     fn CopyTo(
         &self,
-        _pstm: &core::option::Option<IStream>,
+        _pstm: Option<&IStream>,
         _cb: u64,
         _pcbread: *mut u64,
         _pcbwritten: *mut u64,

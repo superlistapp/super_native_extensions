@@ -6,7 +6,7 @@ use std::{
 
 use irondash_message_channel::Late;
 use windows::{
-    core::{implement, IUnknown, Interface},
+    core::{implement, ComInterface, IUnknown},
     Win32::{
         Foundation::BOOL,
         UI::{
@@ -280,6 +280,7 @@ impl LanguageProfileNotifySink {
     }
 }
 
+#[allow(non_snake_case)]
 impl ITfLanguageProfileNotifySink_Impl for LanguageProfileNotifySink {
     fn OnLanguageChange(&self, _langid: u16) -> windows::core::Result<BOOL> {
         Ok(true.into())
