@@ -150,7 +150,9 @@ API_AVAILABLE(macos(10.12))
 
 @end
 
-@interface SNEMenu : NSMenu <NSMenuDelegate>
+@interface SNEMenu : NSMenu <NSMenuDelegate> {
+  BOOL _didLoad;
+}
 
 - (id)initWithTitle:(NSString *)title;
 
@@ -166,10 +168,13 @@ API_AVAILABLE(macos(10.12))
 }
 
 - (void)menuWillOpen:(NSMenu *)menu {
-  for (NSMenuItem *item in self.itemArray) {
-    if ([item isKindOfClass:[SNEDeferredMenuItem class]]) {
-      SNEDeferredMenuItem *deferredItem = (SNEDeferredMenuItem *)item;
-      deferredItem.loader_block(deferredItem);
+  if (!_didLoad) {
+    _didLoad = YES;
+    for (NSMenuItem *item in self.itemArray) {
+      if ([item isKindOfClass:[SNEDeferredMenuItem class]]) {
+        SNEDeferredMenuItem *deferredItem = (SNEDeferredMenuItem *)item;
+        deferredItem.loader_block(deferredItem);
+      }
     }
   }
 }
