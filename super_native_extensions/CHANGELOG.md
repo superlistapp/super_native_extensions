@@ -1,3 +1,13 @@
+## 0.5.0
+
+> Note: This release has breaking changes.
+
+ - **FIX**: [macos] assertion when loading deferred menu (#152).
+ - **FIX**: [macos] control key stuck after context menu closed (#151).
+ - **FIX**: web drag avatar shown in non-root overlay (#139).
+ - **FIX**: pasting text with semicolon on macOS (#133).
+ - **BREAKING** **FEAT**: upgrade to Dart 3 and jni 0.21.1 (#138).
+
 ## 0.4.0
 
  - Bump "super_native_extensions" to `0.4.0`.

@@ -1,3 +1,14 @@
+## 0.5.0
+
+> Note: This release has breaking changes.
+
+ - **FIX**: ensure drop regions are attached when invoking events (#147).
+ - **FIX**: cache active items for snapshotter (#146).
+ - **DOCS**: [android] mention minSdkVersion in readme (#150).
+ - **DOCS**: update NDK installation information (#149).
+ - **DOCS**: fix example.
+ - **BREAKING** **FEAT**: upgrade to Dart 3 and jni 0.21.1 (#138).
+
 ## 0.4.0
 
  - Bump "super_drag_and_drop" to `0.4.0`.

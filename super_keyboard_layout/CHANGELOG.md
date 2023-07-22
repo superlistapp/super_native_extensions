@@ -1,3 +1,10 @@
+## 0.5.0
+
+> Note: This release has breaking changes.
+
+ - **DOCS**: update NDK installation information (#149).
+ - **BREAKING** **FEAT**: upgrade to Dart 3 and jni 0.21.1 (#138).
+
 ## 0.4.0
 
  - Bump "super_keyboard_layout" to `0.4.0`.

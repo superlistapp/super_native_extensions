@@ -1,3 +1,9 @@
+## 0.5.0
+
+> Note: This release has breaking changes.
+
+ - **BREAKING** **FEAT**: upgrade to Dart 3 and jni 0.21.1 (#138).
+
 ## 0.4.0
 
  - Bump "super_hot_key" to `0.4.0`.

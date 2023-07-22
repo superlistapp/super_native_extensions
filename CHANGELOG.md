@@ -3,6 +3,68 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## 2023-07-22
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - [`super_clipboard` - `v0.5.0`](#super_clipboard---v050)
+ - [`super_context_menu` - `v0.5.0`](#super_context_menu---v050)
+ - [`super_drag_and_drop` - `v0.5.0`](#super_drag_and_drop---v050)
+ - [`super_hot_key` - `v0.5.0`](#super_hot_key---v050)
+ - [`super_keyboard_layout` - `v0.5.0`](#super_keyboard_layout---v050)
+ - [`super_native_extensions` - `v0.5.0`](#super_native_extensions---v050)
+
+Packages with other changes:
+
+ - There are no other changes in this release.
+
+---
+
+#### `super_clipboard` - `v0.5.0`
+
+ - **DOCS**: [android] mention minSdkVersion in readme (#150).
+ - **DOCS**: update NDK installation information (#149).
+ - **BREAKING** **FEAT**: upgrade to Dart 3 and jni 0.21.1 (#138).
+
+#### `super_context_menu` - `v0.5.0`
+
+ - **FIX**: context menu in list view not working on iOS (#144).
+ - **FEAT**: implement safe triangle for desktop menu (#153).
+ - **DOCS**: update NDK installation information (#149).
+ - **DOCS**: fixup unnecessary capitalization.
+ - **BREAKING** **FEAT**: upgrade to Dart 3 and jni 0.21.1 (#138).
+
+#### `super_drag_and_drop` - `v0.5.0`
+
+ - **FIX**: ensure drop regions are attached when invoking events (#147).
+ - **FIX**: cache active items for snapshotter (#146).
+ - **DOCS**: [android] mention minSdkVersion in readme (#150).
+ - **DOCS**: update NDK installation information (#149).
+ - **DOCS**: fix example.
+ - **BREAKING** **FEAT**: upgrade to Dart 3 and jni 0.21.1 (#138).
+
+#### `super_hot_key` - `v0.5.0`
+
+ - **BREAKING** **FEAT**: upgrade to Dart 3 and jni 0.21.1 (#138).
+
+#### `super_keyboard_layout` - `v0.5.0`
+
+ - **DOCS**: update NDK installation information (#149).
+ - **BREAKING** **FEAT**: upgrade to Dart 3 and jni 0.21.1 (#138).
+
+#### `super_native_extensions` - `v0.5.0`
+
+ - **FIX**: [macos] assertion when loading deferred menu (#152).
+ - **FIX**: [macos] control key stuck after context menu closed (#151).
+ - **FIX**: web drag avatar shown in non-root overlay (#139).
+ - **FIX**: pasting text with semicolon on macOS (#133).
+ - **BREAKING** **FEAT**: upgrade to Dart 3 and jni 0.21.1 (#138).
+
+
 ## 2023-05-22
 
 ### Changes
