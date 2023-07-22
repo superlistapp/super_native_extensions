@@ -45,6 +45,14 @@ android {
     ndkVersion flutter.ndkVersion
 ```
 
+If you have older Flutter android project, you will need to specify reasonably recent minimal SDK version in `android/app/build.gradle`:
+
+```groovy
+android {
+    defaultConfig {
+        minSdkVersion 23
+```
+
 To be able to drag images and other custom data from your application you need
 to declare a content provider in `AndroidManifest.xml`:
 
