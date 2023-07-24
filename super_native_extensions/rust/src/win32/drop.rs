@@ -70,7 +70,7 @@ struct Session {
     missing_drop_end: Cell<bool>,
     data_object: IDataObject,
     last_operation: Cell<DropOperation>,
-    async_result: Rc<Cell<Option<DROPEFFECT>>>,
+    async_result: Rc<RefCell<Option<(IDataObjectAsyncCapability, DROPEFFECT)>>>,
     reader: Rc<PlatformDataReader>,
     registered_reader: RegisteredDataReader,
 }
@@ -289,19 +289,16 @@ impl PlatformDropContext {
                 .current_session
                 .borrow_mut()
                 .get_or_insert_with(|| {
-                    let async_result = Rc::new(Cell::new(Option::<DROPEFFECT>::None));
-                    let data_object_clone = data_object.clone();
+                    let async_result = Rc::new(RefCell::new(
+                        Option::<(IDataObjectAsyncCapability, DROPEFFECT)>::None,
+                    ));
                     let async_result_clone = async_result.clone();
                     // Drop notifier invoked when reader gets destroyed. If we started
                     // async operation on data object this will end it.
                     let drop_notifier = Arc::new(DropNotifier::new(move || {
-                        if let Some(res) = async_result_clone.get().take() {
-                            if let Ok(data_object_async) =
-                                data_object_clone.cast::<IDataObjectAsyncCapability>()
-                            {
-                                unsafe {
-                                    data_object_async.EndOperation(S_OK, None, res.0).ok_log();
-                                }
+                        if let Some((capability, effect)) = async_result_clone.borrow_mut().take() {
+                            unsafe {
+                                capability.EndOperation(S_OK, None, effect.0).ok_log();
                             }
                         }
                     }));
@@ -419,7 +416,9 @@ impl PlatformDropContext {
                     if res.as_bool() {
                         // this will be read by drop notifier in DataReader and used for
                         // IDataObjectAsyncCapability::EndOperation result (when data reader gets dropped)
-                        session.async_result.set(Some(*effect));
+                        session
+                            .async_result
+                            .replace(Some((data_object_async.clone(), *effect)));
                         session.reader.set_supports_async();
                         unsafe {
                             data_object_async.StartOperation(None).ok_log();
