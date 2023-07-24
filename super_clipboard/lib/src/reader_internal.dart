@@ -86,7 +86,7 @@ class ItemDataReader extends ClipboardDataReader {
             format,
             _PlatformDataProvider(
               allFormats,
-              (f) => item.getDataForFormat(f).first,
+              (f) => item.getDataForFormat(f).$1,
             ),
           );
           if (uri != null) {
@@ -189,8 +189,8 @@ class ItemDataReader extends ClipboardDataReader {
     if (allowVirtualFiles) {
       for (final receiver in virtualReceivers) {
         if (format.canDecode(receiver.format)) {
-          final file = receiver.receiveVirtualFile();
-          file.first.then(
+          final (file, progress) = receiver.receiveVirtualFile();
+          file.then(
             (file) async {
               final adapter = DataReaderVirtualFileAdapter(file);
               final res = onFile(adapter);
@@ -202,21 +202,21 @@ class ItemDataReader extends ClipboardDataReader {
               handleError(e);
             },
           );
-          return file.second;
+          return progress;
         }
       }
     }
 
     for (final f in formats) {
       if (format.receiverFormats.contains(f)) {
-        final data = item.getDataForFormat(f);
-        data.first.then((value) {
+        final (data, progress) = item.getDataForFormat(f);
+        data.then((value) {
           final list = value != null ? value as Uint8List : Uint8List(0);
           onFile(DataReaderFileValueAdapter(list));
         }, onError: (e) {
           handleError(e);
         });
-        return data.second;
+        return progress;
       }
     }
     return null;
@@ -235,9 +235,9 @@ class ItemDataReader extends ClipboardDataReader {
         };
     ReadProgress? progress;
     Future<Object?> onGetData(PlatformFormat format) async {
-      final data = item.getDataForFormat(format);
-      progress ??= data.second;
-      return await data.first;
+      final (data, itemProgress) = item.getDataForFormat(format);
+      progress ??= itemProgress;
+      return await data;
     }
 
     for (final f in formats) {

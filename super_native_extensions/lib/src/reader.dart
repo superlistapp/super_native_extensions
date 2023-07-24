@@ -46,14 +46,6 @@ abstract class ReadProgress {
   void cancel();
 }
 
-/// Pair of values.
-class Pair<T, U> {
-  const Pair(this.first, this.second);
-
-  final T first;
-  final U second;
-}
-
 class DataReaderItem {
   Future<List<String>> getAvailableFormats() {
     return _mutex.protect(() async {
@@ -63,7 +55,7 @@ class DataReaderItem {
     });
   }
 
-  Pair<Future<Object?>, ReadProgress> getDataForFormat(
+  (Future<Object?>, ReadProgress) getDataForFormat(
     String format,
   ) {
     return ReaderManager.instance.getItemData(_handle, format: format);
@@ -129,11 +121,11 @@ abstract class VirtualFileReceiver {
   String get format;
 
   /// Receives the virtual file.
-  Pair<Future<VirtualFile>, ReadProgress> receiveVirtualFile();
+  (Future<VirtualFile>, ReadProgress) receiveVirtualFile();
 
   /// Copies the virtual file to specific folder and returns the path.
   /// Not available on web.
-  Pair<Future<String>, ReadProgress> copyVirtualFile({
+  (Future<String>, ReadProgress) copyVirtualFile({
     required String targetFolder,
   });
 }

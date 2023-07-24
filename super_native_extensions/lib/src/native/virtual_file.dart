@@ -40,13 +40,13 @@ class VirtualFileFromFile extends VirtualFile {
 /// Virtual file receiver implementation that works on provided copy.
 abstract class CopyVirtualFileReceiver extends VirtualFileReceiver {
   @override
-  Pair<Future<VirtualFile>, ReadProgress> receiveVirtualFile() {
+  (Future<VirtualFile>, ReadProgress) receiveVirtualFile() {
     final uuid = const Uuid().v4().toString();
     final folder = path.join(Directory.systemTemp.path, 'vfr-$uuid');
     Directory(folder).createSync();
     try {
-      final pair = copyVirtualFile(targetFolder: folder);
-      final future = pair.first.then((value) {
+      final (path, progress) = copyVirtualFile(targetFolder: folder);
+      final future = path.then((value) {
         return VirtualFileFromFile(
           file: File(value),
           onClose: () {
@@ -57,7 +57,7 @@ abstract class CopyVirtualFileReceiver extends VirtualFileReceiver {
         Directory(folder).deleteSync(recursive: true);
         throw e;
       });
-      return Pair(future, pair.second);
+      return (future, progress);
     } catch (e) {
       Directory(folder).deleteSync(recursive: true);
       rethrow;

@@ -94,7 +94,7 @@ class ReaderManagerImpl extends ReaderManager {
   }
 
   @override
-  Pair<Future<Object?>, ReadProgress> getItemData(
+  (Future<Object?>, ReadProgress) getItemData(
     DataReaderItemHandle handle, {
     required String format,
   }) {
@@ -109,7 +109,7 @@ class ReaderManagerImpl extends ReaderManager {
       progress.done();
       completer.completeError(error);
     });
-    return Pair(completer.future, progress);
+    return (completer.future, progress);
   }
 
   @override
