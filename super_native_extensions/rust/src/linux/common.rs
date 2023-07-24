@@ -100,7 +100,7 @@ pub fn surface_from_image_data(image: ImageData, opacity: f64) -> ImageSurface {
     res
 }
 
-pub(super) fn synthetize_button_up(event: &Event) -> Event {
+pub(super) fn synthesize_button_up(event: &Event) -> Event {
     if event.event_type() != EventType::ButtonPress {
         panic!("Invalid event type");
     }

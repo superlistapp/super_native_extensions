@@ -99,7 +99,7 @@ class DesktopContextMenuWidget extends StatelessWidget {
   final DesktopMenuWidgetBuilder menuWidgetBuilder;
   final Widget child;
 
-  /// Base icon theme for menu icons. The size will be overriden depending
+  /// Base icon theme for menu icons. The size will be overridden depending
   /// on platform.
   final IconThemeData? iconTheme;
 

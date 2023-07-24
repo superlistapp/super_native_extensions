@@ -245,7 +245,7 @@ class OverlayWidgetState extends State<OverlayWidget>
                 position,
                 instance.lastPointer!,
               );
-              // When recognizer disappers the drag is not cancelled, which prevents
+              // When recognizer disappears the drag is not cancelled, which prevents
               // subsequent drags from
               return drag;
             };

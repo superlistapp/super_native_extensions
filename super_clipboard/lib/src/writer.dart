@@ -58,7 +58,7 @@ class DataWriterItem {
     ]));
   }
 
-  /// Invoked when the item is sucessfully registered with native code.
+  /// Invoked when the item is successfully registered with native code.
   Listenable get onRegistered => _onRegistered;
 
   /// Called when the native code is done with the item and the data is

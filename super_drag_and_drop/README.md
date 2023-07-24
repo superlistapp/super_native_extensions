@@ -83,7 +83,7 @@ class MyDraggableWidget extends StatelessWidget {
     // DragItemWidget provides the content for the drag (DragItem).
     return DragItemWidget(
       dragItemProvider: (request) async {
-        // DragItem represents the content bein dragged.
+        // DragItem represents the content begin dragged.
         final item = DragItem(
           // This data is only accessible when dropping within same
           // application. (optional)
@@ -314,7 +314,7 @@ the snapshot position relative to original child using a `SnapshotSettings` widg
     ...
 ```
 
-## Synthetized files
+## Synthesized files
 
 On desktop platform, dropping files usually puts the file URL or path into the
 payload. This is different from mobile and web, where you can receive the actual

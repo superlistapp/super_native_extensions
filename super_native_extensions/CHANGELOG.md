@@ -122,7 +122,7 @@
  - **FIX**: Workaround for Xcode warning.
  - **FIX**: Broken buid on iOS with Rust 1.65.
  - **FIX**: Workaround for Xcode warning.
- - **FIX**: Synthetize mouse up event during drag on linux.
+ - **FIX**: Synthesize mouse up event during drag on linux.
 
 ## 0.1.6+1
 

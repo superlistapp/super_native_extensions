@@ -1,7 +1,7 @@
 import 'dart:async';
 
 class Mutex {
-  // Serialize execution of citical sections; For uncontended mutex the execution
+  // Serialize execution of critical sections; For uncontended mutex the execution
   // is guaranteed to begin immediately (in this runloop turn)
   Future<T> protect<T>(Future<T> Function() criticalSection) async {
     while (_locked) {

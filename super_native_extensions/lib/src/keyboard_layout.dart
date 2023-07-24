@@ -24,7 +24,7 @@ abstract class KeyboardLayoutManager {
   Listenable get onLayoutChanged;
 }
 
-/// Represents a keyboard layout. Allows coverting between platform specific
+/// Represents a keyboard layout. Allows converting between platform specific
 /// key codes, [PhysicalKeyboardKey]s and [LogicalKeyboardKey]s.
 class KeyboardLayout {
   /// Returns the platform specific key code for given [KeyboardKey] for this

@@ -129,7 +129,7 @@ class TargetedWidgetSnapshot {
   /// Initial position of avatar image (in global coordinates).
   final Rect rect;
 
-  /// Retains the targetted snapshot. See [WidgetSnapshot.retain].
+  /// Retains the targeted snapshot. See [WidgetSnapshot.retain].
   TargetedWidgetSnapshot retain() {
     snapshot.retain();
     return this;

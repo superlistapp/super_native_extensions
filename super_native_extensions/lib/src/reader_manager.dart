@@ -20,7 +20,7 @@ abstract class ReaderManager {
     required String format,
   });
 
-  Future<bool> itemFormatIsSynthetized(
+  Future<bool> itemFormatIsSynthesized(
     DataReaderItemHandle handle, {
     required String format,
   });

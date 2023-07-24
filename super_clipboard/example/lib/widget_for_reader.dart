@@ -36,22 +36,22 @@ class ReaderInfo {
     DataReader reader, {
     Object? localData,
   }) async {
-    // build list of native formats with virtual/synthetized flags
+    // build list of native formats with virtual/synthesized flags
     final List<String> formats = reader.platformFormats;
 
     final List<String> rawFormats =
         await reader.rawReader!.getAvailableFormats();
 
-    // Reader may synthetize format from URI.
-    List<String> synthetizedByReader = List.of(formats)
+    // Reader may synthesize format from URI.
+    List<String> synthesizedByReader = List.of(formats)
       ..removeWhere((element) => rawFormats.contains(element));
 
     final virtual =
         await Future.wait(formats.map((e) => reader.rawReader!.isVirtual(e)));
 
-    final synthetized = await Future.wait(formats.map((e) async =>
-        await reader.rawReader!.isSynthetized(e) ||
-        synthetizedByReader.contains(e)));
+    final synthesized = await Future.wait(formats.map((e) async =>
+        await reader.rawReader!.isSynthesized(e) ||
+        synthesizedByReader.contains(e)));
 
     return ReaderInfo._(
       reader: reader,
@@ -61,7 +61,7 @@ class ReaderInfo {
           .mapIndexed((index, element) => _PlatformFormat(
                 element,
                 virtual: virtual[index],
-                synthetized: synthetized[index],
+                synthesized: synthesized[index],
               ))
           .toList(growable: false),
     );
@@ -76,12 +76,12 @@ class ReaderInfo {
 class _PlatformFormat {
   final PlatformFormat format;
   final bool virtual;
-  final bool synthetized;
+  final bool synthesized;
 
   _PlatformFormat(
     this.format, {
     required this.virtual,
-    required this.synthetized,
+    required this.synthesized,
   });
 }
 
@@ -145,11 +145,11 @@ Future<Widget> _buildWidgetForReader(
   final formats = <DataFormat>{};
   children.retainWhere((element) => formats.add(element.format));
 
-  // build list of native formats with virtual/synthetized flags
+  // build list of native formats with virtual/synthesized flags
   final nativeFormats = reader._formats.map((e) {
     final attributes = [
       if (e.virtual) 'virtual',
-      if (e.synthetized) 'synthetized',
+      if (e.synthesized) 'synthesized',
     ].join(', ');
     return attributes.isNotEmpty ? '${e.format} ($attributes)' : e.format;
   }).toList(growable: false);
@@ -293,7 +293,7 @@ class _RepresentationWidget extends StatelessWidget {
   const _RepresentationWidget({
     required this.format,
     required this.name,
-    required this.synthetized,
+    required this.synthesized,
     required this.virtual,
     required this.content,
   });
@@ -302,7 +302,7 @@ class _RepresentationWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     final tag = [
       if (virtual) 'virtual',
-      if (synthetized) 'synthetized',
+      if (synthesized) 'synthesized',
     ].join(' ');
     return DefaultTextStyle.merge(
       style: const TextStyle(fontSize: 12),
@@ -335,7 +335,7 @@ class _RepresentationWidget extends StatelessWidget {
 
   final DataFormat format;
   final String name;
-  final bool synthetized;
+  final bool synthesized;
   final bool virtual;
   final Widget content;
 }
@@ -354,7 +354,7 @@ Future<_RepresentationWidget?> _widgetForImage(
     return _RepresentationWidget(
       format: format,
       name: 'Image ($name)',
-      synthetized: reader.isSynthetized(format),
+      synthesized: reader.isSynthesized(format),
       virtual: reader.isVirtual(format),
       content: Container(
         padding: const EdgeInsets.only(top: 4),
@@ -381,13 +381,13 @@ Future<_RepresentationWidget?> _widgetForFormat(
         return _RepresentationWidget(
           format: format,
           name: 'Plain Text',
-          synthetized: reader.isSynthetized(format),
+          synthesized: reader.isSynthesized(format),
           virtual: reader.isVirtual(format),
           content: Text(sanitized),
         );
       }
     case Formats.plainTextFile:
-      if (!reader.isVirtual(format) && !reader.isSynthetized(format)) {
+      if (!reader.isVirtual(format) && !reader.isSynthesized(format)) {
         return null;
       }
       final contents = await reader.readFile(Formats.plainTextFile);
@@ -398,7 +398,7 @@ Future<_RepresentationWidget?> _widgetForFormat(
         return _RepresentationWidget(
           format: format,
           name: 'Plain Text (utf8 file)',
-          synthetized: reader.isSynthetized(format),
+          synthesized: reader.isSynthesized(format),
           virtual: reader.isVirtual(format),
           content: Text(text),
         );
@@ -411,7 +411,7 @@ Future<_RepresentationWidget?> _widgetForFormat(
         return _RepresentationWidget(
           format: format,
           name: 'HTML Text',
-          synthetized: reader.isSynthetized(format),
+          synthesized: reader.isSynthesized(format),
           virtual: reader.isVirtual(format),
           content: Text(html),
         );
@@ -439,7 +439,7 @@ Future<_RepresentationWidget?> _widgetForFormat(
         return _RepresentationWidget(
           format: Formats.fileUri,
           name: 'File URI',
-          synthetized: reader.isSynthetized(format),
+          synthesized: reader.isSynthesized(format),
           virtual: reader.isVirtual(format),
           content: Text(fileUri.toString()),
         );
@@ -449,7 +449,7 @@ Future<_RepresentationWidget?> _widgetForFormat(
         return _RepresentationWidget(
           format: Formats.uri,
           name: 'URI',
-          synthetized: reader.isSynthetized(Formats.uri),
+          synthesized: reader.isSynthesized(Formats.uri),
           virtual: reader.isVirtual(Formats.uri),
           content: _UriWidget(uri: uri),
         );
@@ -463,7 +463,7 @@ Future<_RepresentationWidget?> _widgetForFormat(
         return _RepresentationWidget(
           format: format,
           name: 'Custom Data',
-          synthetized: reader.isSynthetized(formatCustom),
+          synthesized: reader.isSynthesized(formatCustom),
           virtual: reader.isVirtual(formatCustom),
           content: Text(data.toString()),
         );

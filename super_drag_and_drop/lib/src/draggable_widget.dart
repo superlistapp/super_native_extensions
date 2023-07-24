@@ -31,7 +31,7 @@ typedef DragItemProvider = FutureOr<DragItem?> Function(DragItemRequest);
 /// ```dart
 /// DragItemWidget(
 ///   dragItemProvider: (request) async {
-///     // DragItem represents the content bein dragged.
+///     // DragItem represents the content being dragged.
 ///     final item = DragItem(
 ///       // snapshot() will return image snapshot of the DragItemWidget.
 ///       // You can use any other drag image if your wish.

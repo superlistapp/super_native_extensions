@@ -130,7 +130,7 @@ impl PlatformDataReader {
         Ok(formats)
     }
 
-    fn need_to_synthetize_png(&self) -> NativeExtensionsResult<bool> {
+    fn need_to_synthesize_png(&self) -> NativeExtensionsResult<bool> {
         let png = unsafe { RegisterClipboardFormatW(w!("PNG")) };
         let formats = self.data_object_formats_raw()?;
         let has_dib =
@@ -141,7 +141,7 @@ impl PlatformDataReader {
 
     fn data_object_formats(&self) -> NativeExtensionsResult<Vec<u32>> {
         let mut res = self.data_object_formats_raw()?;
-        if self.need_to_synthetize_png()? {
+        if self.need_to_synthesize_png()? {
             let png = unsafe { RegisterClipboardFormatW(w!("PNG")) };
             res.push(png);
         }
@@ -180,12 +180,12 @@ impl PlatformDataReader {
         self.get_formats_for_item_sync(item)
     }
 
-    pub fn item_format_is_synthetized(
+    pub fn item_format_is_synthesized(
         &self,
         _item: i64,
         format: &str,
     ) -> NativeExtensionsResult<bool> {
-        Ok(format == "PNG" && self.need_to_synthetize_png()?)
+        Ok(format == "PNG" && self.need_to_synthesize_png()?)
     }
 
     pub async fn can_copy_virtual_file_for_item(
@@ -284,7 +284,7 @@ impl PlatformDataReader {
             } else {
                 Ok(Value::Null)
             }
-        } else if format == png && self.need_to_synthetize_png()? {
+        } else if format == png && self.need_to_synthesize_png()? {
             let png_data = self.generate_png().await?;
             Ok(png_data.into())
         } else {

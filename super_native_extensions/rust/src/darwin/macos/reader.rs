@@ -126,8 +126,8 @@ impl PlatformDataReader {
                 for i in 0..NSArray::count(types) {
                     let format = from_nsstring(NSArray::objectAtIndex(types, i));
                     push(&mut res, format.clone());
-                    // Put synthetized PNG right after tiff
-                    if format == "public.tiff" && self.needs_to_synthetize_png(item) {
+                    // Put synthesized PNG right after tiff
+                    if format == "public.tiff" && self.needs_to_synthesize_png(item) {
                         res.push("public.png".to_string());
                     }
                 }
@@ -138,7 +138,7 @@ impl PlatformDataReader {
         })
     }
 
-    fn needs_to_synthetize_png(&self, item: i64) -> bool {
+    fn needs_to_synthesize_png(&self, item: i64) -> bool {
         autoreleasepool(|| unsafe {
             let items: id = msg_send![*self.pasteboard, pasteboardItems];
             let mut has_tiff = false;
@@ -156,12 +156,12 @@ impl PlatformDataReader {
         })
     }
 
-    pub fn item_format_is_synthetized(
+    pub fn item_format_is_synthesized(
         &self,
         item: i64,
         format: &str,
     ) -> NativeExtensionsResult<bool> {
-        Ok(format == "public.png" && self.needs_to_synthetize_png(item))
+        Ok(format == "public.png" && self.needs_to_synthesize_png(item))
     }
 
     fn item_has_virtual_file(&self, item: i64) -> bool {
@@ -293,7 +293,7 @@ impl PlatformDataReader {
         data_type: String,
         _progress: Option<Arc<ReadProgress>>,
     ) -> NativeExtensionsResult<Value> {
-        if data_type == "public.png" && self.needs_to_synthetize_png(item) {
+        if data_type == "public.png" && self.needs_to_synthesize_png(item) {
             let tiff = self
                 .do_get_data_for_item(item, "public.tiff".to_owned())
                 .await?;

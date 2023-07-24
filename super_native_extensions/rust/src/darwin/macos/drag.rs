@@ -119,16 +119,16 @@ impl PlatformDragContext {
                     NSEventPhase::NSEventPhaseEnded.bits() as i64,
                 );
 
-                let synthetized: id = msg_send![class!(NSEvent), eventWithCGEvent: event];
+                let synthesized: id = msg_send![class!(NSEvent), eventWithCGEvent: event];
                 CFRelease(event as *mut _);
 
                 let window: id = msg_send![*self.view, window];
-                let _: () = msg_send![window, sendEvent: synthetized];
+                let _: () = msg_send![window, sendEvent: synthesized];
             }
         }
     }
 
-    pub unsafe fn synthetize_mouse_up_event(&self) {
+    pub unsafe fn synthesize_mouse_up_event(&self) {
         self.finish_momentum_events();
 
         if let Some(event) = self.last_mouse_down_event.borrow().as_ref().cloned() {
@@ -142,11 +142,11 @@ impl PlatformDragContext {
             let event = CGEventCreateCopy(event);
             CGEventSetType(event, opposite);
 
-            let synthetized: id = msg_send![class!(NSEvent), eventWithCGEvent: event];
+            let synthesized: id = msg_send![class!(NSEvent), eventWithCGEvent: event];
             CFRelease(event as *mut _);
 
             let window: id = msg_send![*self.view, window];
-            let _: () = msg_send![window, sendEvent: synthetized];
+            let _: () = msg_send![window, sendEvent: synthesized];
         }
     }
 
@@ -161,7 +161,7 @@ impl PlatformDragContext {
         session_id: DragSessionId,
     ) -> NativeExtensionsResult<()> {
         autoreleasepool(|| unsafe {
-            self.synthetize_mouse_up_event();
+            self.synthesize_mouse_up_event();
 
             let mut dragging_items = Vec::<id>::new();
             let mut data_provider_handles = Vec::<_>::new();
@@ -265,7 +265,7 @@ impl PlatformDragContext {
         }
     }
 
-    fn synthetize_mouse_move_if_needed(&self) {
+    fn synthesize_mouse_move_if_needed(&self) {
         unsafe {
             fn system_uptime() -> f64 {
                 unsafe {
@@ -332,7 +332,7 @@ impl PlatformDragContext {
         }
 
         // Fix hover after mouse move
-        self.synthetize_mouse_move_if_needed();
+        self.synthesize_mouse_move_if_needed();
         // Wait a bit to ensure drop site had enough time to request data.
         // Note that for file promises the drop notifier lifetime is extended
         // until the promise is fulfilled in data source.

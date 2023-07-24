@@ -265,12 +265,12 @@ impl DataReaderManager {
             .await
     }
 
-    async fn item_format_is_synthetized(
+    async fn item_format_is_synthesized(
         &self,
-        request: ItemFormatIsSynthetizedRequest,
+        request: ItemFormatIsSynthesizedRequest,
     ) -> NativeExtensionsResult<bool> {
         self.get_reader(request.reader_handle)?
-            .item_format_is_synthetized(request.item_handle, &request.format)
+            .item_format_is_synthesized(request.item_handle, &request.format)
     }
 
     async fn get_item_suggested_name(
@@ -427,7 +427,7 @@ struct ItemFormatsRequest {
 
 #[derive(TryFromValue)]
 #[irondash(rename_all = "camelCase")]
-struct ItemFormatIsSynthetizedRequest {
+struct ItemFormatIsSynthesizedRequest {
     item_handle: i64,
     reader_handle: DataReaderId,
     format: String,
@@ -539,8 +539,8 @@ impl AsyncMethodHandler for DataReaderManager {
                 .get_item_formats(call.args.try_into()?)
                 .await
                 .into_platform_result(),
-            "itemFormatIsSynthetized" => self
-                .item_format_is_synthetized(call.args.try_into()?)
+            "itemFormatIsSynthesized" => self
+                .item_format_is_synthesized(call.args.try_into()?)
                 .await
                 .into_platform_result(),
             "getItemSuggestedName" => self

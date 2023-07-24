@@ -31,7 +31,7 @@ use crate::{
     menu_manager::{PlatformMenuContextDelegate, PlatformMenuContextId, PlatformMenuDelegate},
 };
 
-use super::common::{surface_from_image_data, synthetize_button_up};
+use super::common::{surface_from_image_data, synthesize_button_up};
 
 pub struct PlatformMenuContext {
     _delegate: Weak<dyn PlatformMenuContextDelegate>,
@@ -396,7 +396,7 @@ impl PlatformMenuContext {
             .last_event()
             .ok_or(NativeExtensionsError::MouseEventNotFound)?;
 
-        let mut release = synthetize_button_up(&event);
+        let mut release = synthesize_button_up(&event);
         gtk::main_do_event(&mut release);
 
         let view = self.view.upgrade().unwrap();
