@@ -1,4 +1,4 @@
-use std::{mem::size_of, os::raw::c_void, ptr::null_mut};
+use std::{fs::OpenOptions, io::Write, mem::size_of, os::raw::c_void, path::Path, ptr::null_mut};
 
 use once_cell::sync::Lazy;
 use windows::{
@@ -230,27 +230,62 @@ pub fn get_dpi_for_window(hwnd: HWND) -> u32 {
     }
 }
 
-pub fn read_stream_fully(stream: IStream) -> Vec<u8> {
-    let mut res = Vec::<u8>::new();
-    let mut buf: [u8; 4096] = [0; 4096];
+fn read_stream_fully_with<F: FnMut(&[u8]) -> bool>(
+    stream: &IStream,
+    mut fun: F,
+) -> windows::core::Result<()> {
+    let mut buf: [u8; 256 * 1024] = [0; 256 * 1024];
     loop {
         let mut num_read: u32 = 0;
-        if unsafe {
+        let res = unsafe {
             stream.Read(
                 buf.as_mut_ptr() as *mut _,
                 buf.len() as u32,
                 Some(&mut num_read as *mut _),
             )
-        }
-        .is_err()
-        {
-            break;
+        };
+        if res.is_err() {
+            return Err(res.into());
         }
 
         if num_read == 0 {
             break;
         }
-        res.extend_from_slice(&buf[..num_read as usize]);
+        if !fun(&buf[..num_read as usize]) {
+            break;
+        }
     }
+    Ok(())
+}
+
+pub fn read_stream_fully(stream: &IStream) -> windows::core::Result<Vec<u8>> {
+    let mut res = Vec::<u8>::new();
+    read_stream_fully_with(stream, |b| {
+        res.extend_from_slice(b);
+        true
+    })?;
+    Ok(res)
+}
+
+pub fn copy_stream_to_file(stream: &IStream, path: &Path) -> NativeExtensionsResult<()> {
+    let mut file = OpenOptions::new()
+        .write(true)
+        .truncate(true)
+        .create(true)
+        .open(path)?;
+
+    let mut res = Ok(());
+
+    read_stream_fully_with(stream, |b| {
+        let write_res = file.write_all(b);
+        match write_res {
+            Ok(_) => true,
+            Err(err) => {
+                res = Err(err.into());
+                false
+            }
+        }
+    })?;
+
     res
 }

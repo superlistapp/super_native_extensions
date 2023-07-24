@@ -420,6 +420,7 @@ impl PlatformDropContext {
                         // this will be read by drop notifier in DataReader and used for
                         // IDataObjectAsyncCapability::EndOperation result (when data reader gets dropped)
                         session.async_result.set(Some(*effect));
+                        session.reader.set_supports_async();
                         unsafe {
                             data_object_async.StartOperation(None).ok_log();
                         }

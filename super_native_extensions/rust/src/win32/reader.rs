@@ -1,4 +1,5 @@
 use std::{
+    cell::{Cell, RefCell},
     ffi::CStr,
     fs::{self, File},
     io::Write,
@@ -57,7 +58,10 @@ use crate::{
 };
 
 use super::{
-    common::{extract_formats, format_from_string, format_to_string},
+    common::{
+        copy_stream_to_file, extract_formats, format_from_string, format_to_string,
+        read_stream_fully,
+    },
     data_object::{DataObject, GetData},
     image_conversion::convert_to_png,
 };
@@ -65,6 +69,7 @@ use super::{
 pub struct PlatformDataReader {
     data_object: IDataObject,
     _drop_notifier: Option<Arc<DropNotifier>>,
+    supports_async: Cell<bool>,
 }
 
 /// Virtual file descriptor
@@ -306,9 +311,14 @@ impl PlatformDataReader {
         let res = Rc::new(PlatformDataReader {
             data_object,
             _drop_notifier: drop_notifier,
+            supports_async: Cell::new(false),
         });
         res.assign_weak_self(Rc::downgrade(&res));
         res
+    }
+
+    pub fn set_supports_async(&self) {
+        self.supports_async.set(true);
     }
 
     pub fn new_clipboard_reader() -> NativeExtensionsResult<Rc<Self>> {
@@ -482,9 +492,15 @@ impl PlatformDataReader {
         let stream = Self::stream_from_medium(&medium);
         unsafe { ReleaseStgMedium(&mut medium as *mut STGMEDIUM) };
         let stream = stream?;
-        let stream = unsafe { Movable::new(stream) };
-        let reader = StreamReader::new(stream, descriptor.name).await?;
-        Ok(Some(Rc::new(reader)))
+
+        if self.supports_async.get() {
+            let stream = unsafe { Movable::new(stream) };
+            let reader = AsyncStreamReader::new(stream, descriptor.name).await?;
+            Ok(Some(Rc::new(reader)))
+        } else {
+            let reader = EagerStreamReader::new(stream, descriptor.name)?;
+            Ok(Some(Rc::new(reader)))
+        }
     }
 
     fn do_copy_virtual_file(
@@ -492,6 +508,7 @@ impl PlatformDataReader {
         file_name: &str,
         target_folder: PathBuf,
         progress: Arc<ReadProgress>,
+        supports_async: bool,
         completer: FutureCompleter<NativeExtensionsResult<PathBuf>>,
     ) {
         match medium.tymed {
@@ -503,6 +520,7 @@ impl PlatformDataReader {
                     let data = slice::from_raw_parts(data as *const u8, size);
                     let res = fs::write(&path, data);
                     GlobalUnlock(medium.Anonymous.hGlobal);
+                    progress.report_progress(Some(1.0));
                     res
                 };
                 match res {
@@ -514,17 +532,30 @@ impl PlatformDataReader {
             }
             TYMED_ISTREAM => match unsafe { medium.Anonymous.pstm.as_ref() } {
                 Some(stream) => {
-                    let reader = VirtualStreamCopier {
-                        sender: RunLoop::current().new_sender(),
-                        stream: unsafe { Movable::new(stream.clone()) },
-                        file_name: file_name.into(),
-                        target_folder,
-                        progress,
-                        completer: Capsule::new(completer),
-                    };
-                    thread::spawn(move || {
-                        reader.read();
-                    });
+                    if supports_async {
+                        let copier = AsyncVirtualStreamCopier {
+                            sender: RunLoop::current().new_sender(),
+                            stream: unsafe { Movable::new(stream.clone()) },
+                            file_name: file_name.into(),
+                            target_folder,
+                            progress,
+                            completer: Capsule::new(completer),
+                        };
+                        thread::spawn(move || {
+                            copier.copy();
+                        });
+                    } else {
+                        let path = get_target_path(&target_folder, file_name);
+                        unsafe { stream.Seek(0, STREAM_SEEK_SET, None).ok_log() };
+                        let res = copy_stream_to_file(stream, &path);
+                        progress.report_progress(Some(1.0));
+                        match res {
+                            Ok(_) => completer.complete(Ok(path)),
+                            Err(err) => completer.complete(Err(
+                                NativeExtensionsError::VirtualFileReceiveError(err.to_string()),
+                            )),
+                        }
+                    }
                 }
                 None => completer.complete(Err(NativeExtensionsError::VirtualFileReceiveError(
                     "IStream missing".into(),
@@ -588,6 +619,7 @@ impl PlatformDataReader {
                 &descriptor.name,
                 target_folder,
                 progress,
+                self.supports_async.get(),
                 completer,
             );
             ReleaseStgMedium(&mut medium as *mut STGMEDIUM);
@@ -596,7 +628,47 @@ impl PlatformDataReader {
     }
 }
 
-struct StreamReader {
+// Stream reader for applications that don't support IDataObjectAsyncCapability,
+// such as Microsoft Outlook apparently. Just. Sad.
+struct EagerStreamReader {
+    size: Option<i64>,
+    file_name: Option<String>,
+    data: RefCell<Vec<u8>>,
+}
+
+impl EagerStreamReader {
+    pub fn new(stream: IStream, file_name: String) -> NativeExtensionsResult<Self> {
+        unsafe { stream.Seek(0, STREAM_SEEK_SET, None)? };
+        let data = read_stream_fully(&stream)?;
+        Ok(Self {
+            size: Some(data.len() as i64),
+            file_name: Some(file_name),
+            data: RefCell::new(data),
+        })
+    }
+}
+
+#[async_trait(?Send)]
+impl VirtualFileReader for EagerStreamReader {
+    async fn read_next(&self) -> NativeExtensionsResult<Vec<u8>> {
+        let res = self.data.replace(Vec::new());
+        Ok(res)
+    }
+
+    fn file_size(&self) -> NativeExtensionsResult<Option<i64>> {
+        Ok(self.size)
+    }
+
+    fn file_name(&self) -> Option<String> {
+        self.file_name.clone()
+    }
+
+    fn close(&self) -> NativeExtensionsResult<()> {
+        Ok(())
+    }
+}
+
+struct AsyncStreamReader {
     stream: Movable<IStream>,
     length: u64,
     file_name: String,
@@ -610,11 +682,11 @@ struct ReadState {
     num_read: u64,
 }
 
-impl StreamReader {
+impl AsyncStreamReader {
     async fn new(stream: Movable<IStream>, file_name: String) -> NativeExtensionsResult<Self> {
         let thread_pool = ThreadPool::new(1);
         let length = Self::stream_length(&stream, &thread_pool).await?;
-        Ok(StreamReader {
+        Ok(AsyncStreamReader {
             stream,
             length,
             file_name,
@@ -688,7 +760,7 @@ impl StreamReader {
 }
 
 #[async_trait(?Send)]
-impl VirtualFileReader for StreamReader {
+impl VirtualFileReader for AsyncStreamReader {
     async fn read_next(&self) -> NativeExtensionsResult<Vec<u8>> {
         let (future, completer) = FutureCompleter::new();
         let sender = RunLoop::current().new_sender();
@@ -722,7 +794,7 @@ impl VirtualFileReader for StreamReader {
 // Most streams in COM should be agile, also the documentation for IDataObjectAsyncCapability
 // assumes that the stream is read on background thread so we wrap it inside Movable
 // in order to be able to send it.
-struct VirtualStreamCopier {
+struct AsyncVirtualStreamCopier {
     sender: RunLoopSender,
     stream: Movable<IStream>,
     file_name: String,
@@ -731,7 +803,7 @@ struct VirtualStreamCopier {
     completer: Capsule<FutureCompleter<NativeExtensionsResult<PathBuf>>>,
 }
 
-impl VirtualStreamCopier {
+impl AsyncVirtualStreamCopier {
     fn get_length(&self) -> NativeExtensionsResult<u64> {
         let mut stat = STATSTG::default();
         unsafe {
@@ -828,7 +900,7 @@ impl VirtualStreamCopier {
         Ok(())
     }
 
-    fn read(self) {
+    fn copy(self) {
         let res = self.read_inner();
         let mut completer = self.completer;
         self.sender.send(move || {
