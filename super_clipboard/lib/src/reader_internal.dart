@@ -56,29 +56,29 @@ class ItemDataReader extends ClipboardDataReader {
   ItemDataReader._({
     required this.item,
     required this.formats,
-    required this.synthetizedFormats,
+    required this.synthesizedFormats,
     required this.virtualReceivers,
-    required this.synthetizedFromURIFormat,
+    required this.synthesizedFromURIFormat,
   });
 
   static Future<ClipboardDataReader> fromItem(raw.DataReaderItem item) async {
     final allFormats = await item.getAvailableFormats();
-    final isSynthetized =
-        await Future.wait(allFormats.map((f) => item.isSynthetized(f)));
+    final isSynthesized =
+        await Future.wait(allFormats.map((f) => item.isSynthesized(f)));
 
     final virtualReceivers = (await Future.wait(
             allFormats.map((f) => item.getVirtualFileReceiver(format: f))))
         .whereNotNull()
         .toList(growable: false);
 
-    final synthetizedFormats = allFormats
-        .whereIndexed((index, _) => isSynthetized[index])
+    final synthesizedFormats = allFormats
+        .whereIndexed((index, _) => isSynthesized[index])
         .toList(growable: false);
 
-    String? synthetizedFromURIFormat;
+    String? synthesizedFromURIFormat;
 
     /// If there are no virtual receivers but there is File URI, we'll
-    /// try to synthetize a format from it.
+    /// try to synthesize a format from it.
     if (virtualReceivers.isEmpty) {
       for (final format in allFormats) {
         if (Formats.fileUri.canDecode(format)) {
@@ -92,7 +92,7 @@ class ItemDataReader extends ClipboardDataReader {
           if (uri != null) {
             final format = await raw.DataReader.formatForFileUri(uri);
             if (format != null && !allFormats.contains(format)) {
-              synthetizedFromURIFormat = format;
+              synthesizedFromURIFormat = format;
             }
           }
         }
@@ -102,9 +102,9 @@ class ItemDataReader extends ClipboardDataReader {
     return ItemDataReader._(
       item: item,
       formats: allFormats,
-      synthetizedFormats: synthetizedFormats,
+      synthesizedFormats: synthesizedFormats,
       virtualReceivers: virtualReceivers,
-      synthetizedFromURIFormat: synthetizedFromURIFormat,
+      synthesizedFromURIFormat: synthesizedFromURIFormat,
     );
   }
 
@@ -137,12 +137,12 @@ class ItemDataReader extends ClipboardDataReader {
     AsyncValueChanged<DataReaderFile> onFile, {
     ValueChanged<Object>? onError,
     bool allowVirtualFiles = true,
-    bool synthetizeFilesFromURIs = true,
+    bool synthesizeFilesFromURIs = true,
   }) {
     if (format == null &&
-        synthetizeFilesFromURIs &&
-        synthetizedFromURIFormat != null) {
-      format = SimpleFileFormat(fallbackFormats: [synthetizedFromURIFormat!]);
+        synthesizeFilesFromURIs &&
+        synthesizedFromURIFormat != null) {
+      format = SimpleFileFormat(fallbackFormats: [synthesizedFromURIFormat!]);
     }
 
     if (format == null && allowVirtualFiles && virtualReceivers.isNotEmpty) {
@@ -165,9 +165,9 @@ class ItemDataReader extends ClipboardDataReader {
           Zone.current
               .handleUncaughtError(error, AsyncError.defaultStackTrace(error));
         };
-    if (synthetizeFilesFromURIs &&
-        synthetizedFromURIFormat != null &&
-        format.canDecode(synthetizedFromURIFormat!)) {
+    if (synthesizeFilesFromURIs &&
+        synthesizedFromURIFormat != null &&
+        format.canDecode(synthesizedFromURIFormat!)) {
       return getValue<Uri>(Formats.fileUri, (value) async {
         if (value != null) {
           final file = raw.VirtualFile.fromFileUri(value);
@@ -177,7 +177,7 @@ class ItemDataReader extends ClipboardDataReader {
             res.then((_) => adapter.maybeClose());
           }
         } else {
-          // This should never happen - the URI was alrady retrieved once in
+          // This should never happen - the URI was already retrieved once in
           // ItemDataReader.forItem.
           handleError(StateError('Could not retrieve URI'));
         }
@@ -279,15 +279,15 @@ class ItemDataReader extends ClipboardDataReader {
   List<PlatformFormat> get platformFormats {
     return [
       ...formats,
-      if (synthetizedFromURIFormat != null) synthetizedFromURIFormat!
+      if (synthesizedFromURIFormat != null) synthesizedFromURIFormat!
     ];
   }
 
   @override
-  bool isSynthetized(DataFormat format) {
+  bool isSynthesized(DataFormat format) {
     return format.decodingFormats.any((f) =>
-        synthetizedFormats.contains(f) || //
-        synthetizedFromURIFormat == f);
+        synthesizedFormats.contains(f) || //
+        synthesizedFromURIFormat == f);
   }
 
   @override
@@ -318,7 +318,7 @@ class ItemDataReader extends ClipboardDataReader {
 
   final raw.DataReaderItem item;
   final List<PlatformFormat> formats;
-  final List<PlatformFormat> synthetizedFormats;
+  final List<PlatformFormat> synthesizedFormats;
   final List<VirtualFileReceiver> virtualReceivers;
-  final PlatformFormat? synthetizedFromURIFormat;
+  final PlatformFormat? synthesizedFromURIFormat;
 }

@@ -104,7 +104,7 @@ class ItemPreview {
     this.fadeOutDuration,
   });
 
-  /// Destination (in global cooridantes) to where the item should land.
+  /// Destination (in global coordinates) to where the item should land.
   final ui.Rect destinationRect;
 
   /// Destination image to which the drag image will morph. If not provided,

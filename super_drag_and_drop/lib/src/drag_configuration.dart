@@ -25,7 +25,7 @@ class DragItem extends DataWriterItem {
   final Object? localData;
 }
 
-/// Single item of [DragConfiguration] consisting of drag item and coresponing
+/// Single item of [DragConfiguration] consisting of drag item and corresponding
 /// image.
 class DragConfigurationItem {
   DragConfigurationItem({
@@ -39,7 +39,7 @@ class DragConfigurationItem {
   final TargetedWidgetSnapshot? liftImage;
 }
 
-/// Addtional options for drag session.
+/// Additional options for drag session.
 class DragOptions {
   const DragOptions({
     this.animatesToStartingPositionOnCancelOrFail = true,
@@ -67,6 +67,6 @@ class DragConfiguration {
   /// Allowed drop operation for this session.
   final List<DropOperation> allowedOperations;
 
-  /// Additonal platform sepcific options.
+  /// Additional platform specific options.
   final DragOptions options;
 }

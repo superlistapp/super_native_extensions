@@ -61,7 +61,7 @@ class DragDriver {
     final data = packet.data.first;
     if (!_didReleasePointer) {
       if (data.change == ui.PointerChange.move) {
-        // Synthetize pointer up event to pass to framework.
+        // Synthesize pointer up event to pass to framework.
         _didReleasePointer = true;
         final newData = ui.PointerData(
           buttons: 0,
@@ -89,7 +89,7 @@ class DragDriver {
         data.change == ui.PointerChange.cancel ||
         data.change == ui.PointerChange.remove) {
       delegate.end(offset);
-      // Synthetize hover packet to properly update mouse regions.
+      // Synthesize hover packet to properly update mouse regions.
       if (data.kind == PointerDeviceKind.mouse) {
         final newData = ui.PointerData(
           buttons: 0,

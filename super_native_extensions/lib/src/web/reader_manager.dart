@@ -90,7 +90,7 @@ class DataProviderReaderItem extends DataReaderItemHandleImpl {
 class ReaderManagerImpl extends ReaderManager {
   @override
   Future<void> dispose(DataReaderHandle reader) async {
-    // we don't register the items anywhere so there's nothing to undergister
+    // We don't register the items anywhere so there's nothing to unregister.
   }
 
   @override
@@ -125,7 +125,7 @@ class ReaderManagerImpl extends ReaderManager {
   }
 
   @override
-  Future<bool> itemFormatIsSynthetized(
+  Future<bool> itemFormatIsSynthesized(
     DataReaderItemHandle handle, {
     required String format,
   }) async {

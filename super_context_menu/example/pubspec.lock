@@ -298,7 +298,7 @@ packages:
     source: hosted
     version: "2.1.4"
   win32:
-    dependency: "direct main"
+    dependency: transitive
     description:
       name: win32
       sha256: "7dacfda1edcca378031db9905ad7d7bd56b29fd1a90b0908b71a52a12c41e36b"

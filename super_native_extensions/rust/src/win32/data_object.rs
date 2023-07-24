@@ -202,7 +202,7 @@ impl DataObject {
         }
     }
 
-    fn get_source_stream_for_synthetized_bitmap(&self) -> windows::core::Result<IStream> {
+    fn get_source_stream_for_synthesized_bitmap(&self) -> windows::core::Result<IStream> {
         let foreign_formats = Self::foreign_formats();
         let formats = self.get_formats();
         for format in formats {
@@ -217,8 +217,8 @@ impl DataObject {
         ))
     }
 
-    fn synthetize_bitmap_data(&self, use_v5: bool) -> windows::core::Result<Vec<u8>> {
-        let input_stream = self.get_source_stream_for_synthetized_bitmap()?;
+    fn synthesize_bitmap_data(&self, use_v5: bool) -> windows::core::Result<Vec<u8>> {
+        let input_stream = self.get_source_stream_for_synthesized_bitmap()?;
         convert_to_dib(input_stream, use_v5)
     }
 
@@ -231,7 +231,7 @@ impl DataObject {
 
     /// If there are any image formats not supported by windows natively
     /// and no DIB or DIBV5 we need to generate those.
-    fn needs_synthetize_bitmap(&self) -> bool {
+    fn needs_synthesize_bitmap(&self) -> bool {
         let foreign_formats = Self::foreign_formats();
         let mut has_bmp = false;
         let mut has_foreign = false;
@@ -285,7 +285,7 @@ impl DataObject {
             }
         }
 
-        if self.needs_synthetize_bitmap() {
+        if self.needs_synthesize_bitmap() {
             res.push(make_format_with_tymed(CF_DIB.0 as u32, TYMED_HGLOBAL));
             res.push(make_format_with_tymed(CF_DIBV5.0 as u32, TYMED_HGLOBAL));
         }
@@ -506,7 +506,7 @@ impl IDataObject_Impl for DataObject {
             });
         }
 
-        let needs_generate_bitmap = self.needs_synthetize_bitmap();
+        let needs_generate_bitmap = self.needs_synthesize_bitmap();
 
         let data = self
             .extra_data
@@ -519,9 +519,9 @@ impl IDataObject_Impl for DataObject {
                 } else if format.cfFormat == CF_HDROP.0 {
                     self.data_for_hdrop()
                 } else if needs_generate_bitmap && format.cfFormat == CF_DIB.0 {
-                    self.synthetize_bitmap_data(false).ok_log()
+                    self.synthesize_bitmap_data(false).ok_log()
                 } else if needs_generate_bitmap && format.cfFormat == CF_DIBV5.0 {
-                    self.synthetize_bitmap_data(true).ok_log()
+                    self.synthesize_bitmap_data(true).ok_log()
                 } else {
                     self.data_for_format(format.cfFormat as u32, 0)
                 }

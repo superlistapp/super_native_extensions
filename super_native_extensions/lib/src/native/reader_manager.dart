@@ -17,7 +17,7 @@ class DataReaderHandleImpl {
   })  : _handle = handle,
         _finalizableHandle = finalizableHandle {
     // In release mode the garbage collector eagerly disposes
-    // _finalizableHandle even if the surroudning DataReaderHandleImpl
+    // _finalizableHandle even if the surrounding DataReaderHandleImpl
     // is still reachable.
     // This is a workaround to keep the handle alive.
     _useHandle();
@@ -95,14 +95,14 @@ class ReaderManagerImpl extends ReaderManager {
   }
 
   @override
-  Future<bool> itemFormatIsSynthetized(
+  Future<bool> itemFormatIsSynthesized(
     DataReaderItemHandle handle, {
     required String format,
   }) {
     if (handle._reader._disposed) {
       throw StateError("Attempting to query item status from disposed reader.");
     }
-    return _channel.invokeMethod("itemFormatIsSynthetized", {
+    return _channel.invokeMethod("itemFormatIsSynthesized", {
       "itemHandle": handle._itemHandle,
       "readerHandle": handle._readerHandle,
       "format": format,

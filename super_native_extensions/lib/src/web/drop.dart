@@ -330,7 +330,7 @@ class DropContextImpl extends DropContext {
   }
 
   /// Last element received dragEnter event. We ignore all dragLeave events
-  /// from other elements becuase when using platform view the drag events
+  /// from other elements because when using platform view the drag events
   /// are not propagated to parent elements.
   /// https://github.com/superlistapp/super_native_extensions/issues/98
   html.EventTarget? _lastDragEnter;

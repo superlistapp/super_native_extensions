@@ -40,7 +40,7 @@ class MobileContextMenuWidget extends StatefulWidget {
   final Widget child;
   final MobileMenuWidgetBuilder menuWidgetBuilder;
 
-  /// Base icon theme for menu icons. The size will be overriden depending
+  /// Base icon theme for menu icons. The size will be overridden depending
   /// on platform.
   final IconThemeData? iconTheme;
 

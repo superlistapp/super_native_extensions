@@ -244,7 +244,7 @@ impl PlatformDataReader {
         Self::from_clip_data(&env, clip_data, None)
     }
 
-    pub fn item_format_is_synthetized(
+    pub fn item_format_is_synthesized(
         &self,
         _item: i64,
         _format: &str,

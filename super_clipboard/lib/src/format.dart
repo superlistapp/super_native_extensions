@@ -61,7 +61,7 @@ abstract class PlatformCodec<T extends Object> {
   }
 }
 
-/// Base class for formats of data transfered to clipboard and drag & drop.
+/// Base class for formats of data transferred to clipboard and drag & drop.
 /// This branches into [ValueFormat] for data values that need to be converted
 /// from and to platform specific formats (such as plain text, HTML snippet,
 /// uri) and [FileFormat] representing files that are processed without

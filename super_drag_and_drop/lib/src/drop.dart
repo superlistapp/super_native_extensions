@@ -31,7 +31,7 @@ abstract class DropItem with Diagnosticable {
   List<PlatformFormat> get platformFormats;
 }
 
-/// Allows quering the state of drop session such as the items being dropped
+/// Allows querying the state of drop session such as the items being dropped
 /// and allowed drop operations.
 abstract class DropSession with Diagnosticable {
   /// List of items being dropped. List content may change over time for single
@@ -329,7 +329,7 @@ class DropItemPreview {
     this.fadeOutDuration,
   });
 
-  /// Destination (in global coordintes) to where the item should land.
+  /// Destination (in global coordinates) to where the item should land.
   final Rect destinationRect;
 
   /// Destination image to which the drag image will morph. If not provided,

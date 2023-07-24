@@ -41,7 +41,7 @@ abstract class ReadProgress {
   /// This may change over time, client must be prepared to handle that.
   ValueListenable<bool> get cancellable;
 
-  /// Cancels the read operation. Does nothing if alrady cancelled or not
+  /// Cancels the read operation. Does nothing if already cancelled or not
   /// cancellable.
   void cancel();
 }
@@ -69,9 +69,9 @@ class DataReaderItem {
     return ReaderManager.instance.getItemData(_handle, format: format);
   }
 
-  Future<bool> isSynthetized(String format) {
+  Future<bool> isSynthesized(String format) {
     return ReaderManager.instance
-        .itemFormatIsSynthetized(_handle, format: format);
+        .itemFormatIsSynthesized(_handle, format: format);
   }
 
   /// When `true` the content can be received through [getVirtualFileReceiver].

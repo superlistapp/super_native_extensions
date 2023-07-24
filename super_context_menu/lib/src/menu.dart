@@ -80,7 +80,7 @@ class ContextMenuWidget extends StatelessWidget {
   final MobileMenuWidgetBuilder mobileMenuWidgetBuilder;
   final DesktopMenuWidgetBuilder desktopMenuWidgetBuilder;
 
-  /// Base icon theme for menu icons. The size will be overriden depending
+  /// Base icon theme for menu icons. The size will be overridden depending
   /// on platform.
   final IconThemeData? iconTheme;
 

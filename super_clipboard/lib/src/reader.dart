@@ -95,17 +95,17 @@ abstract class DataReader {
     AsyncValueChanged<DataReaderFile> onFile, {
     ValueChanged<Object>? onError,
     bool allowVirtualFiles = true,
-    bool synthetizeFilesFromURIs = true,
+    bool synthesizeFilesFromURIs = true,
   });
 
-  /// Returns whether value for given format is being synthetized. On Windows
+  /// Returns whether value for given format is being synthesized. On Windows
   /// DIB images are accessible as PNG (converted on demand), same thing is
   /// done on macOS for TIFF images.
   ///
   /// On desktop platforms file URIs are also exposed as files with appropriate
   /// formats so they can be read through [DataReaderFile] API. For those
-  /// [isSynthetized] will also return `true`.
-  bool isSynthetized(DataFormat format);
+  /// [isSynthesized] will also return `true`.
+  bool isSynthesized(DataFormat format);
 
   /// When `true`, data in this format is virtual. It means it might not be
   /// readily available and may be generated on demand. This is true for example
@@ -210,7 +210,7 @@ class ClipboardReader extends ClipboardDataReader {
     AsyncValueChanged<DataReaderFile> onFile, {
     ValueChanged<Object>? onError,
     bool allowVirtualFiles = true,
-    bool synthetizeFilesFromURIs = true,
+    bool synthesizeFilesFromURIs = true,
   }) {
     if (format == null) {
       return null;
@@ -221,7 +221,7 @@ class ClipboardReader extends ClipboardDataReader {
       return item.getFile(format, onFile,
           onError: onError,
           allowVirtualFiles: allowVirtualFiles,
-          synthetizeFilesFromURIs: synthetizeFilesFromURIs);
+          synthesizeFilesFromURIs: synthesizeFilesFromURIs);
     } else {
       return null;
     }
@@ -235,8 +235,8 @@ class ClipboardReader extends ClipboardDataReader {
   }
 
   @override
-  bool isSynthetized(DataFormat format) {
-    return items.any((item) => item.isSynthetized(format));
+  bool isSynthesized(DataFormat format) {
+    return items.any((item) => item.isSynthesized(format));
   }
 
   @override

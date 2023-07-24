@@ -258,13 +258,13 @@ impl PlatformMenuContext {
 
     pub fn assign_weak_self(&self, _weak_self: Weak<Self>) {}
 
-    fn synthetize_mouse_up_event(&self) {
+    fn synthesize_mouse_up_event(&self) {
         if let Some(delegate) = self.delegate.upgrade() {
             let drag_contexts = delegate.get_platform_drag_contexts();
             for context in drag_contexts {
                 if *context.view == *self.view {
                     unsafe {
-                        context.synthetize_mouse_up_event();
+                        context.synthesize_mouse_up_event();
                     }
                 }
             }
@@ -288,7 +288,7 @@ impl PlatformMenuContext {
         let flags_before: NSEventModifierFlags =
             unsafe { msg_send![class!(NSEvent), modifierFlags] };
 
-        self.synthetize_mouse_up_event();
+        self.synthesize_mouse_up_event();
 
         let cb = move || {
             let item_selected: BOOL = unsafe {
