@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:super_clipboard/super_clipboard.dart';
 import 'package:super_native_extensions/raw_clipboard.dart' as raw;
 export 'package:super_native_extensions/raw_clipboard.dart'
     show
@@ -10,8 +9,10 @@ export 'package:super_native_extensions/raw_clipboard.dart'
         WriteProgress,
         VirtualFileStorage;
 
+import 'format.dart';
 import 'reader_model.dart';
 import 'util.dart';
+import 'writer.dart';
 import 'writer_data_provider.dart';
 
 /// Represents a single item in the clipboard. The item can have multiple
