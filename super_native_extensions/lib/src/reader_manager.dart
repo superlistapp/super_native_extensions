@@ -15,7 +15,7 @@ abstract class ReaderManager {
 
   Future<List<String>> getItemFormats(DataReaderItemHandle handle);
 
-  Pair<Future<Object?>, ReadProgress> getItemData(
+  (Future<Object?>, ReadProgress) getItemData(
     DataReaderItemHandle handle, {
     required String format,
   });

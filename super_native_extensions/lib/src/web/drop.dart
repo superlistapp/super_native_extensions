@@ -135,16 +135,16 @@ class _VirtualFileReceiver extends VirtualFileReceiver {
   final html.File file;
 
   @override
-  Pair<Future<String>, ReadProgress> copyVirtualFile(
+  (Future<String>, ReadProgress) copyVirtualFile(
       {required String targetFolder}) {
     throw UnimplementedError();
   }
 
   @override
-  Pair<Future<VirtualFile>, ReadProgress> receiveVirtualFile() {
+  (Future<VirtualFile>, ReadProgress) receiveVirtualFile() {
     final progress = SimpleProgress();
     progress.done();
-    return Pair(Future.value(_VirtualFile(file)), progress);
+    return (Future.value(_VirtualFile(file)), progress);
   }
 }
 

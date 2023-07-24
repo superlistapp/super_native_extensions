@@ -123,7 +123,7 @@ class ReaderManagerImpl extends ReaderManager {
   }
 
   @override
-  Pair<Future<Object?>, ReadProgress> getItemData(
+  (Future<Object?>, ReadProgress) getItemData(
     DataReaderItemHandle handle, {
     required String format,
   }) {
@@ -145,7 +145,7 @@ class ReaderManagerImpl extends ReaderManager {
       _completeProgress(progress.id);
       completer.completeError(error);
     });
-    return Pair(completer.future, progress);
+    return (completer.future, progress);
   }
 
   Future<bool> canCopyVirtualFile(
@@ -215,7 +215,7 @@ class ReaderManagerImpl extends ReaderManager {
     }
   }
 
-  Pair<Future<VirtualFile>, ReadProgress> virtualFileCreate(
+  (Future<VirtualFile>, ReadProgress) virtualFileCreate(
     DataReaderItemHandle handle, {
     required String format,
   }) {
@@ -244,7 +244,7 @@ class ReaderManagerImpl extends ReaderManager {
       _completeProgress(progress.id);
       completer.completeError(error);
     });
-    return Pair(completer.future, progress);
+    return (completer.future, progress);
   }
 
   @override
@@ -264,7 +264,7 @@ class ReaderManagerImpl extends ReaderManager {
     await _channel.invokeMethod('virtualFileReaderClose', handle);
   }
 
-  Pair<Future<String>, ReadProgress> copyVirtualFile(
+  (Future<String>, ReadProgress) copyVirtualFile(
     DataReaderItemHandle handle, {
     required String format,
     required String targetFolder,
@@ -288,7 +288,7 @@ class ReaderManagerImpl extends ReaderManager {
       _completeProgress(progress.id);
       completer.completeError(error);
     });
-    return Pair(completer.future, progress);
+    return (completer.future, progress);
   }
 
   void _completeProgress(int progressId) {
@@ -391,12 +391,12 @@ class _VirtualFileReceiver extends VirtualFileReceiver {
   });
 
   @override
-  Pair<Future<VirtualFile>, ReadProgress> receiveVirtualFile() {
+  (Future<VirtualFile>, ReadProgress) receiveVirtualFile() {
     return readerManager.virtualFileCreate(handle, format: format);
   }
 
   @override
-  Pair<Future<String>, ReadProgress> copyVirtualFile({
+  (Future<String>, ReadProgress) copyVirtualFile({
     required String targetFolder,
   }) {
     return readerManager.copyVirtualFile(
@@ -421,7 +421,7 @@ class _CopyVirtualFileReceiver extends CopyVirtualFileReceiver {
   });
 
   @override
-  Pair<Future<String>, ReadProgress> copyVirtualFile({
+  (Future<String>, ReadProgress) copyVirtualFile({
     required String targetFolder,
   }) {
     return readerManager.copyVirtualFile(

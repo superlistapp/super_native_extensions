@@ -10,7 +10,6 @@ export 'package:super_native_extensions/raw_clipboard.dart'
         VirtualFileStorage;
 
 import 'format.dart';
-import 'reader_model.dart';
 import 'util.dart';
 import 'writer.dart';
 import 'writer_data_provider.dart';
@@ -89,16 +88,16 @@ class ClipboardWriter {
 
   /// Writes the provided items in system clipboard.
   Future<void> write(Iterable<DataWriterItem> items) async {
-    final providers = <Pair<raw.DataProvider, DataWriterItem>>[];
+    final providers = <(raw.DataProvider, DataWriterItem)>[];
     for (final item in items) {
       final provider = await item.asDataProvider();
       if (provider.representations.isNotEmpty) {
-        providers.add(Pair(provider, item));
+        providers.add((provider, item));
       }
     }
     final handles = <raw.DataProviderHandle>[];
-    for (final p in providers) {
-      handles.add(await p.second.registerWithDataProvider(p.first));
+    for (final (provider, writer) in providers) {
+      handles.add(await writer.registerWithDataProvider(provider));
     }
     try {
       await raw.ClipboardWriter.instance.write(handles);
