@@ -641,7 +641,7 @@ impl IDataObject_Impl for DataObject {
 
                 let stream_data = if let Some(stream) = stream {
                     stream.Seek(0, STREAM_SEEK_SET, None)?;
-                    read_stream_fully(stream)
+                    read_stream_fully(&stream)?
                 } else {
                     Vec::new()
                 };
@@ -738,7 +738,7 @@ pub trait GetData {
                 if let Some(stream) = stream {
                     // IDataObject streams need to be rewound
                     stream.Seek(0, STREAM_SEEK_SET, None)?;
-                    Ok(read_stream_fully(stream))
+                    read_stream_fully(&stream)
                 } else {
                     Ok(Vec::new())
                 }
