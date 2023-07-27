@@ -85,12 +85,14 @@ abstract class MenuHandle {
 }
 
 class MenuSerializationOptions {
-  MenuSerializationOptions(
-    this.iconTheme,
-    this.devicePixelRatio,
-  );
+  MenuSerializationOptions({
+    required this.iconTheme,
+    required this.destructiveIconTheme,
+    required this.devicePixelRatio,
+  });
 
   final IconThemeData iconTheme;
+  final IconThemeData destructiveIconTheme;
   final double devicePixelRatio;
 }
 
