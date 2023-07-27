@@ -17,14 +17,17 @@ import 'context.dart';
 import 'image_data.dart';
 
 Future<dynamic> _serializeImage(
-    MenuImage? image, MenuSerializationOptions options) async {
+    MenuImage? image, MenuSerializationOptions options,
+    {required bool destructive}) async {
   if (image is SystemMenuImage) {
     return {
       'type': 'system',
       'name': image.systemImageName,
     };
   } else if (image != null) {
-    final i = await image.asImage(options.iconTheme, options.devicePixelRatio);
+    final iconTheme =
+        destructive ? options.destructiveIconTheme : options.iconTheme;
+    final i = await image.asImage(iconTheme, options.devicePixelRatio);
     if (i != null) {
       i.devicePixelRatio ??= options.devicePixelRatio;
       final res = {
@@ -45,7 +48,7 @@ extension on Menu {
           'uniqueId': uniqueId,
           'title': title,
           'subtitle': subtitle,
-          'image': await _serializeImage(image, options),
+          'image': await _serializeImage(image, options, destructive: false),
           'children': await Future.wait(
             children.map(
               (e) => e.serialize(options),
@@ -88,7 +91,8 @@ extension on MenuAction {
           'uniqueId': uniqueId,
           'title': title,
           'subtitle': subtitle,
-          'image': await _serializeImage(image, options),
+          'image': await _serializeImage(image, options,
+              destructive: attributes.destructive),
           'attributes': await attributes.serialize(),
           'state': state.name,
           'activator': activator?.serialize(),
@@ -216,9 +220,13 @@ class MenuContextImpl extends MenuContext {
     // ignore: avoid_renaming_method_parameters, no_leading_underscores_for_local_identifiers
     MenuSerializationOptions _options,
   ) async {
+    final platformIconSize = _platformIconSize();
     final options = MenuSerializationOptions(
-      _options.iconTheme.copyWith(size: _platformIconSize()),
-      _options.devicePixelRatio,
+      iconTheme: _options.iconTheme.copyWith(size: platformIconSize),
+      destructiveIconTheme: _options.destructiveIconTheme.copyWith(
+        size: platformIconSize,
+      ),
+      devicePixelRatio: _options.devicePixelRatio,
     );
     // The cast is necessary for correct extension method to be called.
     // ignore: unnecessary_cast

@@ -24,6 +24,7 @@ class MobileContextMenuWidget extends StatefulWidget {
     required this.hitTestBehavior,
     required this.menuProvider,
     this.iconTheme,
+    this.destructiveIconTheme,
     required this.contextMenuIsAllowed,
     required this.menuWidgetBuilder,
   }) : assert(previewBuilder == null || deferredPreviewBuilder == null,
@@ -44,6 +45,10 @@ class MobileContextMenuWidget extends StatefulWidget {
   /// on platform.
   final IconThemeData? iconTheme;
 
+  /// Icon theme for destructive actions. The size will be overridden depending
+  /// on platform.
+  final IconThemeData? destructiveIconTheme;
+
   @override
   State<MobileContextMenuWidget> createState() => _ContextMenuWidgetState();
 }
@@ -57,9 +62,16 @@ class _ContextMenuWidgetState extends State<MobileContextMenuWidget> {
               ? const Color(0xFF090909)
               : const Color(0xFFF0F0F0),
         );
+    final destructiveIconTheme = widget.destructiveIconTheme ??
+        iconTheme.copyWith(
+          color: mq.platformBrightness == Brightness.light
+              ? const Color(0xFFFF3B2F)
+              : const Color(0xFFFF453A),
+        );
     return raw.MenuSerializationOptions(
-      iconTheme,
-      mq.devicePixelRatio,
+      iconTheme: iconTheme,
+      destructiveIconTheme: destructiveIconTheme,
+      devicePixelRatio: mq.devicePixelRatio,
     );
   }
 

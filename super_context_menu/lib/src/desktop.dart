@@ -134,8 +134,9 @@ class DesktopContextMenuWidget extends StatelessWidget {
               : const Color(0xFFF0F0F0),
         );
     return raw.MenuSerializationOptions(
-      iconTheme,
-      mq.devicePixelRatio,
+      iconTheme: iconTheme,
+      destructiveIconTheme: iconTheme,
+      devicePixelRatio: mq.devicePixelRatio,
     );
   }
 
