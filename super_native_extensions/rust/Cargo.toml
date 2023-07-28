@@ -22,9 +22,9 @@ simple_logger = "2.1"
 async-trait = "0.1"
 rand = "0.8.5"
 url = "2.2.2"
-irondash_engine_context = "0.2.1"
-irondash_run_loop = "0.2.0"
-irondash_message_channel = { version = "0.2.0", features = ["derive"] }
+irondash_engine_context = "0.3.0"
+irondash_run_loop = "0.3.0"
+irondash_message_channel = { version = "0.3.0", features = ["derive"] }
 
 [build-dependencies]
 serde = { version = "1.0.119", features = ["derive"] }
@@ -92,11 +92,10 @@ gtk = { version = "0.17.1" }
 mime_guess = "2.0.4"
 
 [patch.crates-io]
-# irondash_dart_ffi = { path = "../../../irondash/dart_ffi" }
-# irondash_jni_context = { path = "../../../irondash/jni_context" }
+# Until the PR gets upstreamed
+mime_guess = { git = "https://github.com/knopp/mime_guess.git", branch = "super_native_extensions" }
+
 # irondash_engine_context = { path = "../../../irondash/engine_context/rust" }
 # irondash_run_loop = { path = "../../../irondash/run_loop" }
 # irondash_message_channel_derive = { path = "../../../irondash/message_channel/rust_derive" }
-
-# Until the PR gets upstreamed
-mime_guess = { git = "https://github.com/knopp/mime_guess.git", branch = "super_native_extensions" }
+# irondash_dart_ffi = { path = "../../../irondash/dart_ffi" }

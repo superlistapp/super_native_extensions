@@ -133,7 +133,7 @@ impl PlatformDataReader {
         handle: jint,
         data: jni::objects::JObject,
     ) {
-        let sender = RunLoop::sender_for_main_thread();
+        let sender = RunLoop::sender_for_main_thread().unwrap();
         unsafe fn transform_slice_mut<T>(s: &mut [T]) -> &mut [jbyte] {
             std::slice::from_raw_parts_mut(s.as_mut_ptr() as *mut jbyte, std::mem::size_of_val(s))
         }

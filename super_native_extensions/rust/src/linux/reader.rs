@@ -112,7 +112,7 @@ impl PlatformDataReader {
             } else {
                 Vec::new()
             };
-            // double check - we might have been preemted
+            // double check - we might have been preempted
             if !self.inner.is_set() {
                 self.inner.set(Inner { targets, uris })
             }

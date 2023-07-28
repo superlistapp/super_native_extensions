@@ -662,23 +662,22 @@ dependencies = [
 
 [[package]]
 name = "irondash_dart_ffi"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ad05ae27a3e5a6cd785e821a742d3a4539ef3f71f9c567d44efa95e4901b596c"
+checksum = "88ed3ea8413fd024d89154472f7aea14e820eb600d0c4318bc001b14dd9b3ddc"
 dependencies = [
  "once_cell",
 ]
 
 [[package]]
 name = "irondash_engine_context"
-version = "0.2.1"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "45f7daffd5abf4a8751956d71e893aee6baa5c02edad5b981bb2c3d8c833cc90"
+checksum = "3ea09b87cdfad0ef1567a158a0bcd114ffed271690b78172d08d9c16371c59f1"
 dependencies = [
  "android_logger",
  "cocoa",
- "irondash_jni_context",
- "irondash_run_loop",
+ "core-foundation",
  "jni",
  "log",
  "objc",
@@ -686,20 +685,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "irondash_jni_context"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a502998428d44dad7cb09331747d595c063be22372403a403d15a6c30b6a422"
-dependencies = [
- "jni",
- "once_cell",
-]
-
-[[package]]
 name = "irondash_message_channel"
-version = "0.2.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fec6da9c7646518f7ae23eec9fdb12509bea4d0e7bf0a7da3d88bfcc01be4c99"
+checksum = "b25f3f4b9888232e0e18f9c3ba30c0de4175be69da5042898c16d3364741e49c"
 dependencies = [
  "async-trait",
  "core-foundation",
@@ -724,13 +713,13 @@ dependencies = [
 
 [[package]]
 name = "irondash_run_loop"
-version = "0.2.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "89307a9b74e7318c688bd7ccd2667cf9795f88cc4567a615a6572c663cddb7f2"
+checksum = "9bf3babfcdc72762465e54fe21a677ae919d33f905c62e33703e0b6400893b5d"
 dependencies = [
  "core-foundation",
  "futures",
- "irondash_jni_context",
+ "irondash_engine_context",
  "log",
  "objc",
  "once_cell",
@@ -834,7 +823,7 @@ checksum = "2a60c7ce501c71e03a9c9c0d35b861413ae925bd979cc7a4e30d060069aaac8d"
 [[package]]
 name = "mime_guess"
 version = "2.0.4"
-source = "git+https://github.com/knopp/mime_guess.git?branch=super_native_extensions#b82f36c5f1cba5475300b54a424dff20529ecb7a"
+source = "git+https://github.com/knopp/mime_guess.git?branch=super_native_extensions#8c9abd38a5845db2d8a91a02fee16b226c364874"
 dependencies = [
  "mime",
  "unicase",
