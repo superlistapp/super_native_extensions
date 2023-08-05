@@ -30,7 +30,7 @@ dependencies:
   flutter:
     sdk: flutter
   collection: ^1.16.0
-  flutter_layout_grid: ^2.0.1
+  flutter_layout_grid: ^2.0.3
   super_clipboard:
     path: ../
 

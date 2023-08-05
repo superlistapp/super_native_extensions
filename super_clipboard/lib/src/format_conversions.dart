@@ -82,18 +82,18 @@ Uint8List _createHeader({
     buffer.write("<html><body>$le");
     buffer.write("<!--StartFragment -->");
   }
-  return utf8.encode(buffer.toString()) as Uint8List;
+  return utf8.encode(buffer.toString());
 }
 
 Uint8List _createFooter() {
-  return utf8.encode('<!--EndFragment-->\r\n</body>\r\n</html>') as Uint8List;
+  return utf8.encode('<!--EndFragment-->\r\n</body>\r\n</html>');
 }
 
 Object windowsHtmlToSystem(String text, PlatformFormat format) {
   if (format == cfHtml) {
     final headerLength = _createHeader(includeHtml: true).length;
     final lines = const LineSplitter().convert(text);
-    final textEncoded = utf8.encode(lines.join('\r\n')) as Uint8List;
+    final textEncoded = utf8.encode(lines.join('\r\n'));
     final footer = _createFooter();
     final totalLength = headerLength + textEncoded.length + footer.length;
     final header = _createHeader(

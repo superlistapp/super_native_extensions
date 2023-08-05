@@ -22,9 +22,9 @@ simple_logger = "2.1"
 async-trait = "0.1"
 rand = "0.8.5"
 url = "2.2.2"
-irondash_engine_context = "0.2.1"
-irondash_run_loop = "0.2.0"
-irondash_message_channel = { version = "0.2.0", features = ["derive"] }
+irondash_engine_context = "0.3.0"
+irondash_run_loop = "0.3.0"
+irondash_message_channel = { version = "0.3.0", features = ["derive"] }
 
 [build-dependencies]
 serde = { version = "1.0.119", features = ["derive"] }
