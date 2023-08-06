@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 import 'package:pixel_snap/pixel_snap.dart';
@@ -57,7 +56,7 @@ class MenuLayoutData extends ParentDataWidget<_MenuLayoutParentData> {
 
     if (parentData.resolvedPosition == null ||
         parentData.resolvedEdge == null) {
-      final AbstractNode? targetParent = renderObject.parent;
+      final Object? targetParent = renderObject.parent;
       if (targetParent is RenderObject) {
         targetParent.markNeedsLayout();
       }
