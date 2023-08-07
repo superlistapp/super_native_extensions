@@ -1,3 +1,7 @@
+## 0.6.0
+
+ - Bump "super_hot_key" to `0.6.0`.
+
 ## 0.5.0
 
 > Note: This release has breaking changes.

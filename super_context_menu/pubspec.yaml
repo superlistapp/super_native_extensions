@@ -1,6 +1,6 @@
 name: super_context_menu
 description: Context menu for Flutter that can seamlesly transition to drag & drop on mobile. Uses system context menu on iOS, macOS and Linux.
-version: 0.5.0
+version: 0.6.0
 homepage: https://github.com/superlistapp/super_native_extensions
 
 environment:
@@ -10,7 +10,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  super_native_extensions: ^0.5.0
+  super_native_extensions: ^0.6.0
   collection: ^1.16.0
   device_info_plus: ^9.0.2
   pixel_snap: ^0.1.1

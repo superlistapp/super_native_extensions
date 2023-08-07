@@ -1,3 +1,12 @@
+## 0.6.0
+
+> Note: This release has breaking changes.
+
+ - **FIX**: correct imports and add missing exports (#155).
+ - **FEAT**: improve compatibility with current Flutter main (#163).
+ - **BREAKING** **FIX**: correct typos and spelling in code (#156).
+ - **BREAKING** **CHORE**: remove Pair and replace it with dart 3 record (#157).
+
 ## 0.5.0
 
 > Note: This release has breaking changes.

@@ -1,3 +1,7 @@
+## 0.6.0
+
+ - **FEAT**: improve compatibility with current Flutter main (#163).
+
 ## 0.5.0
 
 > Note: This release has breaking changes.

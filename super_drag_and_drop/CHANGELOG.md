@@ -1,3 +1,10 @@
+## 0.6.0
+
+> Note: This release has breaking changes.
+
+ - **FEAT**: improve compatibility with current Flutter main (#163).
+ - **BREAKING** **FIX**: correct typos and spelling in code (#156).
+
 ## 0.5.0
 
 > Note: This release has breaking changes.

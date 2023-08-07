@@ -1,3 +1,18 @@
+## 0.6.0
+
+> Note: This release has breaking changes.
+
+ - **FIX**: declare proper output in podspec script phase.
+ - **FIX**: update rust dependencies (#170).
+ - **FIX**: [windows] handle null terminator in CF_UNICODETEXT (#169).
+ - **FIX**: use destructive icon theme when serializing menu images (#162).
+ - **FIX**: [windows] keep IDataObjectAsyncCapability reference during drop (#161).
+ - **FIX**: [windows] properly handle data objects that don't support async capability (#160).
+ - **FIX**: formatting.
+ - **FEAT**: improve compatibility with current Flutter main (#163).
+ - **BREAKING** **FIX**: correct typos and spelling in code (#156).
+ - **BREAKING** **CHORE**: remove Pair and replace it with dart 3 record (#157).
+
 ## 0.5.0
 
 > Note: This release has breaking changes.

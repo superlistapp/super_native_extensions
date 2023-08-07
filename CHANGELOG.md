@@ -3,6 +3,66 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## 2023-08-07
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - [`super_clipboard` - `v0.6.0`](#super_clipboard---v060)
+ - [`super_drag_and_drop` - `v0.6.0`](#super_drag_and_drop---v060)
+ - [`super_native_extensions` - `v0.6.0`](#super_native_extensions---v060)
+ - [`super_context_menu` - `v0.6.0`](#super_context_menu---v060)
+
+Packages with other changes:
+
+ - [`super_keyboard_layout` - `v0.6.0`](#super_keyboard_layout---v060)
+ - [`super_hot_key` - `v0.6.0`](#super_hot_key---v060)
+
+---
+
+#### `super_clipboard` - `v0.6.0`
+
+ - **FIX**: correct imports and add missing exports (#155).
+ - **FEAT**: improve compatibility with current Flutter main (#163).
+ - **BREAKING** **FIX**: correct typos and spelling in code (#156).
+ - **BREAKING** **CHORE**: remove Pair and replace it with dart 3 record (#157).
+
+#### `super_drag_and_drop` - `v0.6.0`
+
+ - **FEAT**: improve compatibility with current Flutter main (#163).
+ - **BREAKING** **FIX**: correct typos and spelling in code (#156).
+
+#### `super_native_extensions` - `v0.6.0`
+
+ - **FIX**: declare proper output in podspec script phase.
+ - **FIX**: update rust dependencies (#170).
+ - **FIX**: [windows] handle null terminator in CF_UNICODETEXT (#169).
+ - **FIX**: use destructive icon theme when serializing menu images (#162).
+ - **FIX**: [windows] keep IDataObjectAsyncCapability reference during drop (#161).
+ - **FIX**: [windows] properly handle data objects that don't support async capability (#160).
+ - **FIX**: formatting.
+ - **FEAT**: improve compatibility with current Flutter main (#163).
+ - **BREAKING** **FIX**: correct typos and spelling in code (#156).
+ - **BREAKING** **CHORE**: remove Pair and replace it with dart 3 record (#157).
+
+#### `super_context_menu` - `v0.6.0`
+
+ - **FIX**: use destructive icon theme when serializing menu images (#162).
+ - **FEAT**: improve compatibility with current Flutter main (#163).
+ - **BREAKING** **FIX**: correct typos and spelling in code (#156).
+
+#### `super_keyboard_layout` - `v0.6.0`
+
+ - **FEAT**: improve compatibility with current Flutter main (#163).
+
+#### `super_hot_key` - `v0.6.0`
+
+ - Bump "super_hot_key" to `0.6.0`.
+
+
 ## 2023-07-22
 
 ### Changes
