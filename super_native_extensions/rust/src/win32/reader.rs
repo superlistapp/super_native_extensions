@@ -40,7 +40,10 @@ use windows::{
             },
             DataExchange::RegisterClipboardFormatW,
             Memory::{GlobalLock, GlobalSize, GlobalUnlock},
-            Ole::{OleGetClipboard, ReleaseStgMedium, CF_DIB, CF_DIBV5, CF_HDROP, CF_TIFF},
+            Ole::{
+                OleGetClipboard, ReleaseStgMedium, CF_DIB, CF_DIBV5, CF_HDROP, CF_TIFF,
+                CF_UNICODETEXT,
+            },
         },
         UI::Shell::{
             SHCreateMemStream, CFSTR_FILECONTENTS, CFSTR_FILEDESCRIPTOR, DROPFILES,
@@ -295,7 +298,15 @@ impl PlatformDataReader {
         } else {
             let formats = self.data_object_formats()?;
             if formats.contains(&format) {
-                let data = self.data_object.get_data(format)?;
+                let mut data = self.data_object.get_data(format)?;
+                // CF_UNICODETEXT text may be null terminated - in which case trucate
+                // the text before sending it to Dart.
+                if format == CF_UNICODETEXT.0 as u32 {
+                    let terminator = data.chunks(2).position(|c| c == [0; 2]);
+                    if let Some(terminator) = terminator {
+                        data.truncate(terminator * 2);
+                    }
+                }
                 Ok(data.into())
             } else {
                 // possibly virtual
