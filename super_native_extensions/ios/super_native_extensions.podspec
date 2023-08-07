@@ -23,7 +23,7 @@ A new Flutter plugin project.
     :script => 'sh $PODS_TARGET_SRCROOT/../cargokit/build_pod.sh ../rust super_native_extensions',
     :execution_position=> :before_compile,
     :input_files => ['${BUILT_PRODUCTS_DIR}/cargokit_phony'],
-    :output_files => ['${BUILT_PRODUCTS_DIR}/cargokit_phony_out'],
+    :output_files => ["${BUILT_PRODUCTS_DIR}/libsuper_native_extensions.a"],
   }
   s.pod_target_xcconfig = {
     'DEFINES_MODULE' => 'YES',
