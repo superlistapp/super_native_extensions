@@ -50,6 +50,7 @@ class Formats {
     pdf,
     doc,
     docx,
+    csv,
     xls,
     xlsx,
     ppt,
@@ -378,6 +379,11 @@ class Formats {
     mimeTypes: [
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
     ],
+  );
+
+  static const csv = SimpleFileFormat(
+    uniformTypeIdentifiers: ['public.comma-separated-values-text'],
+    mimeTypes: ['text/csv'],
   );
 
   static const xls = SimpleFileFormat(
