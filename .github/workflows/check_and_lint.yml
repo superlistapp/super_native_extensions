@@ -14,11 +14,6 @@ jobs:
       - uses: subosito/flutter-action@v1
         with:
           channel: "stable"
-      - name: Install SSH key
-        uses: webfactory/ssh-agent@v0.5.4
-        with:
-          ssh-private-key: |
-            ${{ secrets.SSH_KEY }}
       - name: Install Melos
         run: flutter pub global activate melos
       - name: Melos Boostrap
