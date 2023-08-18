@@ -1,3 +1,6 @@
+// TODO(knopp): This seems to be false positive, remove when no longer needed
+// ignore_for_file: use_build_context_synchronously
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
