@@ -69,6 +69,8 @@ class _DragContextDelegate implements raw.DragContextDelegate {
     required raw.DragSession session,
   }) async {
     final hitTest = HitTestResult();
+    // TODO(knopp): Resolve when we can provide viewId from native side
+    // ignore: deprecated_member_use
     GestureBinding.instance.hitTest(hitTest, location);
     for (final item in hitTest.path) {
       final target = item.target;
@@ -88,6 +90,8 @@ class _DragContextDelegate implements raw.DragContextDelegate {
   Future<List<raw.DragItem>?> getAdditionalItemsForLocation(
       {required Offset location, required raw.DragSession session}) async {
     final hitTest = HitTestResult();
+    // TODO(knopp): Resolve when we can provide viewId from native side
+    // ignore: deprecated_member_use
     GestureBinding.instance.hitTest(hitTest, location);
     for (final item in hitTest.path) {
       final target = item.target;
@@ -105,6 +109,8 @@ class _DragContextDelegate implements raw.DragContextDelegate {
   @override
   bool isLocationDraggable(Offset location) {
     final hitTest = HitTestResult();
+    // TODO(knopp): Resolve when we can provide viewId from native side
+    // ignore: deprecated_member_use
     GestureBinding.instance.hitTest(hitTest, location);
     for (final item in hitTest.path) {
       final target = item.target;
