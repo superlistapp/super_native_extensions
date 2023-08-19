@@ -88,6 +88,8 @@ class _DropSession extends DropSession {
     _inside = true;
 
     final hitTest = HitTestResult();
+    // TODO(knopp): Resolve when we can provide viewId from native side
+    // ignore: deprecated_member_use
     GestureBinding.instance.hitTest(hitTest, position);
 
     final monitorsInHitTest = <RenderDropMonitor>{};

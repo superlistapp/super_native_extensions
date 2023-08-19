@@ -11,21 +11,21 @@ import 'reader_model.dart';
 
 abstract class DataReaderFile {
   /// Returns file name for the file, if available. File name at this
-  /// point, if available, will be more reliable than the one provided
+  /// point, if present, will be more reliable than the one provided
   /// by [DataReader.getSuggestedName];
   String? get fileName;
 
   /// Returns the file size if available.
   int? get fileSize;
 
-  /// Closes the file. Generally this only needs to call this when stream
-  /// was requested through [getStream] but not consumed. Otherwise it is called
-  /// automatically at the end of value callback or when stream is consumed.
-  void close();
-
   /// Returns the result of the data as stream. This can only be called once per
   /// value. Stream must be requested within the `onFile` callback.
   Stream<Uint8List> getStream();
+
+  /// Closes the file. This only needs to be called manually when stream
+  /// was requested through [getStream] but not consumed. Otherwise it is called
+  /// automatically at the end of value callback or when stream is consumed.
+  void close();
 
   /// Reads the rest of the data and returns it as a single chunk.
   Future<Uint8List> readAll();
@@ -36,7 +36,7 @@ typedef AsyncValueChanged<T> = FutureOr<void> Function(T value);
 abstract class DataReader {
   /// Returns true value for data format is possibly available in this reader.
   ///
-  /// Note that it is expected for [getValue] to return `null` even though
+  /// Note that it is possible for [getValue] to return `null` even though
   /// [canProvide] returns yes, because in some cases this can not be fully
   /// determined from the format string, but only from the data itself.
   ///
@@ -51,7 +51,7 @@ abstract class DataReader {
   bool hasValue(DataFormat format) => canProvide(format);
 
   /// Returns subset of [allFormats] that this reader can provide,
-  /// sorted according to priority.
+  /// sorted according to priority set by source application.
   List<DataFormat> getFormats(List<DataFormat> allFormats);
 
   /// Loads the value for the given format.
