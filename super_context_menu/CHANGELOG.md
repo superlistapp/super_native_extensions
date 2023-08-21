@@ -1,3 +1,7 @@
+## 0.6.1
+
+ - **FIX**: [iOS] gesture recognizer workaround (#176).
+
 ## 0.6.0
 
 > Note: This release has breaking changes.

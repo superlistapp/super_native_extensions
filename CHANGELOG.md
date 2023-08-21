@@ -3,6 +3,37 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## 2023-08-21
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - There are no breaking changes in this release.
+
+Packages with other changes:
+
+ - [`super_clipboard` - `v0.6.1`](#super_clipboard---v061)
+ - [`super_drag_and_drop` - `v0.6.1`](#super_drag_and_drop---v061)
+ - [`super_context_menu` - `v0.6.1`](#super_context_menu---v061)
+
+---
+
+#### `super_clipboard` - `v0.6.1`
+
+ - **DOCS**: update comments.
+
+#### `super_drag_and_drop` - `v0.6.1`
+
+ - **DOCS**: update comments.
+
+#### `super_context_menu` - `v0.6.1`
+
+ - **FIX**: [iOS] gesture recognizer workaround (#176).
+
+
 ## 2023-08-07
 
 ### Changes
