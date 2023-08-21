@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 import 'package:super_native_extensions/raw_menu.dart' as raw;
 import 'package:super_native_extensions/widget_snapshot.dart';
@@ -297,9 +298,19 @@ class _LongPressDetector extends StatelessWidget {
       // Context menu is handled by iOS, but we need this gesture detector to
       // prevent listview pan detector immediately recognizing pan and setting
       // ignore pointer.
-      return GestureDetector(
+      return RawGestureDetector(
         behavior: hitTestBehavior,
-        onTapDown: (_) {},
+        gestures: {
+          PanGestureRecognizer:
+              GestureRecognizerFactoryWithHandlers<PanGestureRecognizer>(
+            () => PanGestureRecognizer(),
+            (recognizer) {
+              recognizer.gestureSettings =
+                  const DeviceGestureSettings(touchSlop: double.maxFinite);
+              recognizer.onDown = (_) {};
+            },
+          ),
+        },
         child: child,
       );
     } else {
