@@ -24,7 +24,7 @@ A new Flutter plugin project.
   # This is identitcal the script in iOS podspec
   s.script_phase = {
     :name => 'Build SuperNativeExtensions Rust library',
-    :script => 'sh $PODS_TARGET_SRCROOT/../cargokit/build_pod.sh ../rust super_native_extensions',
+    :script => 'sh "$PODS_TARGET_SRCROOT/../cargokit/build_pod.sh" ../rust super_native_extensions',
     :execution_position=> :before_compile,
     :input_files => ['${BUILT_PRODUCTS_DIR}/cargokit_phony'],
     :output_files => ["${BUILT_PRODUCTS_DIR}/libsuper_native_extensions.a"],
