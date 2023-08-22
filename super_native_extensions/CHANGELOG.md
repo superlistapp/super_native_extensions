@@ -1,3 +1,5 @@
+## 0.6.2
+
 ## 0.6.0
 
 > Note: This release has breaking changes.

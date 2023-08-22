@@ -1,3 +1,7 @@
+## 0.6.2
+
+ - Bump "super_keyboard_layout" to `0.6.2`.
+
 ## 0.6.0
 
  - **FEAT**: improve compatibility with current Flutter main (#163).

@@ -1,3 +1,7 @@
+## 0.6.2
+
+ - Bump "super_drag_and_drop" to `0.6.2`.
+
 ## 0.6.1
 
  - **DOCS**: update comments.

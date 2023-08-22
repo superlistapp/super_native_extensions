@@ -1,3 +1,7 @@
+## 0.6.2
+
+ - Bump "super_context_menu" to `0.6.2`.
+
 ## 0.6.1
 
  - **FIX**: [iOS] gesture recognizer workaround (#176).
