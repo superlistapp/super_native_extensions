@@ -15,6 +15,50 @@ Packages with breaking changes:
 
 Packages with other changes:
 
+ - [`super_clipboard` - `v0.6.3`](#super_clipboard---v063)
+ - [`super_drag_and_drop` - `v0.6.3`](#super_drag_and_drop---v063)
+ - [`super_context_menu` - `v0.6.3`](#super_context_menu---v063)
+ - [`super_native_extensions` - `v0.6.3`](#super_native_extensions---v063)
+ - [`super_hot_key` - `v0.6.3`](#super_hot_key---v063)
+ - [`super_keyboard_layout` - `v0.6.3`](#super_keyboard_layout---v063)
+
+---
+
+#### `super_clipboard` - `v0.6.3`
+
+ - Bump "super_clipboard" to `0.6.3`.
+
+#### `super_drag_and_drop` - `v0.6.3`
+
+ - Bump "super_drag_and_drop" to `0.6.3`.
+
+#### `super_context_menu` - `v0.6.3`
+
+ - Bump "super_context_menu" to `0.6.3`.
+
+#### `super_native_extensions` - `v0.6.3`
+
+#### `super_hot_key` - `v0.6.3`
+
+ - Bump "super_hot_key" to `0.6.3`.
+
+#### `super_keyboard_layout` - `v0.6.3`
+
+ - Bump "super_keyboard_layout" to `0.6.3`.
+
+
+## 2023-08-22
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - There are no breaking changes in this release.
+
+Packages with other changes:
+
  - [`super_clipboard` - `v0.6.2`](#super_clipboard---v062)
  - [`super_drag_and_drop` - `v0.6.2`](#super_drag_and_drop---v062)
  - [`super_context_menu` - `v0.6.2`](#super_context_menu---v062)

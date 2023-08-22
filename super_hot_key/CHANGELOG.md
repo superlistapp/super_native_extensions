@@ -1,3 +1,7 @@
+## 0.6.3
+
+ - Bump "super_hot_key" to `0.6.3`.
+
 ## 0.6.2
 
  - Bump "super_hot_key" to `0.6.2`.
