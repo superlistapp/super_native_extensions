@@ -1,3 +1,0 @@
-bool snapshotToImageSupportedInternal() {
-  return true;
-}
