@@ -1,3 +1,8 @@
+## 0.6.4
+
+ - **FIX**: update engine_context dependency.
+ - **FIX**: escape script invocation in podspec.
+
 ## 0.6.3
 
 ## 0.6.2

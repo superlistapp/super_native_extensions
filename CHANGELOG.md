@@ -3,6 +3,53 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## 2023-08-23
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - There are no breaking changes in this release.
+
+Packages with other changes:
+
+ - [`super_clipboard` - `v0.6.4`](#super_clipboard---v064)
+ - [`super_drag_and_drop` - `v0.6.4`](#super_drag_and_drop---v064)
+ - [`super_context_menu` - `v0.6.4`](#super_context_menu---v064)
+ - [`super_native_extensions` - `v0.6.4`](#super_native_extensions---v064)
+ - [`super_hot_key` - `v0.6.4`](#super_hot_key---v064)
+ - [`super_keyboard_layout` - `v0.6.4`](#super_keyboard_layout---v064)
+
+---
+
+#### `super_clipboard` - `v0.6.4`
+
+ - **FIX**: update engine_context dependency.
+
+#### `super_drag_and_drop` - `v0.6.4`
+
+ - **FIX**: update engine_context dependency.
+
+#### `super_context_menu` - `v0.6.4`
+
+ - **FIX**: update engine_context dependency.
+
+#### `super_native_extensions` - `v0.6.4`
+
+ - **FIX**: update engine_context dependency.
+ - **FIX**: escape script invocation in podspec.
+
+#### `super_hot_key` - `v0.6.4`
+
+ - Bump "super_hot_key" to `0.6.4`.
+
+#### `super_keyboard_layout` - `v0.6.4`
+
+ - **FIX**: update engine_context dependency.
+
+
 ## 2023-08-22
 
 ### Changes

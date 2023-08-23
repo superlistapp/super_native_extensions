@@ -1,3 +1,7 @@
+## 0.6.4
+
+ - **FIX**: update engine_context dependency.
+
 ## 0.6.3
 
  - Bump "super_context_menu" to `0.6.3`.
