@@ -18,8 +18,8 @@ dependencies:
   js: ^0.6.4
   path: ^1.8.2
   uuid: ^3.0.7
-  irondash_engine_context: ^0.3.0
-  irondash_message_channel: ^0.3.0
+  irondash_engine_context: ^0.3.1
+  irondash_message_channel: ^0.3.1
   device_info_plus: ^9.0.2
   pixel_snap: ^0.1.2
 
