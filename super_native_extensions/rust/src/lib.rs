@@ -2,7 +2,6 @@
 #![allow(clippy::new_without_default)]
 #![allow(clippy::single_match)]
 #![allow(clippy::type_complexity)]
-
 #![allow(unknown_lints)]
 #![allow(clippy::arc_with_non_send_sync)] // https://github.com/rust-lang/rust-clippy/issues/11076
 
