@@ -1,3 +1,7 @@
+## 0.7.0-dev.1
+
+ - **FIX**: do not use path dependencies for published packages in pubspec.yaml (#183).
+
 ## 0.6.4
 
  - **FIX**: update engine_context dependency.

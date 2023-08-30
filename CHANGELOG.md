@@ -3,6 +3,50 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## 2023-08-30
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - There are no breaking changes in this release.
+
+Packages with other changes:
+
+ - [`super_clipboard` - `v0.7.0-dev.1`](#super_clipboard---v070-dev1)
+ - [`super_drag_and_drop` - `v0.7.0-dev.1`](#super_drag_and_drop---v070-dev1)
+ - [`super_context_menu` - `v0.7.0-dev.1`](#super_context_menu---v070-dev1)
+ - [`super_native_extensions` - `v0.7.0-dev.1`](#super_native_extensions---v070-dev1)
+ - [`super_hot_key` - `v0.7.0-dev.1`](#super_hot_key---v070-dev1)
+ - [`super_keyboard_layout` - `v0.7.0-dev.1`](#super_keyboard_layout---v070-dev1)
+
+---
+
+#### `super_clipboard` - `v0.7.0-dev.1`
+
+ - **FIX**: do not use path dependencies for published packages in pubspec.yaml (#183).
+
+#### `super_drag_and_drop` - `v0.7.0-dev.1`
+
+ - **FIX**: do not use path dependencies for published packages in pubspec.yaml (#183).
+
+#### `super_context_menu` - `v0.7.0-dev.1`
+
+ - **FIX**: do not use path dependencies for published packages in pubspec.yaml (#183).
+
+#### `super_native_extensions` - `v0.7.0-dev.1`
+
+#### `super_hot_key` - `v0.7.0-dev.1`
+
+ - Bump "super_hot_key" to `0.7.0-dev.1`.
+
+#### `super_keyboard_layout` - `v0.7.0-dev.1`
+
+ - **FIX**: do not use path dependencies for published packages in pubspec.yaml (#183).
+
+
 ## 2023-08-23
 
 ### Changes
