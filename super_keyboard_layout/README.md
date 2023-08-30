@@ -10,9 +10,11 @@
 
 ## Getting started
 
-`super_keyboard_layout` uses Rust internally to implement low-level platform specific functionality. Rather than shipping prebuilt binaries with the plugin, Rust build is seamlessly integrated into the Flutter build process.
+`super_keyboard_layout` uses Rust internally to implement low-level platform specific functionality.
 
-To use `super_keyboard_layout`, you will need to install Rust:
+If you don't have Rust installed, the plugin will automatically download precompiled binaries for target platform.
+
+If you want to have the Rust code compiled from source instead, you can install Rust through [rustup](https://rustup.rs/). The presence of rustup will be detected during build automatically.
 
 For macOS or Linux, execute the following command in Terminal.
 ```bash
