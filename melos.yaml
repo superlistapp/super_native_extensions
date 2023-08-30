@@ -11,3 +11,4 @@ packages:
   - super_keyboard_layout
   - super_keyboard_layout/example
   - super_native_extensions
+  - super_native_extensions/cargokit/build_tool

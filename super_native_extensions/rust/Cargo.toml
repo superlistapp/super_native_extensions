@@ -3,6 +3,7 @@
 [profile.release]
 lto = true
 panic = "abort"
+opt-level = "z"
 # strip = "symbols"
 
 [package]
