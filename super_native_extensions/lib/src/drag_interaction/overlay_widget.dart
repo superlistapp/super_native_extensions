@@ -238,7 +238,7 @@ class OverlayWidgetState extends State<OverlayWidget>
           () => SingleDragGestureRecognizer(debugOwner: this),
           (SingleDragGestureRecognizer instance) {
             instance.onDragStart = (Offset position) {
-              if (_currentState.menuFactor < 1 || _hidingAnimation != null) {
+              if (_currentState.menuFactor == 0 || _hidingAnimation != null) {
                 return null;
               }
               final drag = widget.menuDragProvider(

@@ -470,7 +470,7 @@ class DragInteractionDrag implements SingleDrag {
     // Detect tap up even when menu is opened. This is done here rather than
     // separate recognizer because we don't want the tap recognizer to comppete
     // with drag (which would cause drag slop delay).
-    if (_maxDistance < 20 &&
+    if (_maxDistance < 50 &&
         _state == _State.menu &&
         _creationTime.elapsed < const Duration(milliseconds: 350)) {
       dispose();
