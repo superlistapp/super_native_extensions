@@ -89,6 +89,12 @@ Uint8List _createFooter() {
   return utf8.encode('<!--EndFragment-->\r\n</body>\r\n</html>') as Uint8List;
 }
 
+// Prepend meta tag to signal utf-8 encoding. Otherwise some macOS apps
+// (i.e. Notes) assume latin-1.
+Object htmlToSystem(String text, PlatformFormat format) {
+  return "<meta charset='utf-8'>$text";
+}
+
 Object windowsHtmlToSystem(String text, PlatformFormat format) {
   if (format == cfHtml) {
     final headerLength = _createHeader(includeHtml: true).length;
