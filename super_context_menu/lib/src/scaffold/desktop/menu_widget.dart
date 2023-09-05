@@ -136,7 +136,12 @@ class MenuWidgetState extends State<MenuWidget>
   void _itemActivated(_ChildEntry entry) {
     final element = entry.element;
     if (element is MenuAction && !element.attributes.disabled) {
-      element.callback.call();
+      // Make sure the focus is restored to previous node before invoking
+      // the callback as the callback may invoke intent on primary focus.
+      _focusScope.canRequestFocus = false;
+      WidgetsBinding.instance.addPostFrameCallback((timeStamp) {
+        element.callback.call();
+      });
       widget.delegate.hide(itemSelected: true);
     }
   }
