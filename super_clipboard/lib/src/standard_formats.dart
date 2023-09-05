@@ -112,10 +112,12 @@ class Formats {
     ios: SimplePlatformCodec<String>(
       formats: ['public.html'],
       onDecode: fromSystemUtf8,
+      onEncode: htmlToSystem,
     ),
     macos: SimplePlatformCodec<String>(
       formats: ['public.html'],
       onDecode: fromSystemUtf8,
+      onEncode: htmlToSystem,
     ),
     windows: SimplePlatformCodec<String>(
       onDecode: windowsHtmlFromSystem,
