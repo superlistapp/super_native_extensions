@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
+import '../gesture/multi_touch_detector.dart';
 import '../menu.dart';
 import '../menu_model.dart';
 import '../widget_snapshot/widget_snapshot.dart';
@@ -204,6 +205,11 @@ class DragInteractionSession implements DragDelegate {
 
   @override
   bool canTransitionToDrag() {
+    // Transition to drag in Android with multi touch active messes
+    // up touch events and potentially locks up the application.
+    if (MultiTouchDetector.isMultiTouchActive()) {
+      return false;
+    }
     return configuration.onDragStart != null;
   }
 

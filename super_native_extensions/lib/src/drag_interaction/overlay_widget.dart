@@ -5,6 +5,7 @@ import 'package:collection/collection.dart';
 import 'package:flutter/widgets.dart';
 import 'package:pixel_snap/pixel_snap.dart';
 
+import '../gesture/multi_touch_detector.dart';
 import '../menu.dart';
 import '../util.dart';
 import '../widget_snapshot/widget_snapshot.dart';
@@ -230,128 +231,131 @@ class OverlayWidgetState extends State<OverlayWidget>
       )),
     );
 
-    return RawGestureDetector(
-      behavior: HitTestBehavior.translucent,
-      gestures: {
-        SingleDragGestureRecognizer:
-            GestureRecognizerFactoryWithHandlers<SingleDragGestureRecognizer>(
-          () => SingleDragGestureRecognizer(debugOwner: this),
-          (SingleDragGestureRecognizer instance) {
-            instance.onDragStart = (Offset position) {
-              if (_currentState.menuFactor == 0 || _hidingAnimation != null) {
-                return null;
-              }
-              final drag = widget.menuDragProvider(
-                position,
-                instance.lastPointer!,
-              );
-              // When recognizer disappears the drag is not cancelled, which prevents
-              // subsequent drags from
-              return drag;
-            };
-          },
-        ),
-      },
-      child: _Background(
-        opacity: backgroundOpacity,
-        backgroundBuilder:
-            widget.configuration.menuConfiguration?.backgroundBuilder,
-        child: Opacity(
-          opacity: (1.0 - 0.3 * _currentState.dragFactor) * (1.0 - _hideFactor),
-          child: BetterRepaintBoundary(
-            key: _repaintBoundary,
-            child: CustomMultiChildLayout(
-              delegate: layoutDelegate,
-              children: [
-                for (final item in layoutDelegate.secondaryItems)
-                  LayoutId(
-                    key: _secondaryLiftKeys[item.index],
-                    id: item.liftChildId,
-                    child: Opacity(
-                      opacity: secondaryLiftAlpha,
-                      child: ShadowImage(
-                          image: item.liftImage,
-                          shadowRadius: kShadowRadius,
-                          shadowOpacity: 1.0),
-                    ),
-                  ),
-                for (final item in layoutDelegate.secondaryItems)
-                  LayoutId(
-                    id: item.dragChildId,
-                    key: _secondaryDragKeys[item.index],
-                    child: Opacity(
-                      opacity: secondaryDragAlpha,
-                      child: Transform.rotate(
-                        angle: _angleForSecondaryItem(item.index) *
-                            _currentState.dragFactor,
+    return MultiTouchDetector(
+      child: RawGestureDetector(
+        behavior: HitTestBehavior.translucent,
+        gestures: {
+          SingleDragGestureRecognizer:
+              GestureRecognizerFactoryWithHandlers<SingleDragGestureRecognizer>(
+            () => SingleDragGestureRecognizer(debugOwner: this),
+            (SingleDragGestureRecognizer instance) {
+              instance.onDragStart = (Offset position) {
+                if (_currentState.menuFactor == 0 || _hidingAnimation != null) {
+                  return null;
+                }
+                final drag = widget.menuDragProvider(
+                  position,
+                  instance.lastPointer!,
+                );
+                // When recognizer disappears the drag is not cancelled, which prevents
+                // subsequent drags from
+                return drag;
+              };
+            },
+          ),
+        },
+        child: _Background(
+          opacity: backgroundOpacity,
+          backgroundBuilder:
+              widget.configuration.menuConfiguration?.backgroundBuilder,
+          child: Opacity(
+            opacity:
+                (1.0 - 0.3 * _currentState.dragFactor) * (1.0 - _hideFactor),
+            child: BetterRepaintBoundary(
+              key: _repaintBoundary,
+              child: CustomMultiChildLayout(
+                delegate: layoutDelegate,
+                children: [
+                  for (final item in layoutDelegate.secondaryItems)
+                    LayoutId(
+                      key: _secondaryLiftKeys[item.index],
+                      id: item.liftChildId,
+                      child: Opacity(
+                        opacity: secondaryLiftAlpha,
                         child: ShadowImage(
-                            key: _secondaryRenderKeys[item.index],
-                            image: item.dragImage,
+                            image: item.liftImage,
                             shadowRadius: kShadowRadius,
                             shadowOpacity: 1.0),
                       ),
                     ),
-                  ),
-                LayoutId(
-                  id: layoutDelegate.primaryItem.liftChildId,
-                  key: _liftKey,
-                  child: Opacity(
-                    opacity: liftOpacity,
-                    child: ShadowImage(
-                      image:
-                          widget.configuration.primaryItem.liftImage.snapshot,
-                      shadowRadius: kShadowRadius,
-                      shadowOpacity: _currentState.liftFactor,
-                    ),
-                  ),
-                ),
-                if (menuConfiguration != null && _currentState.menuFactor > 0)
-                  LayoutId(
-                    id: layoutDelegate.menuPreviewId,
-                    key: _menuPreviewKey,
-                    child: RepaintBoundary(
+                  for (final item in layoutDelegate.secondaryItems)
+                    LayoutId(
+                      id: item.dragChildId,
+                      key: _secondaryDragKeys[item.index],
                       child: Opacity(
-                        opacity: menuOpacity,
-                        child: menuPreview?.widget,
+                        opacity: secondaryDragAlpha,
+                        child: Transform.rotate(
+                          angle: _angleForSecondaryItem(item.index) *
+                              _currentState.dragFactor,
+                          child: ShadowImage(
+                              key: _secondaryRenderKeys[item.index],
+                              image: item.dragImage,
+                              shadowRadius: kShadowRadius,
+                              shadowOpacity: 1.0),
+                        ),
+                      ),
+                    ),
+                  LayoutId(
+                    id: layoutDelegate.primaryItem.liftChildId,
+                    key: _liftKey,
+                    child: Opacity(
+                      opacity: liftOpacity,
+                      child: ShadowImage(
+                        image:
+                            widget.configuration.primaryItem.liftImage.snapshot,
+                        shadowRadius: kShadowRadius,
+                        shadowOpacity: _currentState.liftFactor,
                       ),
                     ),
                   ),
-                if (menuConfiguration != null && _currentState.menuFactor > 0)
+                  if (menuConfiguration != null && _currentState.menuFactor > 0)
+                    LayoutId(
+                      id: layoutDelegate.menuPreviewId,
+                      key: _menuPreviewKey,
+                      child: RepaintBoundary(
+                        child: Opacity(
+                          opacity: menuOpacity,
+                          child: menuPreview?.widget,
+                        ),
+                      ),
+                    ),
+                  if (menuConfiguration != null && _currentState.menuFactor > 0)
+                    LayoutId(
+                      key: _menuKey,
+                      id: layoutDelegate.menuId,
+                      child: Opacity(
+                        opacity: menuOpacity,
+                        child: Transform.scale(
+                          alignment: _menuAlignment,
+                          scale: menuOpacity * _easeOut(1.0 - _hideFactor),
+                          child: menuConfiguration.menuWidgetBuilder(
+                            context,
+                            menuConfiguration.menuHandle.menu,
+                            this,
+                            _menuAlignment,
+                            _menuCanScrollNotifier,
+                            menuConfiguration.iconTheme,
+                          ),
+                        ),
+                      ),
+                    ),
                   LayoutId(
-                    key: _menuKey,
-                    id: layoutDelegate.menuId,
+                    id: layoutDelegate.primaryItem.dragChildId,
+                    key: _dragKey,
                     child: Opacity(
-                      opacity: menuOpacity,
-                      child: Transform.scale(
-                        alignment: _menuAlignment,
-                        scale: menuOpacity * _easeOut(1.0 - _hideFactor),
-                        child: menuConfiguration.menuWidgetBuilder(
-                          context,
-                          menuConfiguration.menuHandle.menu,
-                          this,
-                          _menuAlignment,
-                          _menuCanScrollNotifier,
-                          menuConfiguration.iconTheme,
+                      opacity: dragOpacity,
+                      child: IgnorePointer(
+                        ignoring: true,
+                        child: ShadowImage(
+                          shadowRadius: kShadowRadius,
+                          shadowOpacity: 1.0,
+                          image: layoutDelegate.primaryItem.dragImage,
                         ),
                       ),
                     ),
                   ),
-                LayoutId(
-                  id: layoutDelegate.primaryItem.dragChildId,
-                  key: _dragKey,
-                  child: Opacity(
-                    opacity: dragOpacity,
-                    child: IgnorePointer(
-                      ignoring: true,
-                      child: ShadowImage(
-                        shadowRadius: kShadowRadius,
-                        shadowOpacity: 1.0,
-                        image: layoutDelegate.primaryItem.dragImage,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

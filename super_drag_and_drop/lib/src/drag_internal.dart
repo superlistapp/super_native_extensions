@@ -2,6 +2,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 import 'package:super_native_extensions/raw_drag_drop.dart' as raw;
+import 'package:super_native_extensions/raw_menu.dart';
 
 import 'base_draggable_widget.dart';
 import 'into_raw.dart';
@@ -306,27 +307,29 @@ class MobileDragDetector extends _DragDetector {
 
   @override
   Widget build(BuildContext context) {
-    return RawGestureDetector(
-      behavior: hitTestBehavior,
-      gestures: {
-        raw.SingleDragDelayedGestureRecognizer:
-            GestureRecognizerFactoryWithHandlers<
-                    raw.SingleDragDelayedGestureRecognizer>(
-                () => raw.SingleDragDelayedGestureRecognizer(
-                      beginDuration: const Duration(milliseconds: 150),
-                      duration: const Duration(milliseconds: 300),
-                    ), (recognizer) {
-          recognizer.shouldAcceptTouchAtPosition = isLocationDraggable;
-          recognizer.onDragStart = (globalPosition) {
-            return _longPressHandler?.dragGestureForPosition(
-              context: context,
-              position: globalPosition,
-              pointer: recognizer.lastPointer!,
-            );
-          };
-        }),
-      },
-      child: child,
+    return MultiTouchDetector(
+      child: RawGestureDetector(
+        behavior: hitTestBehavior,
+        gestures: {
+          raw.SingleDragDelayedGestureRecognizer:
+              GestureRecognizerFactoryWithHandlers<
+                      raw.SingleDragDelayedGestureRecognizer>(
+                  () => raw.SingleDragDelayedGestureRecognizer(
+                        beginDuration: const Duration(milliseconds: 150),
+                        duration: const Duration(milliseconds: 300),
+                      ), (recognizer) {
+            recognizer.shouldAcceptTouchAtPosition = isLocationDraggable;
+            recognizer.onDragStart = (globalPosition) {
+              return _longPressHandler?.dragGestureForPosition(
+                context: context,
+                position: globalPosition,
+                pointer: recognizer.lastPointer!,
+              );
+            };
+          }),
+        },
+        child: child,
+      ),
     );
   }
 }
