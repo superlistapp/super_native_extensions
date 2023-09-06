@@ -1,4 +1,4 @@
-use std::{fs::OpenOptions, io::Write, mem::size_of, os::raw::c_void, path::Path, ptr::null_mut};
+use std::{fs::OpenOptions, io::Write, mem::size_of, path::Path, ptr::null_mut};
 
 use once_cell::sync::Lazy;
 use windows::{
@@ -116,7 +116,7 @@ pub fn image_data_to_hbitmap(image: &ImageData) -> NativeExtensionsResult<HBITMA
             dc,
             &bitmap as *const _,
             DIB_RGB_COLORS,
-            &mut ptr as *mut *mut _ as *mut *mut c_void,
+            &mut ptr as *mut *mut _,
             HANDLE(0),
             0,
         )?;
