@@ -288,9 +288,14 @@ class DraggableWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final Set<int> activePointers = {};
     final List<DragItemWidgetState> activeItems = [];
     return Listener(
-      onPointerDown: (_) {
+      onPointerDown: (event) {
+        activePointers.add(event.pointer);
+        if (activePointers.length == 1) {
+          return;
+        }
         assert(activeItems.isEmpty);
         activeItems.addAll(dragItemsProvider(context));
         for (final item in activeItems) {
@@ -308,14 +313,22 @@ class DraggableWidget extends StatelessWidget {
           }
         }
       },
-      onPointerCancel: (_) {
+      onPointerCancel: (event) {
+        activePointers.remove(event.pointer);
+        if (activePointers.isNotEmpty) {
+          return;
+        }
         for (final item in activeItems) {
           item._snapshotterKey.currentState?.unregisterWidget(_keyLift);
           item._snapshotterKey.currentState?.unregisterWidget(_keyDrag);
         }
         activeItems.clear();
       },
-      onPointerUp: (_) {
+      onPointerUp: (event) {
+        activePointers.remove(event.pointer);
+        if (activePointers.isNotEmpty) {
+          return;
+        }
         for (final item in activeItems) {
           item._snapshotterKey.currentState?.unregisterWidget(_keyLift);
           item._snapshotterKey.currentState?.unregisterWidget(_keyDrag);

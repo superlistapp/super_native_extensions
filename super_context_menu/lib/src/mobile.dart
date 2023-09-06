@@ -314,27 +314,29 @@ class _LongPressDetector extends StatelessWidget {
         child: child,
       );
     } else {
-      return RawGestureDetector(
-        behavior: hitTestBehavior,
-        gestures: {
-          raw.SingleDragDelayedGestureRecognizer:
-              GestureRecognizerFactoryWithHandlers<
-                      raw.SingleDragDelayedGestureRecognizer>(
-                  () => raw.SingleDragDelayedGestureRecognizer(
-                        beginDuration: const Duration(milliseconds: 150),
-                        duration: const Duration(milliseconds: 300),
-                      ), (recognizer) {
-            recognizer.shouldAcceptTouchAtPosition = contextMenuIsAllowed;
-            recognizer.onDragStart = (globalPosition) {
-              return longPressHandler?.dragGestureForPosition(
-                context: context,
-                position: globalPosition,
-                pointer: recognizer.lastPointer!,
-              );
-            };
-          }),
-        },
-        child: child,
+      return raw.MultiTouchDetector(
+        child: RawGestureDetector(
+          behavior: hitTestBehavior,
+          gestures: {
+            raw.SingleDragDelayedGestureRecognizer:
+                GestureRecognizerFactoryWithHandlers<
+                        raw.SingleDragDelayedGestureRecognizer>(
+                    () => raw.SingleDragDelayedGestureRecognizer(
+                          beginDuration: const Duration(milliseconds: 150),
+                          duration: const Duration(milliseconds: 300),
+                        ), (recognizer) {
+              recognizer.shouldAcceptTouchAtPosition = contextMenuIsAllowed;
+              recognizer.onDragStart = (globalPosition) {
+                return longPressHandler?.dragGestureForPosition(
+                  context: context,
+                  position: globalPosition,
+                  pointer: recognizer.lastPointer!,
+                );
+              };
+            }),
+          },
+          child: child,
+        ),
       );
     }
   }
