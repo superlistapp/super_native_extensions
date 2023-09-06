@@ -198,6 +198,10 @@ impl PlatformMenu {
                     Sel::from_ptr(std::ptr::null_mut()),
                     *to_nsstring(""),
                 );
+                if let Some(MenuImage::Image { data }) = &menu.image {
+                    let image = ns_image_for_menu_item(data.clone());
+                    let () = msg_send![item, setImage: *image];
+                }
                 let submenu = Self::translate_menu(menu, isolate, delegate.clone());
                 NSMenuItem::setSubmenu_(item, *submenu);
                 StrongPtr::new(item)
