@@ -1,3 +1,8 @@
+## 0.7.0-dev.2
+
+ - **FIX**: multi-touch issues on Android (#196).
+ - **FEAT**: restore focus before invoking menu callback (#191).
+
 ## 0.7.0-dev.1
 
  - **FIX**: do not use path dependencies for published packages in pubspec.yaml (#183).

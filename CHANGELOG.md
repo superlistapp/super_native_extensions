@@ -3,6 +3,50 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## 2023-09-06
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - There are no breaking changes in this release.
+
+Packages with other changes:
+
+ - [`super_clipboard` - `v0.7.0-dev.2`](#super_clipboard---v070-dev2)
+ - [`super_drag_and_drop` - `v0.7.0-dev.2`](#super_drag_and_drop---v070-dev2)
+ - [`super_context_menu` - `v0.7.0-dev.2`](#super_context_menu---v070-dev2)
+ - [`super_native_extensions` - `v0.7.0-dev.2`](#super_native_extensions---v070-dev2)
+ - [`super_hot_key` - `v0.7.0-dev.2`](#super_hot_key---v070-dev2)
+ - [`super_keyboard_layout` - `v0.7.0-dev.2`](#super_keyboard_layout---v070-dev2)
+
+---
+
+#### `super_clipboard` - `v0.7.0-dev.2`
+
+#### `super_drag_and_drop` - `v0.7.0-dev.2`
+
+ - **FIX**: multi-touch issues on Android (#196).
+
+#### `super_context_menu` - `v0.7.0-dev.2`
+
+ - **FIX**: multi-touch issues on Android (#196).
+ - **FEAT**: restore focus before invoking menu callback (#191).
+
+#### `super_native_extensions` - `v0.7.0-dev.2`
+
+ - **FIX**: multi-touch issues on Android (#196).
+ - **FIX**: improve closing of menu overlay on touch devices (#193).
+
+#### `super_hot_key` - `v0.7.0-dev.2`
+
+ - Bump "super_hot_key" to `0.7.0-dev.2`.
+
+#### `super_keyboard_layout` - `v0.7.0-dev.2`
+
+
 ## 2023-08-30
 
 ### Changes

@@ -1,3 +1,5 @@
+## 0.7.0-dev.2
+
 ## 0.7.0-dev.1
 
  - **FIX**: do not use path dependencies for published packages in pubspec.yaml (#183).

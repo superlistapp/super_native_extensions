@@ -1,3 +1,8 @@
+## 0.7.0-dev.2
+
+ - **FIX**: multi-touch issues on Android (#196).
+ - **FIX**: improve closing of menu overlay on touch devices (#193).
+
 ## 0.7.0-dev.1
 
 ## 0.6.4
