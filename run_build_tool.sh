@@ -44,7 +44,7 @@ EOF
 
 # Dart run will not cache any package that has a path dependency, which
 # is the case for our build_tool_runner. So instead we precompile the package
-# ourself.
+# ourselves.
 # To invalidate the cached kernel we use the hash of ls -LR of the build_tool
 # package directory. This should be good enough, as the build_tool package
 # itself is not meant to have any path dependencies.
@@ -72,4 +72,4 @@ if [ ! -f "$PACKAGE_HASH_FILE" ]; then
     echo "$PACKAGE_HASH" > "$PACKAGE_HASH_FILE"
 fi
 
-"$DART" bin/build_tool_runner.dill $@
+"$DART" bin/build_tool_runner.dill "$@"
