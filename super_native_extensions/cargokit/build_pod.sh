@@ -3,6 +3,9 @@ set -e
 
 BASEDIR=$(dirname "$0")
 
+# Workaround for https://github.com/dart-lang/pub/issues/4010
+BASEDIR=$(cd "$BASEDIR" ; pwd -P)
+
 # Remove XCode SDK from path. Otherwise this breaks tool compilation when building iOS project
 NEW_PATH=`echo $PATH | tr ":" "\n" | grep -v "Contents/Developer/" | tr "\n" ":"`
 
@@ -34,7 +37,7 @@ export CARGOKIT_TOOL_TEMP_DIR=$TARGET_TEMP_DIR/build_tool
 # Directory inside root project. Not necessarily the top level directory of root project.
 export CARGOKIT_ROOT_PROJECT_DIR=$SRCROOT
 
-"$BASEDIR/run_build_tool.sh" build-pod $@
+"$BASEDIR/run_build_tool.sh" build-pod "$@"
 
 # Make a symlink from built framework to phony file, which will be used as input to
 # build script. This should force rebuild (podspec currently doesn't support alwaysOutOfDate
