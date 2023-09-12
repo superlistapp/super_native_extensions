@@ -1,3 +1,7 @@
+## 0.7.0-dev.3
+
+ - **FIX**: [macOS] missing image on NSMenuItem with children (#197).
+
 ## 0.7.0-dev.2
 
  - **FIX**: multi-touch issues on Android (#196).
