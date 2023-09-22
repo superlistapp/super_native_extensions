@@ -1,3 +1,5 @@
+## 0.7.0-dev.4
+
 ## 0.7.0-dev.3
 
  - **FIX**: [macOS] missing image on NSMenuItem with children (#197).
