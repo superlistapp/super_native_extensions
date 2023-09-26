@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
@@ -211,7 +212,12 @@ class ItemDataReader extends ClipboardDataReader {
       if (format.receiverFormats.contains(f)) {
         final (data, progress) = item.getDataForFormat(f);
         data.then((value) {
-          final list = value != null ? value as Uint8List : Uint8List(0);
+          final list = switch (value) {
+            String value => utf8.encode(value) as Uint8List,
+            Uint8List value => value,
+            null => Uint8List(0),
+            _ => throw StateError('Unexpected data type: $value'),
+          };
           onFile(DataReaderFileValueAdapter(list));
         }, onError: (e) {
           handleError(e);
