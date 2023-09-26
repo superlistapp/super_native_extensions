@@ -1,3 +1,7 @@
+## 0.7.0-dev.5
+
+ - Bump "super_native_extensions" to `0.7.0-dev.5`.
+
 ## 0.7.0-dev.4
 
 ## 0.7.0-dev.3

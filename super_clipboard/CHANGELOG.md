@@ -1,3 +1,7 @@
+## 0.7.0-dev.5
+
+ - **FIX**: readFile fails when item is a String (#202).
+
 ## 0.7.0-dev.4
 
 ## 0.7.0-dev.3
