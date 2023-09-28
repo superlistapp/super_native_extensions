@@ -383,6 +383,16 @@ class Formats {
     ],
   );
 
+  static const epub = SimpleFileFormat(
+    uniformTypeIdentifiers: ['org.idpf.epub-container'],
+    mimeTypes: ['application/epub+zip'],
+  );
+
+  static const md = SimpleFileFormat(
+    uniformTypeIdentifiers: ['net.daringfireball.markdown'],
+    mimeTypes: ['text/markdown'],
+  );
+
   static const csv = SimpleFileFormat(
     uniformTypeIdentifiers: ['public.comma-separated-values-text'],
     mimeTypes: ['text/csv'],
