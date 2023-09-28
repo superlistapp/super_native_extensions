@@ -285,6 +285,13 @@ impl MenuSession {
         unsafe {
             let view: id = msg_send![*self.view_controller, view];
             let sub_views: id = msg_send![view, subviews];
+            // There is no activity indicator subview, meaning the preview block has not been called yet.
+            // in which case just set the image and be done with it. the preview_provider will check
+            // if the view is an image view and if so, will leave it alone.
+            if NSArray::count(sub_views) == 0 {
+                let () = msg_send![*self.view_controller, setView: *preview_view];
+                return;
+            }
             let prev_subview = StrongPtr::retain(NSArray::objectAtIndex(sub_views, 0));
             let () = msg_send![view, addSubview:*preview_view];
             let () = msg_send![*preview_view, setAlpha: 0.0];
@@ -401,6 +408,12 @@ impl PlatformMenuContext {
                     let size: CGSize = size.clone().into();
                     let preview_provider = ConcreteBlock::new(move || {
                         let () = msg_send![*controller, setPreferredContentSize: size];
+                        let view: id = msg_send![*controller, view];
+                        let is_image_view = msg_send![view, isKindOfClass: class!(UIImageView)];
+                        if is_image_view {
+                            // the image has already been set by update_preview_image
+                            return controller.clone().autorelease();
+                        }
                         let view: id = msg_send![class!(UIView), alloc];
                         let view = StrongPtr::new(msg_send![
                             view,
