@@ -1,3 +1,8 @@
+## 0.7.0-dev.6
+
+ - **FIX**: remove trailing null terminator from NSString (#207).
+ - **FIX**: [iOS] crash when deferred image is set too quickly (#206).
+
 ## 0.7.0-dev.5
 
  - Bump "super_native_extensions" to `0.7.0-dev.5`.

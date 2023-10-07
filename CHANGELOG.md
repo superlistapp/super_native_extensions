@@ -3,6 +3,47 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## 2023-10-07
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - There are no breaking changes in this release.
+
+Packages with other changes:
+
+ - [`super_clipboard` - `v0.7.0-dev.6`](#super_clipboard---v070-dev6)
+ - [`super_drag_and_drop` - `v0.7.0-dev.6`](#super_drag_and_drop---v070-dev6)
+ - [`super_context_menu` - `v0.7.0-dev.6`](#super_context_menu---v070-dev6)
+ - [`super_native_extensions` - `v0.7.0-dev.6`](#super_native_extensions---v070-dev6)
+ - [`super_hot_key` - `v0.7.0-dev.6`](#super_hot_key---v070-dev6)
+ - [`super_keyboard_layout` - `v0.7.0-dev.6`](#super_keyboard_layout---v070-dev6)
+
+---
+
+#### `super_clipboard` - `v0.7.0-dev.6`
+
+ - **FEAT**: add support for epub and md (#205).
+
+#### `super_drag_and_drop` - `v0.7.0-dev.6`
+
+#### `super_context_menu` - `v0.7.0-dev.6`
+
+#### `super_native_extensions` - `v0.7.0-dev.6`
+
+ - **FIX**: remove trailing null terminator from NSString (#207).
+ - **FIX**: [iOS] crash when deferred image is set too quickly (#206).
+
+#### `super_hot_key` - `v0.7.0-dev.6`
+
+ - Bump "super_hot_key" to `0.7.0-dev.6`.
+
+#### `super_keyboard_layout` - `v0.7.0-dev.6`
+
+
 ## 2023-09-26
 
 ### Changes

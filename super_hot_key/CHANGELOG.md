@@ -1,3 +1,7 @@
+## 0.7.0-dev.6
+
+ - Bump "super_hot_key" to `0.7.0-dev.6`.
+
 ## 0.7.0-dev.5
 
  - Bump "super_hot_key" to `0.7.0-dev.5`.

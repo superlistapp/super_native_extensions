@@ -1,3 +1,7 @@
+## 0.7.0-dev.6
+
+ - **FEAT**: add support for epub and md (#205).
+
 ## 0.7.0-dev.5
 
  - **FIX**: readFile fails when item is a String (#202).
