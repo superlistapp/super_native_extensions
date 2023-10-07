@@ -42,7 +42,10 @@ pub unsafe fn from_nsstring(ns_string: id) -> String {
 
     let len = ns_string.len();
 
-    let bytes = slice::from_raw_parts(bytes, len);
+    let mut bytes = slice::from_raw_parts(bytes, len);
+    while bytes.last() == Some(&0) {
+        bytes = &bytes[..bytes.len() - 1];
+    }
     std::str::from_utf8(bytes).unwrap().into()
 }
 
