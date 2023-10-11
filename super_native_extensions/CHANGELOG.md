@@ -1,3 +1,5 @@
+## 0.7.0-dev.7
+
 ## 0.7.0-dev.6
 
  - **FIX**: remove trailing null terminator from NSString (#207).

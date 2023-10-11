@@ -1,3 +1,7 @@
+## 0.7.0-dev.7
+
+ - Bump "super_context_menu" to `0.7.0-dev.7`.
+
 ## 0.7.0-dev.6
 
 ## 0.7.0-dev.5

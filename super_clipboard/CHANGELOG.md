@@ -1,3 +1,7 @@
+## 0.7.0-dev.7
+
+ - Bump "super_clipboard" to `0.7.0-dev.7`.
+
 ## 0.7.0-dev.6
 
  - **FEAT**: add support for epub and md (#205).
