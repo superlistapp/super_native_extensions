@@ -744,8 +744,7 @@ impl AsyncStreamReader {
                 stream.Seek(0, STREAM_SEEK_SET, None)?;
             }
         }
-        let mut buf = Vec::<u8>::new();
-        buf.resize(1024 * 1024, 0);
+        let mut buf = vec![0u8; 1024 * 1024];
         let state = state.as_mut().unwrap();
         let to_read = (length - state.num_read).min(buf.len() as u64) as u32;
         if to_read == 0 {
@@ -863,8 +862,7 @@ impl AsyncVirtualStreamCopier {
             })));
         let length = self.get_length()?;
         let mut num_read: u64 = 0;
-        let mut buf = Vec::<u8>::new();
-        buf.resize(1024 * 1024, 0);
+        let buf = vec![0u8; 1024 * 1024];
         let mut last_reported_progress = 0f64;
 
         unsafe {
