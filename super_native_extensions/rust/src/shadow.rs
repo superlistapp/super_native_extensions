@@ -29,9 +29,8 @@ fn draw_shadow(image: &mut ImageData, radius: i32) {
 
     let data = &mut image.data;
 
-    let mut shadow = Vec::<u8>::new();
+    let mut shadow = vec![0u8; (image.width * image.height) as usize];
 
-    shadow.resize((image.width * image.height) as usize, 0);
     (0..data.len() / 4).for_each(|i| {
         shadow[i] = data[i * 4 + 3] / 2;
     });

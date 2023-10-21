@@ -65,8 +65,7 @@ impl PlatformDragContext {
         env: &mut JNIEnv<'a>,
         image: &ImageData,
     ) -> NativeExtensionsResult<JObject<'a>> {
-        let mut tmp = Vec::<i32>::new();
-        tmp.resize((image.width * image.height) as usize, 0);
+        let mut tmp = vec![0i32; (image.width * image.height) as usize];
 
         for y in 0..image.height as usize {
             for x in 0..image.width as usize {

@@ -225,8 +225,7 @@ impl Segment for FileSegment {
             if inner.read_position < inner.write_position {
                 match &inner.file {
                     Some(file) => {
-                        let mut buf = Vec::<u8>::new();
-                        buf.resize(max_len, 0);
+                        let mut buf = vec![0u8; max_len];
                         let res = FileSegment::read_at(file, &mut buf, inner.read_position)
                             .ok_log()
                             .unwrap_or(0);
