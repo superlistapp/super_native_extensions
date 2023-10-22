@@ -1,3 +1,5 @@
+## 0.7.0
+
 ## 0.7.0-dev.7
 
  - Bump "super_drag_and_drop" to `0.7.0-dev.7`.
