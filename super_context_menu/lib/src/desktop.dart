@@ -9,6 +9,9 @@ import 'package:super_context_menu/src/menu_internal.dart';
 import 'package:super_context_menu/super_context_menu.dart';
 import 'package:super_native_extensions/raw_menu.dart' as raw;
 
+// ignore: implementation_imports
+import 'package:super_native_extensions/src/mutex.dart';
+
 import 'scaffold/desktop/menu_session.dart';
 import 'scaffold/desktop/menu_widget_builder.dart';
 import 'util.dart';
@@ -24,7 +27,7 @@ class _ContextMenuDetector extends StatefulWidget {
   final Widget child;
   final HitTestBehavior hitTestBehavior;
   final ContextMenuIsAllowed contextMenuIsAllowed;
-  final Function(Offset, Listenable) onShowContextMenu;
+  final Function(Offset, Listenable, Function(bool)) onShowContextMenu;
 
   @override
   State<StatefulWidget> createState() => _ContextMenuDetectorState();
@@ -35,6 +38,11 @@ class _ContextMenuDetectorState extends State<_ContextMenuDetector> {
   Stopwatch? _pointerDownStopwatch;
 
   final _onPointerUp = SimpleNotifier();
+
+  // Prevent nested detectors from showing context menu.
+  static _ContextMenuDetectorState? _activeDetector;
+
+  static final _mutex = Mutex();
 
   bool _acceptPrimaryButton() {
     final keys = RawKeyboard.instance.keysPressed;
@@ -56,18 +64,50 @@ class _ContextMenuDetectorState extends State<_ContextMenuDetector> {
   }
 
   @override
+  void dispose() {
+    super.dispose();
+    _mutex.protect(() async {
+      if (_activeDetector == this) {
+        _activeDetector = null;
+      }
+    });
+  }
+
+  /// Returns true if the context menu provider has produced a valid menu that
+  /// is being shown.
+  Future<bool> _showContextMenu(Offset position, Listenable onPointerUp) async {
+    final completer = Completer<bool>();
+    widget.onShowContextMenu(position, onPointerUp, (value) {
+      completer.complete(value);
+    });
+    return completer.future;
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Listener(
       behavior: widget.hitTestBehavior,
       onPointerDown: (event) {
-        if (_canAcceptEvent(event)) {
-          _pointerDown = event.pointer;
-          _pointerDownStopwatch = Stopwatch()..start();
-          widget.onShowContextMenu(event.position, _onPointerUp);
-        }
+        _mutex.protect(() async {
+          if (_activeDetector != null) {
+            return;
+          }
+          if (_canAcceptEvent(event)) {
+            final menuResolved = await _showContextMenu(
+              event.position,
+              _onPointerUp,
+            );
+            if (menuResolved) {
+              _activeDetector = this;
+              _pointerDown = event.pointer;
+              _pointerDownStopwatch = Stopwatch()..start();
+            }
+          }
+        });
       },
       onPointerUp: (event) {
         if (_pointerDown == event.pointer) {
+          _activeDetector = null;
           _pointerDown = null;
           // Pointer up would trigger currently selected item. Make sure we don't
           // do this on simple right click.
@@ -108,11 +148,12 @@ class DesktopContextMenuWidget extends StatelessWidget {
     return _ContextMenuDetector(
       hitTestBehavior: hitTestBehavior,
       contextMenuIsAllowed: contextMenuIsAllowed,
-      onShowContextMenu: (position, pointerUpListenable) {
-        _onContextMenu(
+      onShowContextMenu: (position, pointerUpListenable, onMenuresolved) {
+        _onShowContextMenu(
           context,
           position,
           pointerUpListenable,
+          onMenuresolved,
         );
       },
       // Used on web to determine whether to prevent browser context menu
@@ -140,10 +181,13 @@ class DesktopContextMenuWidget extends StatelessWidget {
     );
   }
 
-  void _onContextMenu(
+  /// [onMenuResolved] Will be called with true if the provider resolved a valid menu that will be shown,
+  ///                  false otherwise.
+  void _onShowContextMenu(
     BuildContext context,
     Offset globalPosition,
     Listenable onInitialPointerUp,
+    Function(bool) onMenuResolved,
   ) async {
     final onShowMenu = SimpleNotifier();
     final onHideMenu = ValueNotifier<raw.MenuResult?>(null);
@@ -167,8 +211,10 @@ class DesktopContextMenuWidget extends StatelessWidget {
         // ignore: use_build_context_synchronously
         if (!context.mounted) {
           onHideMenu.value = raw.MenuResult(itemSelected: false);
+          onMenuResolved(false);
           return;
         }
+        onMenuResolved(true);
         onShowMenu.notify();
         final request = raw.DesktopContextMenuRequest(
             iconTheme: serializationOptions.iconTheme,
@@ -189,6 +235,8 @@ class DesktopContextMenuWidget extends StatelessWidget {
             });
         final res = await menuContext.showContextMenu(request);
         onHideMenu.value = res;
+      } else {
+        onMenuResolved(false);
       }
     } finally {
       onShowMenu.dispose();
