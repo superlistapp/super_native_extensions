@@ -205,6 +205,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.10.0"
+  sprintf:
+    dependency: transitive
+    description:
+      name: sprintf
+      sha256: "1fc9ffe69d4df602376b52949af107d8f5703b77cda567c4d7d86a0693120f23"
+      url: "https://pub.dev"
+    source: hosted
+    version: "7.0.0"
   stack_trace:
     dependency: transitive
     description:
@@ -235,28 +243,28 @@ packages:
       path: "../../super_clipboard"
       relative: true
     source: path
-    version: "0.7.0-dev.7"
+    version: "0.7.1"
   super_context_menu:
     dependency: "direct main"
     description:
       path: ".."
       relative: true
     source: path
-    version: "0.7.0-dev.7"
+    version: "0.7.1"
   super_drag_and_drop:
     dependency: "direct main"
     description:
       path: "../../super_drag_and_drop"
       relative: true
     source: path
-    version: "0.7.0-dev.7"
+    version: "0.7.1"
   super_native_extensions:
     dependency: "direct overridden"
     description:
       path: "../../super_native_extensions"
       relative: true
     source: path
-    version: "0.7.0-dev.7"
+    version: "0.7.1"
   term_glyph:
     dependency: transitive
     description:
@@ -285,10 +293,10 @@ packages:
     dependency: transitive
     description:
       name: uuid
-      sha256: "648e103079f7c64a36dc7d39369cabb358d377078a051d6ae2ad3aa539519313"
+      sha256: b715b8d3858b6fa9f68f87d20d98830283628014750c2b09b6f516c1da4af2a7
       url: "https://pub.dev"
     source: hosted
-    version: "3.0.7"
+    version: "4.1.0"
   vector_math:
     dependency: transitive
     description:
