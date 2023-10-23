@@ -30,6 +30,7 @@ class MenuContextDelegate implements raw.MenuContextDelegate {
           _onShow.remove(request.configurationId);
           _onHide.remove(request.configurationId);
           _onPreviewAction.remove(request.configurationId);
+          continue;
         }
         return configuration;
       }
