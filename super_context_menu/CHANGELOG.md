@@ -1,3 +1,7 @@
+## 0.7.1
+
+ - **FIX**: properly handle overlapping menu widgets (#217).
+
 ## 0.7.0
 
 ## 0.7.0-dev.7

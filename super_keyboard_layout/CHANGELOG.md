@@ -1,3 +1,7 @@
+## 0.7.1
+
+ - Bump "super_keyboard_layout" to `0.7.1`.
+
 ## 0.7.0
 
 ## 0.7.0-dev.7

@@ -3,6 +3,50 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## 2023-10-23
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - There are no breaking changes in this release.
+
+Packages with other changes:
+
+ - [`super_clipboard` - `v0.7.1`](#super_clipboard---v071)
+ - [`super_drag_and_drop` - `v0.7.1`](#super_drag_and_drop---v071)
+ - [`super_context_menu` - `v0.7.1`](#super_context_menu---v071)
+ - [`super_native_extensions` - `v0.7.1`](#super_native_extensions---v071)
+ - [`super_hot_key` - `v0.7.1`](#super_hot_key---v071)
+ - [`super_keyboard_layout` - `v0.7.1`](#super_keyboard_layout---v071)
+
+---
+
+#### `super_clipboard` - `v0.7.1`
+
+ - Bump "super_clipboard" to `0.7.1`.
+
+#### `super_drag_and_drop` - `v0.7.1`
+
+ - Bump "super_drag_and_drop" to `0.7.1`.
+
+#### `super_context_menu` - `v0.7.1`
+
+ - **FIX**: properly handle overlapping menu widgets (#217).
+
+#### `super_native_extensions` - `v0.7.1`
+
+#### `super_hot_key` - `v0.7.1`
+
+ - Bump "super_hot_key" to `0.7.1`.
+
+#### `super_keyboard_layout` - `v0.7.1`
+
+ - Bump "super_keyboard_layout" to `0.7.1`.
+
+
 ## 2023-10-22
 
 ### Changes
