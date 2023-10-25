@@ -1,3 +1,5 @@
+## 0.7.2
+
 ## 0.7.1
 
  - Bump "super_drag_and_drop" to `0.7.1`.

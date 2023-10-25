@@ -1,3 +1,7 @@
+## 0.7.2
+
+ - Bump "super_native_extensions" to `0.7.2`.
+
 ## 0.7.1
 
 ## 0.7.0

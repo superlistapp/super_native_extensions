@@ -1,3 +1,7 @@
+## 0.7.2
+
+ - **FIX**: regression when context menu sometimes does not show (#220).
+
 ## 0.7.1
 
  - **FIX**: properly handle overlapping menu widgets (#217).
