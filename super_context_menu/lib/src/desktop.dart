@@ -27,7 +27,8 @@ class _ContextMenuDetector extends StatefulWidget {
   final Widget child;
   final HitTestBehavior hitTestBehavior;
   final ContextMenuIsAllowed contextMenuIsAllowed;
-  final Function(Offset, Listenable, Function(bool)) onShowContextMenu;
+  final Future<void> Function(Offset, Listenable, Function(bool))
+      onShowContextMenu;
 
   @override
   State<StatefulWidget> createState() => _ContextMenuDetectorState();
@@ -73,14 +74,19 @@ class _ContextMenuDetectorState extends State<_ContextMenuDetector> {
     });
   }
 
-  /// Returns true if the context menu provider has produced a valid menu that
-  /// is being shown.
-  Future<bool> _showContextMenu(Offset position, Listenable onPointerUp) async {
-    final completer = Completer<bool>();
-    widget.onShowContextMenu(position, onPointerUp, (value) {
-      completer.complete(value);
-    });
-    return completer.future;
+  void _showContextMenu(
+    Offset position,
+    Listenable onPointerUp,
+    ValueChanged<bool> onMenuResolved,
+    VoidCallback onClose,
+  ) async {
+    try {
+      await widget.onShowContextMenu(position, onPointerUp, (value) {
+        onMenuResolved(value);
+      });
+    } finally {
+      onClose();
+    }
   }
 
   @override
@@ -93,10 +99,17 @@ class _ContextMenuDetectorState extends State<_ContextMenuDetector> {
             return;
           }
           if (_canAcceptEvent(event)) {
-            final menuResolved = await _showContextMenu(
-              event.position,
-              _onPointerUp,
-            );
+            final menuResolvedCompleter = Completer<bool>();
+            _showContextMenu(event.position, _onPointerUp, (value) {
+              menuResolvedCompleter.complete(value);
+            }, () {
+              _mutex.protect(() async {
+                if (_activeDetector == this) {
+                  _activeDetector = null;
+                }
+              });
+            });
+            final menuResolved = await menuResolvedCompleter.future;
             if (menuResolved) {
               _activeDetector = this;
               _pointerDown = event.pointer;
@@ -148,8 +161,8 @@ class DesktopContextMenuWidget extends StatelessWidget {
     return _ContextMenuDetector(
       hitTestBehavior: hitTestBehavior,
       contextMenuIsAllowed: contextMenuIsAllowed,
-      onShowContextMenu: (position, pointerUpListenable, onMenuresolved) {
-        _onShowContextMenu(
+      onShowContextMenu: (position, pointerUpListenable, onMenuresolved) async {
+        await _onShowContextMenu(
           context,
           position,
           pointerUpListenable,
@@ -183,7 +196,7 @@ class DesktopContextMenuWidget extends StatelessWidget {
 
   /// [onMenuResolved] Will be called with true if the provider resolved a valid menu that will be shown,
   ///                  false otherwise.
-  void _onShowContextMenu(
+  Future<void> _onShowContextMenu(
     BuildContext context,
     Offset globalPosition,
     Listenable onInitialPointerUp,
