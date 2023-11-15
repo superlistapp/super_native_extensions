@@ -258,53 +258,65 @@ class MenuContextImpl extends MenuContext {
 
   Future<dynamic> _handleMethodCall(MethodCall call) async {
     if (call.method == 'getConfigurationForLocation') {
-      final arguments = call.arguments as Map;
-      final offset = OffsetExt.deserialize(arguments['location']);
-      final configurationId = arguments['configurationId'] as int;
-      final configuration = await delegate?.getMenuConfiguration(
-        MobileMenuConfigurationRequest(
-            configurationId: configurationId,
-            location: offset,
-            previewImageSetter: (image) =>
-                _updatePreviewImage(configurationId, image)),
-      );
-      if (configuration != null) {
-        return {'configuration': await configuration.serialize()};
-      } else {
-        return {'configuration': null};
-      }
-    } else if (call.method == 'onAction') {
-      final actionId = call.arguments as int;
-      final element = _elementWithId(actionId)?.element;
-      if (element is MenuAction) {
-        element.callback();
-      }
-    } else if (call.method == 'onShowMenu') {
-      delegate?.onShowMenu(call.arguments as int);
-    } else if (call.method == 'onHideMenu') {
-      final hideRequest = call.arguments as Map;
-      delegate?.onHideMenu(
-          hideRequest['menuConfigurationId'] as int,
-          MenuResult(
-            itemSelected: hideRequest['itemSelected'] as bool,
-          ));
-    } else if (call.method == 'onPreviewAction') {
-      delegate?.onPreviewAction(call.arguments as int);
-    } else if (call.method == 'getDeferredMenu') {
-      final id = call.arguments as int;
-      final element = _elementWithId(id);
-      Iterable<dynamic> res = [];
-      if (element != null && element.element is DeferredMenuElement) {
-        final menu = await getDeferredMenu(
-          element.handle,
-          element.element as DeferredMenuElement,
+      return handleError(() async {
+        final arguments = call.arguments as Map;
+        final offset = OffsetExt.deserialize(arguments['location']);
+        final configurationId = arguments['configurationId'] as int;
+        final configuration = await delegate?.getMenuConfiguration(
+          MobileMenuConfigurationRequest(
+              configurationId: configurationId,
+              location: offset,
+              previewImageSetter: (image) =>
+                  _updatePreviewImage(configurationId, image)),
         );
-        res = await Future.wait(menu.map((e) {
-          element.handle.elements.add(e);
-          return e.serialize(element.handle.serializationOptions);
-        }));
-      }
-      return {'elements': res};
+        if (configuration != null) {
+          return {'configuration': await configuration.serialize()};
+        } else {
+          return {'configuration': null};
+        }
+      }, () => {'configuration': null});
+    } else if (call.method == 'onAction') {
+      return handleError(() async {
+        final actionId = call.arguments as int;
+        final element = _elementWithId(actionId)?.element;
+        if (element is MenuAction) {
+          element.callback();
+        }
+      }, () => null);
+    } else if (call.method == 'onShowMenu') {
+      return handleError(() async {
+        delegate?.onShowMenu(call.arguments as int);
+      }, () => null);
+    } else if (call.method == 'onHideMenu') {
+      return handleError(() async {
+        final hideRequest = call.arguments as Map;
+        delegate?.onHideMenu(
+            hideRequest['menuConfigurationId'] as int,
+            MenuResult(
+              itemSelected: hideRequest['itemSelected'] as bool,
+            ));
+      }, () => null);
+    } else if (call.method == 'onPreviewAction') {
+      return handleError(() async {
+        delegate?.onPreviewAction(call.arguments as int);
+      }, () => null);
+    } else if (call.method == 'getDeferredMenu') {
+      return handleError(() async {
+        final id = call.arguments as int;
+        final element = _elementWithId(id);
+        Iterable<dynamic> res = [];
+        if (element != null && element.element is DeferredMenuElement) {
+          final menu = await getDeferredMenu(
+            element.handle,
+            element.element as DeferredMenuElement,
+          );
+          res = await Future.wait(menu.map((e) {
+            element.handle.elements.add(e);
+            return e.serialize(element.handle.serializationOptions);
+          }));
+        }
+        return {'elements': res};
+      }, () => {'elements': []});
     } else {
       return null;
     }
