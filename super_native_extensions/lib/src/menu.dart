@@ -4,12 +4,12 @@ import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
-import 'drag.dart';
 import 'menu_model.dart';
 import 'mutex.dart';
 
 import 'native/menu.dart' if (dart.library.js) 'web/menu.dart';
 import 'menu_flutter.dart';
+import 'gesture/pointer_device_kind.dart';
 import 'widget_snapshot/widget_snapshot.dart';
 
 abstract class MobileMenuDelegate {
@@ -119,9 +119,11 @@ abstract class MenuContext {
 
   MenuContextDelegate? delegate;
 
-  static bool get isTouchDevice => DragContext.isTouchDevice;
-
-  Future<void> initialize();
+  @mustCallSuper
+  Future<void> initialize() async {
+    WidgetsFlutterBinding.ensureInitialized();
+    PointerDeviceKindDetector.instance;
+  }
 
   Future<MenuResult> showContextMenu(DesktopContextMenuRequest request);
 

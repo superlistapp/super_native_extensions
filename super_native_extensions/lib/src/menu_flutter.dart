@@ -28,7 +28,4 @@ class FlutterMenuContext extends MenuContext {
   Future<MenuResult> showContextMenu(DesktopContextMenuRequest request) async {
     return request.fallback();
   }
-
-  @override
-  Future<void> initialize() async {}
 }

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 import 'package:super_native_extensions/raw_menu.dart' as raw;
 
@@ -86,28 +87,35 @@ class ContextMenuWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (raw.MenuContext.isTouchDevice) {
-      return MobileContextMenuWidget(
-        hitTestBehavior: hitTestBehavior,
-        menuProvider: menuProvider,
-        liftBuilder: liftBuilder,
-        previewBuilder: previewBuilder,
-        deferredPreviewBuilder: deferredPreviewBuilder,
-        iconTheme: iconTheme,
-        contextMenuIsAllowed: contextMenuIsAllowed,
-        menuWidgetBuilder: mobileMenuWidgetBuilder,
-        child: child,
-      );
-    } else {
-      return DesktopContextMenuWidget(
-        hitTestBehavior: hitTestBehavior,
-        menuProvider: menuProvider,
-        contextMenuIsAllowed: contextMenuIsAllowed,
-        iconTheme: iconTheme,
-        menuWidgetBuilder: desktopMenuWidgetBuilder,
-        child: child,
-      );
-    }
+    final kind = raw.PointerDeviceKindDetector.instance.current;
+    return ListenableBuilder(
+      listenable: kind,
+      child: child,
+      builder: (context, child) {
+        if (kind.value == PointerDeviceKind.touch) {
+          return MobileContextMenuWidget(
+            hitTestBehavior: hitTestBehavior,
+            menuProvider: menuProvider,
+            liftBuilder: liftBuilder,
+            previewBuilder: previewBuilder,
+            deferredPreviewBuilder: deferredPreviewBuilder,
+            iconTheme: iconTheme,
+            contextMenuIsAllowed: contextMenuIsAllowed,
+            menuWidgetBuilder: mobileMenuWidgetBuilder,
+            child: child!,
+          );
+        } else {
+          return DesktopContextMenuWidget(
+            hitTestBehavior: hitTestBehavior,
+            menuProvider: menuProvider,
+            contextMenuIsAllowed: contextMenuIsAllowed,
+            iconTheme: iconTheme,
+            menuWidgetBuilder: desktopMenuWidgetBuilder,
+            child: child!,
+          );
+        }
+      },
+    );
   }
 }
 

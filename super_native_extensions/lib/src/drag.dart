@@ -7,6 +7,7 @@ import 'data_provider.dart';
 import 'drop.dart';
 import 'image_data.dart';
 import 'mutex.dart';
+import 'gesture/pointer_device_kind.dart';
 
 import 'native/drag.dart' if (dart.library.js) 'web/drag.dart';
 import 'widget_snapshot/widget_snapshot.dart';
@@ -124,14 +125,15 @@ abstract class DragContextDelegate {
 abstract class DragContext {
   static final _mutex = Mutex();
 
-  static bool get isTouchDevice => DragContextImpl.isTouchDevice;
-
   static DragContext? _instance;
 
   DragContextDelegate? delegate;
 
-  @protected
-  Future<void> initialize();
+  @mustCallSuper
+  Future<void> initialize() async {
+    WidgetsFlutterBinding.ensureInitialized();
+    PointerDeviceKindDetector.instance;
+  }
 
   static Future<DragContext> instance() {
     return _mutex.protect(() async {

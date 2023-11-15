@@ -2,10 +2,13 @@ import 'dart:html' as html;
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 
 import '../drag.dart';
+import '../drag_interaction/long_press_session.dart';
 import '../drop.dart';
+import '../gesture/pointer_device_kind.dart';
 import '../widget_snapshot/widget_snapshot.dart';
 import 'drag_overlay.dart';
 import 'drop.dart';
@@ -231,21 +234,24 @@ class _SessionState implements DragDriverDelegate {
 }
 
 class DragContextImpl extends DragContext {
-  static bool get isTouchDevice => html.window.navigator.maxTouchPoints != 0;
-
   @override
   Future<void> initialize() async {
+    super.initialize();
     // Long press draggable requires disabling context menu.
-    if (html.window.navigator.maxTouchPoints != 0) {
-      html.document.addEventListener('contextmenu', (event) {
+    html.document.addEventListener('contextmenu', (event) {
+      if (PointerDeviceKindDetector.instance.current.value ==
+          PointerDeviceKind.touch) {
         final offset_ = (event as html.MouseEvent).offset;
         final offset = ui.Offset(offset_.x.toDouble(), offset_.y.toDouble());
         final draggable = delegate?.isLocationDraggable(offset) ?? false;
         if (draggable) {
           event.preventDefault();
         }
-      });
-    }
+        if (LongPressSession.active) {
+          event.preventDefault();
+        }
+      }
+    });
   }
 
   @override
