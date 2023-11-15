@@ -1,3 +1,8 @@
+## 0.7.3
+
+ - **FIX**: let zone handle menu callback errors (#228).
+ - **FEAT**: improve touch device detection (#227).
+
 ## 0.7.2
 
  - Bump "super_native_extensions" to `0.7.2`.

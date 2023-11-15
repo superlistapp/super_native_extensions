@@ -1,3 +1,7 @@
+## 0.7.3
+
+ - **FEAT**: improve touch device detection (#227).
+
 ## 0.7.2
 
  - **FIX**: regression when context menu sometimes does not show (#220).

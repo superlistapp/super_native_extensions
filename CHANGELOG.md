@@ -3,6 +3,49 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## 2023-11-15
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - There are no breaking changes in this release.
+
+Packages with other changes:
+
+ - [`super_clipboard` - `v0.7.3`](#super_clipboard---v073)
+ - [`super_drag_and_drop` - `v0.7.3`](#super_drag_and_drop---v073)
+ - [`super_context_menu` - `v0.7.3`](#super_context_menu---v073)
+ - [`super_native_extensions` - `v0.7.3`](#super_native_extensions---v073)
+ - [`super_hot_key` - `v0.7.3`](#super_hot_key---v073)
+ - [`super_keyboard_layout` - `v0.7.3`](#super_keyboard_layout---v073)
+
+---
+
+#### `super_clipboard` - `v0.7.3`
+
+#### `super_drag_and_drop` - `v0.7.3`
+
+ - **FEAT**: improve touch device detection (#227).
+
+#### `super_context_menu` - `v0.7.3`
+
+ - **FEAT**: improve touch device detection (#227).
+
+#### `super_native_extensions` - `v0.7.3`
+
+ - **FIX**: let zone handle menu callback errors (#228).
+ - **FEAT**: improve touch device detection (#227).
+
+#### `super_hot_key` - `v0.7.3`
+
+ - Bump "super_hot_key" to `0.7.3`.
+
+#### `super_keyboard_layout` - `v0.7.3`
+
+
 ## 2023-10-25
 
 ### Changes
