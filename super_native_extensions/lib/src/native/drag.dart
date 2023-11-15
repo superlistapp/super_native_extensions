@@ -79,10 +79,6 @@ final _channel =
     NativeMethodChannel('DragManager', context: superNativeExtensionsContext);
 
 class DragContextImpl extends DragContext {
-  static bool get isTouchDevice =>
-      defaultTargetPlatform == TargetPlatform.android ||
-      defaultTargetPlatform == TargetPlatform.iOS;
-
   DragContextImpl();
 
   final _sessions = <int, DragSessionImpl>{};
@@ -90,7 +86,7 @@ class DragContextImpl extends DragContext {
 
   @override
   Future<void> initialize() async {
-    WidgetsFlutterBinding.ensureInitialized();
+    super.initialize();
     final engineHandle = await EngineContext.instance.getEngineHandle();
     _channel.setMethodCallHandler(_handleMethodCall);
     await _channel.invokeMethod('newContext', {

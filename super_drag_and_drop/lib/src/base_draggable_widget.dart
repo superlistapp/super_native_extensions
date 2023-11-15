@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 import 'package:super_native_extensions/raw_drag_drop.dart' as raw;
 
@@ -61,19 +62,30 @@ class BaseDraggableWidget extends StatelessWidget {
       // otherwise the scroll activity disables user interaction too early
       // and the hit test fails.
       child = DummyDragDetector(child: child);
-    } else if (raw.DragContext.isTouchDevice) {
-      child = MobileDragDetector(
-        hitTestBehavior: hitTestBehavior,
-        dragConfiguration: dragConfiguration,
-        isLocationDraggable: isLocationDraggable,
-        child: child,
-      );
     } else {
-      child = DesktopDragDetector(
-        hitTestBehavior: hitTestBehavior,
-        dragConfiguration: dragConfiguration,
-        isLocationDraggable: isLocationDraggable,
+      final kind = raw.PointerDeviceKindDetector.instance.current;
+      child = ListenableBuilder(
+        listenable: kind,
         child: child,
+        builder: (context, child) {
+          if (kind.value == PointerDeviceKind.touch) {
+            return MobileDragDetector(
+              hitTestBehavior: hitTestBehavior,
+              dragConfiguration: dragConfiguration,
+              isLocationDraggable: isLocationDraggable,
+              child: child!,
+            );
+          } else {
+            return DummyDragDetector(
+              child: DesktopDragDetector(
+                hitTestBehavior: hitTestBehavior,
+                dragConfiguration: dragConfiguration,
+                isLocationDraggable: isLocationDraggable,
+                child: child!,
+              ),
+            );
+          }
+        },
       );
     }
     return BaseDraggableRenderWidget(
