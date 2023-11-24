@@ -425,10 +425,9 @@ class _RenderMenuSafeaTriangleWidget extends RenderProxyBox {
 
   void _cleanup() {
     if (_openedSubmenuPosition != null) {
-      // TODO(knopp): Uncomment the code below once MouseTracker.updateAllDevices() (without arguments) is available in stable
-      // WidgetsBinding.instance.scheduleFrameCallback((timeStamp) {
-      //   WidgetsBinding.instance.mouseTracker.updateAllDevices();
-      // });
+      WidgetsBinding.instance.scheduleFrameCallback((timeStamp) {
+        WidgetsBinding.instance.mouseTracker.updateAllDevices();
+      });
     }
     _openedSubmenuPosition = null;
     _cleanupTimer?.cancel();
