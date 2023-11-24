@@ -39,12 +39,12 @@ class HotKeyDefinition {
 class HotKey {
   final int _handle;
   final HotKeyDefinition definition;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
   final VoidCallback? onReleased;
 
   static Future<HotKey?> create({
     required HotKeyDefinition definition,
-    required VoidCallback onPressed,
+    required VoidCallback? onPressed,
     required VoidCallback? onReleased,
   }) async {
     return _HotKeyManager.instance.createHotKey(
@@ -78,7 +78,7 @@ class _HotKeyManager extends raw.HotKeyManagerDelegate {
 
   Future<HotKey?> createHotKey(
     HotKeyDefinition definition,
-    VoidCallback onPressed,
+    VoidCallback? onPressed,
     VoidCallback? onReleased,
   ) async {
     final rawDefinition = await definition.toRaw();
@@ -107,7 +107,7 @@ class _HotKeyManager extends raw.HotKeyManagerDelegate {
 
   @override
   void onHotKeyPressed(int handle) {
-    _hotKeys[handle]?.onPressed();
+    _hotKeys[handle]?.onPressed?.call();
   }
 
   @override
