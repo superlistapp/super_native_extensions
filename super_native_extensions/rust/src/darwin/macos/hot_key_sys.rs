@@ -26,6 +26,8 @@ pub struct EventTypeSpec {
 pub const kEventClassKeyboard: OSType = 1801812322;
 #[allow(non_upper_case_globals)]
 pub const kEventHotKeyPressed: u32 = 5;
+#[allow(non_upper_case_globals)]
+pub const kEventHotKeyReleased: u32 = 6;
 extern "C" {
     pub fn InstallEventHandler(
         inTarget: EventTargetRef,
@@ -56,6 +58,9 @@ extern "C" {
         outActualSize: *mut ByteCount,
         outData: *mut ::std::os::raw::c_void,
     ) -> OSStatus;
+}
+extern "C" {
+    pub fn GetEventKind(inEvent: EventRef) -> u32;
 }
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
