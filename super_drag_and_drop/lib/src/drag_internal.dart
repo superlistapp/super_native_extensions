@@ -153,14 +153,8 @@ abstract class _DragDetector extends StatelessWidget {
             final event = PointerRemovedEvent(
                 pointer: pointer, kind: PointerDeviceKind.mouse);
 
-            // TODO(knopp): Remove this hack when stable catches up with main
-            try {
-              RendererBinding.instance.mouseTracker
-                  .updateWithEvent(event, (() => HitTestResult()) as dynamic);
-            } catch (_) {
-              RendererBinding.instance.mouseTracker
-                  .updateWithEvent(event, (HitTestResult()) as dynamic);
-            }
+            RendererBinding.instance.mouseTracker
+                .updateWithEvent(event, HitTestResult());
           }
         });
       }

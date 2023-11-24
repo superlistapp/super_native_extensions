@@ -140,7 +140,7 @@ impl PlatformDropContext {
                 // be number or local items (if any), or 1. Each item will have types
                 // from clip description set.
                 let clip_description = event.get_clip_description(env)?;
-                let mime_types = if env.is_same_object(&clip_description, &JObject::null())? {
+                let mime_types = if env.is_same_object(&clip_description, JObject::null())? {
                     Vec::default()
                 } else {
                     let mime_type_count = env
@@ -339,7 +339,7 @@ impl PlatformDropContext {
                         let local_data = get_local_data();
                         let clip_data = event.get_clip_data(env)?;
 
-                        let reader = if env.is_same_object(&clip_data, &JObject::null())? {
+                        let reader = if env.is_same_object(&clip_data, JObject::null())? {
                             None
                         } else {
                             // If this is local data make sure to extend the lifetime
