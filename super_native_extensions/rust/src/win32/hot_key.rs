@@ -11,9 +11,8 @@ use windows::Win32::{
     Foundation::HWND,
     UI::{
         Input::KeyboardAndMouse::{
-            GetAsyncKeyState, GetKeyState, MapVirtualKeyW, RegisterHotKey, UnregisterHotKey,
-            HOT_KEY_MODIFIERS, MAPVK_VSC_TO_VK, MOD_ALT, MOD_CONTROL, MOD_NOREPEAT, MOD_SHIFT,
-            MOD_WIN,
+            GetAsyncKeyState, MapVirtualKeyW, RegisterHotKey, UnregisterHotKey, HOT_KEY_MODIFIERS,
+            MAPVK_VSC_TO_VK, MOD_ALT, MOD_CONTROL, MOD_NOREPEAT, MOD_SHIFT, MOD_WIN,
         },
         WindowsAndMessaging::WM_HOTKEY,
     },
