@@ -18,7 +18,7 @@ use crate::{
     util::NextId,
 };
 
-#[derive(TryFromValue, Debug)]
+#[derive(TryFromValue, Debug, Clone)]
 #[irondash(rename_all = "camelCase")]
 pub struct HotKeyCreateRequest {
     pub alt: bool,
