@@ -37,10 +37,7 @@ velcro = "0.5"
 
 [target.'cfg(any(target_os = "macos", target_os = "ios"))'.dependencies]
 core-foundation = "0.9"
-objc = "0.2.7"
 once_cell = "1.8.0"
-cocoa = "0.24"
-block = "0.1.6"
 core-graphics = "0.22.3"
 objc2 = "0.4.1"
 icrate = { version = "0.0.4", features = [
@@ -54,6 +51,9 @@ icrate = { version = "0.0.4", features = [
     "Foundation_NSURL",
     "Foundation_NSOperationQueue",
     "Foundation_NSProcessInfo",
+    "Foundation_NSItemProvider",
+    "Foundation_NSPropertyListSerialization",
+    "Foundation_NSFileCoordinator",
 ] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
@@ -76,6 +76,9 @@ icrate = { version = "0.0.4", features = [
 
 [target.'cfg(target_os = "ios")'.dependencies]
 oslog = "0.2.0"
+objc = "0.2.7"
+cocoa = "0.24"
+block = "0.1.6"
 
 [target.'cfg(target_os = "android")'.dependencies]
 jni = "0.21.1"

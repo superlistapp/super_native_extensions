@@ -17,3 +17,7 @@ pub use hot_key::*;
 pub use keyboard_layout::*;
 pub use menu::*;
 pub use reader::*;
+
+#[allow(non_upper_case_globals)]
+#[allow(non_snake_case)]
+mod uikit;
