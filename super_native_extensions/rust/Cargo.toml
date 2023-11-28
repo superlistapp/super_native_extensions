@@ -48,6 +48,30 @@ icrate = { version = "0.0.4", features = [
     "Foundation_NSString",
     "Foundation_NSProgress",
     "Foundation_NSArray",
+    "Foundation_NSMutableArray",
+    "Foundation_NSError",
+    "Foundation_NSDictionary",
+    "Foundation_NSURL",
+    "Foundation_NSOperationQueue",
+    "Foundation_NSProcessInfo",
+] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+icrate = { version = "0.0.4", features = [
+    "AppKit",
+    "AppKit_NSPasteboard",
+    "AppKit_NSPasteboardItem",
+    "AppKit_NSFilePromiseProvider",
+    "AppKit_NSFilePromiseReceiver",
+    "AppKit_NSBitmapImageRep",
+    "AppKit_NSView",
+    "AppKit_NSWindow",
+    "AppKit_NSEvent",
+    "AppKit_NSImage",
+    "AppKit_NSDraggingSession",
+    "AppKit_NSDraggingItem",
+    "AppKit_NSMenu",
+    "AppKit_NSMenuItem",
 ] }
 
 [target.'cfg(target_os = "ios")'.dependencies]
@@ -103,7 +127,8 @@ mime_guess = "2.0.4"
 # Until the PR gets upstreamed
 mime_guess = { git = "https://github.com/knopp/mime_guess.git", branch = "super_native_extensions" }
 
-# irondash_engine_context = { path = "../../../irondash/engine_context/rust" }
-# irondash_run_loop = { path = "../../../irondash/run_loop" }
-# irondash_message_channel_derive = { path = "../../../irondash/message_channel/rust_derive" }
-# irondash_dart_ffi = { path = "../../../irondash/dart_ffi" }
+irondash_engine_context = { path = "../../../irondash/engine_context/rust" }
+irondash_run_loop = { path = "../../../irondash/run_loop" }
+irondash_message_channel = { path = "../../../irondash/message_channel/rust" }
+irondash_message_channel_derive = { path = "../../../irondash/message_channel/rust_derive" }
+irondash_dart_ffi = { path = "../../../irondash/dart_ffi" }

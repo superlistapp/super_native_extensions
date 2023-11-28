@@ -76,7 +76,7 @@ declare_class!(
     unsafe impl ClassType for SNEProgressBridge {
         type Super = NSObject;
         type Mutability = mutability::Mutable;
-        const NAME: &'static str = "SNEProgressBridge2";
+        const NAME: &'static str = "SNEProgressBridge";
     }
 
     unsafe impl SNEProgressBridge {

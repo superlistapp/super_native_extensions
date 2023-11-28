@@ -1,18 +1,10 @@
 use std::{
     ffi::{CStr, OsStr},
-    os::{
-        raw::{c_char, c_void},
-        unix::prelude::OsStrExt,
-    },
+    os::unix::prelude::OsStrExt,
     path::PathBuf,
-    slice,
     sync::Arc,
 };
 
-use cocoa::{
-    base::{id, nil, BOOL, YES},
-    foundation::{NSDictionary, NSInteger, NSString},
-};
 use core_foundation::{
     base::{Boolean, TCFType},
     string::{CFString, CFStringRef},
@@ -24,72 +16,37 @@ use core_graphics::{
     geometry::CGAffineTransform,
     image::CGImage,
 };
-
-use objc::{class, msg_send, rc::StrongPtr, runtime::Object, sel, sel_impl};
+use icrate::{
+    ns_string,
+    Foundation::{NSDictionary, NSError, NSString, NSURLTypeIdentifierKey, NSURL},
+};
+use objc2::{ffi::NSInteger, rc::Id, runtime::AnyObject};
 
 use crate::api_model::ImageData;
 
-pub fn to_nsstring(string: &str) -> StrongPtr {
+pub fn to_nserror(domain: &str, code: NSInteger, message: &str) -> Id<NSError> {
     unsafe {
-        let ptr = NSString::alloc(nil).init_str(string);
-        StrongPtr::new(ptr)
-    }
-}
-
-pub unsafe fn from_nsstring(ns_string: id) -> String {
-    let bytes: *const c_char = msg_send![ns_string, UTF8String];
-    let bytes = bytes as *const u8;
-
-    let len = ns_string.len();
-
-    let mut bytes = slice::from_raw_parts(bytes, len);
-    while bytes.last() == Some(&0) {
-        bytes = &bytes[..bytes.len() - 1];
-    }
-    std::str::from_utf8(bytes).unwrap().into()
-}
-
-pub fn to_nsdata(data: &[u8]) -> StrongPtr {
-    unsafe {
-        let d: id = msg_send![class!(NSData), alloc];
-        let d: id = msg_send![d, initWithBytes:data.as_ptr() length:data.len()];
-        StrongPtr::new(d)
-    }
-}
-
-pub fn to_nserror(domain: &str, code: NSInteger, message: &str) -> StrongPtr {
-    unsafe {
-        let user_info = NSDictionary::dictionaryWithObject_forKey_(
-            nil,
-            *to_nsstring(message),
-            *to_nsstring("NSLocalizedDescription"),
+        let user_info = NSDictionary::<NSString, AnyObject>::from_keys_and_objects(
+            &[ns_string!("NSLocalizedDescription")],
+            vec![Id::cast(NSString::from_str(message))],
         );
-        let error: id = msg_send![class!(NSError), alloc];
-        let error: id =
-            msg_send![error, initWithDomain:to_nsstring(domain) code:code userInfo:user_info];
-        StrongPtr::new(error)
+
+        NSError::errorWithDomain_code_userInfo(&NSString::from_str(domain), code, Some(&user_info))
     }
 }
 
-pub fn nserror_description(error: id) -> String {
-    unsafe {
-        let description: id = msg_send![error, localizedDescription];
-        from_nsstring(description)
-    }
-}
-
-pub fn path_from_url(url: id) -> PathBuf {
-    let path: *const i8 = unsafe { msg_send![url, fileSystemRepresentation] };
+pub fn path_from_url(url: &NSURL) -> PathBuf {
+    let path: *const i8 = unsafe { url.fileSystemRepresentation() }.as_ptr();
     let path = unsafe { CStr::from_ptr(path) };
     let path = OsStr::from_bytes(path.to_bytes());
     path.into()
 }
 
-pub unsafe fn format_from_url(url: id) -> Option<String> {
-    let ty: id = std::ptr::null_mut();
-    let res: BOOL = msg_send![url, getResourceValue:&ty forKey:NSURLTypeIdentifierKey error:nil];
-    if res == YES && !ty.is_null() {
-        Some(from_nsstring(ty))
+pub unsafe fn format_from_url(url: &NSURL) -> Option<String> {
+    let mut ty: Option<Id<AnyObject>> = None;
+    let res = url.getResourceValue_forKey_error(&mut ty, NSURLTypeIdentifierKey);
+    if let (Some(ty), Ok(_)) = (ty, res) {
+        Some(Id::cast::<NSString>(ty).to_string())
     } else {
         None
     }
@@ -116,27 +73,6 @@ pub fn cg_image_from_image_data(image: ImageData) -> CGImage {
 #[link(name = "CoreGraphics", kind = "framework")]
 extern "C" {
     pub fn CGAffineTransformMakeScale(sx: CGFloat, sy: CGFloat) -> CGAffineTransform;
-}
-
-#[allow(non_camel_case_types)]
-pub type objc_AssociationPolicy = usize;
-pub const OBJC_ASSOCIATION_ASSIGN: objc_AssociationPolicy = 0;
-pub const OBJC_ASSOCIATION_RETAIN_NONATOMIC: objc_AssociationPolicy = 1;
-pub const OBJC_ASSOCIATION_COPY_NONATOMIC: objc_AssociationPolicy = 3;
-pub const OBJC_ASSOCIATION_RETAIN: objc_AssociationPolicy = 769;
-pub const OBJC_ASSOCIATION_COPY: objc_AssociationPolicy = 771;
-
-extern "C" {
-    pub fn objc_setAssociatedObject(
-        object: *mut Object,
-        key: *const c_void,
-        value: *mut Object,
-        policy: objc_AssociationPolicy,
-    );
-}
-
-extern "C" {
-    pub static NSURLTypeIdentifierKey: id;
 }
 
 #[link(name = "CoreServices", kind = "framework")]

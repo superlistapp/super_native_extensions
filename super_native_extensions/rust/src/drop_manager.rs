@@ -58,9 +58,9 @@ struct RegisterDropFormatsRequest {
 #[derive(Debug, TryFromValue, IntoValue, Clone, Copy, PartialEq, Hash, Eq)]
 pub struct DropSessionId(i64);
 
-impl From<i64> for DropSessionId {
-    fn from(v: i64) -> Self {
-        Self(v)
+impl From<isize> for DropSessionId {
+    fn from(v: isize) -> Self {
+        Self(v as i64)
     }
 }
 

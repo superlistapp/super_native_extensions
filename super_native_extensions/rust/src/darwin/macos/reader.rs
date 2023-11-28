@@ -2,64 +2,62 @@ use std::{
     cell::RefCell,
     fs,
     path::PathBuf,
+    ptr::NonNull,
     rc::{Rc, Weak},
     sync::Arc,
     thread,
 };
 
-use block::ConcreteBlock;
-use cocoa::{
-    appkit::{NSPasteboard, NSPasteboardItem},
-    base::{id, nil},
-    foundation::{NSArray, NSUInteger, NSURL},
+use icrate::{
+    block2::ConcreteBlock,
+    ns_string,
+    AppKit::{NSBitmapImageFileTypePNG, NSBitmapImageRep, NSFilePromiseReceiver, NSPasteboard},
+    Foundation::{NSArray, NSData, NSDictionary, NSError, NSOperationQueue, NSString, NSURL},
 };
-
 use irondash_message_channel::{value_darwin::ValueObjcConversion, Value};
 use irondash_run_loop::{
     util::{Capsule, FutureCompleter},
     RunLoop,
 };
-use objc::{
-    class, msg_send,
-    rc::{autoreleasepool, StrongPtr},
-    sel, sel_impl,
+use objc2::{
+    msg_send_id,
+    rc::{autoreleasepool, Id},
+    runtime::{AnyObject, NSObject},
+    ClassType,
 };
 
 use crate::{
     error::{NativeExtensionsError, NativeExtensionsResult},
     log::OkLog,
-    platform_impl::platform::common::{
-        format_from_url, from_nsstring, nserror_description, path_from_url, to_nsdata, to_nsstring,
-        uti_conforms_to,
-    },
+    platform_impl::platform::common::{format_from_url, path_from_url, uti_conforms_to},
     reader_manager::{ReadProgress, VirtualFileReader},
 };
 
 use super::PlatformDataProvider;
 
 pub struct PlatformDataReader {
-    pasteboard: StrongPtr,
-    promise_receivers: RefCell<Vec<Option<StrongPtr>>>,
+    pasteboard: Id<NSPasteboard>,
+    promise_receivers: RefCell<Vec<Option<Id<NSFilePromiseReceiver>>>>,
 }
 
 impl PlatformDataReader {
     pub async fn get_format_for_file_uri(
         file_uri: String,
     ) -> NativeExtensionsResult<Option<String>> {
-        let res = autoreleasepool(|| unsafe {
-            let string = to_nsstring(&file_uri);
-            let url = NSURL::URLWithString_(nil, *string);
-            format_from_url(url)
+        let res = autoreleasepool(|_| unsafe {
+            let string = NSString::from_str(&file_uri);
+            let url = NSURL::URLWithString(&string);
+            url.and_then(|url| format_from_url(&url))
         });
         Ok(res)
     }
 
     pub fn get_items_sync(&self) -> NativeExtensionsResult<Vec<i64>> {
-        let count = autoreleasepool(|| unsafe {
-            let items: id = msg_send![*self.pasteboard, pasteboardItems];
-            NSArray::count(items) as i64
+        let count = autoreleasepool(|_| unsafe {
+            let items = self.pasteboard.pasteboardItems();
+            items.map(|items| items.count()).unwrap_or(0)
         });
-        Ok((0..count).collect())
+        Ok((0..count as i64).collect())
     }
 
     pub async fn get_items(&self) -> NativeExtensionsResult<Vec<i64>> {
@@ -67,10 +65,11 @@ impl PlatformDataReader {
     }
 
     fn promise_receiver_types_for_item(&self, item: i64) -> NativeExtensionsResult<Vec<String>> {
-        autoreleasepool(|| unsafe {
-            let items: id = msg_send![*self.pasteboard, pasteboardItems];
-            if item < NSArray::count(items) as i64 {
-                let pasteboard_item = NSArray::objectAtIndex(items, item as NSUInteger);
+        autoreleasepool(|_| unsafe {
+            let items = self.pasteboard.pasteboardItems();
+            let items = items.unwrap_or_default();
+            if item < items.count() as i64 {
+                let pasteboard_item = items.objectAtIndex(item as usize);
                 let mut res = Vec::new();
                 fn push(res: &mut Vec<String>, s: String) {
                     if !res.contains(&s) {
@@ -82,20 +81,18 @@ impl PlatformDataReader {
                 if let Some(receiver) = receiver {
                     // Outlook reports wrong types for [fileTypes] (extension instead of UTI), but has correct type
                     // in "com.apple.pasteboard.promised-file-content-type.
-                    let ty = to_nsstring("com.apple.pasteboard.promised-file-content-type");
-                    let value = NSPasteboardItem::stringForType(pasteboard_item, *ty);
-                    if value != nil {
-                        let string = from_nsstring(value);
+                    let ty = ns_string!("com.apple.pasteboard.promised-file-content-type");
+                    let value = pasteboard_item.stringForType(ty);
+                    if let Some(value) = value {
+                        let string = value.to_string();
                         if !string.is_empty() {
                             push(&mut res, string);
                         }
                     }
-                    let receiver_types: id = msg_send![*receiver, fileTypes];
-                    for i in 0..NSArray::count(receiver_types) {
-                        push(
-                            &mut res,
-                            from_nsstring(NSArray::objectAtIndex(receiver_types, i)),
-                        );
+                    let receiver_types = receiver.fileTypes();
+
+                    for i in 0..receiver_types.count() {
+                        push(&mut res, receiver_types.objectAtIndex(i).to_string());
                     }
                 }
                 Ok(res)
@@ -106,10 +103,10 @@ impl PlatformDataReader {
     }
 
     pub fn get_formats_for_item_sync(&self, item: i64) -> NativeExtensionsResult<Vec<String>> {
-        autoreleasepool(|| unsafe {
-            let items: id = msg_send![*self.pasteboard, pasteboardItems];
-            if item < NSArray::count(items) as i64 {
-                let pasteboard_item = NSArray::objectAtIndex(items, item as NSUInteger);
+        autoreleasepool(|_| unsafe {
+            let items = self.pasteboard.pasteboardItems().unwrap_or_default();
+            if item < items.count() as i64 {
+                let pasteboard_item = items.objectAtIndex(item as usize);
                 let mut res = Vec::new();
                 fn push(res: &mut Vec<String>, s: String) {
                     if !res.contains(&s) {
@@ -122,9 +119,9 @@ impl PlatformDataReader {
                     push(&mut res, format);
                 }
                 // Second regular items
-                let types = NSPasteboardItem::types(pasteboard_item);
-                for i in 0..NSArray::count(types) {
-                    let format = from_nsstring(NSArray::objectAtIndex(types, i));
+                let types = pasteboard_item.types();
+                for i in 0..types.count() {
+                    let format = types.objectAtIndex(i).to_string();
                     push(&mut res, format.clone());
                     // Put synthesized PNG right after tiff
                     if format == "public.tiff" && self.needs_to_synthesize_png(item) {
@@ -139,15 +136,15 @@ impl PlatformDataReader {
     }
 
     fn needs_to_synthesize_png(&self, item: i64) -> bool {
-        autoreleasepool(|| unsafe {
-            let items: id = msg_send![*self.pasteboard, pasteboardItems];
+        autoreleasepool(|_| unsafe {
+            let items = self.pasteboard.pasteboardItems().unwrap_or_default();
             let mut has_tiff = false;
             let mut has_png = false;
-            if item < NSArray::count(items) as i64 {
-                let item = NSArray::objectAtIndex(items, item as NSUInteger);
-                let types = NSPasteboardItem::types(item);
-                for i in 0..NSArray::count(types) {
-                    let format = from_nsstring(NSArray::objectAtIndex(types, i));
+            if item < items.count() as i64 {
+                let item = items.objectAtIndex(item as usize);
+                let types = item.types();
+                for i in 0..types.count() {
+                    let format = types.objectAtIndex(i).to_string();
                     has_tiff |= format == "public.tiff";
                     has_png |= format == "public.png";
                 }
@@ -165,13 +162,13 @@ impl PlatformDataReader {
     }
 
     fn item_has_virtual_file(&self, item: i64) -> bool {
-        autoreleasepool(|| unsafe {
-            let items: id = msg_send![*self.pasteboard, pasteboardItems];
-            if item < NSArray::count(items) as i64 {
-                let item = NSArray::objectAtIndex(items, item as NSUInteger);
-                let types = NSPasteboardItem::types(item);
-                for i in 0..NSArray::count(types) {
-                    let format = from_nsstring(NSArray::objectAtIndex(types, i));
+        autoreleasepool(|_| unsafe {
+            let items = self.pasteboard.pasteboardItems().unwrap_or_default();
+            if item < items.count() as i64 {
+                let item = items.objectAtIndex(item as usize);
+                let types = item.types();
+                for i in 0..types.count() {
+                    let format = types.objectAtIndex(i).to_string();
                     if format == "com.apple.NSFilePromiseItemMetaData"
                         || format == "com.apple.pasteboard.promised-file-url"
                     {
@@ -186,23 +183,22 @@ impl PlatformDataReader {
     fn get_promise_receiver_for_item(
         &self,
         item: i64,
-    ) -> NativeExtensionsResult<Option<StrongPtr>> {
-        autoreleasepool(|| {
+    ) -> NativeExtensionsResult<Option<Id<NSFilePromiseReceiver>>> {
+        autoreleasepool(|_| unsafe {
             if self.promise_receivers.borrow().is_empty() {
-                let class = class!(NSFilePromiseReceiver) as *const _ as id;
-                let receivers: id = unsafe {
-                    msg_send![*self.pasteboard,
-                        readObjectsForClasses: NSArray::arrayWithObject(nil, class) options:nil]
-                };
-                let mut receiver_index: NSUInteger = 0;
+                let class =
+                    Id::retain(NSFilePromiseReceiver::class() as *const _ as *mut AnyObject)
+                        .unwrap();
+                let receivers = self
+                    .pasteboard
+                    .readObjectsForClasses_options(&NSArray::from_vec(vec![Id::cast(class)]), None)
+                    .unwrap_or_default();
+                let mut receiver_index = 0usize;
                 let items = self.get_items_sync()?;
                 for item in items {
-                    if receiver_index < unsafe { NSArray::count(receivers) }
-                        && self.item_has_virtual_file(item)
-                    {
-                        let receiver = unsafe {
-                            StrongPtr::retain(NSArray::objectAtIndex(receivers, receiver_index))
-                        };
+                    if receiver_index < receivers.count() && self.item_has_virtual_file(item) {
+                        let receiver = receivers.objectAtIndex(receiver_index);
+                        let receiver = Id::cast::<NSFilePromiseReceiver>(receiver);
                         receiver_index += 1;
                         self.promise_receivers.borrow_mut().push(Some(receiver));
                     } else {
@@ -237,30 +233,25 @@ impl PlatformDataReader {
     ) -> NativeExtensionsResult<Option<String>> {
         let receiver = self.get_promise_receiver_for_item(item)?;
         if let Some(receiver) = receiver {
-            let names: id = unsafe { msg_send![*receiver, fileNames] };
-            let len = unsafe { NSArray::count(names) };
-            if len > 0 {
-                let name = unsafe { from_nsstring(NSArray::objectAtIndex(names, 0)) };
-                return Ok(Some(name));
+            // fileNames is actually can be null :-/
+            let names: Option<Id<NSArray<NSString>>> =
+                unsafe { msg_send_id![&receiver, fileNames] };
+            if let Some(names) = names {
+                let name = names.iter().next();
+                if let Some(name) = name {
+                    return Ok(Some(name.to_string()));
+                }
             }
         }
-        let data = self
-            .do_get_data_for_item(item, "public.file-url".to_owned())
-            .await?;
-        if let Some(url) = Self::value_to_string(data) {
-            let url = unsafe { NSURL::URLWithString_(nil, *to_nsstring(&url)) };
-            let path = path_from_url(url);
-            return Ok(path.file_name().map(|f| f.to_string_lossy().to_string()));
-        }
 
-        let data = self
-            .do_get_data_for_item(item, "public.url".to_owned())
-            .await?;
-        if let Some(url) = Self::value_to_string(data) {
-            let url = unsafe { NSURL::URLWithString_(nil, *to_nsstring(&url)) };
-            let name: id = unsafe { msg_send![url, lastPathComponent] };
-            if !name.is_null() {
-                return Ok(Some(unsafe { from_nsstring(name) }));
+        for ty in ["public.file-url", "public.url"] {
+            let data = self.do_get_data_for_item(item, ty.to_owned()).await?;
+            if let Some(url) = Self::value_to_string(data) {
+                let url = unsafe { NSURL::URLWithString(&NSString::from_str(&url)) };
+                let name = url.and_then(|url| unsafe { url.lastPathComponent() });
+                if let Some(name) = name {
+                    return Ok(Some(name.to_string()));
+                }
             }
         }
 
@@ -272,12 +263,17 @@ impl PlatformDataReader {
         let mut completer = Capsule::new(completer);
         let sender = RunLoop::current().new_sender();
         thread::spawn(move || {
-            autoreleasepool(|| unsafe {
-                let data = to_nsdata(&data);
-                let rep: id = msg_send![class!(NSBitmapImageRep), imageRepWithData:*data];
-                let type_png: NSUInteger = 4;
-                let png: id = msg_send![rep, representationUsingType:type_png properties:nil];
-                let res = Value::from_objc(png).ok_log().unwrap_or_default();
+            autoreleasepool(|_| unsafe {
+                let data = NSData::from_vec(data);
+                let rep = NSBitmapImageRep::imageRepWithData(&data).unwrap();
+                let png = rep.representationUsingType_properties(
+                    NSBitmapImageFileTypePNG,
+                    &NSDictionary::dictionary(),
+                );
+
+                let res = Value::from_objc(png.map(|png| Id::cast(png)))
+                    .ok_log()
+                    .unwrap_or_default();
                 sender.send(move || {
                     let completer = completer.take().unwrap();
                     completer.complete(Ok(res));
@@ -308,7 +304,7 @@ impl PlatformDataReader {
 
     fn schedule_do_get_data_for_item(
         item: i64,
-        pasteboard: StrongPtr,
+        pasteboard: Id<NSPasteboard>,
         data_type: String,
         completer: FutureCompleter<Value>,
     ) {
@@ -326,32 +322,34 @@ impl PlatformDataReader {
                     );
                     return;
                 }
-                let data = autoreleasepool(|| unsafe {
-                    let items: id = msg_send![*pasteboard, pasteboardItems];
-                    if item < NSArray::count(items) as i64 {
-                        let item = NSArray::objectAtIndex(items, item as NSUInteger);
+                let data = autoreleasepool(|_| unsafe {
+                    let items = pasteboard.pasteboardItems().unwrap_or_default();
+                    if item < items.count() as i64 {
+                        let item = items.objectAtIndex(item as usize);
                         let is_file_url = data_type == "public.file-url";
                         let is_text = uti_conforms_to(&data_type, "public.text");
-                        let data_type = to_nsstring(&data_type);
+                        let data_type = NSString::from_str(&data_type);
                         // Try to get property list first, otherwise fallback to Data
-                        let mut data = if is_text {
-                            NSPasteboardItem::stringForType(item, *data_type)
+                        let mut data: Option<Id<NSObject>> = if is_text {
+                            item.stringForType(&data_type).map(|i| Id::cast(i))
                         } else {
-                            NSPasteboardItem::propertyListForType(item, *data_type)
+                            item.propertyListForType(&data_type).map(|i| Id::cast(i))
                         };
-                        if data.is_null() {
+                        if data.is_none() {
                             // Ask for data here. It's better for Appkit to convert String to data,
                             // then trying to convert data to String.
-                            data = NSPasteboardItem::dataForType(item, *data_type);
+                            data = item.dataForType(&data_type).map(|i| Id::cast(i));
                         }
                         let res = Value::from_objc(data).ok_log().unwrap_or_default();
                         // Convert file:///.file/id=??? URLs to path URL
                         if is_file_url {
-                            if let Value::String(url) = res {
-                                let url = NSURL::URLWithString_(nil, *to_nsstring(&url));
-                                let url: id = msg_send![url, filePathURL];
-                                let url_string: id = msg_send![url, absoluteString];
-                                return Value::String(from_nsstring(url_string));
+                            if let Value::String(url) = &res {
+                                let url = NSURL::URLWithString(&NSString::from_str(url));
+                                let url = url.and_then(|url| url.filePathURL());
+                                if let Some(url) = url {
+                                    let string = url.absoluteString().unwrap();
+                                    return Value::String(string.to_string());
+                                }
                             }
                         }
                         res
@@ -380,11 +378,11 @@ impl PlatformDataReader {
 
     pub fn new_clipboard_reader() -> NativeExtensionsResult<Rc<Self>> {
         Ok(Self::from_pasteboard(unsafe {
-            StrongPtr::retain(NSPasteboard::generalPasteboard(nil))
+            NSPasteboard::generalPasteboard()
         }))
     }
 
-    pub fn from_pasteboard(pasteboard: StrongPtr) -> Rc<Self> {
+    pub fn from_pasteboard(pasteboard: Id<NSPasteboard>) -> Rc<Self> {
         let res = Rc::new(Self {
             pasteboard,
             promise_receivers: RefCell::new(Vec::new()),
@@ -429,35 +427,44 @@ impl PlatformDataReader {
         let receiver = self.get_promise_receiver_for_item(item)?;
         match receiver {
             Some(receiver) => {
-                let res = autoreleasepool(|| {
+                let res = autoreleasepool(|_| {
                     let target_folder = target_folder.to_string_lossy();
-                    let url = unsafe { NSURL::fileURLWithPath_(nil, *to_nsstring(&target_folder)) };
-                    let queue: id = unsafe { msg_send![class!(NSOperationQueue), mainQueue] };
+                    let url =
+                        unsafe { NSURL::fileURLWithPath(&NSString::from_str(&target_folder)) };
+                    let queue = unsafe { NSOperationQueue::mainQueue() };
                     let (future, completer) = FutureCompleter::new();
                     let completer = Rc::new(RefCell::new(Some(completer)));
-                    let block = ConcreteBlock::new(move |url: id, error: id| {
-                        let completer = completer
-                            .borrow_mut()
-                            .take()
-                            .expect("Callback invoked more than once");
-                        if error != nil {
-                            if url != nil {
-                                fs::remove_file(path_from_url(url)).ok_log();
+                    let block =
+                        ConcreteBlock::new(move |url: NonNull<NSURL>, error: *mut NSError| {
+                            let url = unsafe { Id::retain(url.as_ptr()) };
+                            let error = unsafe { Id::retain(error) };
+                            let completer = completer
+                                .borrow_mut()
+                                .take()
+                                .expect("Callback invoked more than once");
+                            if let Some(error) = error {
+                                if let Some(url) = url {
+                                    fs::remove_file(path_from_url(&url)).ok_log();
+                                }
+
+                                completer.complete(Err(
+                                    NativeExtensionsError::VirtualFileReceiveError(
+                                        error.localizedDescription().to_string(),
+                                    ),
+                                ))
+                            } else {
+                                let url = url.unwrap();
+                                completer.complete(Ok(path_from_url(&url)))
                             }
-                            completer.complete(Err(NativeExtensionsError::VirtualFileReceiveError(
-                                nserror_description(error),
-                            )))
-                        } else {
-                            completer.complete(Ok(path_from_url(url)))
-                        }
-                    });
+                        });
                     let block = block.copy();
-                    let () = unsafe {
-                        msg_send![*receiver,
-                                receivePromisedFilesAtDestination: url
-                                options: nil
-                                operationQueue: queue
-                                reader: &*block]
+                    unsafe {
+                        receiver.receivePromisedFilesAtDestination_options_operationQueue_reader(
+                            &url,
+                            &NSDictionary::dictionary(),
+                            &queue,
+                            &block,
+                        )
                     };
                     future
                 });
