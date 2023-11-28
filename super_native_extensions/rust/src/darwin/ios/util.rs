@@ -1,12 +1,11 @@
 use std::{collections::HashMap, ops::Deref, ptr::NonNull};
 
-use core_graphics::geometry::{CGPoint, CGRect, CGSize};
 use icrate::{
     block2::{Block, ConcreteBlock, RcBlock},
     Foundation::{
-        NSData, NSDictionary, NSError, NSItemProvider, NSItemProviderFileOptionOpenInPlace,
-        NSItemProviderRepresentationVisibilityAll, NSNumber, NSProgress,
-        NSPropertyListBinaryFormat_v1_0, NSPropertyListSerialization, NSString, NSURL,
+        CGPoint, CGRect, CGSize, NSData, NSDictionary, NSError, NSItemProvider,
+        NSItemProviderFileOptionOpenInPlace, NSItemProviderRepresentationVisibilityAll, NSNumber,
+        NSProgress, NSPropertyListBinaryFormat_v1_0, NSPropertyListSerialization, NSString, NSURL,
     },
 };
 use irondash_message_channel::{value_darwin::ValueObjcConversion, Value};

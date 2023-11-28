@@ -1,11 +1,14 @@
-use icrate::Foundation::{CGFloat, NSArray, NSItemProvider};
+use icrate::{
+    block2::Block,
+    Foundation::{CGFloat, CGPoint, CGRect, NSArray, NSItemProvider},
+};
 use objc2::{
-    extern_class, extern_methods,
+    extern_class, extern_methods, extern_protocol,
     ffi::NSInteger,
     mutability,
     rc::{Allocated, Id},
-    runtime::NSObject,
-    ClassType, RefEncode,
+    runtime::{AnyObject, Bool, NSObject, NSObjectProtocol},
+    ClassType, ProtocolType, RefEncode,
 };
 
 extern_class!(
@@ -67,13 +70,65 @@ extern_class!(
     }
 );
 
+extern_methods!(
+    unsafe impl UIView {
+        #[method(bounds)]
+        pub fn bounds(&self) -> CGRect;
+
+        #[method(setBounds:)]
+        pub fn setBounds(&self, value: CGRect);
+
+        #[method(frame)]
+        pub fn frame(&self) -> CGRect;
+
+        #[method(setFrame:)]
+        pub fn setFrame(&self, value: CGRect);
+
+        #[method(setUserInteractionEnabled:)]
+        pub fn setUserInteractionEnabled(&self, enabled: bool);
+
+        #[method(userInteractionEnabled)]
+        pub fn userInteractionEnabled(&self) -> bool;
+
+        #[method_id(@__retain_semantics Init initWithFrame:)]
+        pub fn initWithFrame(this: Option<Allocated<Self>>, frame: CGRect) -> Id<Self>;
+
+        #[method(addSubview:)]
+        pub fn addSubview(&self, subview: &UIView);
+
+        #[method(setAlpha:)]
+        pub fn setAlpha(&self, alpha: CGFloat);
+
+        #[method(removeFromSuperview)]
+        pub fn removeFromSuperview(&self);
+
+        #[method(addInteraction:)]
+        pub fn addInteraction(&self, interaction: &NSObject);
+
+        #[method(removeInteraction:)]
+        pub fn removeInteraction(&self, interaction: &NSObject);
+
+        #[method(animateWithDuration:delay:options:animations:completion:)]
+        pub fn animateWithDuration_delay_options_animations_completion(
+            duration: f64,
+            delay: f64,
+            options: UIViewAnimationOptions,
+            animations: &Block<(), ()>,
+            completion: Option<&Block<(Bool,), ()>>,
+        );
+    }
+);
+
+pub type UIViewAnimationOptions = NSInteger;
+pub const UIViewAnimationOptionNone: UIViewAnimationOptions = 0;
+
 extern_class!(
     #[derive(Debug, PartialEq, Eq, Hash)]
     pub(crate) struct UIImageView;
 
     unsafe impl ClassType for UIImageView {
         #[inherits(NSObject)]
-        type Super = UIResponder;
+        type Super = UIView;
         type Mutability = mutability::InteriorMutable;
     }
 );
@@ -147,7 +202,196 @@ extern_class!(
 
 extern_methods!(
     unsafe impl UIDragItem {
+        #[method_id(@__retain_semantics Init initWithItemProvider:)]
+        pub fn initWithItemProvider(
+            this: Option<Allocated<Self>>,
+            provider: &NSItemProvider,
+        ) -> Id<Self>;
+
         #[method_id(@__retain_semantics Other itemProvider)]
         pub fn itemProvider(&self) -> Id<NSItemProvider>;
+
+        #[method(setLocalObject:)]
+        pub fn setLocalObject(&self, object: Option<&NSObject>);
+
+        #[method_id(@__retain_semantics Other localObject)]
+        pub fn localObject(&self) -> Option<Id<NSObject>>;
+
+        #[method(setPreviewProvider:)]
+        pub fn setPreviewProvider(&self, provider: Option<&Block<(), *mut UIDragPreview>>);
+
+        #[method(previewProvider)]
+        pub fn previewProvider(&self) -> Option<&Block<(), *mut UIDragPreview>>;
+    }
+);
+
+extern_class!(
+    #[derive(Debug, PartialEq, Eq, Hash)]
+    pub(crate) struct UIDragPreview;
+
+    unsafe impl ClassType for UIDragPreview {
+        type Super = NSObject;
+        type Mutability = mutability::InteriorMutable;
+    }
+);
+
+extern_methods!(
+    unsafe impl UIDragPreview {
+        #[method_id(@__retain_semantics Init initWithView:parameters:)]
+        pub fn initWithView_parameters(
+            this: Option<Allocated<Self>>,
+            view: &UIView,
+            parameters: &UIDragPreviewParameters,
+        ) -> Id<Self>;
+    }
+);
+
+extern_class!(
+    #[derive(Debug, PartialEq, Eq, Hash)]
+    pub(crate) struct UIPreviewTarget;
+
+    unsafe impl ClassType for UIPreviewTarget {
+        type Super = NSObject;
+        type Mutability = mutability::InteriorMutable;
+    }
+);
+
+extern_methods!(
+    unsafe impl UIPreviewTarget {
+        #[method_id(@__retain_semantics Init initWithContainer:center:)]
+        pub fn initWithContainer_center(
+            this: Option<Allocated<Self>>,
+            container: &UIView,
+            center: CGPoint,
+        ) -> Id<Self>;
+    }
+);
+
+extern_class!(
+    #[derive(Debug, PartialEq, Eq, Hash)]
+    pub(crate) struct UITargetedPreview;
+
+    unsafe impl ClassType for UITargetedPreview {
+        type Super = NSObject;
+        type Mutability = mutability::InteriorMutable;
+    }
+);
+
+extern_class!(
+    #[derive(Debug, PartialEq, Eq, Hash)]
+    pub(crate) struct UITargetedDragPreview;
+
+    unsafe impl ClassType for UITargetedDragPreview {
+        type Super = UITargetedPreview;
+        type Mutability = mutability::InteriorMutable;
+    }
+);
+
+extern_methods!(
+    unsafe impl UITargetedDragPreview {
+        #[method_id(@__retain_semantics Init initWithView:parameters:target:)]
+        pub fn initWithView_parameters_target(
+            this: Option<Allocated<Self>>,
+            view: &UIView,
+            parameters: &UIDragPreviewParameters,
+            target: &UIPreviewTarget,
+        ) -> Id<Self>;
+    }
+);
+
+extern_class!(
+    #[derive(Debug, PartialEq, Eq, Hash)]
+    pub(crate) struct UIDragPreviewParameters;
+
+    unsafe impl ClassType for UIDragPreviewParameters {
+        type Super = NSObject;
+        type Mutability = mutability::InteriorMutable;
+    }
+);
+
+extern_methods!(
+    unsafe impl UIDragPreviewParameters {
+        #[method_id(@__retain_semantics Init init)]
+        pub fn init(this: Option<Allocated<Self>>) -> Id<Self>;
+
+        #[method(setBackgroundColor:)]
+        pub fn setBackgroundColor(&self, color: Option<&UIColor>);
+
+        #[method(setShadowPath:)]
+        pub fn setShadowPath(&self, path: Option<&UIBezierPath>);
+    }
+);
+
+extern_protocol!(
+    pub unsafe trait UIDragDropSession: NSObjectProtocol {
+        #[method_id(@__retain_semantics Other items)]
+        fn items(&self) -> Id<NSArray<UIDragItem>>;
+    }
+
+    unsafe impl ProtocolType for dyn UIDragDropSession {}
+);
+
+extern_protocol!(
+    pub unsafe trait UIDragSession: UIDragDropSession {
+        #[method(setLocalContext:)]
+        fn setLocalContext(&self, context: Option<&NSObject>);
+
+        #[method_id(@__retain_semantics Other localContext)]
+        fn localContext(&self) -> Option<Id<NSObject>>;
+
+        #[method(locationInView:)]
+        fn locationInView(&self, view: &UIView) -> CGPoint;
+    }
+
+    unsafe impl ProtocolType for dyn UIDragSession {}
+);
+
+extern_class!(
+    #[derive(Debug, PartialEq, Eq, Hash)]
+    pub(crate) struct UIDragInteraction;
+
+    unsafe impl ClassType for UIDragInteraction {
+        type Super = NSObject;
+        type Mutability = mutability::InteriorMutable;
+    }
+);
+
+extern_class!(
+    #[derive(Debug, PartialEq, Eq, Hash)]
+    pub(crate) struct UIColor;
+
+    unsafe impl ClassType for UIColor {
+        type Super = NSObject;
+        type Mutability = mutability::InteriorMutable;
+    }
+);
+
+extern_methods!(
+    unsafe impl UIColor {
+        #[method_id(@__retain_semantics Other clearColor)]
+        pub fn clearColor() -> Id<Self>;
+    }
+);
+
+extern_class!(
+    #[derive(Debug, PartialEq, Eq, Hash)]
+    pub(crate) struct UIBezierPath;
+
+    unsafe impl ClassType for UIBezierPath {
+        type Super = NSObject;
+        type Mutability = mutability::InteriorMutable;
+    }
+);
+
+extern_methods!(
+    unsafe impl UIBezierPath {
+        #[method_id(@__retain_semantics Other bezierPath)]
+        pub fn bezierPath() -> Id<Self>;
+
+        #[method_id(@__retain_semantics Other bezierPathWithRect:)]
+        pub fn bezierPathWithRect(rect: CGRect) -> Id<Self>;
+
+        #[method(appendPath:)]
+        pub fn appendPath(&self, path: &UIBezierPath);
     }
 );

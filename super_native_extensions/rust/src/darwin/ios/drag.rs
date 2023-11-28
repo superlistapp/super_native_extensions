@@ -8,27 +8,18 @@ use std::{
     time::Duration,
 };
 
-use block::ConcreteBlock;
-use cocoa::{
-    base::{id, nil, BOOL, NO, YES},
-    foundation::{NSArray, NSUInteger},
+use icrate::{
+    block2::ConcreteBlock,
+    ns_string,
+    Foundation::{CGPoint, CGRect, NSArray, NSDictionary, NSNumber},
 };
-
-use core_graphics::{
-    base::CGFloat,
-    geometry::{CGPoint, CGRect},
-};
-
 use irondash_engine_context::EngineContext;
 use irondash_message_channel::{Late, Value};
 use irondash_run_loop::{platform::PollSession, RunLoop};
-use objc::{
-    class,
-    declare::ClassDecl,
-    msg_send,
-    rc::{autoreleasepool, StrongPtr},
-    runtime::{Class, Object, Protocol, Sel},
-    sel, sel_impl, Encode, Encoding,
+use objc2::{
+    rc::Id,
+    runtime::{Bool, NSObject, NSObjectProtocol, ProtocolObject},
+    ClassType,
 };
 use once_cell::sync::Lazy;
 
@@ -40,7 +31,7 @@ use crate::{
         PlatformDragContextDelegate, PlatformDragContextId,
     },
     error::{NativeExtensionsError, NativeExtensionsResult},
-    platform_impl::platform::{common::to_nsstring, os::util::IgnoreInteractionEvents},
+    platform_impl::platform::os::util::IgnoreInteractionEvents,
     util::DropNotifier,
     value_promise::PromiseResult,
 };
@@ -48,6 +39,11 @@ use crate::{
 use super::{
     alpha_to_path::bezier_path_for_alpha,
     drag_common::{DropOperationExt, UIDropOperation},
+    uikit::{
+        UIColor, UIDragDropSession, UIDragInteraction, UIDragItem, UIDragPreview,
+        UIDragPreviewParameters, UIDragSession, UIImageView, UIPreviewTarget,
+        UITargetedDragPreview, UIView, UIViewAnimationOptionNone,
+    },
     util::{image_view_from_data, IntoObjc},
     DataProviderSessionDelegate, PlatformDataProvider,
 };
@@ -55,10 +51,10 @@ use super::{
 pub struct PlatformDragContext {
     id: PlatformDragContextId,
     weak_self: Late<Weak<Self>>,
-    view: StrongPtr,
+    view: Id<UIView>,
     delegate: Weak<dyn PlatformDragContextDelegate>,
-    interaction: Late<StrongPtr>,
-    interaction_delegate: Late<StrongPtr>,
+    interaction: Late<Id<UIDragInteraction>>,
+    interaction_delegate: Late<Id<NSObject>>,
     sessions: RefCell<HashMap<DragSessionId, Rc<Session>>>,
 }
 
@@ -71,30 +67,29 @@ enum ImageType {
 struct Session {
     context_id: PlatformDragContextId,
     context_delegate: Weak<dyn PlatformDragContextDelegate>,
-    view_container: StrongPtr,
+    view_container: Id<UIView>,
     session_id: DragSessionId,
     weak_self: Late<Weak<Self>>,
     in_progress: Cell<bool>,
     sent_did_end: Cell<bool>,
     configuration: RefCell<DragConfiguration>,
     data_providers: RefCell<Vec<Arc<DataProviderHandle>>>,
-    views: RefCell<HashMap<(usize, ImageType), StrongPtr>>, // index -> view
+    views: RefCell<HashMap<(usize, ImageType), Id<UIImageView>>>, // index -> view
 }
 
 impl Session {
     fn new(
         context_delegate: Weak<dyn PlatformDragContextDelegate>,
-        context_view: StrongPtr,
+        context_view: Id<UIView>,
         platform_drag_context_id: PlatformDragContextId,
         session_id: DragSessionId,
         configuration: DragConfiguration,
     ) -> Self {
         let view_container = unsafe {
-            let bounds: CGRect = msg_send![*context_view, bounds];
-            let container: id = msg_send![class!(UIView), alloc];
-            let container = StrongPtr::new(msg_send![container, initWithFrame: bounds]);
-            let () = msg_send![*container, setUserInteractionEnabled: NO];
-            let () = msg_send![*context_view, addSubview: *container];
+            let bounds = context_view.bounds();
+            let container = UIView::initWithFrame(UIView::alloc(), bounds);
+            container.setUserInteractionEnabled(false);
+            context_view.addSubview(&container);
             container
         };
         Self {
@@ -120,7 +115,7 @@ impl Session {
         provider: Rc<PlatformDataProvider>,
         handle: Arc<DataProviderHandle>,
         index: usize,
-    ) -> id {
+    ) -> Id<UIDragItem> {
         // Keep the data provider alive for the duration of session
         self.data_providers.borrow_mut().push(handle);
 
@@ -137,16 +132,14 @@ impl Session {
         // PlatformDataProviderState.
         let item_provider = provider.create_ns_item_provider(None, Some(self.weak_self.clone()));
         unsafe {
-            let drag_item: id = msg_send![class!(UIDragItem), alloc];
-            let drag_item: id = msg_send![drag_item, initWithItemProvider: item_provider];
-            let drag_item: id = msg_send![drag_item, autorelease];
-            let () = msg_send![drag_item, setLocalObject: local_object.into_objc().autorelease()];
+            let drag_item = UIDragItem::initWithItemProvider(UIDragItem::alloc(), &item_provider);
+            drag_item.setLocalObject(Some(&local_object.into_objc()));
 
             // Setting preview provider here leaks entire session if drag is cancelled before
             // lift is complete. So instead we set it later in `will_begin`. After `will_begin`
             // it is safe to set preview provider as it will be picked immediately and won't leak.
             if self.in_progress.get() {
-                self.set_preview_provider(drag_item);
+                self.set_preview_provider(&drag_item);
             }
 
             drag_item
@@ -157,8 +150,8 @@ impl Session {
         &self,
         from_index: usize,
         mut providers: HashMap<DataProviderId, DataProviderEntry>,
-    ) -> id {
-        let mut dragging_items = Vec::<id>::new();
+    ) -> Id<NSArray<UIDragItem>> {
+        let mut dragging_items = Vec::<Id<UIDragItem>>::new();
 
         for (index, item) in self
             .configuration
@@ -177,10 +170,13 @@ impl Session {
                 index,
             ));
         }
-        unsafe { NSArray::arrayWithObjects(nil, &dragging_items) }
+        unsafe { NSArray::from_vec(dragging_items) }
     }
 
-    fn process_additional_items(&self, mut items: GetAdditionalItemsResult) -> id {
+    fn process_additional_items(
+        &self,
+        mut items: GetAdditionalItemsResult,
+    ) -> Id<NSArray<UIDragItem>> {
         let from_index = {
             let mut configuration = self.configuration.borrow_mut();
             let index = configuration.items.len();
@@ -190,7 +186,10 @@ impl Session {
         self.create_items(from_index, items.providers)
     }
 
-    fn get_additional_items_for_location(&self, location: Point) -> id {
+    fn get_additional_items_for_location(
+        &self,
+        location: Point,
+    ) -> Option<Id<NSArray<UIDragItem>>> {
         if let Some(delegate) = self.context_delegate.upgrade() {
             let items_promise = delegate.get_additional_items_for_location(
                 self.context_id,
@@ -202,8 +201,10 @@ impl Session {
             loop {
                 if let Some(items) = items_promise.try_take() {
                     match items {
-                        PromiseResult::Ok { value } => return self.process_additional_items(value),
-                        PromiseResult::Cancelled => return nil,
+                        PromiseResult::Ok { value } => {
+                            return Some(self.process_additional_items(value))
+                        }
+                        PromiseResult::Cancelled => return None,
                     }
                 }
                 RunLoop::current()
@@ -211,16 +212,18 @@ impl Session {
                     .poll_once(&mut poll_session);
             }
         } else {
-            nil
+            None
         }
     }
 
-    unsafe fn set_preview_provider(&self, item: id) {
-        let preview_provider: id = msg_send![item, previewProvider];
+    unsafe fn set_preview_provider(&self, item: &UIDragItem) {
+        let preview_provider = item.previewProvider();
         // If lift image is specified now create preview provider for dragging.
         // If this is done when creating items the whole session leaks...
-        if preview_provider.is_null() {
-            let (index, _) = PlatformDragContext::item_info(item);
+        if preview_provider.is_none() {
+            let Some((index, _)) = PlatformDragContext::item_info(item) else {
+                return;
+            };
             let configuration = self.configuration.borrow();
             let drag_item = &configuration.items[index];
             if drag_item.lift_image.is_none() {
@@ -229,24 +232,22 @@ impl Session {
             let image = self.image_view_for_item(index, ImageType::Drag);
             let shadow_path = bezier_path_for_alpha(&drag_item.image.image_data);
             let provider = ConcreteBlock::new(move || {
-                let parameters: id = msg_send![class!(UIDragPreviewParameters), new];
-                let () = msg_send![parameters, autorelease];
-                let clear_color: id = msg_send![class!(UIColor), clearColor];
-                let () = msg_send![parameters, setBackgroundColor: clear_color];
-                let () = msg_send![parameters, setShadowPath: *shadow_path];
-                let image = image.clone().autorelease();
-                let preview: id = msg_send![class!(UIDragPreview), alloc];
-                let () = msg_send![preview, initWithView:image parameters: parameters];
-                let () = msg_send![preview, autorelease];
-                preview
+                let parameters = UIDragPreviewParameters::init(UIDragPreviewParameters::alloc());
+                parameters.setBackgroundColor(Some(&UIColor::clearColor()));
+                parameters.setShadowPath(Some(&shadow_path));
+                let preview = UIDragPreview::initWithView_parameters(
+                    UIDragPreview::alloc(),
+                    &image,
+                    &parameters,
+                );
+                Id::autorelease_return(preview)
             });
             let provider = provider.copy();
-
-            let () = msg_send![item, setPreviewProvider: &*provider];
+            item.setPreviewProvider(Some(&provider));
         }
     }
 
-    fn drag_will_begin(&self, session: id) {
+    fn drag_will_begin(&self, session: &ProtocolObject<dyn UIDragSession>) {
         self.in_progress.replace(true);
         // Only set preview providers when not transitioning from menu.
         // when transitioning for menu the items created during menu being
@@ -254,16 +255,15 @@ impl Session {
         if !self.menu_active() {
             unsafe {
                 // workaround for memory leak, see [create_item].
-                let items: id = msg_send![session, items];
-                for i in 0..NSArray::count(items) {
-                    let item = NSArray::objectAtIndex(items, i);
+                let items = session.items();
+                for item in items.iter() {
                     self.set_preview_provider(item);
                 }
             }
         }
     }
 
-    fn did_move(&self, _session: id, location: Point) {
+    fn did_move(&self, _session: &ProtocolObject<dyn UIDragSession>, location: Point) {
         if let Some(delegate) = self.context_delegate.upgrade() {
             delegate.drag_session_did_move_to_location(self.context_id, self.session_id, location);
         }
@@ -283,7 +283,7 @@ impl Session {
         }
     }
 
-    fn image_view_for_item(&self, index: usize, ty: ImageType) -> StrongPtr {
+    fn image_view_for_item(&self, index: usize, ty: ImageType) -> Id<UIImageView> {
         self.views
             .borrow_mut()
             .entry((index, ty))
@@ -303,8 +303,9 @@ impl Session {
                     .clone()
                     .translated(-100000.0, -100000.0)
                     .into();
-                let () = msg_send![*image_view, setFrame: frame];
-                let () = msg_send![*self.view_container, addSubview:*image_view];
+
+                image_view.setFrame(frame);
+                self.view_container.addSubview(&image_view);
 
                 image_view
             })
@@ -324,7 +325,7 @@ impl Session {
         }
     }
 
-    fn preview_for_item_type(&self, index: usize, ty: ImageType) -> id {
+    fn preview_for_item_type(&self, index: usize, ty: ImageType) -> Id<UITargetedDragPreview> {
         let configuration = self.configuration.borrow();
         let item = &configuration.items[index];
         let drag_image = match ty {
@@ -333,24 +334,24 @@ impl Session {
         };
         let image_view = self.image_view_for_item(index, ty);
         unsafe {
-            let parameters: id = msg_send![class!(UIDragPreviewParameters), new];
-            let () = msg_send![parameters, autorelease];
-            let clear_color: id = msg_send![class!(UIColor), clearColor];
-            let () = msg_send![parameters, setBackgroundColor: clear_color];
-
+            let parameters = UIDragPreviewParameters::init(UIDragPreviewParameters::alloc());
+            parameters.setBackgroundColor(Some(&UIColor::clearColor()));
             let shadow_path = bezier_path_for_alpha(&drag_image.image_data);
-            let () = msg_send![parameters, setShadowPath: *shadow_path];
+            parameters.setShadowPath(Some(&shadow_path));
 
-            let target: id = msg_send![class!(UIPreviewTarget), alloc];
             let center: CGPoint = drag_image.rect.center().into();
-            let () = msg_send![target, initWithContainer:*self.view_container center:center];
-            let () = msg_send![target, autorelease];
+            let target = UIPreviewTarget::initWithContainer_center(
+                UIPreviewTarget::alloc(),
+                &self.view_container,
+                center,
+            );
 
-            let preview: id = msg_send![class!(UITargetedDragPreview), alloc];
-            let () =
-                msg_send![preview, initWithView:*image_view parameters:parameters target:target];
-            let () = msg_send![preview, autorelease];
-            preview
+            UITargetedDragPreview::initWithView_parameters_target(
+                UITargetedDragPreview::alloc(),
+                &image_view,
+                &parameters,
+                &target,
+            )
         }
     }
 
@@ -365,7 +366,7 @@ impl Session {
         false
     }
 
-    fn preview_for_item(&self, index: usize) -> id {
+    fn preview_for_item(&self, index: usize) -> Id<UITargetedDragPreview> {
         // while menu is active (and we're not dragging yet) create items
         // immediately with drag image instead of lift. This will alleviate
         // the issue of showing lift image for a moment after menu transitions
@@ -377,27 +378,28 @@ impl Session {
         }
     }
 
-    fn preview_for_canceling(&self, index: usize) -> id {
+    fn preview_for_canceling(&self, index: usize) -> Id<UITargetedDragPreview> {
         let view_container = self.view_container.clone();
         // Fade the container view out. UIKit seems to keep the view
-        // visible for way too long after cancelation, which is obvious
+        // visible for way too long after cancellation, which is obvious
         // during scrolling. Ideally we would want updated position here
         // but for now it seems like a bit of an overkill.
         let animation_block = ConcreteBlock::new(move || {
-            let () = unsafe { msg_send![*view_container, setAlpha: 0.0] };
+            unsafe { view_container.setAlpha(0.0) };
         });
         let animation_block = animation_block.copy();
 
         unsafe {
-            let () = msg_send![class!(UIView),
-                         animateWithDuration: 0.3f64
-                         delay: 0.2f64
-                         options: 0 as NSUInteger
-                         animations:&*animation_block
-                         completion:nil];
+            UIView::animateWithDuration_delay_options_animations_completion(
+                0.3,
+                0.2,
+                UIViewAnimationOptionNone,
+                &animation_block,
+                None,
+            );
         };
 
-        // It takes eterninty to get the UIKit cancelled notification;
+        // It takes eternity to get the UIKit cancelled notification;
         // So we do it manually slightly after the animation is done.
         let weak_self = self.weak_self.clone();
         RunLoop::current()
@@ -428,23 +430,24 @@ impl Drop for Session {
 
         let view_container = self.view_container.clone();
         let animation_block = ConcreteBlock::new(move || {
-            let () = unsafe { msg_send![*view_container, setAlpha: 0.0] };
+            unsafe { view_container.setAlpha(0.0) };
         });
         let animation_block = animation_block.copy();
 
         let view_container = self.view_container.clone();
-        let completion_block = ConcreteBlock::new(move || {
-            let () = unsafe { msg_send![*view_container, removeFromSuperview] };
+        let completion_block = ConcreteBlock::new(move |_| {
+            unsafe { view_container.removeFromSuperview() };
         });
         let completion_block = completion_block.copy();
 
         unsafe {
-            let () = msg_send![class!(UIView),
-                         animateWithDuration: 0.5f64
-                         delay: 0.0f64
-                         options: 0 as NSUInteger
-                         animations:&*animation_block
-                         completion:&*completion_block];
+            UIView::animateWithDuration_delay_options_animations_completion(
+                0.5,
+                0.0,
+                UIViewAnimationOptionNone,
+                &animation_block,
+                Some(&completion_block),
+            );
         };
     }
 }
@@ -466,7 +469,7 @@ impl PlatformDragContext {
         Ok(Self {
             id,
             weak_self: Late::new(),
-            view: unsafe { StrongPtr::retain(view) },
+            view: unsafe { Id::cast(view) },
             delegate,
             interaction: Late::new(),
             interaction_delegate: Late::new(),
@@ -476,15 +479,15 @@ impl PlatformDragContext {
 
     pub fn assign_weak_self(&self, weak_self: Weak<Self>) {
         self.weak_self.set(weak_self.clone());
-        autoreleasepool(|| unsafe {
-            let delegate: id = msg_send![*DELEGATE_CLASS, new];
-            (*delegate).set_ivar("context", Weak::into_raw(weak_self) as *mut c_void);
-            self.interaction_delegate.set(StrongPtr::new(delegate));
-            let interaction: id = msg_send![class!(UIDragInteraction), alloc];
-            let interaction: id = msg_send![interaction, initWithDelegate: delegate];
-            self.interaction.set(StrongPtr::new(interaction));
-            let () = msg_send![*self.view, addInteraction: interaction];
-        });
+        // autoreleasepool(|| unsafe {
+        //     let delegate: id = msg_send![*DELEGATE_CLASS, new];
+        //     (*delegate).set_ivar("context", Weak::into_raw(weak_self) as *mut c_void);
+        //     self.interaction_delegate.set(StrongPtr::new(delegate));
+        //     let interaction: id = msg_send![class!(UIDragInteraction), alloc];
+        //     let interaction: id = msg_send![interaction, initWithDelegate: delegate];
+        //     self.interaction.set(StrongPtr::new(interaction));
+        //     let () = msg_send![*self.view, addInteraction: interaction];
+        // });
     }
 
     pub fn needs_combined_drag_image() -> bool {
@@ -502,10 +505,10 @@ impl PlatformDragContext {
 
     fn _items_for_beginning(
         &self,
-        _interaction: id,
-        drag_session: id,
+        _interaction: &UIDragInteraction,
+        drag_session: &ProtocolObject<dyn UIDragSession>,
         data: GetDragConfigurationResult,
-    ) -> id {
+    ) -> Id<NSArray<UIDragItem>> {
         let session = Rc::new(Session::new(
             self.delegate.clone(),
             self.view.clone(),
@@ -535,15 +538,19 @@ impl PlatformDragContext {
                 ("dropNotifier", drop_notifier.into_objc()),
             ])
             .into_objc();
-            let () = msg_send![drag_session, setLocalContext: *context];
+            drag_session.setLocalContext(Some(&context));
         }
 
         session.create_items(0, data.providers)
     }
 
-    fn items_for_beginning(&self, interaction: id, session: id) -> id {
+    fn items_for_beginning(
+        &self,
+        interaction: &UIDragInteraction,
+        session: &ProtocolObject<dyn UIDragSession>,
+    ) -> Option<Id<NSArray<UIDragItem>>> {
         if let Some(delegate) = self.delegate.upgrade() {
-            let location: CGPoint = unsafe { msg_send![session, locationInView:*self.view] };
+            let location = session.locationInView(&self.view);
             let configuration_promise =
                 delegate.get_drag_configuration_for_location(self.id, location.into());
             let mut poll_session = PollSession::new();
@@ -558,9 +565,9 @@ impl PlatformDragContext {
                 if let Some(configuration) = configuration_promise.try_take() {
                     match configuration {
                         PromiseResult::Ok { value } => {
-                            return self._items_for_beginning(interaction, session, value);
+                            return Some(self._items_for_beginning(interaction, session, value));
                         }
-                        PromiseResult::Cancelled => return nil,
+                        PromiseResult::Cancelled => return None,
                     }
                 }
                 RunLoop::current()
@@ -568,27 +575,32 @@ impl PlatformDragContext {
                     .poll_once(&mut poll_session);
             }
         } else {
-            nil
+            None
         }
     }
 
-    fn items_for_adding(&self, _interaction: id, session: id, point: CGPoint) -> id {
+    fn items_for_adding(
+        &self,
+        _interaction: &UIDragInteraction,
+        session: &ProtocolObject<dyn UIDragSession>,
+        point: CGPoint,
+    ) -> Option<Id<NSArray<UIDragItem>>> {
         if let Some(session) = self.get_session(session) {
             session.get_additional_items_for_location(point.into())
         } else {
-            nil
+            None
         }
     }
 
-    fn get_session_id(session: id) -> Option<DragSessionId> {
+    fn get_session_id(session: &ProtocolObject<dyn UIDragSession>) -> Option<DragSessionId> {
         unsafe {
-            let context: id = msg_send![session, localContext];
-            let is_dictionary: BOOL = msg_send![context, isKindOfClass: class!(NSDictionary)];
-            if is_dictionary == YES {
-                let session_id: id = msg_send![context, objectForKey: *to_nsstring("sessionId")];
-                let is_number: BOOL = msg_send![session_id, isKindOfClass: class!(NSNumber)];
-                if is_number == YES {
-                    let session_id: i64 = msg_send![session_id, longLongValue];
+            let context = session.localContext()?;
+            if context.is_kind_of::<NSDictionary>() {
+                let context = Id::cast::<NSDictionary<NSObject, NSObject>>(context);
+                let session_id = context.objectForKey(ns_string!("sessionId"))?;
+                if session_id.is_kind_of::<NSNumber>() {
+                    let session_id = Id::cast::<NSNumber>(session_id);
+                    let session_id = session_id.longLongValue();
                     return Some(session_id.into());
                 }
             }
@@ -596,30 +608,47 @@ impl PlatformDragContext {
         None
     }
 
-    fn get_session(&self, session: id) -> Option<Rc<Session>> {
+    fn get_session(&self, session: &ProtocolObject<dyn UIDragSession>) -> Option<Rc<Session>> {
         Self::get_session_id(session).and_then(|id| self.sessions.borrow().get(&id).cloned())
     }
 
-    fn drag_will_begin(&self, _interaction: id, platform_session: id) {
+    fn drag_will_begin(
+        &self,
+        _interaction: &UIDragInteraction,
+        platform_session: &ProtocolObject<dyn UIDragSession>,
+    ) {
         if let Some(session) = self.get_session(platform_session) {
             session.drag_will_begin(platform_session);
         }
     }
 
-    fn did_move(&self, _interaction: id, platform_session: id) {
-        let location: CGPoint = unsafe { msg_send![platform_session, locationInView:*self.view] };
+    fn did_move(
+        &self,
+        _interaction: &UIDragInteraction,
+        platform_session: &ProtocolObject<dyn UIDragSession>,
+    ) {
+        let location = platform_session.locationInView(&self.view);
         if let Some(session) = self.get_session(platform_session) {
             session.did_move(platform_session, location.into());
         }
     }
 
-    fn did_end_with_operation(&self, _interaction: id, session: id, operation: UIDropOperation) {
+    fn did_end_with_operation(
+        &self,
+        _interaction: &UIDragInteraction,
+        session: &ProtocolObject<dyn UIDragSession>,
+        operation: UIDropOperation,
+    ) {
         if let Some(session) = self.get_session(session) {
             session.did_end_with_operation(operation);
         }
     }
 
-    fn allows_move_operation(&self, _interaction: id, session: id) -> bool {
+    fn allows_move_operation(
+        &self,
+        _interaction: &UIDragInteraction,
+        session: &ProtocolObject<dyn UIDragSession>,
+    ) -> bool {
         if let Some(session) = self.get_session(session) {
             session
                 .configuration
@@ -631,50 +660,79 @@ impl PlatformDragContext {
         }
     }
 
-    fn did_transfer_items(&self, _interaction: id, _session: id) {}
+    fn did_transfer_items(
+        &self,
+        _interaction: &UIDragInteraction,
+        _session: &ProtocolObject<dyn UIDragSession>,
+    ) {
+    }
 
-    fn preview_for_item(&self, _interaction: id, item: id) -> id {
-        let info = Self::item_info(item);
-        if let Some(session) = self.sessions.borrow().get(&info.1).cloned() {
-            session.preview_for_item(info.0)
+    fn preview_for_item(
+        &self,
+        _interaction: &UIDragInteraction,
+        item: &UIDragItem,
+    ) -> Option<Id<UITargetedDragPreview>> {
+        let (index, sessionId) = Self::item_info(item)?;
+        if let Some(session) = self.sessions.borrow().get(&sessionId).cloned() {
+            Some(session.preview_for_item(index))
         } else {
-            nil
+            None
         }
     }
 
-    fn preview_for_canceling(&self, _interaction: id, item: id) -> id {
-        let info = Self::item_info(item);
-        if let Some(session) = self.sessions.borrow().get(&info.1).cloned() {
-            session.preview_for_canceling(info.0)
+    fn preview_for_canceling(
+        &self,
+        _interaction: &UIDragInteraction,
+        item: &UIDragItem,
+    ) -> Option<Id<UITargetedDragPreview>> {
+        let (index, sessionId) = Self::item_info(item)?;
+        if let Some(session) = self.sessions.borrow().get(&sessionId).cloned() {
+            Some(session.preview_for_canceling(index))
         } else {
-            nil
+            None
         }
     }
 
-    fn prefers_full_size_previews(&self, _interaction: id, session: id) -> BOOL {
+    fn prefers_full_size_previews(
+        &self,
+        _interaction: &UIDragInteraction,
+        session: &ProtocolObject<dyn UIDragSession>,
+    ) -> Bool {
         if let Some(session) = self.get_session(session) {
             if session.configuration.borrow().prefers_full_size_previews {
-                YES
+                Bool::YES
             } else {
-                NO
+                Bool::NO
             }
         } else {
-            NO
+            Bool::NO
         }
     }
 
-    fn item_info(item: id) -> (usize, DragSessionId) {
+    fn item_info(item: &UIDragItem) -> Option<(usize, DragSessionId)> {
         unsafe {
-            let local_object: id = msg_send![item, localObject];
-            let index: id = msg_send![local_object, objectForKey: *to_nsstring("index")];
-            let index: u64 = msg_send![index, longLongValue];
-            let session_id: id = msg_send![local_object, objectForKey: *to_nsstring("sessionId")];
-            let session_id: i64 = msg_send![session_id, longLongValue];
-            (index as usize, session_id.into())
+            let local_object = item.localObject()?;
+            if !local_object.is_kind_of::<NSDictionary>() {
+                return None;
+            }
+            let local_object = Id::cast::<NSDictionary<NSObject, NSObject>>(local_object);
+            let index = local_object.objectForKey(ns_string!("index"))?;
+            let session_id = local_object.objectForKey(ns_string!("sessionId"))?;
+            if !index.is_kind_of::<NSNumber>() || !session_id.is_kind_of::<NSNumber>() {
+                return None;
+            }
+            let index = Id::cast::<NSNumber>(index);
+            let index = index.longLongValue();
+            let session_id = Id::cast::<NSNumber>(session_id);
+            let session_id = session_id.longLongValue();
+            Some((index as usize, session_id.into()))
         }
     }
 
-    pub fn get_local_data(&self, session: id) -> Option<Vec<Value>> {
+    pub fn get_local_data(
+        &self,
+        session: &ProtocolObject<dyn UIDragSession>,
+    ) -> Option<Vec<Value>> {
         self.get_session(session)
             .map(|s| s.configuration.borrow().get_local_data())
     }
@@ -697,7 +755,7 @@ impl PlatformDragContext {
 impl Drop for PlatformDragContext {
     fn drop(&mut self) {
         unsafe {
-            let () = msg_send![*self.view, removeInteraction: **self.interaction];
+            self.view.removeInteraction(&self.interaction);
         }
     }
 }
@@ -852,26 +910,6 @@ extern "C" fn prefers_full_size_previews(
         |state| state.prefers_full_size_previews(interaction, session),
         || NO,
     )
-}
-
-// CGPoint doesn't seem to have encoding defined so we do it ourselves
-#[repr(C)]
-#[derive(Clone, Copy, Debug, Default)]
-pub struct _CGPoint {
-    pub x: CGFloat,
-    pub y: CGFloat,
-}
-
-impl From<_CGPoint> for CGPoint {
-    fn from(p: _CGPoint) -> Self {
-        CGPoint { x: p.x, y: p.y }
-    }
-}
-
-unsafe impl Encode for _CGPoint {
-    fn encode() -> Encoding {
-        unsafe { Encoding::from_str("{CGPoint=dd}") }
-    }
 }
 
 static SUPERCLASS: Lazy<&'static Class> = Lazy::new(|| class!(NSObject));
