@@ -15,10 +15,11 @@ use irondash_message_channel::{
 use irondash_run_loop::{util::Capsule, RunLoop, RunLoopSender};
 
 use crate::{
+    context::Context,
     error::{NativeExtensionsError, NativeExtensionsResult},
     log::OkLog,
     platform::PlatformDataReader,
-    util::{DropNotifier, NextId}, context::Context,
+    util::{DropNotifier, NextId},
 };
 
 #[derive(Debug, TryFromValue, IntoValue, Clone, Copy, PartialEq, Hash, Eq)]
