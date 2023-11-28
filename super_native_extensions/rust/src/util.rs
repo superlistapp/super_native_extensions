@@ -28,10 +28,15 @@ impl DropNotifier {
         let callback = self.callback.lock().unwrap().take();
 
         if let Some(mut callback) = callback {
-            self.sender.send(move || {
+            if self.sender.is_same_thread() {
                 let callback = callback.take().unwrap();
                 callback();
-            });
+            } else {
+                self.sender.send(move || {
+                    let callback = callback.take().unwrap();
+                    callback();
+                });
+            }
         }
     }
 }

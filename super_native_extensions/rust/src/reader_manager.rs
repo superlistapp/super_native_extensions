@@ -15,11 +15,10 @@ use irondash_message_channel::{
 use irondash_run_loop::{util::Capsule, RunLoop, RunLoopSender};
 
 use crate::{
-    context::Context,
     error::{NativeExtensionsError, NativeExtensionsResult},
     log::OkLog,
     platform::PlatformDataReader,
-    util::{DropNotifier, NextId},
+    util::{DropNotifier, NextId}, context::Context,
 };
 
 #[derive(Debug, TryFromValue, IntoValue, Clone, Copy, PartialEq, Hash, Eq)]
@@ -70,7 +69,7 @@ pub struct ReadProgress {
 /// Progress is thread safe. It must be created on main thread. Callbacks
 /// specified in constructor are guaranteed to be invoked on main thread.
 impl ReadProgress {
-    fn new<F1, F2>(
+    pub fn new<F1, F2>(
         drop_notifier: Arc<DropNotifier>,
         on_set_cancellation_handler: F1,
         on_progress: F2,
@@ -95,7 +94,7 @@ impl ReadProgress {
 
     #[allow(dead_code)]
     pub fn set_cancellation_handler(self: &Arc<Self>, handler: Option<Box<dyn FnOnce() + Send>>) {
-        if Context::current().is_some() {
+        if self.sender.is_same_thread() {
             let mut inner = self.inner.lock().unwrap();
             let inner = inner.get_mut().unwrap();
             (inner.on_set_cancellation_handler)(handler.is_some());
@@ -109,7 +108,7 @@ impl ReadProgress {
     }
     #[allow(dead_code)]
     pub fn report_progress(self: &Arc<Self>, fraction: Option<f64>) {
-        if Context::current().is_some() {
+        if self.sender.is_same_thread() {
             let inner = self.inner.lock().unwrap();
             let inner = inner.get_ref().unwrap();
             (inner.on_progress)(fraction);
@@ -121,8 +120,9 @@ impl ReadProgress {
         }
     }
 
-    fn cancel(self: &Arc<Self>) {
-        if Context::current().is_some() {
+    #[allow(dead_code)]
+    pub fn cancel(self: &Arc<Self>) {
+        if self.sender.is_same_thread() {
             let mut inner = self.inner.lock().unwrap();
             let inner = inner.get_mut().unwrap();
             let handler = inner.cancellation_handler.take();

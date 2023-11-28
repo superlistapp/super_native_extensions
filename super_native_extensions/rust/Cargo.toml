@@ -42,6 +42,13 @@ once_cell = "1.8.0"
 cocoa = "0.24"
 block = "0.1.6"
 core-graphics = "0.22.3"
+objc2 = "0.4.1"
+icrate = { version = "0.0.4", features = [
+    "Foundation",
+    "Foundation_NSString",
+    "Foundation_NSProgress",
+    "Foundation_NSArray",
+] }
 
 [target.'cfg(target_os = "ios")'.dependencies]
 oslog = "0.2.0"
