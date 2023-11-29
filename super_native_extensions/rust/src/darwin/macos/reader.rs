@@ -21,7 +21,7 @@ use irondash_run_loop::{
 };
 use objc2::{
     msg_send_id,
-    rc::{Id, autoreleasepool},
+    rc::{autoreleasepool, Id},
     runtime::{AnyObject, NSObject},
     ClassType,
 };
