@@ -76,9 +76,6 @@ icrate = { version = "0.0.4", features = [
 
 [target.'cfg(target_os = "ios")'.dependencies]
 oslog = "0.2.0"
-objc = "0.2.7"
-cocoa = "0.24"
-block = "0.1.6"
 
 [target.'cfg(target_os = "android")'.dependencies]
 jni = "0.21.1"

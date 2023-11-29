@@ -30,7 +30,7 @@ use crate::{
         PlatformDragContextDelegate, PlatformDragContextId,
     },
     error::{NativeExtensionsError, NativeExtensionsResult},
-    platform_impl::platform::os::util::IgnoreInteractionEvents,
+    platform_impl::platform::{common::UnsafeMutRef, os::util::IgnoreInteractionEvents},
     util::DropNotifier,
     value_promise::PromiseResult,
 };
@@ -169,7 +169,7 @@ impl Session {
                 index,
             ));
         }
-        unsafe { NSArray::from_vec(dragging_items) }
+        NSArray::from_vec(dragging_items)
     }
 
     fn process_additional_items(
@@ -475,7 +475,7 @@ impl PlatformDragContext {
         self.weak_self.set(weak_self.clone());
         autoreleasepool(|_| unsafe {
             let delegate = SNEDragContext::new(weak_self);
-            self.interaction_delegate.set(delegate);
+            self.interaction_delegate.set(delegate.retain());
             let interaction = UIDragInteraction::initWithDelegate(
                 UIDragInteraction::alloc(),
                 &Id::cast(delegate),
@@ -526,14 +526,13 @@ impl PlatformDragContext {
                 this.sessions.borrow_mut().remove(&session_id);
             }
         }));
-        unsafe {
-            let context = HashMap::from([
-                ("sessionId", data.session_id.into_objc()),
-                ("dropNotifier", drop_notifier.into_objc()),
-            ])
-            .into_objc();
-            drag_session.setLocalContext(Some(&context));
-        }
+
+        let context = HashMap::from([
+            ("sessionId", data.session_id.into_objc()),
+            ("dropNotifier", drop_notifier.into_objc()),
+        ])
+        .into_objc();
+        unsafe { drag_session.setLocalContext(Some(&context)) };
 
         session.create_items(0, data.providers)
     }
@@ -544,7 +543,7 @@ impl PlatformDragContext {
         session: &ProtocolObject<dyn UIDragSession>,
     ) -> Id<NSArray<UIDragItem>> {
         if let Some(delegate) = self.delegate.upgrade() {
-            let location = session.locationInView(&self.view);
+            let location = unsafe { session.locationInView(&self.view) };
             let configuration_promise =
                 delegate.get_drag_configuration_for_location(self.id, location.into());
             let mut poll_session = PollSession::new();
@@ -621,7 +620,7 @@ impl PlatformDragContext {
         _interaction: &UIDragInteraction,
         platform_session: &ProtocolObject<dyn UIDragSession>,
     ) {
-        let location = platform_session.locationInView(&self.view);
+        let location = unsafe { platform_session.locationInView(&self.view) };
         if let Some(session) = self.get_session(platform_session) {
             session.did_move(platform_session, location.into());
         }
@@ -666,12 +665,12 @@ impl PlatformDragContext {
         _interaction: &UIDragInteraction,
         item: &UIDragItem,
     ) -> Option<Id<UITargetedDragPreview>> {
-        let (index, sessionId) = Self::item_info(item)?;
-        if let Some(session) = self.sessions.borrow().get(&sessionId).cloned() {
-            Some(session.preview_for_item(index))
-        } else {
-            None
-        }
+        let (index, session_id) = Self::item_info(item)?;
+        self.sessions
+            .borrow()
+            .get(&session_id)
+            .cloned()
+            .map(|session| session.preview_for_item(index))
     }
 
     fn preview_for_canceling(
@@ -679,12 +678,12 @@ impl PlatformDragContext {
         _interaction: &UIDragInteraction,
         item: &UIDragItem,
     ) -> Option<Id<UITargetedDragPreview>> {
-        let (index, sessionId) = Self::item_info(item)?;
-        if let Some(session) = self.sessions.borrow().get(&sessionId).cloned() {
-            Some(session.preview_for_canceling(index))
-        } else {
-            None
-        }
+        let (index, session_id) = Self::item_info(item)?;
+        self.sessions
+            .borrow()
+            .get(&session_id)
+            .cloned()
+            .map(|session| session.preview_for_canceling(index))
     }
 
     fn prefers_full_size_previews(
@@ -750,7 +749,7 @@ impl Drop for PlatformDragContext {
     }
 }
 
-struct Inner {
+pub struct Inner {
     context: Weak<PlatformDragContext>,
 }
 
@@ -860,7 +859,7 @@ declare_class!(
             &self,
             interaction: &UIDragInteraction,
             item: &UIDragItem,
-            session: &ProtocolObject<dyn UIDragSession>,
+            _session: &ProtocolObject<dyn UIDragSession>,
         ) -> Option<Id<UITargetedDragPreview>> {
             self.context
                 .with_state(|state| state.preview_for_item(interaction, item), || None)
@@ -871,7 +870,7 @@ declare_class!(
             &self,
             interaction: &UIDragInteraction,
             item: &UIDragItem,
-            default_preview: &UITargetedDragPreview,
+            _default_preview: &UITargetedDragPreview,
         ) -> Option<Id<UITargetedDragPreview>> {
             self.context.with_state(
                 |state| state.preview_for_canceling(interaction, item),
@@ -907,8 +906,11 @@ declare_class!(
 
 impl SNEDragContext {
     fn new(context: Weak<PlatformDragContext>) -> Id<Self> {
-        let mut this: Id<Self> = unsafe { msg_send_id![Self::alloc(), init] };
-        Ivar::write(&mut this.context, Box::new(Inner { context }));
+        let this: Id<Self> = unsafe { msg_send_id![Self::alloc(), init] };
+        Ivar::write(
+            &mut unsafe { this.unsafe_mut_ref() }.context,
+            Box::new(Inner { context }),
+        );
         this
     }
 }

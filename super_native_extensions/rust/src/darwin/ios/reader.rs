@@ -67,12 +67,13 @@ impl PlatformDataReader {
     fn get_items_providers(&self) -> Vec<Id<NSItemProvider>> {
         match &self.source {
             ReaderSource::Pasteboard(pasteboard) => {
-                let providers = pasteboard.itemProviders();
+                let providers = unsafe { pasteboard.itemProviders() };
                 providers.iter().map(|e| e.retain()).collect()
             }
-            ReaderSource::DropSessionItems(items) => {
-                items.iter().map(|item| item.itemProvider()).collect()
-            }
+            ReaderSource::DropSessionItems(items) => items
+                .iter()
+                .map(|item| unsafe { item.itemProvider() })
+                .collect(),
         }
     }
 
@@ -88,7 +89,7 @@ impl PlatformDataReader {
         let formats = autoreleasepool(|_| unsafe {
             let providers = self.get_items_providers();
             if item < providers.len() as i64 {
-                let provider = providers[item as usize];
+                let provider = &providers[item as usize];
                 let identifiers = provider.registeredTypeIdentifiers();
                 identifiers.iter().map(|e| e.to_string()).collect()
             } else {
@@ -153,7 +154,7 @@ impl PlatformDataReader {
                 let provider = &providers[item as usize];
                 let sender = RunLoop::current().new_sender();
                 let block = ConcreteBlock::new(move |data: *mut NSData, _err: *mut NSError| {
-                    let data = unsafe { Id::retain(data) };
+                    let data = Id::retain(data);
                     let data = data.map(|d| Self::maybe_decode_bplist(&d));
                     let data = Movable::new(data);
                     let completer = completer.clone();
@@ -262,8 +263,8 @@ impl PlatformDataReader {
             let sender = RunLoop::current().new_sender();
             let block = ConcreteBlock::new(
                 move |url: *mut NSURL, _is_in_place: Bool, error: *mut NSError| {
-                    let url = unsafe { Id::retain(url) };
-                    let error = unsafe { Id::retain(error) };
+                    let url = Id::retain(url);
+                    let error = Id::retain(error);
                     let res = match (url, error) {
                         (Some(url), _) => FileWithBackgroundCoordinator::new(&url),
                         (_, Some(error)) => Err(NativeExtensionsError::VirtualFileReceiveError(
@@ -290,7 +291,7 @@ impl PlatformDataReader {
             let block = block.copy();
             let ns_progress = provider
                 .loadInPlaceFileRepresentationForTypeIdentifier_completionHandler(
-                    &NSString::from_str(&format),
+                    &NSString::from_str(format),
                     &block,
                 );
             bridge_progress(ns_progress, read_progress);
@@ -319,8 +320,8 @@ impl PlatformDataReader {
             let provider = &providers[item as usize];
             let sender = RunLoop::current().new_sender();
             let block = ConcreteBlock::new(move |url: *mut NSURL, error: *mut NSError| {
-                let url = unsafe { Id::retain(url) };
-                let error = unsafe { Id::retain(error) };
+                let url = Id::retain(url);
+                let error = Id::retain(error);
                 let res = match (url, error) {
                     (Some(url), _) => {
                         let source_path = path_from_url(&url);
@@ -355,7 +356,7 @@ impl PlatformDataReader {
             });
             let block = block.copy();
             let ns_progress = provider.loadFileRepresentationForTypeIdentifier_completionHandler(
-                &NSString::from_str(&format),
+                &NSString::from_str(format),
                 &block,
             );
             bridge_progress(ns_progress, read_progress);
@@ -377,6 +378,7 @@ impl FileWithBackgroundCoordinator {
     /// Creates new thread where it keeps the coordinator alive while the
     /// FileWithBackgroundCoordinator is reading file.
     fn new(url: &NSURL) -> NativeExtensionsResult<FileWithBackgroundCoordinator> {
+        let url = url.retain();
         let promise = Arc::new(Promise::new());
         let url = unsafe { Movable::new(url) };
         let promise_clone = promise.clone();

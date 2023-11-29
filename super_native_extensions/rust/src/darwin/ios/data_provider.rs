@@ -60,7 +60,7 @@ pub struct PlatformDataProvider {
 }
 
 enum VirtualFilePayload {
-    URL(Id<NSURL>),
+    Url(Id<NSURL>),
     Data(Id<NSData>),
 }
 
@@ -128,14 +128,14 @@ impl PlatformDataProvider {
                             register_file_representation(
                                 &item_provider,
                                 format,
-                                false,
+                                true,
                                 move |callback| {
                                     let callback2 = Box::new(
                                         move |data: Option<VirtualFilePayload>,
                                               must_use_presenter: bool,
                                               error: Option<&NSError>| {
                                             match data {
-                                                Some(VirtualFilePayload::URL(url)) => {
+                                                Some(VirtualFilePayload::Url(url)) => {
                                                     callback(Some(&url), must_use_presenter, error)
                                                 },
                                                 None => {
@@ -417,7 +417,7 @@ impl DataProviderSession {
                 let path = path.to_string_lossy();
                 let url = unsafe { NSURL::fileURLWithPath(&NSString::from_str(&path)) };
                 unsafe { SNEDeletingPresenter::deleteAfterRead(&url) };
-                Some(VirtualFilePayload::URL(url))
+                Some(VirtualFilePayload::Url(url))
             }
             Some(StreamEntry::Memory { buffer }) => {
                 Some(VirtualFilePayload::Data(NSData::from_vec(buffer)))
@@ -433,6 +433,7 @@ impl DataProviderSession {
         storage: VirtualFileStorage,
         callback: Box<dyn Fn(Option<VirtualFilePayload>, bool, Option<&NSError>) + Send>,
     ) {
+        let progress = progress.retain();
         let progress = unsafe { Movable::new(progress) };
         let self_clone = self.clone();
         Self::on_platform_thread(self, move |s| match s {
@@ -461,7 +462,7 @@ impl DataProviderSession {
                 }
                 let stream_handle = stream_handle.unwrap();
 
-                let progress_clone = progress.clone();
+                let progress_clone = progress.retain();
                 let notifier = source_delegate.get_virtual_file(
                     source.isolate_id,
                     id,

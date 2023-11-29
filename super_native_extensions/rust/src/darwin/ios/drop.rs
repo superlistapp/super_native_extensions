@@ -28,7 +28,7 @@ use crate::{
     },
     error::{NativeExtensionsError, NativeExtensionsResult},
     log::OkLog,
-    platform_impl::platform::common::CGAffineTransformMakeScale,
+    platform_impl::platform::common::{CGAffineTransformMakeScale, UnsafeMutRef},
     value_promise::PromiseResult,
 };
 
@@ -125,17 +125,16 @@ impl Session {
         let mut items = Vec::new();
         let session_items = unsafe { self.platform_session.items() };
 
-        for (index, (item, local_data)) in session_items
+        for (item, local_data) in session_items
             .iter()
             .zip(local_data.into_iter().chain(iter::repeat(Value::Null)))
-            .enumerate()
         {
             let item_provider = unsafe { item.itemProvider() };
             let mut formats = Vec::<String>::new();
             for f in unsafe { item_provider.registeredTypeIdentifiers().iter() } {
-                let f = unsafe { f.to_string() };
+                let f = f.to_string();
                 if !formats.contains(&f) {
-                    formats.push(f.into());
+                    formats.push(f);
                 }
             }
             items.push(DropItem {
@@ -189,7 +188,8 @@ impl Session {
 
         let operation: UIDropOperation = self.last_operation.get().to_platform();
 
-        let proposal = UIDropProposal::initWithDropOperation(UIDropProposal::alloc(), operation);
+        let proposal =
+            unsafe { UIDropProposal::initWithDropOperation(UIDropProposal::alloc(), operation) };
         Ok(proposal)
     }
 
@@ -320,13 +320,12 @@ impl Session {
                 image_view.setFrame(frame);
 
                 let parameters = UIDragPreviewParameters::init(UIDragPreviewParameters::alloc());
-                let preview = UITargetedDragPreview::initWithView_parameters_target(
+                UITargetedDragPreview::initWithView_parameters_target(
                     UITargetedDragPreview::alloc(),
                     &image_view,
                     &parameters,
                     &target,
-                );
-                preview
+                )
             },
             None => unsafe { default.retargetedPreviewWithTarget(&target) },
         }
@@ -398,7 +397,7 @@ impl PlatformDropContext {
         self.weak_self.set(weak_self.clone());
         autoreleasepool(|_| unsafe {
             let delegate = SNEDropContext::new(weak_self);
-            self.interaction_delegate.set(delegate);
+            self.interaction_delegate.set(delegate.retain());
             let interaction = UIDropInteraction::initWithDelegate(
                 UIDropInteraction::alloc(),
                 &Id::cast(delegate),
@@ -464,19 +463,20 @@ impl PlatformDropContext {
         item: &UIDragItem,
         default: &UITargetedDragPreview,
     ) -> NativeExtensionsResult<Option<Id<UITargetedDragPreview>>> {
-        let session_for_item = self.sessions.borrow().iter().find_map(|(_, s)| {
-            let items = unsafe { s.platform_session.items() };
-            let contains = unsafe { items.containsObject(item) };
-            if contains {
-                Some(&s.platform_session)
-            } else {
-                None
-            }
-        });
+        let session_for_item = {
+            let sessions = self.sessions.borrow();
+            sessions.iter().find_map(|(_, s)| {
+                let items = unsafe { s.platform_session.items() };
+                let contains = unsafe { items.containsObject(item) };
+                if contains {
+                    Some(s.clone())
+                } else {
+                    None
+                }
+            })
+        };
         match session_for_item {
-            Some(session) => self
-                .get_session(session)
-                .preview_for_dropping_item(item, default),
+            Some(session) => session.preview_for_dropping_item(item, default),
             None => Ok(None),
         }
     }
@@ -484,13 +484,11 @@ impl PlatformDropContext {
 
 impl Drop for PlatformDropContext {
     fn drop(&mut self) {
-        unsafe {
-            unsafe { self.view.removeInteraction(&self.interaction) };
-        }
+        unsafe { self.view.removeInteraction(&self.interaction) };
     }
 }
 
-struct Inner {
+pub struct Inner {
     context: Weak<PlatformDropContext>,
 }
 
@@ -528,8 +526,8 @@ declare_class!(
         #[method(dropInteraction:canHandleSession:)]
         fn dropInteraction_canHandleSession(
             &self,
-            interaction: &UIDropInteraction,
-            session: &ProtocolObject<dyn UIDropSession>,
+            _interaction: &UIDropInteraction,
+            _session: &ProtocolObject<dyn UIDropSession>,
         ) -> bool {
             true
         }
@@ -537,10 +535,10 @@ declare_class!(
         #[method_id(dropInteraction:sessionDidUpdate:)]
         fn dropInteraction_sessionDidUpdate(
             &self,
-            interaction: &UIDropInteraction,
+            _interaction: &UIDropInteraction,
             session: &ProtocolObject<dyn UIDropSession>,
         ) -> Id<UIDropProposal> {
-            let fallback = || {
+            let fallback = || unsafe {
                 UIDropProposal::initWithDropOperation(
                     UIDropProposal::alloc(),
                     UIDropOperationCancel,
@@ -553,14 +551,14 @@ declare_class!(
                         .ok_log()
                         .unwrap_or_else(fallback)
                 },
-                || fallback(),
+                fallback,
             )
         }
 
         #[method(dropInteraction:sessionDidExit:)]
         fn dropInteraction_sessionDidExit(
             &self,
-            interaction: &UIDropInteraction,
+            _interaction: &UIDropInteraction,
             session: &ProtocolObject<dyn UIDropSession>,
         ) {
             self.context.with_state(
@@ -572,7 +570,7 @@ declare_class!(
         #[method(dropInteraction:performDrop:)]
         fn dropInteraction_performDrop(
             &self,
-            interaction: &UIDropInteraction,
+            _interaction: &UIDropInteraction,
             session: &ProtocolObject<dyn UIDropSession>,
         ) {
             self.context.with_state(
@@ -584,7 +582,7 @@ declare_class!(
         #[method(dropInteraction:sessionDidEnd:)]
         fn dropInteraction_sessionDidEnd(
             &self,
-            interaction: &UIDropInteraction,
+            _interaction: &UIDropInteraction,
             session: &ProtocolObject<dyn UIDropSession>,
         ) {
             self.context.with_state(
@@ -596,7 +594,7 @@ declare_class!(
         #[method_id(dropInteraction:previewForDroppingItem:withDefault:)]
         fn dropInteraction_previewForDroppingItem_withDefault(
             &self,
-            interaction: &UIDropInteraction,
+            _interaction: &UIDropInteraction,
             item: &UIDragItem,
             default_preview: &UITargetedDragPreview,
         ) -> Option<Id<UITargetedDragPreview>> {
@@ -615,8 +613,11 @@ declare_class!(
 
 impl SNEDropContext {
     fn new(context: Weak<PlatformDropContext>) -> Id<Self> {
-        let mut this: Id<Self> = unsafe { msg_send_id![Self::alloc(), init] };
-        Ivar::write(&mut this.context, Box::new(Inner { context }));
+        let this: Id<Self> = unsafe { msg_send_id![Self::alloc(), init] };
+        Ivar::write(
+            &mut unsafe { this.unsafe_mut_ref() }.context,
+            Box::new(Inner { context }),
+        );
         this
     }
 }

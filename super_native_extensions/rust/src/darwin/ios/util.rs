@@ -100,10 +100,7 @@ pub fn value_to_nsdata(value: &Value) -> Option<Id<NSData>> {
     }
 
     let buf = value.coerce_to_data(StringFormat::Utf8);
-    match buf {
-        Some(data) => Some(NSData::from_vec(data)),
-        None => None,
-    }
+    buf.map(NSData::from_vec)
 }
 
 pub fn value_promise_res_to_nsdata(value: &ValuePromiseResult) -> Option<Id<NSData>> {
@@ -177,7 +174,11 @@ pub fn register_file_representation<F>(
         item_provider
             .registerFileRepresentationForTypeIdentifier_fileOptions_visibility_loadHandler(
                 &NSString::from_str(type_identifier),
-                NSItemProviderFileOptionOpenInPlace,
+                if open_in_place {
+                    NSItemProviderFileOptionOpenInPlace
+                } else {
+                    0
+                },
                 NSItemProviderRepresentationVisibilityAll,
                 &block,
             )
@@ -206,10 +207,10 @@ impl IntoObjc for HashMap<&str, Id<NSObject>> {
     fn into_objc(mut self) -> Id<NSObject> {
         let mut keys = Vec::<Id<NSString>>::new();
         let mut objects = Vec::<Id<NSObject>>::new();
-        self.drain().map(|(k, v)| {
+        for (k, v) in self.drain() {
             keys.push(NSString::from_str(k));
             objects.push(v);
-        });
+        }
         let keys = keys.iter().map(|k| k.deref()).collect::<Vec<_>>();
         unsafe {
             let res = NSDictionary::from_keys_and_objects(&keys, objects);

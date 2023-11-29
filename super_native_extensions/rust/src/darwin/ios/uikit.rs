@@ -1,6 +1,10 @@
+use std::ptr::NonNull;
+
 use icrate::{
     block2::Block,
-    Foundation::{CGFloat, CGPoint, CGRect, CGSize, NSArray, NSItemProvider},
+    Foundation::{
+        CGFloat, CGPoint, CGRect, CGSize, NSArray, NSItemProvider, NSString, NSTimeInterval,
+    },
 };
 use objc2::{
     extern_class, extern_methods, extern_protocol,
@@ -30,6 +34,20 @@ extern_class!(
     }
 );
 
+extern_methods!(
+    unsafe impl UIImage {
+        #[method_id(@__retain_semantics Other imageWithCGImage:scale:orientation:)]
+        pub unsafe fn imageWithCGImage_scale_orientation(
+            cg_image: *const _CGImage,
+            scale: CGFloat,
+            orientation: UIImageOrientation,
+        ) -> Id<UIImage>;
+
+        #[method_id(@__retain_semantics Other systemImageNamed:)]
+        pub unsafe fn systemImageNamed(name: &NSString) -> Option<Id<UIImage>>;
+    }
+);
+
 pub enum _CGImage {}
 
 unsafe impl RefEncode for _CGImage {
@@ -46,17 +64,6 @@ pub const UIImageOrientationUpMirrored: UIImageOrientation = 4;
 pub const UIImageOrientationDownMirrored: UIImageOrientation = 5;
 pub const UIImageOrientationLeftMirrored: UIImageOrientation = 6;
 pub const UIImageOrientationRightMirrored: UIImageOrientation = 7;
-
-extern_methods!(
-    unsafe impl UIImage {
-        #[method_id(@__retain_semantics Other imageWithCGImage:scale:orientation:)]
-        pub unsafe fn imageWithCGImage_scale_orientation(
-            cg_image: *const _CGImage,
-            scale: CGFloat,
-            orientation: UIImageOrientation,
-        ) -> Id<UIImage>;
-    }
-);
 
 extern_class!(
     #[derive(Debug, PartialEq, Eq, Hash)]
@@ -82,53 +89,142 @@ extern_class!(
 extern_methods!(
     unsafe impl UIView {
         #[method(bounds)]
-        pub fn bounds(&self) -> CGRect;
+        pub unsafe fn bounds(&self) -> CGRect;
 
         #[method(setBounds:)]
-        pub fn setBounds(&self, value: CGRect);
+        pub unsafe fn setBounds(&self, value: CGRect);
 
         #[method(frame)]
-        pub fn frame(&self) -> CGRect;
+        pub unsafe fn frame(&self) -> CGRect;
 
         #[method(setFrame:)]
-        pub fn setFrame(&self, value: CGRect);
+        pub unsafe fn setFrame(&self, value: CGRect);
 
         #[method(setUserInteractionEnabled:)]
-        pub fn setUserInteractionEnabled(&self, enabled: bool);
+        pub unsafe fn setUserInteractionEnabled(&self, enabled: bool);
 
         #[method(userInteractionEnabled)]
-        pub fn userInteractionEnabled(&self) -> bool;
+        pub unsafe fn userInteractionEnabled(&self) -> bool;
 
         #[method_id(@__retain_semantics Init initWithFrame:)]
-        pub fn initWithFrame(this: Option<Allocated<Self>>, frame: CGRect) -> Id<Self>;
+        pub unsafe fn initWithFrame(this: Option<Allocated<Self>>, frame: CGRect) -> Id<Self>;
 
         #[method(addSubview:)]
-        pub fn addSubview(&self, subview: &UIView);
+        pub unsafe fn addSubview(&self, subview: &UIView);
+
+        #[method_id(@__retain_semantics Other subviews)]
+        pub unsafe fn subviews(&self) -> Id<NSArray<UIView>>;
 
         #[method(setAlpha:)]
-        pub fn setAlpha(&self, alpha: CGFloat);
+        pub unsafe fn setAlpha(&self, alpha: CGFloat);
+
+        #[method(alpha)]
+        pub unsafe fn alpha(&self) -> CGFloat;
+
+        #[method(setCenter:)]
+        pub unsafe fn setCenter(&self, center: CGPoint);
+
+        #[method(center)]
+        pub unsafe fn center(&self) -> CGPoint;
 
         #[method(removeFromSuperview)]
-        pub fn removeFromSuperview(&self);
+        pub unsafe fn removeFromSuperview(&self);
 
         #[method(addInteraction:)]
-        pub fn addInteraction(&self, interaction: &NSObject);
+        pub unsafe fn addInteraction(&self, interaction: &NSObject);
 
         #[method(removeInteraction:)]
-        pub fn removeInteraction(&self, interaction: &NSObject);
+        pub unsafe fn removeInteraction(&self, interaction: &NSObject);
 
         #[method(animateWithDuration:delay:options:animations:completion:)]
-        pub fn animateWithDuration_delay_options_animations_completion(
-            duration: f64,
-            delay: f64,
+        pub unsafe fn animateWithDuration_delay_options_animations_completion(
+            duration: NSTimeInterval,
+            delay: NSTimeInterval,
             options: UIViewAnimationOptions,
+            animations: &Block<(), ()>,
+            completion: Option<&Block<(Bool,), ()>>,
+        );
+
+        #[method(animateWithDuration:animations:completion:)]
+        pub unsafe fn animateWithDuration_animations_completion(
+            duration: f64,
             animations: &Block<(), ()>,
             completion: Option<&Block<(Bool,), ()>>,
         );
     }
 );
 
-pub type UIViewAnimationOptions = NSInteger;
+extern_class!(
+    #[derive(Debug, PartialEq, Eq, Hash)]
+    pub(crate) struct UIActivityIndicatorView;
+
+    unsafe impl ClassType for UIActivityIndicatorView {
+        #[inherits(NSObject)]
+        type Super = UIView;
+        type Mutability = mutability::InteriorMutable;
+    }
+);
+
+pub type UIActivityIndicatorViewStyle = NSInteger;
+pub const UIActivityIndicatorViewStyleWhiteLarge: UIActivityIndicatorViewStyle = 0;
+pub const UIActivityIndicatorViewStyleWhite: UIActivityIndicatorViewStyle = 1;
+pub const UIActivityIndicatorViewStyleGray: UIActivityIndicatorViewStyle = 2;
+pub const UIActivityIndicatorViewStyleMedium: UIActivityIndicatorViewStyle = 100;
+pub const UIActivityIndicatorViewStyleLarge: UIActivityIndicatorViewStyle = 101;
+
+extern_methods!(
+    unsafe impl UIActivityIndicatorView {
+        #[method_id(@__retain_semantics Init initWithActivityIndicatorStyle:)]
+        pub unsafe fn initWithActivityIndicatorStyle(
+            this: Option<Allocated<Self>>,
+            style: UIActivityIndicatorViewStyle,
+        ) -> Id<Self>;
+
+        #[method(startAnimating)]
+        pub unsafe fn startAnimating(&self);
+
+        #[method(stopAnimating)]
+        pub unsafe fn stopAnimating(&self);
+
+        #[method(setColor:)]
+        pub unsafe fn setColor(&self, color: Option<&UIColor>);
+
+        #[method_id(@__retain_semantics Other color)]
+        pub unsafe fn color(&self) -> Option<Id<UIColor>>;
+    }
+);
+
+extern_class!(
+    #[derive(Debug, PartialEq, Eq, Hash)]
+    pub(crate) struct UIViewController;
+
+    unsafe impl ClassType for UIViewController {
+        #[inherits(NSObject)]
+        type Super = UIResponder;
+        type Mutability = mutability::InteriorMutable;
+    }
+);
+
+extern_methods!(
+    unsafe impl UIViewController {
+        #[method_id(@__retain_semantics Other view)]
+        pub unsafe fn view(&self) -> Option<Id<UIView>>;
+
+        #[method(setView:)]
+        pub unsafe fn setView(&self, view: Option<&UIView>);
+
+        #[method(setPreferredContentSize:)]
+        pub unsafe fn setPreferredContentSize(&self, size: CGSize);
+
+        #[method(preferredContentSize)]
+        pub unsafe fn preferredContentSize(&self) -> CGSize;
+
+        #[method_id(@__retain_semantics Init init)]
+        pub unsafe fn init(this: Option<Allocated<Self>>) -> Id<Self>;
+    }
+);
+
+pub type UIViewAnimationOptions = NSUInteger;
 pub const UIViewAnimationOptionNone: UIViewAnimationOptions = 0;
 
 extern_class!(
@@ -166,13 +262,13 @@ extern_class!(
 extern_methods!(
     unsafe impl UIApplication {
         #[method_id(@__retain_semantics Other sharedApplication)]
-        pub fn sharedApplication() -> Id<Self>;
+        pub unsafe fn sharedApplication() -> Id<Self>;
 
         #[method(beginIgnoringInteractionEvents)]
-        pub fn beginIgnoringInteractionEvents(&self);
+        pub unsafe fn beginIgnoringInteractionEvents(&self);
 
         #[method(endIgnoringInteractionEvents)]
-        pub fn endIgnoringInteractionEvents(&self);
+        pub unsafe fn endIgnoringInteractionEvents(&self);
     }
 );
 
@@ -189,13 +285,13 @@ extern_class!(
 extern_methods!(
     unsafe impl UIPasteboard {
         #[method_id(@__retain_semantics Other generalPasteboard)]
-        pub fn generalPasteboard() -> Id<Self>;
+        pub unsafe fn generalPasteboard() -> Id<Self>;
 
         #[method(setItemProviders:)]
-        pub fn setItemProviders(&self, item_providers: &NSArray<NSItemProvider>);
+        pub unsafe fn setItemProviders(&self, item_providers: &NSArray<NSItemProvider>);
 
         #[method_id(@__retain_semantics Other itemProviders)]
-        pub fn itemProviders(&self) -> Id<NSArray<NSItemProvider>>;
+        pub unsafe fn itemProviders(&self) -> Id<NSArray<NSItemProvider>>;
     }
 );
 
@@ -212,25 +308,25 @@ extern_class!(
 extern_methods!(
     unsafe impl UIDragItem {
         #[method_id(@__retain_semantics Init initWithItemProvider:)]
-        pub fn initWithItemProvider(
+        pub unsafe fn initWithItemProvider(
             this: Option<Allocated<Self>>,
             provider: &NSItemProvider,
         ) -> Id<Self>;
 
         #[method_id(@__retain_semantics Other itemProvider)]
-        pub fn itemProvider(&self) -> Id<NSItemProvider>;
+        pub unsafe fn itemProvider(&self) -> Id<NSItemProvider>;
 
         #[method(setLocalObject:)]
-        pub fn setLocalObject(&self, object: Option<&NSObject>);
+        pub unsafe fn setLocalObject(&self, object: Option<&NSObject>);
 
         #[method_id(@__retain_semantics Other localObject)]
-        pub fn localObject(&self) -> Option<Id<NSObject>>;
+        pub unsafe fn localObject(&self) -> Option<Id<NSObject>>;
 
         #[method(setPreviewProvider:)]
-        pub fn setPreviewProvider(&self, provider: Option<&Block<(), *mut UIDragPreview>>);
+        pub unsafe fn setPreviewProvider(&self, provider: Option<&Block<(), *mut UIDragPreview>>);
 
         #[method(previewProvider)]
-        pub fn previewProvider(&self) -> Option<&Block<(), *mut UIDragPreview>>;
+        pub unsafe fn previewProvider(&self) -> Option<&Block<(), *mut UIDragPreview>>;
     }
 );
 
@@ -247,7 +343,7 @@ extern_class!(
 extern_methods!(
     unsafe impl UIDragPreview {
         #[method_id(@__retain_semantics Init initWithView:parameters:)]
-        pub fn initWithView_parameters(
+        pub unsafe fn initWithView_parameters(
             this: Option<Allocated<Self>>,
             view: &UIView,
             parameters: &UIDragPreviewParameters,
@@ -268,14 +364,14 @@ extern_class!(
 extern_methods!(
     unsafe impl UIPreviewTarget {
         #[method_id(@__retain_semantics Init initWithContainer:center:)]
-        pub fn initWithContainer_center(
+        pub unsafe fn initWithContainer_center(
             this: Option<Allocated<Self>>,
             container: &UIView,
             center: CGPoint,
         ) -> Id<Self>;
 
         #[method_id(@__retain_semantics Init initWithContainer:center:transform:)]
-        pub fn initWithContainer_center_transform(
+        pub unsafe fn initWithContainer_center_transform(
             this: Option<Allocated<Self>>,
             container: &UIView,
             center: CGPoint,
@@ -297,14 +393,14 @@ extern_class!(
 extern_methods!(
     unsafe impl UIDragPreviewTarget {
         #[method_id(@__retain_semantics Init initWithContainer:center:)]
-        pub fn initWithContainer_center(
+        pub unsafe fn initWithContainer_center(
             this: Option<Allocated<Self>>,
             container: &UIView,
             center: CGPoint,
         ) -> Id<Self>;
 
         #[method_id(@__retain_semantics Init initWithContainer:center:transform:)]
-        pub fn initWithContainer_center_transform(
+        pub unsafe fn initWithContainer_center_transform(
             this: Option<Allocated<Self>>,
             container: &UIView,
             center: CGPoint,
@@ -325,14 +421,22 @@ extern_class!(
 
 extern_methods!(
     unsafe impl UITargetedPreview {
+        #[method_id(@__retain_semantics Init initWithView:parameters:target:)]
+        pub unsafe fn initWithView_parameters_target(
+            this: Option<Allocated<Self>>,
+            view: &UIView,
+            parameters: &UIPreviewParameters,
+            target: &UIPreviewTarget,
+        ) -> Id<Self>;
+
         #[method_id(@__retain_semantics Other view)]
-        pub fn view(&self) -> Id<UIView>;
+        pub unsafe fn view(&self) -> Id<UIView>;
 
         #[method(size)]
-        pub fn size(&self) -> CGSize;
+        pub unsafe fn size(&self) -> CGSize;
 
         #[method_id(@__retain_semantics Other parameters)]
-        pub fn parameters(&self) -> Id<UIDragPreviewParameters>;
+        pub unsafe fn parameters(&self) -> Id<UIPreviewParameters>;
     }
 );
 
@@ -349,7 +453,7 @@ extern_class!(
 extern_methods!(
     unsafe impl UITargetedDragPreview {
         #[method_id(@__retain_semantics Init initWithView:parameters:target:)]
-        pub fn initWithView_parameters_target(
+        pub unsafe fn initWithView_parameters_target(
             this: Option<Allocated<Self>>,
             view: &UIView,
             parameters: &UIDragPreviewParameters,
@@ -357,7 +461,7 @@ extern_methods!(
         ) -> Id<Self>;
 
         #[method_id(@__retain_semantics Other retargetedPreviewWithTarget:)]
-        pub fn retargetedPreviewWithTarget(
+        pub unsafe fn retargetedPreviewWithTarget(
             &self,
             target: &UIPreviewTarget,
         ) -> Id<UITargetedDragPreview>;
@@ -366,37 +470,54 @@ extern_methods!(
 
 extern_class!(
     #[derive(Debug, PartialEq, Eq, Hash)]
+    pub(crate) struct UIPreviewParameters;
+
+    unsafe impl ClassType for UIPreviewParameters {
+        type Super = NSObject;
+        type Mutability = mutability::InteriorMutable;
+    }
+);
+
+extern_class!(
+    #[derive(Debug, PartialEq, Eq, Hash)]
     pub(crate) struct UIDragPreviewParameters;
 
     unsafe impl ClassType for UIDragPreviewParameters {
-        type Super = NSObject;
+        type Super = UIPreviewParameters;
         type Mutability = mutability::InteriorMutable;
+    }
+);
+
+extern_methods!(
+    unsafe impl UIPreviewParameters {
+        #[method_id(@__retain_semantics Init init)]
+        pub unsafe fn init(this: Option<Allocated<Self>>) -> Id<Self>;
+
+        #[method(setBackgroundColor:)]
+        pub unsafe fn setBackgroundColor(&self, color: Option<&UIColor>);
+
+        #[method(setShadowPath:)]
+        pub unsafe fn setShadowPath(&self, path: Option<&UIBezierPath>);
     }
 );
 
 extern_methods!(
     unsafe impl UIDragPreviewParameters {
         #[method_id(@__retain_semantics Init init)]
-        pub fn init(this: Option<Allocated<Self>>) -> Id<Self>;
-
-        #[method(setBackgroundColor:)]
-        pub fn setBackgroundColor(&self, color: Option<&UIColor>);
-
-        #[method(setShadowPath:)]
-        pub fn setShadowPath(&self, path: Option<&UIBezierPath>);
+        pub unsafe fn init(this: Option<Allocated<Self>>) -> Id<Self>;
     }
 );
 
 extern_protocol!(
     pub unsafe trait UIDragDropSession: NSObjectProtocol {
         #[method_id(@__retain_semantics Other items)]
-        fn items(&self) -> Id<NSArray<UIDragItem>>;
+        unsafe fn items(&self) -> Id<NSArray<UIDragItem>>;
 
         #[method(locationInView:)]
-        fn locationInView(&self, view: &UIView) -> CGPoint;
+        unsafe fn locationInView(&self, view: &UIView) -> CGPoint;
 
         #[method(allowsMoveOperation)]
-        fn allowsMoveOperation(&self) -> bool;
+        unsafe fn allowsMoveOperation(&self) -> bool;
     }
 
     unsafe impl ProtocolType for dyn UIDragDropSession {}
@@ -405,10 +526,10 @@ extern_protocol!(
 extern_protocol!(
     pub unsafe trait UIDragSession: UIDragDropSession {
         #[method(setLocalContext:)]
-        fn setLocalContext(&self, context: Option<&NSObject>);
+        unsafe fn setLocalContext(&self, context: Option<&NSObject>);
 
         #[method_id(@__retain_semantics Other localContext)]
-        fn localContext(&self) -> Option<Id<NSObject>>;
+        unsafe fn localContext(&self) -> Option<Id<NSObject>>;
     }
 
     unsafe impl ProtocolType for dyn UIDragSession {}
@@ -421,13 +542,13 @@ pub const UIDropSessionProgressIndicatorStyleDefault: UIDropSessionProgressIndic
 extern_protocol!(
     pub unsafe trait UIDropSession: UIDragDropSession {
         #[method_id(@__retain_semantics Other localDragSession)]
-        fn localDragSession(&self) -> Option<Id<ProtocolObject<dyn UIDragSession>>>;
+        unsafe fn localDragSession(&self) -> Option<Id<ProtocolObject<dyn UIDragSession>>>;
 
         #[method(progressIndicatorStyle)]
-        fn progressIndicatorStyle(&self) -> UIDropSessionProgressIndicatorStyle;
+        unsafe fn progressIndicatorStyle(&self) -> UIDropSessionProgressIndicatorStyle;
 
         #[method(setProgressIndicatorStyle:)]
-        fn setProgressIndicatorStyle(&self, style: UIDropSessionProgressIndicatorStyle);
+        unsafe fn setProgressIndicatorStyle(&self, style: UIDropSessionProgressIndicatorStyle);
     }
 
     unsafe impl ProtocolType for dyn UIDropSession {}
@@ -446,25 +567,25 @@ extern_class!(
 extern_methods!(
     unsafe impl UIDropProposal {
         #[method_id(@__retain_semantics Init initWithDropOperation:)]
-        pub fn initWithDropOperation(
+        pub unsafe fn initWithDropOperation(
             this: Option<Allocated<Self>>,
             operation: UIDropOperation,
         ) -> Id<Self>;
 
         #[method(operation)]
-        pub fn operation(&self) -> UIDropOperation;
+        pub unsafe fn operation(&self) -> UIDropOperation;
 
         #[method(setPrecise:)]
-        pub fn setPrecise(&self, precise: bool);
+        pub unsafe fn setPrecise(&self, precise: bool);
 
         #[method(isPrecise)]
-        pub fn precise(&self) -> bool;
+        pub unsafe fn precise(&self) -> bool;
 
         #[method(setPrefersFullSizePreview:)]
-        pub fn setPrefersFullSizePreview(&self, prefers: bool);
+        pub unsafe fn setPrefersFullSizePreview(&self, prefers: bool);
 
         #[method(prefersFullSizePreview)]
-        pub fn prefersFullSizePreview(&self) -> bool;
+        pub unsafe fn prefersFullSizePreview(&self) -> bool;
     }
 );
 
@@ -475,9 +596,21 @@ extern_protocol!(
 );
 
 extern_protocol!(
+    pub unsafe trait UIContextMenuInteractionAnimating: NSObjectProtocol {
+        #[method(addAnimations:)]
+        unsafe fn addAnimations(&self, animations: &Block<(), ()>);
+
+        #[method(addCompletion:)]
+        unsafe fn addCompletion(&self, completion: &Block<(), ()>);
+    }
+
+    unsafe impl ProtocolType for dyn UIContextMenuInteractionAnimating {}
+);
+
+extern_protocol!(
     pub unsafe trait UIDragInteractionDelegate: NSObjectProtocol {
         #[method_id(@__retain_semantics Other dragInteraction:itemsForBeginningSession:)]
-        fn dragInteraction_itemsForBeginningSession(
+        unsafe fn dragInteraction_itemsForBeginningSession(
             &self,
             interaction: &UIDragInteraction,
             session: &ProtocolObject<dyn UIDragSession>,
@@ -485,7 +618,7 @@ extern_protocol!(
 
         #[optional]
         #[method_id(@__retain_semantics Other dragInteraction:itemsForAddingToSession:withTouchAtPoint:)]
-        fn dragInteraction_itemsForAddingToSession_withTouchAtPoint(
+        unsafe fn dragInteraction_itemsForAddingToSession_withTouchAtPoint(
             &self,
             interaction: &UIDragInteraction,
             session: &ProtocolObject<dyn UIDragSession>,
@@ -494,7 +627,7 @@ extern_protocol!(
 
         #[optional]
         #[method_id(@__retain_semantics Other dragInteraction:sessionForAddingItems:withTouchAtPoint:)]
-        fn dragInteraction_sessionForAddingItems_withTouchAtPoint(
+        unsafe fn dragInteraction_sessionForAddingItems_withTouchAtPoint(
             &self,
             interaction: &UIDragInteraction,
             sessions: &NSArray<ProtocolObject<dyn UIDragSession>>,
@@ -503,7 +636,7 @@ extern_protocol!(
 
         #[optional]
         #[method(dragInteraction:willAnimateLiftWithAnimator:session:)]
-        fn dragInteraction_willAnimateLiftWithAnimator_session(
+        unsafe fn dragInteraction_willAnimateLiftWithAnimator_session(
             &self,
             interaction: &UIDragInteraction,
             animator: &ProtocolObject<dyn UIDragAnimating>,
@@ -512,7 +645,7 @@ extern_protocol!(
 
         #[optional]
         #[method(dragInteraction:item:willAnimateCancelWithAnimator:)]
-        fn dragInteraction_item_willAnimateCancelWithAnimator(
+        unsafe fn dragInteraction_item_willAnimateCancelWithAnimator(
             &self,
             interaction: &UIDragInteraction,
             item: &UIDragItem,
@@ -521,7 +654,7 @@ extern_protocol!(
 
         #[optional]
         #[method(dragInteraction:sessionWillBegin:)]
-        fn dragInteraction_sessionWillBegin(
+        unsafe fn dragInteraction_sessionWillBegin(
             &self,
             interaction: &UIDragInteraction,
             session: &ProtocolObject<dyn UIDragSession>,
@@ -529,7 +662,7 @@ extern_protocol!(
 
         #[optional]
         #[method(dragInteraction:session:willAddItems:forInteraction:)]
-        fn dragInteraction_session_willAddItems_forInteraction(
+        unsafe fn dragInteraction_session_willAddItems_forInteraction(
             &self,
             interaction: &UIDragInteraction,
             session: &ProtocolObject<dyn UIDragSession>,
@@ -539,7 +672,7 @@ extern_protocol!(
 
         #[optional]
         #[method(dragInteraction:sessionDidMove:)]
-        fn dragInteraction_sessionDidMove(
+        unsafe fn dragInteraction_sessionDidMove(
             &self,
             interaction: &UIDragInteraction,
             session: &ProtocolObject<dyn UIDragSession>,
@@ -547,7 +680,7 @@ extern_protocol!(
 
         #[optional]
         #[method(dragInteraction:session:willEndWithOperation:)]
-        fn dragInteraction_session_willEndWithOperation(
+        unsafe fn dragInteraction_session_willEndWithOperation(
             &self,
             interaction: &UIDragInteraction,
             session: &ProtocolObject<dyn UIDragSession>,
@@ -556,7 +689,7 @@ extern_protocol!(
 
         #[optional]
         #[method(dragInteraction:session:didEndWithOperation:)]
-        fn dragInteraction_session_didEndWithOperation(
+        unsafe fn dragInteraction_session_didEndWithOperation(
             &self,
             interaction: &UIDragInteraction,
             session: &ProtocolObject<dyn UIDragSession>,
@@ -565,7 +698,7 @@ extern_protocol!(
 
         #[optional]
         #[method(dragInteraction:sessionDidTransferItems:)]
-        fn dragInteraction_sessionDidTransferItems(
+        unsafe fn dragInteraction_sessionDidTransferItems(
             &self,
             interaction: &UIDragInteraction,
             session: &ProtocolObject<dyn UIDragSession>,
@@ -573,7 +706,7 @@ extern_protocol!(
 
         #[optional]
         #[method_id(@__retain_semantics Other dragInteraction:previewForLiftingItem:session:)]
-        fn dragInteraction_previewForLiftingItem_session(
+        unsafe fn dragInteraction_previewForLiftingItem_session(
             &self,
             interaction: &UIDragInteraction,
             item: &UIDragItem,
@@ -582,7 +715,7 @@ extern_protocol!(
 
         #[optional]
         #[method_id(@__retain_semantics Other dragInteraction:previewForCancellingItem:withDefault:)]
-        fn dragInteraction_previewForCancellingItem_withDefault(
+        unsafe fn dragInteraction_previewForCancellingItem_withDefault(
             &self,
             interaction: &UIDragInteraction,
             item: &UIDragItem,
@@ -591,7 +724,7 @@ extern_protocol!(
 
         #[optional]
         #[method(dragInteraction:prefersFullSizePreviewsForSession:)]
-        fn dragInteraction_prefersFullSizePreviewsForSession(
+        unsafe fn dragInteraction_prefersFullSizePreviewsForSession(
             &self,
             interaction: &UIDragInteraction,
             session: &ProtocolObject<dyn UIDragSession>,
@@ -599,7 +732,7 @@ extern_protocol!(
 
         #[optional]
         #[method(dragInteraction:sessionIsRestrictedToDraggingApplication:)]
-        fn dragInteraction_sessionIsRestrictedToDraggingApplication(
+        unsafe fn dragInteraction_sessionIsRestrictedToDraggingApplication(
             &self,
             interaction: &UIDragInteraction,
             session: &ProtocolObject<dyn UIDragSession>,
@@ -607,7 +740,7 @@ extern_protocol!(
 
         #[optional]
         #[method(dragInteraction:sessionAllowsMoveOperation:)]
-        fn dragInteraction_sessionAllowsMoveOperation(
+        unsafe fn dragInteraction_sessionAllowsMoveOperation(
             &self,
             interaction: &UIDragInteraction,
             session: &ProtocolObject<dyn UIDragSession>,
@@ -661,7 +794,7 @@ extern_protocol!(
     pub unsafe trait UIDropInteractionDelegate: NSObjectProtocol {
         #[optional]
         #[method(dropInteraction:canHandleSession:)]
-        fn dropInteraction_canHandleSession(
+        unsafe fn dropInteraction_canHandleSession(
             &self,
             interaction: &UIDropInteraction,
             session: &ProtocolObject<dyn UIDropSession>,
@@ -669,7 +802,7 @@ extern_protocol!(
 
         #[optional]
         #[method(dropInteraction:sessionDidEnter:)]
-        fn dropInteraction_sessionDidEnter(
+        unsafe fn dropInteraction_sessionDidEnter(
             &self,
             interaction: &UIDropInteraction,
             session: &ProtocolObject<dyn UIDropSession>,
@@ -677,7 +810,7 @@ extern_protocol!(
 
         #[optional]
         #[method_id(@__retain_semantics Other dropInteraction:sessionDidUpdate:)]
-        fn dropInteraction_sessionDidUpdate(
+        unsafe fn dropInteraction_sessionDidUpdate(
             &self,
             interaction: &UIDropInteraction,
             session: &ProtocolObject<dyn UIDropSession>,
@@ -685,7 +818,7 @@ extern_protocol!(
 
         #[optional]
         #[method(dropInteraction:sessionDidExit:)]
-        fn dropInteraction_sessionDidExit(
+        unsafe fn dropInteraction_sessionDidExit(
             &self,
             interaction: &UIDropInteraction,
             session: &ProtocolObject<dyn UIDropSession>,
@@ -693,7 +826,7 @@ extern_protocol!(
 
         #[optional]
         #[method(dropInteraction:performDrop:)]
-        fn dropInteraction_performDrop(
+        unsafe fn dropInteraction_performDrop(
             &self,
             interaction: &UIDropInteraction,
             session: &ProtocolObject<dyn UIDropSession>,
@@ -701,7 +834,7 @@ extern_protocol!(
 
         #[optional]
         #[method(dropInteraction:concludeDrop:)]
-        fn dropInteraction_concludeDrop(
+        unsafe fn dropInteraction_concludeDrop(
             &self,
             interaction: &UIDropInteraction,
             session: &ProtocolObject<dyn UIDropSession>,
@@ -709,7 +842,7 @@ extern_protocol!(
 
         #[optional]
         #[method(dropInteraction:sessionDidEnd:)]
-        fn dropInteraction_sessionDidEnd(
+        unsafe fn dropInteraction_sessionDidEnd(
             &self,
             interaction: &UIDropInteraction,
             session: &ProtocolObject<dyn UIDropSession>,
@@ -717,7 +850,7 @@ extern_protocol!(
 
         #[optional]
         #[method_id(@__retain_semantics Other dropInteraction:previewForDroppingItem:withDefault:)]
-        fn dropInteraction_previewForDroppingItem_withDefault(
+        unsafe fn dropInteraction_previewForDroppingItem_withDefault(
             &self,
             interaction: &UIDropInteraction,
             item: &UIDragItem,
@@ -737,6 +870,201 @@ extern_protocol!(
     unsafe impl ProtocolType for dyn UIDropInteractionDelegate {}
 );
 
+extern_protocol!(
+    pub unsafe trait UIContextMenuInteractionDelegate: NSObjectProtocol {
+        #[method_id(@__retain_semantics Other contextMenuInteraction:configurationForMenuAtLocation:)]
+        unsafe fn contextMenuInteraction_configurationForMenuAtLocation(
+            &self,
+            interaction: &UIContextMenuInteraction,
+            location: CGPoint,
+        ) -> Option<Id<UIContextMenuConfiguration>>;
+
+        #[optional]
+        #[method_id(@__retain_semantics Other contextMenuInteraction:previewForHighlightingMenuWithConfiguration:)]
+        unsafe fn contextMenuInteraction_previewForHighlightingMenuWithConfiguration(
+            &self,
+            interaction: &UIContextMenuInteraction,
+            configuration: &UIContextMenuConfiguration,
+        ) -> Option<Id<UITargetedPreview>>;
+
+        #[optional]
+        #[method(contextMenuInteraction:willPerformPreviewActionForMenuWithConfiguration:animator:)]
+        unsafe fn contextMenuInteraction_willPerformPreviewActionForMenuWithConfiguration_animator(
+            &self,
+            interaction: &UIContextMenuInteraction,
+            configuration: &UIContextMenuConfiguration,
+            animator: &ProtocolObject<dyn UIContextMenuInteractionAnimating>,
+        );
+
+        #[optional]
+        #[method(contextMenuInteraction:willDisplayMenuForConfiguration:animator:)]
+        unsafe fn contextMenuInteraction_willDisplayMenuForConfiguration_animator(
+            &self,
+            interaction: &UIContextMenuInteraction,
+            configuration: &UIContextMenuConfiguration,
+            animator: Option<&ProtocolObject<dyn UIContextMenuInteractionAnimating>>,
+        );
+
+        #[optional]
+        #[method(contextMenuInteraction:willEndForConfiguration:animator:)]
+        unsafe fn contextMenuInteraction_willEndForConfiguration_animator(
+            &self,
+            interaction: &UIContextMenuInteraction,
+            configuration: &UIContextMenuConfiguration,
+            animator: Option<&ProtocolObject<dyn UIContextMenuInteractionAnimating>>,
+        );
+    }
+    unsafe impl ProtocolType for dyn UIContextMenuInteractionDelegate {}
+);
+
+extern_class!(
+    #[derive(Debug, PartialEq, Eq, Hash)]
+    pub(crate) struct UIContextMenuInteraction;
+
+    unsafe impl ClassType for UIContextMenuInteraction {
+        type Super = NSObject;
+        type Mutability = mutability::InteriorMutable;
+    }
+);
+
+extern_methods!(
+    unsafe impl UIContextMenuInteraction {
+        #[method_id(@__retain_semantics Init initWithDelegate:)]
+        pub unsafe fn initWithDelegate(
+            this: Option<Allocated<Self>>,
+            delegate: &ProtocolObject<dyn UIContextMenuInteractionDelegate>,
+        ) -> Id<Self>;
+    }
+);
+
+pub type UIMenuElementState = NSInteger;
+pub const UIMenuElementStateOff: UIMenuElementState = 0;
+pub const UIMenuElementStateOn: UIMenuElementState = 1;
+pub const UIMenuElementStateMixed: UIMenuElementState = 2;
+
+pub type UIMenuElementAttributes = NSUInteger;
+pub const UIMenuElementAttributesDisabled: UIMenuElementAttributes = 1 << 0;
+pub const UIMenuElementAttributesDestructive: UIMenuElementAttributes = 1 << 1;
+pub const UIMenuElementAttributesHidden: UIMenuElementAttributes = 1 << 2;
+
+extern_class!(
+    #[derive(Debug, PartialEq, Eq, Hash)]
+    pub(crate) struct UIMenuElement;
+
+    unsafe impl ClassType for UIMenuElement {
+        type Super = NSObject;
+        type Mutability = mutability::InteriorMutable;
+    }
+);
+
+extern_class!(
+    #[derive(Debug, PartialEq, Eq, Hash)]
+    pub(crate) struct UIAction;
+
+    unsafe impl ClassType for UIAction {
+        type Super = UIMenuElement;
+        type Mutability = mutability::InteriorMutable;
+    }
+);
+
+extern_methods!(
+    unsafe impl UIAction {
+        #[method_id(@__retain_semantics Other actionWithTitle:image:identifier:handler:)]
+        pub unsafe fn actionWithTitle_image_identifier_handler(
+            title: &NSString,
+            image: Option<&UIImage>,
+            identifier: Option<&NSString>,
+            handler: &Block<(&UIAction,), ()>,
+        ) -> Id<Self>;
+
+        #[method(setAttributes:)]
+        pub unsafe fn setAttributes(&self, attributes: UIMenuElementAttributes);
+
+        #[method(attributes)]
+        pub unsafe fn attributes(&self) -> UIMenuElementAttributes;
+
+        #[method(setState:)]
+        pub unsafe fn setState(&self, state: UIMenuElementState);
+
+        #[method(state)]
+        pub unsafe fn state(&self) -> UIMenuElementState;
+    }
+);
+
+extern_class!(
+    #[derive(Debug, PartialEq, Eq, Hash)]
+    pub(crate) struct UIMenu;
+
+    unsafe impl ClassType for UIMenu {
+        type Super = UIMenuElement;
+        type Mutability = mutability::InteriorMutable;
+    }
+);
+
+pub type UIMenuOptions = NSUInteger;
+pub const UIMenuOptionsDisplayInline: UIMenuOptions = 1 << 0;
+pub const UIMenuOptionsDestructive: UIMenuOptions = 1 << 1;
+pub const UIMenuOptionsSingleSelection: UIMenuOptions = 1 << 5;
+pub const UIMenuOptionsDisplayAsPalette: UIMenuOptions = 1 << 7;
+
+extern_methods!(
+    unsafe impl UIMenu {
+        #[method_id(@__retain_semantics Other menuWithTitle:image:identifier:options:children:)]
+        pub unsafe fn menuWithTitle_image_identifier_options_children(
+            title: &NSString,
+            image: Option<&UIImage>,
+            identifier: Option<&NSString>,
+            options: UIMenuOptions,
+            children: &NSArray<UIMenuElement>,
+        ) -> Id<Self>;
+    }
+);
+
+extern_class!(
+    #[derive(Debug, PartialEq, Eq, Hash)]
+    pub(crate) struct UIDeferredMenuElement;
+
+    unsafe impl ClassType for UIDeferredMenuElement {
+        type Super = UIMenuElement;
+        type Mutability = mutability::InteriorMutable;
+    }
+);
+
+pub type UIDeferredMenuElementCompletionBlock = Block<(NonNull<NSArray<UIMenuElement>>,), ()>;
+
+extern_methods!(
+    unsafe impl UIDeferredMenuElement {
+        #[method_id(@__retain_semantics Other elementWithProvider:)]
+        pub unsafe fn elementWithProvider(
+            provider: &Block<(NonNull<UIDeferredMenuElementCompletionBlock>,), ()>,
+        ) -> Id<Self>;
+    }
+);
+
+extern_class!(
+    #[derive(Debug, PartialEq, Eq, Hash)]
+    pub(crate) struct UIContextMenuConfiguration;
+
+    unsafe impl ClassType for UIContextMenuConfiguration {
+        type Super = NSObject;
+        type Mutability = mutability::InteriorMutable;
+    }
+);
+
+pub type UIContextMenuPreviewProvider = Block<(), *mut UIViewController>;
+pub type UIContextMenuActionProvider = Block<(NonNull<NSArray<UIMenuElement>>,), *mut UIMenu>;
+
+extern_methods!(
+    unsafe impl UIContextMenuConfiguration {
+        #[method_id(@__retain_semantics Other configurationWithIdentifier:previewProvider:actionProvider:)]
+        pub unsafe fn configurationWithIdentifier_previewProvider_actionProvider(
+            identifier: Option<&NSString>,
+            preview_provider: Option<&UIContextMenuPreviewProvider>,
+            action_provider: Option<&UIContextMenuActionProvider>,
+        ) -> Id<Self>;
+    }
+);
+
 extern_class!(
     #[derive(Debug, PartialEq, Eq, Hash)]
     pub(crate) struct UIColor;
@@ -750,7 +1078,10 @@ extern_class!(
 extern_methods!(
     unsafe impl UIColor {
         #[method_id(@__retain_semantics Other clearColor)]
-        pub fn clearColor() -> Id<Self>;
+        pub unsafe fn clearColor() -> Id<Self>;
+
+        #[method_id(@__retain_semantics Other whiteColor)]
+        pub unsafe fn whiteColor() -> Id<Self>;
     }
 );
 
@@ -767,12 +1098,12 @@ extern_class!(
 extern_methods!(
     unsafe impl UIBezierPath {
         #[method_id(@__retain_semantics Other bezierPath)]
-        pub fn bezierPath() -> Id<Self>;
+        pub unsafe fn bezierPath() -> Id<Self>;
 
         #[method_id(@__retain_semantics Other bezierPathWithRect:)]
-        pub fn bezierPathWithRect(rect: CGRect) -> Id<Self>;
+        pub unsafe fn bezierPathWithRect(rect: CGRect) -> Id<Self>;
 
         #[method(appendPath:)]
-        pub fn appendPath(&self, path: &UIBezierPath);
+        pub unsafe fn appendPath(&self, path: &UIBezierPath);
     }
 );

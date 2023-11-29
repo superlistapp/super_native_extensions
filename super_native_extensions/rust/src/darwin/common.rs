@@ -121,3 +121,16 @@ pub fn uti_conforms_to(uti: &str, conforms_to: &str) -> bool {
 
     conforms_to != 0
 }
+
+pub trait UnsafeMutRef<T> {
+    #[allow(clippy::mut_from_ref)]
+    unsafe fn unsafe_mut_ref(&self) -> &mut T;
+}
+
+impl<T: objc2::Message> UnsafeMutRef<T> for Id<T> {
+    unsafe fn unsafe_mut_ref(&self) -> &mut T {
+        let ptr = Id::as_ptr(self);
+        let ptr = ptr as *mut T;
+        &mut *ptr
+    }
+}
