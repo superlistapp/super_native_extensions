@@ -64,6 +64,12 @@ impl From<isize> for DropSessionId {
     }
 }
 
+impl From<i64> for DropSessionId {
+    fn from(v: i64) -> Self {
+        Self(v)
+    }
+}
+
 #[derive(Debug, TryFromValue, IntoValue, Clone, Copy, PartialEq, Hash, Eq)]
 pub struct DropItemId(i64);
 
