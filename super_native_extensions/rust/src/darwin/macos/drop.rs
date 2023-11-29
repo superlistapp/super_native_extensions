@@ -19,7 +19,7 @@ use irondash_message_channel::{Late, Value};
 use irondash_run_loop::{platform::PollSession, RunLoop};
 use objc2::{
     ffi::NSInteger,
-    rc::{autoreleasepool, Id},
+    rc::Id,
     runtime::{AnyObject, Bool, ProtocolObject, Sel},
     sel, ClassType,
 };
@@ -286,17 +286,18 @@ impl PlatformDropContext {
     }
 
     pub fn register_drop_formats(&self, types: &[String]) -> NativeExtensionsResult<()> {
-        autoreleasepool(|_| unsafe {
-            let types: Vec<_> = types.iter().map(|ty| NSString::from_str(ty)).collect();
-            let our_types = NSArray::from_vec(types);
-            let promise_receiver_types = NSFilePromiseReceiver::readableDraggedTypes();
-            let mut all_types = NSMutableArray::<NSString>::array();
+        let types: Vec<_> = types.iter().map(|ty| NSString::from_str(ty)).collect();
+        let our_types = NSArray::from_vec(types);
+        let promise_receiver_types = unsafe { NSFilePromiseReceiver::readableDraggedTypes() };
+        let mut all_types = unsafe { NSMutableArray::<NSString>::array() };
 
+        unsafe {
             all_types.addObjectsFromArray(&our_types);
             all_types.addObjectsFromArray(&promise_receiver_types);
             all_types.addObject(ns_string!("dev.nativeshell.placeholder-item"));
             self.view.registerForDraggedTypes(&all_types);
-        });
+        }
+
         Ok(())
     }
 

@@ -42,7 +42,7 @@ use objc2::{
     class,
     ffi::NSInteger,
     msg_send,
-    rc::{autoreleasepool, Id},
+    rc::Id,
     runtime::{Bool, Sel},
     sel, ClassType,
 };
@@ -168,68 +168,67 @@ impl PlatformDragContext {
         mut providers: HashMap<DataProviderId, DataProviderEntry>,
         session_id: DragSessionId,
     ) -> NativeExtensionsResult<()> {
-        autoreleasepool(|_| unsafe {
-            self.synthesize_mouse_up_event();
+        unsafe { self.synthesize_mouse_up_event() };
 
-            let mut dragging_items = Vec::<Id<NSDraggingItem>>::new();
-            let mut data_provider_handles = Vec::<_>::new();
+        let mut dragging_items = Vec::<Id<NSDraggingItem>>::new();
+        let mut data_provider_handles = Vec::<_>::new();
 
-            for item in &request.configuration.items {
-                let provider = providers
-                    .remove(&item.data_provider_id)
-                    .expect("Provider missing");
-                let writer_item =
-                    provider
-                        .provider
-                        .create_writer(provider.handle.clone(), false, true);
-                data_provider_handles.push(provider.handle);
+        for item in &request.configuration.items {
+            let provider = providers
+                .remove(&item.data_provider_id)
+                .expect("Provider missing");
+            let writer_item = provider
+                .provider
+                .create_writer(provider.handle.clone(), false, true);
+            data_provider_handles.push(provider.handle);
 
-                let dragging_item = NSDraggingItem::alloc();
-                let dragging_item =
-                    NSDraggingItem::initWithPasteboardWriter(dragging_item, &Id::cast(writer_item));
+            let dragging_item = NSDraggingItem::alloc();
+            let dragging_item = unsafe {
+                NSDraggingItem::initWithPasteboardWriter(dragging_item, &Id::cast(writer_item))
+            };
 
-                let image = &item.image;
-                let mut rect: NSRect = image.rect.clone().into();
-                flip_rect(&self.view, &mut rect);
-                let snapshot = ns_image_from_image_data(vec![image.image_data.clone()]);
+            let image = &item.image;
+            let mut rect: NSRect = image.rect.clone().into();
+            flip_rect(&self.view, &mut rect);
+            let snapshot = ns_image_from_image_data(vec![image.image_data.clone()]);
 
-                dragging_item.setDraggingFrame_contents(rect, Some(&snapshot));
-                dragging_items.push(dragging_item);
-            }
-            let event = self
-                .last_mouse_down_event
-                .borrow()
-                .as_ref()
-                .cloned()
-                .ok_or(NativeExtensionsError::MouseEventNotFound)?;
+            unsafe { dragging_item.setDraggingFrame_contents(rect, Some(&snapshot)) };
+            dragging_items.push(dragging_item);
+        }
+        let event = self
+            .last_mouse_down_event
+            .borrow()
+            .as_ref()
+            .cloned()
+            .ok_or(NativeExtensionsError::MouseEventNotFound)?;
 
-            let app = NSApplication::sharedApplication();
-            app.preventWindowOrdering();
+        unsafe { NSApplication::sharedApplication().preventWindowOrdering() };
 
-            let dragging_items = NSArray::from_vec(dragging_items);
-            let session = self.view.beginDraggingSessionWithItems_event_source(
+        let dragging_items = NSArray::from_vec(dragging_items);
+        let session = unsafe {
+            self.view.beginDraggingSessionWithItems_event_source(
                 &dragging_items,
                 &event,
                 &Id::cast(self.view.clone()),
-            );
+            )
+        };
 
-            let animates = request
-                .configuration
-                .animates_to_starting_position_on_cancel_or_fail;
+        let animates = request
+            .configuration
+            .animates_to_starting_position_on_cancel_or_fail;
 
-            session.setAnimatesToStartingPositionsOnCancelOrFail(animates);
+        unsafe { session.setAnimatesToStartingPositionsOnCancelOrFail(animates) };
 
-            let dragging_sequence_number = session.draggingSequenceNumber();
-            self.sessions.borrow_mut().insert(
-                dragging_sequence_number,
-                DragSession {
-                    session_id,
-                    configuration: request.configuration,
-                    _data_provider_handles: data_provider_handles,
-                },
-            );
-            Ok(())
-        })
+        let dragging_sequence_number = unsafe { session.draggingSequenceNumber() };
+        self.sessions.borrow_mut().insert(
+            dragging_sequence_number,
+            DragSession {
+                session_id,
+                configuration: request.configuration,
+                _data_provider_handles: data_provider_handles,
+            },
+        );
+        Ok(())
     }
 
     fn on_mouse_down(&self, event: Id<NSEvent>) {

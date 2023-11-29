@@ -18,11 +18,7 @@ use icrate::{
 use irondash_message_channel::{IsolateId, Late};
 use irondash_run_loop::{spawn, util::Capsule, RunLoop, RunLoopSender};
 use objc2::{
-    extern_class, extern_methods,
-    mutability::InteriorMutable,
-    rc::{autoreleasepool, Id},
-    runtime::NSObject,
-    ClassType,
+    extern_class, extern_methods, mutability::InteriorMutable, rc::Id, runtime::NSObject, ClassType,
 };
 use once_cell::sync::Lazy;
 
@@ -183,18 +179,16 @@ impl PlatformDataProvider {
             provider.0.precache().await;
         }
 
-        autoreleasepool(|_| unsafe {
-            let providers: Vec<Id<NSItemProvider>> = providers
-                .into_iter()
-                .map(|(platform_data_provider, provider_handle)| {
-                    platform_data_provider.create_ns_item_provider(Some(provider_handle), None)
-                })
-                .collect();
+        let providers: Vec<Id<NSItemProvider>> = providers
+            .into_iter()
+            .map(|(platform_data_provider, provider_handle)| {
+                platform_data_provider.create_ns_item_provider(Some(provider_handle), None)
+            })
+            .collect();
 
-            let array = NSArray::from_vec(providers);
-            let pasteboard = UIPasteboard::generalPasteboard();
-            pasteboard.setItemProviders(&array);
-        });
+        let array = NSArray::from_vec(providers);
+        let pasteboard = unsafe { UIPasteboard::generalPasteboard() };
+        unsafe { pasteboard.setItemProviders(&array) };
 
         Ok(())
     }

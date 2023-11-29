@@ -21,7 +21,7 @@ use irondash_run_loop::{
 };
 use objc2::{
     msg_send_id,
-    rc::{autoreleasepool, Id},
+    rc::{Id, autoreleasepool},
     runtime::{AnyObject, NSObject},
     ClassType,
 };
@@ -44,19 +44,19 @@ impl PlatformDataReader {
     pub async fn get_format_for_file_uri(
         file_uri: String,
     ) -> NativeExtensionsResult<Option<String>> {
-        let res = autoreleasepool(|_| unsafe {
+        let res = unsafe {
             let string = NSString::from_str(&file_uri);
             let url = NSURL::URLWithString(&string);
             url.and_then(|url| format_from_url(&url))
-        });
+        };
         Ok(res)
     }
 
     pub fn get_items_sync(&self) -> NativeExtensionsResult<Vec<i64>> {
-        let count = autoreleasepool(|_| unsafe {
+        let count = unsafe {
             let items = self.pasteboard.pasteboardItems();
             items.map(|items| items.count()).unwrap_or(0)
-        });
+        };
         Ok((0..count as i64).collect())
     }
 
@@ -65,92 +65,87 @@ impl PlatformDataReader {
     }
 
     fn promise_receiver_types_for_item(&self, item: i64) -> NativeExtensionsResult<Vec<String>> {
-        autoreleasepool(|_| unsafe {
-            let items = self.pasteboard.pasteboardItems();
-            let items = items.unwrap_or_default();
-            if item < items.count() as i64 {
-                let pasteboard_item = items.objectAtIndex(item as usize);
-                let mut res = Vec::new();
-                fn push(res: &mut Vec<String>, s: String) {
-                    if !res.contains(&s) {
-                        res.push(s);
-                    }
+        let items = unsafe { self.pasteboard.pasteboardItems() };
+        let items = items.unwrap_or_default();
+        if item < items.count() as i64 {
+            let pasteboard_item = unsafe { items.objectAtIndex(item as usize) };
+            let mut res = Vec::new();
+            fn push(res: &mut Vec<String>, s: String) {
+                if !res.contains(&s) {
+                    res.push(s);
                 }
-                // First virtual files
-                let receiver = self.get_promise_receiver_for_item(item)?;
-                if let Some(receiver) = receiver {
-                    // Outlook reports wrong types for [fileTypes] (extension instead of UTI), but has correct type
-                    // in "com.apple.pasteboard.promised-file-content-type.
-                    let ty = ns_string!("com.apple.pasteboard.promised-file-content-type");
-                    let value = pasteboard_item.stringForType(ty);
-                    if let Some(value) = value {
-                        let string = value.to_string();
-                        if !string.is_empty() {
-                            push(&mut res, string);
-                        }
-                    }
-                    let receiver_types = receiver.fileTypes();
-
-                    for i in 0..receiver_types.count() {
-                        push(&mut res, receiver_types.objectAtIndex(i).to_string());
-                    }
-                }
-                Ok(res)
-            } else {
-                Ok(Vec::new())
             }
-        })
+            // First virtual files
+            let receiver = self.get_promise_receiver_for_item(item)?;
+            if let Some(receiver) = receiver {
+                // Outlook reports wrong types for [fileTypes] (extension instead of UTI), but has correct type
+                // in "com.apple.pasteboard.promised-file-content-type.
+                let ty = ns_string!("com.apple.pasteboard.promised-file-content-type");
+                let value = unsafe { pasteboard_item.stringForType(ty) };
+                if let Some(value) = value {
+                    let string = value.to_string();
+                    if !string.is_empty() {
+                        push(&mut res, string);
+                    }
+                }
+                let receiver_types = unsafe { receiver.fileTypes() };
+
+                for ty in receiver_types {
+                    push(&mut res, ty.to_string());
+                }
+            }
+            Ok(res)
+        } else {
+            Ok(Vec::new())
+        }
     }
 
     pub fn get_formats_for_item_sync(&self, item: i64) -> NativeExtensionsResult<Vec<String>> {
-        autoreleasepool(|_| unsafe {
-            let items = self.pasteboard.pasteboardItems().unwrap_or_default();
-            if item < items.count() as i64 {
-                let pasteboard_item = items.objectAtIndex(item as usize);
-                let mut res = Vec::new();
-                fn push(res: &mut Vec<String>, s: String) {
-                    if !res.contains(&s) {
-                        res.push(s);
-                    }
+        let items = unsafe { self.pasteboard.pasteboardItems() }.unwrap_or_default();
+        if item < items.count() as i64 {
+            let pasteboard_item = unsafe { items.objectAtIndex(item as usize) };
+            let mut res = Vec::new();
+            fn push(res: &mut Vec<String>, s: String) {
+                if !res.contains(&s) {
+                    res.push(s);
                 }
-                // First virtual files
-                let virtual_types = self.promise_receiver_types_for_item(item)?;
-                for format in virtual_types {
-                    push(&mut res, format);
-                }
-                // Second regular items
-                let types = pasteboard_item.types();
-                for i in 0..types.count() {
-                    let format = types.objectAtIndex(i).to_string();
-                    push(&mut res, format.clone());
-                    // Put synthesized PNG right after tiff
-                    if format == "public.tiff" && self.needs_to_synthesize_png(item) {
-                        res.push("public.png".to_string());
-                    }
-                }
-                Ok(res)
-            } else {
-                Ok(Vec::new())
             }
-        })
+            // First virtual files
+            let virtual_types = self.promise_receiver_types_for_item(item)?;
+            for format in virtual_types {
+                push(&mut res, format);
+            }
+            // Second regular items
+            let types = unsafe { pasteboard_item.types() };
+            for format in types {
+                let format = format.to_string();
+                push(&mut res, format.clone());
+                // Put synthesized PNG right after tiff
+                if format == "public.tiff" && self.needs_to_synthesize_png(item) {
+                    res.push("public.png".to_string());
+                }
+            }
+
+            Ok(res)
+        } else {
+            Ok(Vec::new())
+        }
     }
 
     fn needs_to_synthesize_png(&self, item: i64) -> bool {
-        autoreleasepool(|_| unsafe {
-            let items = self.pasteboard.pasteboardItems().unwrap_or_default();
-            let mut has_tiff = false;
-            let mut has_png = false;
-            if item < items.count() as i64 {
-                let item = items.objectAtIndex(item as usize);
-                let types = item.types();
-                for i in 0..types.count() {
-                    let format = types.objectAtIndex(i).to_string();
-                    has_tiff |= format == "public.tiff";
-                    has_png |= format == "public.png";
-                }
+        let items = unsafe { self.pasteboard.pasteboardItems() }.unwrap_or_default();
+        let mut has_tiff = false;
+        let mut has_png = false;
+        if item < items.count() as i64 {
+            let item = unsafe { items.objectAtIndex(item as usize) };
+            let types = unsafe { item.types() };
+            for format in types {
+                let format = format.to_string();
+                has_tiff |= format == "public.tiff";
+                has_png |= format == "public.png";
             }
-            has_tiff && !has_png
-        })
+        }
+        has_tiff && !has_png
     }
 
     pub fn item_format_is_synthesized(
@@ -162,57 +157,54 @@ impl PlatformDataReader {
     }
 
     fn item_has_virtual_file(&self, item: i64) -> bool {
-        autoreleasepool(|_| unsafe {
-            let items = self.pasteboard.pasteboardItems().unwrap_or_default();
-            if item < items.count() as i64 {
-                let item = items.objectAtIndex(item as usize);
-                let types = item.types();
-                for i in 0..types.count() {
-                    let format = types.objectAtIndex(i).to_string();
-                    if format == "com.apple.NSFilePromiseItemMetaData"
-                        || format == "com.apple.pasteboard.promised-file-url"
-                    {
-                        return true;
-                    }
+        let items = unsafe { self.pasteboard.pasteboardItems() }.unwrap_or_default();
+        if item < items.count() as i64 {
+            let item = unsafe { items.objectAtIndex(item as usize) };
+            let types = unsafe { item.types() };
+            for iformat in types {
+                let format = iformat.to_string();
+                if format == "com.apple.NSFilePromiseItemMetaData"
+                    || format == "com.apple.pasteboard.promised-file-url"
+                {
+                    return true;
                 }
             }
-            false
-        })
+        }
+        false
     }
 
     fn get_promise_receiver_for_item(
         &self,
         item: i64,
     ) -> NativeExtensionsResult<Option<Id<NSFilePromiseReceiver>>> {
-        autoreleasepool(|_| unsafe {
-            if self.promise_receivers.borrow().is_empty() {
-                let class =
-                    Id::retain(NSFilePromiseReceiver::class() as *const _ as *mut AnyObject)
-                        .unwrap();
-                let receivers = self
-                    .pasteboard
+        if self.promise_receivers.borrow().is_empty() {
+            let class =
+                unsafe { Id::retain(NSFilePromiseReceiver::class() as *const _ as *mut AnyObject) }
+                    .unwrap();
+            let receivers = unsafe {
+                self.pasteboard
                     .readObjectsForClasses_options(&NSArray::from_vec(vec![Id::cast(class)]), None)
-                    .unwrap_or_default();
-                let mut receiver_index = 0usize;
-                let items = self.get_items_sync()?;
-                for item in items {
-                    if receiver_index < receivers.count() && self.item_has_virtual_file(item) {
-                        let receiver = receivers.objectAtIndex(receiver_index);
-                        let receiver = Id::cast::<NSFilePromiseReceiver>(receiver);
-                        receiver_index += 1;
-                        self.promise_receivers.borrow_mut().push(Some(receiver));
-                    } else {
-                        self.promise_receivers.borrow_mut().push(None);
-                    }
+            }
+            .unwrap_or_default();
+            let mut receiver_index = 0usize;
+            let items = self.get_items_sync()?;
+            for item in items {
+                if receiver_index < receivers.count() && self.item_has_virtual_file(item) {
+                    let receiver = unsafe { receivers.objectAtIndex(receiver_index) };
+                    let receiver = unsafe { Id::cast::<NSFilePromiseReceiver>(receiver) };
+                    receiver_index += 1;
+                    self.promise_receivers.borrow_mut().push(Some(receiver));
+                } else {
+                    self.promise_receivers.borrow_mut().push(None);
                 }
             }
-            let res = self
-                .promise_receivers
-                .borrow()
-                .get(item as usize)
-                .and_then(|a| a.as_ref().cloned());
-            Ok(res)
-        })
+        }
+        let res = self
+            .promise_receivers
+            .borrow()
+            .get(item as usize)
+            .and_then(|a| a.as_ref().cloned());
+        Ok(res)
     }
 
     pub async fn get_formats_for_item(&self, item: i64) -> NativeExtensionsResult<Vec<String>> {

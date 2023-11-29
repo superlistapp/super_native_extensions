@@ -15,7 +15,7 @@ use irondash_run_loop::{platform::PollSession, RunLoop};
 use objc2::{
     declare::{Ivar, IvarDrop},
     declare_class, msg_send_id, mutability,
-    rc::{autoreleasepool, Id},
+    rc::Id,
     runtime::{NSObject, NSObjectProtocol, ProtocolObject},
     ClassType,
 };
@@ -395,15 +395,12 @@ impl PlatformDropContext {
 
     pub fn assign_weak_self(&self, weak_self: Weak<Self>) {
         self.weak_self.set(weak_self.clone());
-        autoreleasepool(|_| unsafe {
-            let delegate = SNEDropContext::new(weak_self);
-            self.interaction_delegate.set(delegate.retain());
-            let interaction = UIDropInteraction::initWithDelegate(
-                UIDropInteraction::alloc(),
-                &Id::cast(delegate),
-            );
-            self.view.addInteraction(&interaction);
-        });
+        let delegate = SNEDropContext::new(weak_self);
+        self.interaction_delegate.set(delegate.retain());
+        let interaction = unsafe {
+            UIDropInteraction::initWithDelegate(UIDropInteraction::alloc(), &Id::cast(delegate))
+        };
+        unsafe { self.view.addInteraction(&interaction) };
     }
 
     fn get_session(&self, session: &ProtocolObject<dyn UIDropSession>) -> Rc<Session> {

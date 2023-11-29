@@ -18,7 +18,7 @@ use irondash_run_loop::{platform::PollSession, spawn, RunLoop};
 use objc2::{
     declare::{Ivar, IvarDrop},
     declare_class, msg_send_id, mutability,
-    rc::{autoreleasepool, Id},
+    rc::Id,
     runtime::{NSObject, NSObjectProtocol, ProtocolObject},
     ClassType,
 };
@@ -86,9 +86,12 @@ impl PlatformMenu {
         let res = Self {
             item_selected: item_selected.clone(),
             ui_menu: unsafe {
-                Id::cast(autoreleasepool(|_| {
-                    Self::convert_menu(MenuElement::Menu(menu), isolate, &delegate, item_selected)
-                })?)
+                Id::cast(Self::convert_menu(
+                    MenuElement::Menu(menu),
+                    isolate,
+                    &delegate,
+                    item_selected,
+                )?)
             },
         };
         Ok(Rc::new(res))
@@ -337,15 +340,15 @@ impl PlatformMenuContext {
 
     pub fn assign_weak_self(&self, weak_self: Weak<Self>) {
         self.weak_self.set(weak_self.clone());
-        autoreleasepool(|_| unsafe {
-            let delegate = SNEMenuContext::new(weak_self);
-            self.interaction_delegate.set(delegate.retain());
-            let interaction = UIContextMenuInteraction::initWithDelegate(
+        let delegate = SNEMenuContext::new(weak_self);
+        self.interaction_delegate.set(delegate.retain());
+        let interaction = unsafe {
+            UIContextMenuInteraction::initWithDelegate(
                 UIContextMenuInteraction::alloc(),
                 &Id::cast(delegate),
-            );
-            self.view.addInteraction(&interaction);
-        });
+            )
+        };
+        unsafe { self.view.addInteraction(&interaction) };
     }
 
     pub fn menu_active(&self) -> bool {

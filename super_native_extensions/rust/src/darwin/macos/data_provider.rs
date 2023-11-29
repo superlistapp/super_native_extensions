@@ -25,7 +25,7 @@ use objc2::{
     declare::{Ivar, IvarDrop},
     declare_class, extern_class, extern_methods, msg_send_id,
     mutability::{self, InteriorMutable},
-    rc::{autoreleasepool, Allocated, Id},
+    rc::{Allocated, Id},
     runtime::{AnyObject, NSObject, NSObjectProtocol, ProtocolObject},
     ClassType,
 };
@@ -124,16 +124,14 @@ impl PlatformDataProvider {
     pub async fn write_to_clipboard(
         providers: Vec<(Rc<PlatformDataProvider>, Arc<DataProviderHandle>)>,
     ) -> NativeExtensionsResult<()> {
-        autoreleasepool(|_| unsafe {
-            let items: Vec<_> = providers
-                .into_iter()
-                .map(|p| p.0.create_writer(p.1, true, false))
-                .collect();
-            let array = NSArray::from_vec(items);
-            let pasteboard = NSPasteboard::generalPasteboard();
-            pasteboard.clearContents();
-            pasteboard.writeObjects(&Id::cast(array));
-        });
+        let items: Vec<_> = providers
+            .into_iter()
+            .map(|p| p.0.create_writer(p.1, true, false))
+            .collect();
+        let array = NSArray::from_vec(items);
+        let pasteboard = unsafe { NSPasteboard::generalPasteboard() };
+        unsafe { pasteboard.clearContents() };
+        unsafe { pasteboard.writeObjects(&Id::cast(array)) };
         Ok(())
     }
 }

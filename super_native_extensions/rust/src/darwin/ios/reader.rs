@@ -57,10 +57,10 @@ impl PlatformDataReader {
     pub async fn get_format_for_file_uri(
         file_uri: String,
     ) -> NativeExtensionsResult<Option<String>> {
-        let res = autoreleasepool(|_| unsafe {
+        let res = unsafe {
             let url = NSURL::URLWithString(&NSString::from_str(&file_uri));
             url.and_then(|url| format_from_url(&url))
-        });
+        };
         Ok(res)
     }
 
@@ -78,15 +78,15 @@ impl PlatformDataReader {
     }
 
     pub async fn get_items(&self) -> NativeExtensionsResult<Vec<i64>> {
-        let count = autoreleasepool(|_| {
+        let count = {
             let providers = self.get_items_providers();
             providers.len() as i64
-        });
+        };
         Ok((0..count).collect())
     }
 
     pub fn get_formats_for_item_sync(&self, item: i64) -> NativeExtensionsResult<Vec<String>> {
-        let formats = autoreleasepool(|_| unsafe {
+        let formats = unsafe {
             let providers = self.get_items_providers();
             if item < providers.len() as i64 {
                 let provider = &providers[item as usize];
@@ -95,7 +95,7 @@ impl PlatformDataReader {
             } else {
                 Vec::new()
             }
-        });
+        };
         Ok(formats)
     }
 
@@ -107,7 +107,7 @@ impl PlatformDataReader {
         &self,
         item: i64,
     ) -> NativeExtensionsResult<Option<String>> {
-        let name = autoreleasepool(|_| unsafe {
+        let name = unsafe {
             let providers = self.get_items_providers();
             if item < providers.len() as i64 {
                 let provider = &providers[item as usize];
@@ -116,7 +116,7 @@ impl PlatformDataReader {
             } else {
                 None
             }
-        });
+        };
         Ok(name)
     }
 
@@ -146,7 +146,7 @@ impl PlatformDataReader {
         read_progress: Option<Arc<ReadProgress>>,
     ) -> NativeExtensionsResult<Value> {
         let (future, completer) = FutureCompleter::new();
-        autoreleasepool(|_| unsafe {
+        unsafe {
             let providers = self.get_items_providers();
             if item < providers.len() as i64 {
                 // travels between threads, must be refcounted because block is Fn
@@ -182,7 +182,7 @@ impl PlatformDataReader {
             } else {
                 completer.complete(Ok(Value::Null));
             }
-        });
+        };
         future.await
     }
 
@@ -248,95 +248,22 @@ impl PlatformDataReader {
         format: &str,
         read_progress: Arc<ReadProgress>,
     ) -> NativeExtensionsResult<Option<Rc<dyn VirtualFileReader>>> {
+        let providers = self.get_items_providers();
+        if item >= providers.len() as i64 {
+            return Err(NativeExtensionsError::OtherError("Invalid item".into()));
+        }
         let (future, completer) = FutureCompleter::new();
-        autoreleasepool(|_| unsafe {
-            let providers = self.get_items_providers();
-            if item >= providers.len() as i64 {
-                completer.complete(Err(NativeExtensionsError::OtherError(
-                    "Invalid item".into(),
-                )));
-                return;
-            }
-            // travels between threads, must be refcounted because block is Fn
-            let completer = Arc::new(Mutex::new(Capsule::new(completer)));
-            let provider = &providers[item as usize];
-            let sender = RunLoop::current().new_sender();
-            let block = ConcreteBlock::new(
-                move |url: *mut NSURL, _is_in_place: Bool, error: *mut NSError| {
-                    let url = Id::retain(url);
-                    let error = Id::retain(error);
-                    let res = match (url, error) {
-                        (Some(url), _) => FileWithBackgroundCoordinator::new(&url),
-                        (_, Some(error)) => Err(NativeExtensionsError::VirtualFileReceiveError(
-                            error.localizedDescription().to_string(),
-                        )),
-                        (_, _) => Err(NativeExtensionsError::VirtualFileReceiveError(
-                            "Unknown error".into(),
-                        )),
-                    };
-                    let completer = completer.clone();
-                    sender.send(move || {
-                        let completer = completer
-                            .lock()
-                            .unwrap()
-                            .take()
-                            .expect("Block invoked more than once");
-                        // completer.complete(res);
-                        let res =
-                            res.map::<Option<Rc<dyn VirtualFileReader>>, _>(|f| Some(Rc::new(f)));
-                        completer.complete(res);
-                    });
-                },
-            );
-            let block = block.copy();
-            let ns_progress = provider
-                .loadInPlaceFileRepresentationForTypeIdentifier_completionHandler(
-                    &NSString::from_str(format),
-                    &block,
-                );
-            bridge_progress(ns_progress, read_progress);
-        });
-        future.await
-    }
 
-    pub async fn copy_virtual_file_for_item(
-        &self,
-        item: i64,
-        format: &str,
-        target_folder: PathBuf,
-        read_progress: Arc<ReadProgress>,
-    ) -> NativeExtensionsResult<PathBuf> {
-        let (future, completer) = FutureCompleter::new();
-        autoreleasepool(|_| unsafe {
-            let providers = self.get_items_providers();
-            if item >= providers.len() as i64 {
-                completer.complete(Err(NativeExtensionsError::OtherError(
-                    "Invalid item".into(),
-                )));
-                return;
-            }
-            // travels between threads, must be refcounted because block is Fn
-            let completer = Arc::new(Mutex::new(Capsule::new(completer)));
-            let provider = &providers[item as usize];
-            let sender = RunLoop::current().new_sender();
-            let block = ConcreteBlock::new(move |url: *mut NSURL, error: *mut NSError| {
-                let url = Id::retain(url);
-                let error = Id::retain(error);
+        // travels between threads, must be refcounted because block is Fn
+        let completer = Arc::new(Mutex::new(Capsule::new(completer)));
+        let provider = &providers[item as usize];
+        let sender = RunLoop::current().new_sender();
+        let block = ConcreteBlock::new(
+            move |url: *mut NSURL, _is_in_place: Bool, error: *mut NSError| {
+                let url = unsafe { Id::retain(url) };
+                let error = unsafe { Id::retain(error) };
                 let res = match (url, error) {
-                    (Some(url), _) => {
-                        let source_path = path_from_url(&url);
-                        let source_name = source_path
-                            .file_name()
-                            .expect("Missing file name")
-                            .to_string_lossy();
-                        let target_path = get_target_path(&target_folder, &source_name);
-                        match fs::rename(&source_path, &target_path) {
-                            Ok(_) => Ok(target_path),
-                            Err(err) => Err(NativeExtensionsError::VirtualFileReceiveError(
-                                err.to_string(),
-                            )),
-                        }
-                    }
+                    (Some(url), _) => FileWithBackgroundCoordinator::new(&url),
                     (_, Some(error)) => Err(NativeExtensionsError::VirtualFileReceiveError(
                         error.localizedDescription().to_string(),
                     )),
@@ -351,16 +278,84 @@ impl PlatformDataReader {
                         .unwrap()
                         .take()
                         .expect("Block invoked more than once");
+                    // completer.complete(res);
+                    let res = res.map::<Option<Rc<dyn VirtualFileReader>>, _>(|f| Some(Rc::new(f)));
                     completer.complete(res);
                 });
-            });
-            let block = block.copy();
-            let ns_progress = provider.loadFileRepresentationForTypeIdentifier_completionHandler(
+            },
+        );
+        let block = block.copy();
+        let ns_progress = unsafe {
+            provider.loadInPlaceFileRepresentationForTypeIdentifier_completionHandler(
                 &NSString::from_str(format),
                 &block,
-            );
-            bridge_progress(ns_progress, read_progress);
+            )
+        };
+        bridge_progress(ns_progress, read_progress);
+        future.await
+    }
+
+    pub async fn copy_virtual_file_for_item(
+        &self,
+        item: i64,
+        format: &str,
+        target_folder: PathBuf,
+        read_progress: Arc<ReadProgress>,
+    ) -> NativeExtensionsResult<PathBuf> {
+        let (future, completer) = FutureCompleter::new();
+        let providers = self.get_items_providers();
+        if item >= providers.len() as i64 {
+            return Err(NativeExtensionsError::OtherError("Invalid item".into()));
+        }
+
+        // travels between threads, must be refcounted because block is Fn
+        let completer = Arc::new(Mutex::new(Capsule::new(completer)));
+        let provider = &providers[item as usize];
+        let sender = RunLoop::current().new_sender();
+        let block = ConcreteBlock::new(move |url: *mut NSURL, error: *mut NSError| {
+            let url = unsafe { Id::retain(url) };
+            let error = unsafe { Id::retain(error) };
+            let res = match (url, error) {
+                (Some(url), _) => {
+                    let source_path = path_from_url(&url);
+                    let source_name = source_path
+                        .file_name()
+                        .expect("Missing file name")
+                        .to_string_lossy();
+                    let target_path = get_target_path(&target_folder, &source_name);
+                    match fs::rename(&source_path, &target_path) {
+                        Ok(_) => Ok(target_path),
+                        Err(err) => Err(NativeExtensionsError::VirtualFileReceiveError(
+                            err.to_string(),
+                        )),
+                    }
+                }
+                (_, Some(error)) => Err(NativeExtensionsError::VirtualFileReceiveError(
+                    error.localizedDescription().to_string(),
+                )),
+                (_, _) => Err(NativeExtensionsError::VirtualFileReceiveError(
+                    "Unknown error".into(),
+                )),
+            };
+            let completer = completer.clone();
+            sender.send(move || {
+                let completer = completer
+                    .lock()
+                    .unwrap()
+                    .take()
+                    .expect("Block invoked more than once");
+                completer.complete(res);
+            });
         });
+        let block = block.copy();
+        let ns_progress = unsafe {
+            provider.loadFileRepresentationForTypeIdentifier_completionHandler(
+                &NSString::from_str(format),
+                &block,
+            )
+        };
+        bridge_progress(ns_progress, read_progress);
+
         future.await
     }
 
