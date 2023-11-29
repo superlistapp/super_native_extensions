@@ -189,20 +189,6 @@ pub trait IntoObjc {
     fn into_objc(self) -> Id<NSObject>;
 }
 
-// impl IntoObjc for HashMap<StrongPtr, StrongPtr> {
-//     fn into_objc(self) -> StrongPtr {
-//         let keys: Vec<_> = self.keys().map(|k| k.clone().autorelease()).collect();
-//         let objects: Vec<_> = self.values().map(|o| o.clone().autorelease()).collect();
-//         unsafe {
-//             StrongPtr::retain(NSDictionary::dictionaryWithObjects_forKeys_(
-//                 nil,
-//                 NSArray::arrayWithObjects(nil, &objects),
-//                 NSArray::arrayWithObjects(nil, &keys),
-//             ))
-//         }
-//     }
-// }
-
 impl IntoObjc for HashMap<&str, Id<NSObject>> {
     fn into_objc(mut self) -> Id<NSObject> {
         let mut keys = Vec::<Id<NSString>>::new();
