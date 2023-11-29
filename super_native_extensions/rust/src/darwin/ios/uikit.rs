@@ -1,6 +1,6 @@
 use icrate::{
     block2::Block,
-    Foundation::{CGFloat, CGPoint, CGRect, NSArray, NSItemProvider},
+    Foundation::{CGFloat, CGPoint, CGRect, CGSize, NSArray, NSItemProvider},
 };
 use objc2::{
     extern_class, extern_methods, extern_protocol,
@@ -10,6 +10,8 @@ use objc2::{
     runtime::{Bool, NSObject, NSObjectProtocol, ProtocolObject},
     ClassType, ProtocolType, RefEncode,
 };
+
+use crate::platform_impl::platform::common::CGAffineTransform;
 
 pub type UIDropOperation = NSUInteger;
 
@@ -271,6 +273,43 @@ extern_methods!(
             container: &UIView,
             center: CGPoint,
         ) -> Id<Self>;
+
+        #[method_id(@__retain_semantics Init initWithContainer:center:transform:)]
+        pub fn initWithContainer_center_transform(
+            this: Option<Allocated<Self>>,
+            container: &UIView,
+            center: CGPoint,
+            transform: CGAffineTransform,
+        ) -> Id<Self>;
+    }
+);
+
+extern_class!(
+    #[derive(Debug, PartialEq, Eq, Hash)]
+    pub(crate) struct UIDragPreviewTarget;
+
+    unsafe impl ClassType for UIDragPreviewTarget {
+        type Super = UIPreviewTarget;
+        type Mutability = mutability::InteriorMutable;
+    }
+);
+
+extern_methods!(
+    unsafe impl UIDragPreviewTarget {
+        #[method_id(@__retain_semantics Init initWithContainer:center:)]
+        pub fn initWithContainer_center(
+            this: Option<Allocated<Self>>,
+            container: &UIView,
+            center: CGPoint,
+        ) -> Id<Self>;
+
+        #[method_id(@__retain_semantics Init initWithContainer:center:transform:)]
+        pub fn initWithContainer_center_transform(
+            this: Option<Allocated<Self>>,
+            container: &UIView,
+            center: CGPoint,
+            transform: CGAffineTransform,
+        ) -> Id<Self>;
     }
 );
 
@@ -281,6 +320,19 @@ extern_class!(
     unsafe impl ClassType for UITargetedPreview {
         type Super = NSObject;
         type Mutability = mutability::InteriorMutable;
+    }
+);
+
+extern_methods!(
+    unsafe impl UITargetedPreview {
+        #[method_id(@__retain_semantics Other view)]
+        pub fn view(&self) -> Id<UIView>;
+
+        #[method(size)]
+        pub fn size(&self) -> CGSize;
+
+        #[method_id(@__retain_semantics Other parameters)]
+        pub fn parameters(&self) -> Id<UIDragPreviewParameters>;
     }
 );
 
@@ -303,6 +355,12 @@ extern_methods!(
             parameters: &UIDragPreviewParameters,
             target: &UIPreviewTarget,
         ) -> Id<Self>;
+
+        #[method_id(@__retain_semantics Other retargetedPreviewWithTarget:)]
+        pub fn retargetedPreviewWithTarget(
+            &self,
+            target: &UIPreviewTarget,
+        ) -> Id<UITargetedDragPreview>;
     }
 );
 
@@ -333,6 +391,12 @@ extern_protocol!(
     pub unsafe trait UIDragDropSession: NSObjectProtocol {
         #[method_id(@__retain_semantics Other items)]
         fn items(&self) -> Id<NSArray<UIDragItem>>;
+
+        #[method(locationInView:)]
+        fn locationInView(&self, view: &UIView) -> CGPoint;
+
+        #[method(allowsMoveOperation)]
+        fn allowsMoveOperation(&self) -> bool;
     }
 
     unsafe impl ProtocolType for dyn UIDragDropSession {}
@@ -345,12 +409,63 @@ extern_protocol!(
 
         #[method_id(@__retain_semantics Other localContext)]
         fn localContext(&self) -> Option<Id<NSObject>>;
-
-        #[method(locationInView:)]
-        fn locationInView(&self, view: &UIView) -> CGPoint;
     }
 
     unsafe impl ProtocolType for dyn UIDragSession {}
+);
+
+pub type UIDropSessionProgressIndicatorStyle = NSUInteger;
+pub const UIDropSessionProgressIndicatorStyleNone: UIDropSessionProgressIndicatorStyle = 0;
+pub const UIDropSessionProgressIndicatorStyleDefault: UIDropSessionProgressIndicatorStyle = 1;
+
+extern_protocol!(
+    pub unsafe trait UIDropSession: UIDragDropSession {
+        #[method_id(@__retain_semantics Other localDragSession)]
+        fn localDragSession(&self) -> Option<Id<ProtocolObject<dyn UIDragSession>>>;
+
+        #[method(progressIndicatorStyle)]
+        fn progressIndicatorStyle(&self) -> UIDropSessionProgressIndicatorStyle;
+
+        #[method(setProgressIndicatorStyle:)]
+        fn setProgressIndicatorStyle(&self, style: UIDropSessionProgressIndicatorStyle);
+    }
+
+    unsafe impl ProtocolType for dyn UIDropSession {}
+);
+
+extern_class!(
+    #[derive(Debug, PartialEq, Eq, Hash)]
+    pub(crate) struct UIDropProposal;
+
+    unsafe impl ClassType for UIDropProposal {
+        type Super = NSObject;
+        type Mutability = mutability::InteriorMutable;
+    }
+);
+
+extern_methods!(
+    unsafe impl UIDropProposal {
+        #[method_id(@__retain_semantics Init initWithDropOperation:)]
+        pub fn initWithDropOperation(
+            this: Option<Allocated<Self>>,
+            operation: UIDropOperation,
+        ) -> Id<Self>;
+
+        #[method(operation)]
+        pub fn operation(&self) -> UIDropOperation;
+
+        #[method(setPrecise:)]
+        pub fn setPrecise(&self, precise: bool);
+
+        #[method(isPrecise)]
+        pub fn precise(&self) -> bool;
+
+        #[method(setPrefersFullSizePreview:)]
+        pub fn setPrefersFullSizePreview(&self, prefers: bool);
+
+        #[method(prefersFullSizePreview)]
+        pub fn prefersFullSizePreview(&self) -> bool;
+    }
 );
 
 extern_protocol!(
@@ -520,6 +635,106 @@ extern_methods!(
             delegate: &ProtocolObject<dyn UIDragInteractionDelegate>,
         ) -> Id<Self>;
     }
+);
+
+extern_class!(
+    #[derive(Debug, PartialEq, Eq, Hash)]
+    pub(crate) struct UIDropInteraction;
+
+    unsafe impl ClassType for UIDropInteraction {
+        type Super = NSObject;
+        type Mutability = mutability::InteriorMutable;
+    }
+);
+
+extern_methods!(
+    unsafe impl UIDropInteraction {
+        #[method_id(@__retain_semantics Init initWithDelegate:)]
+        pub unsafe fn initWithDelegate(
+            this: Option<Allocated<Self>>,
+            delegate: &ProtocolObject<dyn UIDropInteractionDelegate>,
+        ) -> Id<Self>;
+    }
+);
+
+extern_protocol!(
+    pub unsafe trait UIDropInteractionDelegate: NSObjectProtocol {
+        #[optional]
+        #[method(dropInteraction:canHandleSession:)]
+        fn dropInteraction_canHandleSession(
+            &self,
+            interaction: &UIDropInteraction,
+            session: &ProtocolObject<dyn UIDropSession>,
+        ) -> bool;
+
+        #[optional]
+        #[method(dropInteraction:sessionDidEnter:)]
+        fn dropInteraction_sessionDidEnter(
+            &self,
+            interaction: &UIDropInteraction,
+            session: &ProtocolObject<dyn UIDropSession>,
+        );
+
+        #[optional]
+        #[method_id(@__retain_semantics Other dropInteraction:sessionDidUpdate:)]
+        fn dropInteraction_sessionDidUpdate(
+            &self,
+            interaction: &UIDropInteraction,
+            session: &ProtocolObject<dyn UIDropSession>,
+        ) -> Id<UIDropProposal>;
+
+        #[optional]
+        #[method(dropInteraction:sessionDidExit:)]
+        fn dropInteraction_sessionDidExit(
+            &self,
+            interaction: &UIDropInteraction,
+            session: &ProtocolObject<dyn UIDropSession>,
+        );
+
+        #[optional]
+        #[method(dropInteraction:performDrop:)]
+        fn dropInteraction_performDrop(
+            &self,
+            interaction: &UIDropInteraction,
+            session: &ProtocolObject<dyn UIDropSession>,
+        );
+
+        #[optional]
+        #[method(dropInteraction:concludeDrop:)]
+        fn dropInteraction_concludeDrop(
+            &self,
+            interaction: &UIDropInteraction,
+            session: &ProtocolObject<dyn UIDropSession>,
+        );
+
+        #[optional]
+        #[method(dropInteraction:sessionDidEnd:)]
+        fn dropInteraction_sessionDidEnd(
+            &self,
+            interaction: &UIDropInteraction,
+            session: &ProtocolObject<dyn UIDropSession>,
+        );
+
+        #[optional]
+        #[method_id(@__retain_semantics Other dropInteraction:previewForDroppingItem:withDefault:)]
+        fn dropInteraction_previewForDroppingItem_withDefault(
+            &self,
+            interaction: &UIDropInteraction,
+            item: &UIDragItem,
+            default_preview: &UITargetedDragPreview,
+        ) -> Option<Id<UITargetedDragPreview>>;
+
+        #[optional]
+        #[method(dropInteraction:item:willAnimateDropWithAnimator:)]
+        fn dropInteraction_item_willAnimateDropWithAnimator(
+            &self,
+            interaction: &UIDropInteraction,
+            item: &UIDragItem,
+            animator: &ProtocolObject<dyn UIDragAnimating>,
+        );
+    }
+
+    unsafe impl ProtocolType for dyn UIDropInteractionDelegate {}
 );
 
 extern_class!(
