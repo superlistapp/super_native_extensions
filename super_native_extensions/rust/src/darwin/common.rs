@@ -123,14 +123,15 @@ pub fn uti_conforms_to(uti: &str, conforms_to: &str) -> bool {
 }
 
 pub trait UnsafeMutRef<T> {
-    #[allow(clippy::mut_from_ref)]
-    unsafe fn unsafe_mut_ref(&self) -> &mut T;
+    /// Allows unsafe mutable reference to Self.
+    /// Safety: Caller must ensure that self is the only existing reference.
+    unsafe fn unsafe_mut_ref<F: FnOnce(&mut T)>(&self, f: F);
 }
 
 impl<T: objc2::Message> UnsafeMutRef<T> for Id<T> {
-    unsafe fn unsafe_mut_ref(&self) -> &mut T {
+    unsafe fn unsafe_mut_ref<F: FnOnce(&mut T)>(&self, f: F) {
         let ptr = Id::as_ptr(self);
         let ptr = ptr as *mut T;
-        &mut *ptr
+        f(&mut *ptr);
     }
 }

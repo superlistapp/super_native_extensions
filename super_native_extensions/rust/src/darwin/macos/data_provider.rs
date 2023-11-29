@@ -38,7 +38,7 @@ use crate::{
     },
     error::NativeExtensionsResult,
     log::OkLog,
-    platform_impl::platform::common::{path_from_url, to_nserror},
+    platform_impl::platform::common::{path_from_url, to_nserror, UnsafeMutRef},
     value_promise::ValuePromiseResult,
 };
 
@@ -155,9 +155,9 @@ impl ItemState {
             unsafe { msg_send_id![SNEPasteboardWriter::alloc(), init] };
 
         unsafe {
-            let writer = Id::as_ptr(&writer) as *mut SNEPasteboardWriter;
-            let writer = &mut *writer;
-            Ivar::write(&mut writer.inner, Box::new(self.clone()));
+            writer.unsafe_mut_ref(|writer| {
+                Ivar::write(&mut writer.inner, Box::new(self.clone()));
+            });
         }
 
         let info = self.virtual_file_info();

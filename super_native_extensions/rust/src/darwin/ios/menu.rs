@@ -764,10 +764,11 @@ declare_class!(
 impl SNEMenuContext {
     fn new(context: Weak<PlatformMenuContext>) -> Id<Self> {
         let this: Id<Self> = unsafe { msg_send_id![Self::alloc(), init] };
-        Ivar::write(
-            &mut unsafe { this.unsafe_mut_ref() }.context,
-            Box::new(Inner { context }),
-        );
+        unsafe {
+            this.unsafe_mut_ref(|this| {
+                Ivar::write(&mut this.context, Box::new(Inner { context }));
+            });
+        }
         this
     }
 }
