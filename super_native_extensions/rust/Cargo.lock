@@ -703,13 +703,17 @@ dependencies = [
 [[package]]
 name = "irondash_dart_ffi"
 version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "88ed3ea8413fd024d89154472f7aea14e820eb600d0c4318bc001b14dd9b3ddc"
 dependencies = [
  "once_cell",
 ]
 
 [[package]]
 name = "irondash_engine_context"
-version = "0.3.0"
+version = "0.4.0-dev.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8ba5e3af5bf3fc5924ea11aae618d75791f1ec103481488e90aa6e5f4f9a3b63"
 dependencies = [
  "android_logger",
  "core-foundation",
@@ -722,7 +726,9 @@ dependencies = [
 
 [[package]]
 name = "irondash_message_channel"
-version = "0.3.1"
+version = "0.4.0-dev2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7b622fe3a97aa5ed014ffe6cdcf37731acb4643acd7e0e1331a69a38526de92f"
 dependencies = [
  "async-trait",
  "core-foundation",
@@ -737,6 +743,8 @@ dependencies = [
 [[package]]
 name = "irondash_message_channel_derive"
 version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3cc040dca601ea6a092d0c936dbe362863580c3537e4748ca6c17cbaf88cb0b7"
 dependencies = [
  "proc-macro-error",
  "proc-macro2",
@@ -746,7 +754,9 @@ dependencies = [
 
 [[package]]
 name = "irondash_run_loop"
-version = "0.3.0"
+version = "0.4.0-dev.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "339e4b6b64c83fb25e8a1f55c1c6ee361d7737143f650d0fe0c7bac92f897e9d"
 dependencies = [
  "core-foundation",
  "futures",
