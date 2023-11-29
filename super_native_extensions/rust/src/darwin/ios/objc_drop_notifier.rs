@@ -1,49 +1,41 @@
-use std::{os::raw::c_void, sync::Arc};
+use std::sync::Arc;
 
-use cocoa::base::id;
-use objc::{
-    class,
-    declare::ClassDecl,
-    msg_send,
-    rc::StrongPtr,
-    runtime::{Class, Object, Sel},
-    sel, sel_impl,
+use objc2::{
+    declare::{Ivar, IvarDrop},
+    declare_class, msg_send_id, mutability,
+    rc::Id,
+    runtime::NSObject,
+    ClassType,
 };
-use once_cell::sync::Lazy;
 
 use crate::util::DropNotifier;
 
 use super::util::IntoObjc;
 
-extern "C" fn dealloc(this: &Object, _sel: Sel) {
-    unsafe {
-        let state_ptr = {
-            let state_ptr: *const c_void = *this.get_ivar("state");
-            state_ptr as *const DropNotifier
-        };
-        Arc::from_raw(state_ptr);
-
-        let () = msg_send![super(this, *SUPERCLASS), dealloc];
+impl IntoObjc for Arc<DropNotifier> {
+    fn into_objc(self) -> Id<NSObject> {
+        Id::into_super(SNEDropNotifier::new(self))
     }
 }
 
-static SUPERCLASS: Lazy<&'static Class> = Lazy::new(|| class!(NSObject));
+declare_class!(
+    struct SNEDropNotifier {
+        drop_notifier: IvarDrop<Box<Arc<DropNotifier>>, "_drop_notifier">,
+    }
 
-static DROP_NOTIFIER_CLASS: Lazy<&'static Class> = Lazy::new(|| unsafe {
-    let mut decl = ClassDecl::new("SNEDropNotifier", *SUPERCLASS).unwrap();
+    mod ivars;
 
-    decl.add_ivar::<*mut c_void>("state");
-    decl.add_method(sel!(dealloc), dealloc as extern "C" fn(&Object, Sel));
+    unsafe impl ClassType for SNEDropNotifier {
+        type Super = NSObject;
+        type Mutability = mutability::Mutable;
+        const NAME: &'static str = "SNEDropNotifier";
+    }
+);
 
-    decl.register()
-});
-
-impl IntoObjc for Arc<DropNotifier> {
-    fn into_objc(self) -> StrongPtr {
-        unsafe {
-            let notifier: id = msg_send![*DROP_NOTIFIER_CLASS, new];
-            (*notifier).set_ivar("state", Arc::into_raw(self) as *const c_void);
-            StrongPtr::new(notifier)
-        }
+impl SNEDropNotifier {
+    fn new(drop_notifier: Arc<DropNotifier>) -> Id<Self> {
+        let mut this: Id<Self> = unsafe { msg_send_id![Self::alloc(), init] };
+        Ivar::write(&mut this.drop_notifier, Box::new(drop_notifier));
+        this
     }
 }

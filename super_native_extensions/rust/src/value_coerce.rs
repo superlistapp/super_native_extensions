@@ -37,6 +37,7 @@ impl CoerceToData for Value {
             Value::I64List(data) => Some(unsafe { transform_slice(data) }.to_owned()),
             Value::F32List(data) => Some(unsafe { transform_slice(data) }.to_owned()),
             Value::F64List(data) => Some(unsafe { transform_slice(data) }.to_owned()),
+            Value::Null => None,
             v => {
                 warn!("Couldn't coerce {v:?} to data");
                 None

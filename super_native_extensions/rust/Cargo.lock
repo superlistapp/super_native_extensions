@@ -100,10 +100,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "630be753d4e58660abd17930c71b647fe46c27ea6b63cc59e1e3851406972e42"
 
 [[package]]
-name = "block"
-version = "0.1.6"
+name = "block-sys"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0d8c1fef690941d3e7788d328517591fecc684c084084702d6ff1641e993699a"
+checksum = "2dd7cf50912cddc06dc5ea7c08c5e81c1b2c842a70d19def1848d54c586fed92"
+dependencies = [
+ "objc-sys",
+]
+
+[[package]]
+name = "block2"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "15b55663a85f33501257357e6421bb33e769d5c9ffb5ba0921c975a123e35e68"
+dependencies = [
+ "block-sys",
+ "objc2",
+]
 
 [[package]]
 name = "byte-slice-cast"
@@ -172,37 +185,6 @@ name = "cfg-if"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
-
-[[package]]
-name = "cocoa"
-version = "0.24.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f425db7937052c684daec3bd6375c8abe2d146dca4b8b143d6db777c39138f3a"
-dependencies = [
- "bitflags 1.3.2",
- "block",
- "cocoa-foundation",
- "core-foundation",
- "core-graphics",
- "foreign-types",
- "libc",
- "objc",
-]
-
-[[package]]
-name = "cocoa-foundation"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "931d3837c286f56e3c58423ce4eba12d08db2374461a785c86f672b08b5650d6"
-dependencies = [
- "bitflags 1.3.2",
- "block",
- "core-foundation",
- "core-graphics-types",
- "foreign-types",
- "libc",
- "objc",
-]
 
 [[package]]
 name = "colored"
@@ -689,6 +671,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "443144c8cdadd93ebf52ddb4056d257f5b52c04d3c804e657d19eb73fc33668b"
 
 [[package]]
+name = "icrate"
+version = "0.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "99d3aaff8a54577104bafdf686ff18565c3b6903ca5782a2026ef06e2c7aa319"
+dependencies = [
+ "block2",
+ "objc2",
+]
+
+[[package]]
 name = "idna"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -719,31 +711,32 @@ dependencies = [
 
 [[package]]
 name = "irondash_engine_context"
-version = "0.3.0"
+version = "0.4.0-dev.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3ea09b87cdfad0ef1567a158a0bcd114ffed271690b78172d08d9c16371c59f1"
+checksum = "8ba5e3af5bf3fc5924ea11aae618d75791f1ec103481488e90aa6e5f4f9a3b63"
 dependencies = [
  "android_logger",
- "cocoa",
  "core-foundation",
+ "icrate",
  "jni",
  "log",
- "objc",
+ "objc2",
  "once_cell",
 ]
 
 [[package]]
 name = "irondash_message_channel"
-version = "0.3.1"
+version = "0.4.0-dev2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "472a4bb6a0bc5d545bc4c2effc2974b2f57e9445e45163ca1ab7095ec8005c7d"
+checksum = "7b622fe3a97aa5ed014ffe6cdcf37731acb4643acd7e0e1331a69a38526de92f"
 dependencies = [
  "async-trait",
  "core-foundation",
+ "icrate",
  "irondash_dart_ffi",
  "irondash_message_channel_derive",
  "irondash_run_loop",
- "objc",
+ "objc2",
  "once_cell",
 ]
 
@@ -761,15 +754,16 @@ dependencies = [
 
 [[package]]
 name = "irondash_run_loop"
-version = "0.3.0"
+version = "0.4.0-dev.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9bf3babfcdc72762465e54fe21a677ae919d33f905c62e33703e0b6400893b5d"
+checksum = "339e4b6b64c83fb25e8a1f55c1c6ee361d7737143f650d0fe0c7bac92f897e9d"
 dependencies = [
  "core-foundation",
  "futures",
+ "icrate",
  "irondash_engine_context",
  "log",
- "objc",
+ "objc2",
  "once_cell",
 ]
 
@@ -847,15 +841,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b06a4cde4c0f271a446782e3eff8de789548ce57dbc8eca9292c27f4a42004b4"
 
 [[package]]
-name = "malloc_buf"
-version = "0.0.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "62bb907fe88d54d8d9ce32a3cceab4218ed2f6b7d35617cafe9adf84e43919cb"
-dependencies = [
- "libc",
-]
-
-[[package]]
 name = "memchr"
 version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -905,13 +890,26 @@ dependencies = [
 ]
 
 [[package]]
-name = "objc"
-version = "0.2.7"
+name = "objc-sys"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "915b1b472bc21c53464d6c8461c9d3af805ba1ef837e1cac254428f4a77177b1"
+checksum = "99e1d07c6eab1ce8b6382b8e3c7246fe117ff3f8b34be065f5ebace6749fe845"
+
+[[package]]
+name = "objc2"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "559c5a40fdd30eb5e344fbceacf7595a81e242529fb4e21cf5f43fb4f11ff98d"
 dependencies = [
- "malloc_buf",
+ "objc-sys",
+ "objc2-encode",
 ]
+
+[[package]]
+name = "objc2-encode"
+version = "3.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d079845b37af429bfe5dfa76e6d087d788031045b25cfc6fd898486fd9847666"
 
 [[package]]
 name = "once_cell"
@@ -1243,9 +1241,7 @@ dependencies = [
  "android_logger",
  "anyhow",
  "async-trait",
- "block",
  "byte-slice-cast",
- "cocoa",
  "core-foundation",
  "core-graphics",
  "gdk",
@@ -1254,13 +1250,14 @@ dependencies = [
  "gobject-sys",
  "gtk",
  "gtk-sys",
+ "icrate",
  "irondash_engine_context",
  "irondash_message_channel",
  "irondash_run_loop",
  "jni",
  "log",
  "mime_guess",
- "objc",
+ "objc2",
  "once_cell",
  "oslog",
  "rand",

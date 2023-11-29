@@ -23,9 +23,9 @@ simple_logger = "2.1"
 async-trait = "0.1"
 rand = "0.8.5"
 url = "2.2.2"
-irondash_engine_context = "0.3.0"
-irondash_run_loop = "0.3.0"
-irondash_message_channel = { version = "0.3.1", features = ["derive"] }
+irondash_engine_context = "0.4.0-dev.2"
+irondash_run_loop = "0.4.0-dev.2"
+irondash_message_channel = { version = "0.4.0-dev.2", features = ["derive"] }
 
 [build-dependencies]
 serde = { version = "1.0.119", features = ["derive"] }
@@ -37,11 +37,42 @@ velcro = "0.5"
 
 [target.'cfg(any(target_os = "macos", target_os = "ios"))'.dependencies]
 core-foundation = "0.9"
-objc = "0.2.7"
 once_cell = "1.8.0"
-cocoa = "0.24"
-block = "0.1.6"
 core-graphics = "0.22.3"
+objc2 = "0.4.1"
+icrate = { version = "0.0.4", features = [
+    "Foundation",
+    "Foundation_NSString",
+    "Foundation_NSProgress",
+    "Foundation_NSArray",
+    "Foundation_NSMutableArray",
+    "Foundation_NSError",
+    "Foundation_NSDictionary",
+    "Foundation_NSURL",
+    "Foundation_NSOperationQueue",
+    "Foundation_NSProcessInfo",
+    "Foundation_NSItemProvider",
+    "Foundation_NSPropertyListSerialization",
+    "Foundation_NSFileCoordinator",
+] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+icrate = { version = "0.0.4", features = [
+    "AppKit",
+    "AppKit_NSPasteboard",
+    "AppKit_NSPasteboardItem",
+    "AppKit_NSFilePromiseProvider",
+    "AppKit_NSFilePromiseReceiver",
+    "AppKit_NSBitmapImageRep",
+    "AppKit_NSView",
+    "AppKit_NSWindow",
+    "AppKit_NSEvent",
+    "AppKit_NSImage",
+    "AppKit_NSDraggingSession",
+    "AppKit_NSDraggingItem",
+    "AppKit_NSMenu",
+    "AppKit_NSMenuItem",
+] }
 
 [target.'cfg(target_os = "ios")'.dependencies]
 oslog = "0.2.0"
@@ -98,5 +129,6 @@ mime_guess = { git = "https://github.com/knopp/mime_guess.git", branch = "super_
 
 # irondash_engine_context = { path = "../../../irondash/engine_context/rust" }
 # irondash_run_loop = { path = "../../../irondash/run_loop" }
+# irondash_message_channel = { path = "../../../irondash/message_channel/rust" }
 # irondash_message_channel_derive = { path = "../../../irondash/message_channel/rust_derive" }
 # irondash_dart_ffi = { path = "../../../irondash/dart_ffi" }

@@ -1,17 +1,13 @@
 use std::{ffi::CString, mem::ManuallyDrop};
 
-use cocoa::{
-    appkit::{NSImage, NSView},
-    base::{id, nil},
-    foundation::{NSPoint, NSRect, NSSize},
+use icrate::{
+    AppKit::{NSBitmapImageRep, NSEvent, NSImage, NSView},
+    Foundation::{NSPoint, NSRect, NSSize},
 };
-use objc::{
-    class,
-    declare::ClassDecl,
-    msg_send,
-    rc::StrongPtr,
-    runtime::{objc_getClass, Class},
-    sel, sel_impl,
+
+use objc2::{
+    class, declare::ClassBuilder, ffi::objc_getClass, msg_send, msg_send_id, rc::Id,
+    runtime::AnyClass, ClassType, RefEncode,
 };
 
 use crate::{
@@ -63,34 +59,49 @@ impl From<NSSize> for Size {
     }
 }
 
-pub(super) unsafe fn flip_rect(view: id, rect: &mut NSRect) {
-    let flipped: bool = msg_send![view, isFlipped];
+pub(super) fn flip_rect(view: &NSView, rect: &mut NSRect) {
+    let flipped: bool = unsafe { view.isFlipped() };
     if !flipped {
-        rect.origin.y = NSView::bounds(view).size.height - rect.size.height - rect.origin.y;
+        rect.origin.y = unsafe { view.bounds() }.size.height - rect.size.height - rect.origin.y;
     }
 }
 
-struct MyClassDecl {
-    _cls: *mut Class,
+pub(super) fn flip_position(view: &NSView, position: &mut NSPoint) {
+    let flipped: bool = unsafe { view.isFlipped() };
+    if !flipped {
+        position.y = unsafe { view.bounds() }.size.height - position.y;
+    }
 }
 
-pub(super) fn class_decl_from_name(name: &str) -> ManuallyDrop<ClassDecl> {
+struct MyClassBuilder {
+    _cls: *mut AnyClass,
+}
+
+pub(super) fn class_builder_from_name(name: &str) -> ManuallyDrop<ClassBuilder> {
     let name = CString::new(name).unwrap();
     let class = unsafe { objc_getClass(name.as_ptr() as *const _) as *mut _ };
-    let res = MyClassDecl { _cls: class };
-    // bit dirty, unfortunatelly ClassDecl doesn't let us create instance with custom
+    let res = MyClassBuilder { _cls: class };
+    // bit dirty, unfortunately ClassBuilder doesn't let us create instance with custom
     // class, and it's now worth replicating the entire functionality here
     ManuallyDrop::new(unsafe { std::mem::transmute(res) })
 }
 
-pub fn ns_image_from_image_data(images: Vec<ImageData>) -> StrongPtr {
+enum _CGImage {}
+
+unsafe impl RefEncode for _CGImage {
+    const ENCODING_REF: objc2::Encoding =
+        objc2::Encoding::Pointer(&objc2::Encoding::Struct("CGImage", &[]));
+}
+
+pub fn ns_image_from_image_data(images: Vec<ImageData>) -> Id<NSImage> {
     unsafe {
-        let res = StrongPtr::new(msg_send![NSImage::alloc(nil), init]);
+        let res = NSImage::init(NSImage::alloc());
         for image in images {
             let image = cg_image_from_image_data(image);
-            let rep: id = msg_send![class!(NSBitmapImageRep), alloc];
-            let rep = StrongPtr::new(msg_send![rep, initWithCGImage:&*image]);
-            NSImage::addRepresentation_(*res, *rep);
+            let image = &*image as *const _ as *const _CGImage;
+            let rep = NSBitmapImageRep::alloc();
+            let rep: Id<NSBitmapImageRep> = msg_send_id![rep, initWithCGImage:image];
+            res.addRepresentation(&rep);
         }
         res
     }
@@ -105,20 +116,42 @@ fn is_grayscale(image: &ImageData) -> bool {
     true
 }
 
-pub fn ns_image_for_menu_item(image: ImageData) -> StrongPtr {
+pub fn ns_image_for_menu_item(image: ImageData) -> Id<NSImage> {
     let is_grayscale = is_grayscale(&image);
     let size = NSSize::new(image.point_width(), image.point_height());
     let image = ns_image_from_image_data(vec![image]);
     unsafe {
-        let _: () = msg_send![*image, setSize: size];
-        let _: () = msg_send![*image, setTemplate: is_grayscale];
+        image.setSize(size);
+        image.setTemplate(is_grayscale);
     }
     image
 }
 
-pub(super) unsafe fn flip_position(view: id, position: &mut NSPoint) {
-    let flipped: bool = msg_send![view, isFlipped];
-    if !flipped {
-        position.y = NSView::bounds(view).size.height - position.y;
+enum _CGEvent {}
+
+unsafe impl RefEncode for _CGEvent {
+    const ENCODING_REF: objc2::Encoding =
+        objc2::Encoding::Pointer(&objc2::Encoding::Struct("__CGEvent", &[]));
+}
+
+pub(crate) trait EventExt {
+    #[allow(non_snake_case)]
+    fn CGEvent(&self) -> core_graphics::sys::CGEventRef;
+    #[allow(non_snake_case)]
+    unsafe fn withCGEvent(event: core_graphics::sys::CGEventRef) -> Id<Self>;
+}
+
+impl EventExt for NSEvent {
+    #[allow(non_snake_case)]
+    fn CGEvent(&self) -> core_graphics::sys::CGEventRef {
+        let event: *mut _CGEvent = unsafe { msg_send![self, CGEvent] };
+        event as *mut _
+    }
+
+    #[allow(non_snake_case)]
+    unsafe fn withCGEvent(event: core_graphics::sys::CGEventRef) -> Id<Self> {
+        let res: Id<NSEvent> =
+            msg_send_id![class!(NSEvent), eventWithCGEvent: event as * mut _CGEvent];
+        res
     }
 }
