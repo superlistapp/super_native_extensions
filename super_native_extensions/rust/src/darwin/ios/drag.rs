@@ -1,8 +1,6 @@
 use std::{
     cell::{Cell, RefCell},
     collections::HashMap,
-    mem::ManuallyDrop,
-    os::raw::c_void,
     rc::{Rc, Weak},
     sync::Arc,
     time::Duration,
@@ -17,11 +15,12 @@ use irondash_engine_context::EngineContext;
 use irondash_message_channel::{Late, Value};
 use irondash_run_loop::{platform::PollSession, RunLoop};
 use objc2::{
-    rc::Id,
-    runtime::{Bool, NSObject, NSObjectProtocol, ProtocolObject},
+    declare::{Ivar, IvarDrop},
+    declare_class, msg_send_id, mutability,
+    rc::{autoreleasepool, Id},
+    runtime::{NSObject, NSObjectProtocol, ProtocolObject},
     ClassType,
 };
-use once_cell::sync::Lazy;
 
 use crate::{
     api_model::{DataProviderId, DragConfiguration, DragRequest, DropOperation, Point},
@@ -38,11 +37,11 @@ use crate::{
 
 use super::{
     alpha_to_path::bezier_path_for_alpha,
-    drag_common::{DropOperationExt, UIDropOperation},
+    drag_common::DropOperationExt,
     uikit::{
-        UIColor, UIDragDropSession, UIDragInteraction, UIDragItem, UIDragPreview,
-        UIDragPreviewParameters, UIDragSession, UIImageView, UIPreviewTarget,
-        UITargetedDragPreview, UIView, UIViewAnimationOptionNone,
+        UIColor, UIDragDropSession, UIDragInteraction, UIDragInteractionDelegate, UIDragItem,
+        UIDragPreview, UIDragPreviewParameters, UIDragSession, UIDropOperation, UIImageView,
+        UIPreviewTarget, UITargetedDragPreview, UIView, UIViewAnimationOptionNone,
     },
     util::{image_view_from_data, IntoObjc},
     DataProviderSessionDelegate, PlatformDataProvider,
@@ -54,7 +53,7 @@ pub struct PlatformDragContext {
     view: Id<UIView>,
     delegate: Weak<dyn PlatformDragContextDelegate>,
     interaction: Late<Id<UIDragInteraction>>,
-    interaction_delegate: Late<Id<NSObject>>,
+    interaction_delegate: Late<Id<SNEDragContext>>,
     sessions: RefCell<HashMap<DragSessionId, Rc<Session>>>,
 }
 
@@ -186,10 +185,7 @@ impl Session {
         self.create_items(from_index, items.providers)
     }
 
-    fn get_additional_items_for_location(
-        &self,
-        location: Point,
-    ) -> Option<Id<NSArray<UIDragItem>>> {
+    fn get_additional_items_for_location(&self, location: Point) -> Id<NSArray<UIDragItem>> {
         if let Some(delegate) = self.context_delegate.upgrade() {
             let items_promise = delegate.get_additional_items_for_location(
                 self.context_id,
@@ -201,10 +197,8 @@ impl Session {
             loop {
                 if let Some(items) = items_promise.try_take() {
                     match items {
-                        PromiseResult::Ok { value } => {
-                            return Some(self.process_additional_items(value))
-                        }
-                        PromiseResult::Cancelled => return None,
+                        PromiseResult::Ok { value } => return self.process_additional_items(value),
+                        PromiseResult::Cancelled => return unsafe { NSArray::array() },
                     }
                 }
                 RunLoop::current()
@@ -212,7 +206,7 @@ impl Session {
                     .poll_once(&mut poll_session);
             }
         } else {
-            None
+            unsafe { NSArray::array() }
         }
     }
 
@@ -479,15 +473,15 @@ impl PlatformDragContext {
 
     pub fn assign_weak_self(&self, weak_self: Weak<Self>) {
         self.weak_self.set(weak_self.clone());
-        // autoreleasepool(|| unsafe {
-        //     let delegate: id = msg_send![*DELEGATE_CLASS, new];
-        //     (*delegate).set_ivar("context", Weak::into_raw(weak_self) as *mut c_void);
-        //     self.interaction_delegate.set(StrongPtr::new(delegate));
-        //     let interaction: id = msg_send![class!(UIDragInteraction), alloc];
-        //     let interaction: id = msg_send![interaction, initWithDelegate: delegate];
-        //     self.interaction.set(StrongPtr::new(interaction));
-        //     let () = msg_send![*self.view, addInteraction: interaction];
-        // });
+        autoreleasepool(|_| unsafe {
+            let delegate = SNEDragContext::new(weak_self);
+            self.interaction_delegate.set(delegate);
+            let interaction = UIDragInteraction::initWithDelegate(
+                UIDragInteraction::alloc(),
+                &Id::cast(delegate),
+            );
+            self.view.addInteraction(&interaction);
+        });
     }
 
     pub fn needs_combined_drag_image() -> bool {
@@ -548,7 +542,7 @@ impl PlatformDragContext {
         &self,
         interaction: &UIDragInteraction,
         session: &ProtocolObject<dyn UIDragSession>,
-    ) -> Option<Id<NSArray<UIDragItem>>> {
+    ) -> Id<NSArray<UIDragItem>> {
         if let Some(delegate) = self.delegate.upgrade() {
             let location = session.locationInView(&self.view);
             let configuration_promise =
@@ -565,9 +559,9 @@ impl PlatformDragContext {
                 if let Some(configuration) = configuration_promise.try_take() {
                     match configuration {
                         PromiseResult::Ok { value } => {
-                            return Some(self._items_for_beginning(interaction, session, value));
+                            return self._items_for_beginning(interaction, session, value);
                         }
-                        PromiseResult::Cancelled => return None,
+                        PromiseResult::Cancelled => return unsafe { NSArray::array() },
                     }
                 }
                 RunLoop::current()
@@ -575,7 +569,7 @@ impl PlatformDragContext {
                     .poll_once(&mut poll_session);
             }
         } else {
-            None
+            unsafe { NSArray::array() }
         }
     }
 
@@ -584,11 +578,11 @@ impl PlatformDragContext {
         _interaction: &UIDragInteraction,
         session: &ProtocolObject<dyn UIDragSession>,
         point: CGPoint,
-    ) -> Option<Id<NSArray<UIDragItem>>> {
+    ) -> Id<NSArray<UIDragItem>> {
         if let Some(session) = self.get_session(session) {
             session.get_additional_items_for_location(point.into())
         } else {
-            None
+            unsafe { NSArray::array() }
         }
     }
 
@@ -697,15 +691,11 @@ impl PlatformDragContext {
         &self,
         _interaction: &UIDragInteraction,
         session: &ProtocolObject<dyn UIDragSession>,
-    ) -> Bool {
+    ) -> bool {
         if let Some(session) = self.get_session(session) {
-            if session.configuration.borrow().prefers_full_size_previews {
-                Bool::YES
-            } else {
-                Bool::NO
-            }
+            session.configuration.borrow().prefers_full_size_previews
         } else {
-            Bool::NO
+            false
         }
     }
 
@@ -760,205 +750,165 @@ impl Drop for PlatformDragContext {
     }
 }
 
-fn with_state<F, FR, R>(this: id, callback: F, default: FR) -> R
-where
-    F: FnOnce(Rc<PlatformDragContext>) -> R,
-    FR: FnOnce() -> R,
-{
-    unsafe {
-        let context_ptr = {
-            let context_ptr: *mut c_void = *(*this).get_ivar("context");
-            context_ptr as *const PlatformDragContext
-        };
-        let this = ManuallyDrop::new(Weak::from_raw(context_ptr));
-        let this = this.upgrade();
-        match this {
-            Some(this) => callback(this),
+struct Inner {
+    context: Weak<PlatformDragContext>,
+}
+
+impl Inner {
+    fn with_state<F, FR, R>(&self, callback: F, default: FR) -> R
+    where
+        F: FnOnce(Rc<PlatformDragContext>) -> R,
+        FR: FnOnce() -> R,
+    {
+        let context = self.context.upgrade();
+        match context {
+            Some(context) => callback(context),
             None => default(),
         }
     }
 }
 
-extern "C" fn dealloc(this: &Object, _sel: Sel) {
-    unsafe {
-        let context_ptr = {
-            let context_ptr: *mut c_void = *this.get_ivar("context");
-            context_ptr as *const PlatformDragContext
-        };
-        Weak::from_raw(context_ptr);
+declare_class!(
+    struct SNEDragContext {
+        context: IvarDrop<Box<Inner>, "_context">,
+    }
 
-        let () = msg_send![super(this, *SUPERCLASS), dealloc];
+    mod ivars;
+
+    unsafe impl ClassType for SNEDragContext {
+        type Super = NSObject;
+        type Mutability = mutability::InteriorMutable;
+        const NAME: &'static str = "SNEDragContext";
+    }
+
+    unsafe impl NSObjectProtocol for SNEDragContext {}
+
+    #[allow(non_snake_case)]
+    unsafe impl UIDragInteractionDelegate for SNEDragContext {
+        #[method_id(dragInteraction:itemsForBeginningSession:)]
+        fn dragInteraction_itemsForBeginningSession(
+            &self,
+            interaction: &UIDragInteraction,
+            session: &ProtocolObject<dyn UIDragSession>,
+        ) -> Id<NSArray<UIDragItem>> {
+            self.context.with_state(
+                |state| state.items_for_beginning(interaction, session),
+                || unsafe { NSArray::array() },
+            )
+        }
+
+        #[method_id(dragInteraction:itemsForAddingToSession:withTouchAtPoint:)]
+        fn dragInteraction_itemsForAddingToSession_withTouchAtPoint(
+            &self,
+            interaction: &UIDragInteraction,
+            session: &ProtocolObject<dyn UIDragSession>,
+            point: CGPoint,
+        ) -> Id<NSArray<UIDragItem>> {
+            self.context.with_state(
+                |state| state.items_for_adding(interaction, session, point),
+                || unsafe { NSArray::array() },
+            )
+        }
+
+        #[method(dragInteraction:sessionWillBegin:)]
+        fn dragInteraction_sessionWillBegin(
+            &self,
+            interaction: &UIDragInteraction,
+            session: &ProtocolObject<dyn UIDragSession>,
+        ) {
+            self.context
+                .with_state(|state| state.drag_will_begin(interaction, session), || ())
+        }
+
+        #[method(dragInteraction:sessionDidMove:)]
+        fn dragInteraction_sessionDidMove(
+            &self,
+            interaction: &UIDragInteraction,
+            session: &ProtocolObject<dyn UIDragSession>,
+        ) {
+            self.context
+                .with_state(|state| state.did_move(interaction, session), || ())
+        }
+
+        #[method(dragInteraction:session:didEndWithOperation:)]
+        fn dragInteraction_session_didEndWithOperation(
+            &self,
+            interaction: &UIDragInteraction,
+            session: &ProtocolObject<dyn UIDragSession>,
+            operation: UIDropOperation,
+        ) {
+            self.context.with_state(
+                |state| state.did_end_with_operation(interaction, session, operation),
+                || (),
+            )
+        }
+
+        #[method(dragInteraction:sessionDidTransferItems:)]
+        fn dragInteraction_sessionDidTransferItems(
+            &self,
+            interaction: &UIDragInteraction,
+            session: &ProtocolObject<dyn UIDragSession>,
+        ) {
+            self.context.with_state(
+                |state| state.did_transfer_items(interaction, session),
+                || (),
+            )
+        }
+
+        #[method_id(dragInteraction:previewForLiftingItem:session:)]
+        fn dragInteraction_previewForLiftingItem_session(
+            &self,
+            interaction: &UIDragInteraction,
+            item: &UIDragItem,
+            session: &ProtocolObject<dyn UIDragSession>,
+        ) -> Option<Id<UITargetedDragPreview>> {
+            self.context
+                .with_state(|state| state.preview_for_item(interaction, item), || None)
+        }
+
+        #[method_id(dragInteraction:previewForCancellingItem:withDefault:)]
+        fn dragInteraction_previewForCancellingItem_withDefault(
+            &self,
+            interaction: &UIDragInteraction,
+            item: &UIDragItem,
+            default_preview: &UITargetedDragPreview,
+        ) -> Option<Id<UITargetedDragPreview>> {
+            self.context.with_state(
+                |state| state.preview_for_canceling(interaction, item),
+                || None,
+            )
+        }
+
+        #[method(dragInteraction:prefersFullSizePreviewsForSession:)]
+        fn dragInteraction_prefersFullSizePreviewsForSession(
+            &self,
+            interaction: &UIDragInteraction,
+            session: &ProtocolObject<dyn UIDragSession>,
+        ) -> bool {
+            self.context.with_state(
+                |state| state.prefers_full_size_previews(interaction, session),
+                || false,
+            )
+        }
+
+        #[method(dragInteraction:sessionAllowsMoveOperation:)]
+        fn dragInteraction_sessionAllowsMoveOperation(
+            &self,
+            interaction: &UIDragInteraction,
+            session: &ProtocolObject<dyn UIDragSession>,
+        ) -> bool {
+            self.context.with_state(
+                |state| state.allows_move_operation(interaction, session),
+                || false,
+            )
+        }
+    }
+);
+
+impl SNEDragContext {
+    fn new(context: Weak<PlatformDragContext>) -> Id<Self> {
+        let mut this: Id<Self> = unsafe { msg_send_id![Self::alloc(), init] };
+        Ivar::write(&mut this.context, Box::new(Inner { context }));
+        this
     }
 }
-
-extern "C" fn items_for_beginning(
-    this: &mut Object,
-    _sel: Sel,
-    interaction: id,
-    session: id,
-) -> id {
-    with_state(
-        this,
-        |state| state.items_for_beginning(interaction, session),
-        || nil,
-    )
-}
-
-extern "C" fn items_for_adding(
-    this: &mut Object,
-    _sel: Sel,
-    interaction: id,
-    session: id,
-    point: _CGPoint,
-) -> id {
-    with_state(
-        this,
-        |state| state.items_for_adding(interaction, session, point.into()),
-        || nil,
-    )
-}
-
-extern "C" fn drag_will_begin(this: &mut Object, _sel: Sel, interaction: id, session: id) {
-    with_state(
-        this,
-        |state| state.drag_will_begin(interaction, session),
-        || (),
-    )
-}
-
-extern "C" fn did_move(this: &mut Object, _sel: Sel, interaction: id, session: id) {
-    with_state(this, |state| state.did_move(interaction, session), || ())
-}
-
-extern "C" fn did_end_with_operation(
-    this: &mut Object,
-    _sel: Sel,
-    interaction: id,
-    session: id,
-    operation: UIDropOperation,
-) {
-    with_state(
-        this,
-        |state| state.did_end_with_operation(interaction, session, operation),
-        || {},
-    );
-}
-
-extern "C" fn allows_move_operation(
-    this: &mut Object,
-    _sel: Sel,
-    interaction: id,
-    session: id,
-) -> BOOL {
-    with_state(
-        this,
-        |state| {
-            if state.allows_move_operation(interaction, session) {
-                YES
-            } else {
-                NO
-            }
-        },
-        || NO,
-    )
-}
-
-extern "C" fn did_transfer_items(this: &mut Object, _sel: Sel, interaction: id, session: id) {
-    with_state(
-        this,
-        |state| state.did_transfer_items(interaction, session),
-        || {},
-    );
-}
-
-extern "C" fn preview_for_for_lifting_item(
-    this: &mut Object,
-    _sel: Sel,
-    interaction: id,
-    item: id,
-    _session: id,
-) -> id {
-    with_state(
-        this,
-        |state| state.preview_for_item(interaction, item),
-        || nil,
-    )
-}
-
-extern "C" fn preview_for_cancelling_item(
-    this: &mut Object,
-    _sel: Sel,
-    interaction: id,
-    item: id,
-    _default: id,
-) -> id {
-    with_state(
-        this,
-        |state| state.preview_for_canceling(interaction, item),
-        || nil,
-    )
-}
-
-extern "C" fn prefers_full_size_previews(
-    this: &mut Object,
-    _sel: Sel,
-    interaction: id,
-    session: id,
-) -> BOOL {
-    with_state(
-        this,
-        |state| state.prefers_full_size_previews(interaction, session),
-        || NO,
-    )
-}
-
-static SUPERCLASS: Lazy<&'static Class> = Lazy::new(|| class!(NSObject));
-
-static DELEGATE_CLASS: Lazy<&'static Class> = Lazy::new(|| unsafe {
-    let mut decl = ClassDecl::new("SNEDragInteractionDelegate", *SUPERCLASS).unwrap();
-    decl.add_protocol(Protocol::get("UIDragInteractionDelegate").unwrap());
-    decl.add_ivar::<*mut c_void>("context");
-    decl.add_method(sel!(dealloc), dealloc as extern "C" fn(&Object, Sel));
-    decl.add_method(
-        sel!(dragInteraction:itemsForBeginningSession:),
-        items_for_beginning as extern "C" fn(&mut Object, Sel, id, id) -> id,
-    );
-
-    decl.add_method(
-        sel!(dragInteraction:itemsForAddingToSession:withTouchAtPoint:),
-        items_for_adding as extern "C" fn(&mut Object, Sel, id, id, _CGPoint) -> id,
-    );
-    decl.add_method(
-        sel!(dragInteraction:sessionWillBegin:),
-        drag_will_begin as extern "C" fn(&mut Object, Sel, id, id),
-    );
-    decl.add_method(
-        sel!(dragInteraction:sessionDidMove:),
-        did_move as extern "C" fn(&mut Object, Sel, id, id),
-    );
-    decl.add_method(
-        sel!(dragInteraction:session:didEndWithOperation:),
-        did_end_with_operation as extern "C" fn(&mut Object, Sel, id, id, UIDropOperation),
-    );
-    decl.add_method(
-        sel!(dragInteraction:sessionAllowsMoveOperation:),
-        allows_move_operation as extern "C" fn(&mut Object, Sel, id, id) -> BOOL,
-    );
-    decl.add_method(
-        sel!(dragInteraction:sessionDidTransferItems:),
-        did_transfer_items as extern "C" fn(&mut Object, Sel, id, id),
-    );
-    decl.add_method(
-        sel!(dragInteraction:previewForLiftingItem:session:),
-        preview_for_for_lifting_item as extern "C" fn(&mut Object, Sel, id, id, id) -> id,
-    );
-    decl.add_method(
-        sel!(dragInteraction:previewForCancellingItem:withDefault:),
-        preview_for_cancelling_item as extern "C" fn(&mut Object, Sel, id, id, id) -> id,
-    );
-    decl.add_method(
-        sel!(dragInteraction:prefersFullSizePreviewsForSession:),
-        prefers_full_size_previews as extern "C" fn(&mut Object, Sel, id, id) -> BOOL,
-    );
-    decl.register()
-});

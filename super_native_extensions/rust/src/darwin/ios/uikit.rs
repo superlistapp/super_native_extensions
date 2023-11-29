@@ -4,12 +4,19 @@ use icrate::{
 };
 use objc2::{
     extern_class, extern_methods, extern_protocol,
-    ffi::NSInteger,
+    ffi::{NSInteger, NSUInteger},
     mutability,
     rc::{Allocated, Id},
-    runtime::{AnyObject, Bool, NSObject, NSObjectProtocol},
+    runtime::{Bool, NSObject, NSObjectProtocol, ProtocolObject},
     ClassType, ProtocolType, RefEncode,
 };
+
+pub type UIDropOperation = NSUInteger;
+
+pub const UIDropOperationCancel: UIDropOperation = 0;
+pub const UIDropOperationForbidden: UIDropOperation = 1;
+pub const UIDropOperationCopy: UIDropOperation = 2;
+pub const UIDropOperationMove: UIDropOperation = 3;
 
 extern_class!(
     #[derive(Debug, PartialEq, Eq, Hash)]
@@ -346,6 +353,155 @@ extern_protocol!(
     unsafe impl ProtocolType for dyn UIDragSession {}
 );
 
+extern_protocol!(
+    pub unsafe trait UIDragAnimating: NSObjectProtocol {}
+
+    unsafe impl ProtocolType for dyn UIDragAnimating {}
+);
+
+extern_protocol!(
+    pub unsafe trait UIDragInteractionDelegate: NSObjectProtocol {
+        #[method_id(@__retain_semantics Other dragInteraction:itemsForBeginningSession:)]
+        fn dragInteraction_itemsForBeginningSession(
+            &self,
+            interaction: &UIDragInteraction,
+            session: &ProtocolObject<dyn UIDragSession>,
+        ) -> Id<NSArray<UIDragItem>>;
+
+        #[optional]
+        #[method_id(@__retain_semantics Other dragInteraction:itemsForAddingToSession:withTouchAtPoint:)]
+        fn dragInteraction_itemsForAddingToSession_withTouchAtPoint(
+            &self,
+            interaction: &UIDragInteraction,
+            session: &ProtocolObject<dyn UIDragSession>,
+            point: CGPoint,
+        ) -> Id<NSArray<UIDragItem>>;
+
+        #[optional]
+        #[method_id(@__retain_semantics Other dragInteraction:sessionForAddingItems:withTouchAtPoint:)]
+        fn dragInteraction_sessionForAddingItems_withTouchAtPoint(
+            &self,
+            interaction: &UIDragInteraction,
+            sessions: &NSArray<ProtocolObject<dyn UIDragSession>>,
+            point: CGPoint,
+        ) -> Id<NSObject>;
+
+        #[optional]
+        #[method(dragInteraction:willAnimateLiftWithAnimator:session:)]
+        fn dragInteraction_willAnimateLiftWithAnimator_session(
+            &self,
+            interaction: &UIDragInteraction,
+            animator: &ProtocolObject<dyn UIDragAnimating>,
+            session: &ProtocolObject<dyn UIDragSession>,
+        );
+
+        #[optional]
+        #[method(dragInteraction:item:willAnimateCancelWithAnimator:)]
+        fn dragInteraction_item_willAnimateCancelWithAnimator(
+            &self,
+            interaction: &UIDragInteraction,
+            item: &UIDragItem,
+            animator: &ProtocolObject<dyn UIDragAnimating>,
+        );
+
+        #[optional]
+        #[method(dragInteraction:sessionWillBegin:)]
+        fn dragInteraction_sessionWillBegin(
+            &self,
+            interaction: &UIDragInteraction,
+            session: &ProtocolObject<dyn UIDragSession>,
+        );
+
+        #[optional]
+        #[method(dragInteraction:session:willAddItems:forInteraction:)]
+        fn dragInteraction_session_willAddItems_forInteraction(
+            &self,
+            interaction: &UIDragInteraction,
+            session: &ProtocolObject<dyn UIDragSession>,
+            items: &NSArray<UIDragItem>,
+            adding_interaction: &UIDragInteraction,
+        );
+
+        #[optional]
+        #[method(dragInteraction:sessionDidMove:)]
+        fn dragInteraction_sessionDidMove(
+            &self,
+            interaction: &UIDragInteraction,
+            session: &ProtocolObject<dyn UIDragSession>,
+        );
+
+        #[optional]
+        #[method(dragInteraction:session:willEndWithOperation:)]
+        fn dragInteraction_session_willEndWithOperation(
+            &self,
+            interaction: &UIDragInteraction,
+            session: &ProtocolObject<dyn UIDragSession>,
+            operation: UIDropOperation,
+        );
+
+        #[optional]
+        #[method(dragInteraction:session:didEndWithOperation:)]
+        fn dragInteraction_session_didEndWithOperation(
+            &self,
+            interaction: &UIDragInteraction,
+            session: &ProtocolObject<dyn UIDragSession>,
+            operation: UIDropOperation,
+        );
+
+        #[optional]
+        #[method(dragInteraction:sessionDidTransferItems:)]
+        fn dragInteraction_sessionDidTransferItems(
+            &self,
+            interaction: &UIDragInteraction,
+            session: &ProtocolObject<dyn UIDragSession>,
+        );
+
+        #[optional]
+        #[method_id(@__retain_semantics Other dragInteraction:previewForLiftingItem:session:)]
+        fn dragInteraction_previewForLiftingItem_session(
+            &self,
+            interaction: &UIDragInteraction,
+            item: &UIDragItem,
+            session: &ProtocolObject<dyn UIDragSession>,
+        ) -> Option<Id<UITargetedDragPreview>>;
+
+        #[optional]
+        #[method_id(@__retain_semantics Other dragInteraction:previewForCancellingItem:withDefault:)]
+        fn dragInteraction_previewForCancellingItem_withDefault(
+            &self,
+            interaction: &UIDragInteraction,
+            item: &UIDragItem,
+            default_preview: &UITargetedDragPreview,
+        ) -> Option<Id<UITargetedDragPreview>>;
+
+        #[optional]
+        #[method(dragInteraction:prefersFullSizePreviewsForSession:)]
+        fn dragInteraction_prefersFullSizePreviewsForSession(
+            &self,
+            interaction: &UIDragInteraction,
+            session: &ProtocolObject<dyn UIDragSession>,
+        ) -> bool;
+
+        #[optional]
+        #[method(dragInteraction:sessionIsRestrictedToDraggingApplication:)]
+        fn dragInteraction_sessionIsRestrictedToDraggingApplication(
+            &self,
+            interaction: &UIDragInteraction,
+            session: &ProtocolObject<dyn UIDragSession>,
+        ) -> bool;
+
+        #[optional]
+        #[method(dragInteraction:sessionAllowsMoveOperation:)]
+        fn dragInteraction_sessionAllowsMoveOperation(
+            &self,
+            interaction: &UIDragInteraction,
+            session: &ProtocolObject<dyn UIDragSession>,
+        ) -> bool;
+    }
+
+    unsafe impl ProtocolType for dyn UIDragInteractionDelegate {}
+);
+
 extern_class!(
     #[derive(Debug, PartialEq, Eq, Hash)]
     pub(crate) struct UIDragInteraction;
@@ -353,6 +509,16 @@ extern_class!(
     unsafe impl ClassType for UIDragInteraction {
         type Super = NSObject;
         type Mutability = mutability::InteriorMutable;
+    }
+);
+
+extern_methods!(
+    unsafe impl UIDragInteraction {
+        #[method_id(@__retain_semantics Init initWithDelegate:)]
+        pub unsafe fn initWithDelegate(
+            this: Option<Allocated<Self>>,
+            delegate: &ProtocolObject<dyn UIDragInteractionDelegate>,
+        ) -> Id<Self>;
     }
 );
 
