@@ -18,7 +18,7 @@ use crate::{
     util::NextId,
 };
 
-#[derive(TryFromValue, Debug)]
+#[derive(TryFromValue, Debug, Clone)]
 #[irondash(rename_all = "camelCase")]
 pub struct HotKeyCreateRequest {
     pub alt: bool,
@@ -45,6 +45,7 @@ pub struct HotKeyManager {
 
 pub trait HotKeyManagerDelegate {
     fn on_hot_key_pressed(&self, handle: HotKeyHandle);
+    fn on_hot_key_released(&self, handle: HotKeyHandle);
 }
 
 pub trait GetHotKeyManager {
@@ -137,9 +138,20 @@ impl HotKeyManagerDelegate for HotKeyManager {
         let handle_to_isolate = self.handle_to_isolate.borrow();
         let isolate = handle_to_isolate.get(&handle);
         if let Some(isolate) = isolate {
-            self.invoker.call_method(*isolate, "onHotKey", handle, |r| {
-                r.ok_log();
-            });
+            self.invoker
+                .call_method(*isolate, "onHotKeyPressed", handle, |r| {
+                    r.ok_log();
+                });
+        }
+    }
+    fn on_hot_key_released(&self, handle: HotKeyHandle) {
+        let handle_to_isolate = self.handle_to_isolate.borrow();
+        let isolate = handle_to_isolate.get(&handle);
+        if let Some(isolate) = isolate {
+            self.invoker
+                .call_method(*isolate, "onHotKeyReleased", handle, |r| {
+                    r.ok_log();
+                });
         }
     }
 }

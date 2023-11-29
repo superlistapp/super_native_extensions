@@ -15,10 +15,10 @@ use crate::{
 };
 
 use super::hot_key_sys::{
-    kEventClassKeyboard, kEventHotKeyPressed, kEventParamDirectObject, typeEventHotKeyID,
-    EventHandlerCallRef, EventHandlerRef, EventHotKeyID, EventHotKeyRef, EventRef, EventTypeSpec,
-    GetEventDispatcherTarget, GetEventParameter, InstallEventHandler, RegisterEventHotKey,
-    RemoveEventHandler, UnregisterEventHotKey,
+    kEventClassKeyboard, kEventHotKeyPressed, kEventHotKeyReleased, kEventParamDirectObject,
+    typeEventHotKeyID, EventHandlerCallRef, EventHandlerRef, EventHotKeyID, EventHotKeyRef,
+    EventRef, EventTypeSpec, GetEventDispatcherTarget, GetEventKind, GetEventParameter,
+    InstallEventHandler, RegisterEventHotKey, RemoveEventHandler, UnregisterEventHotKey,
 };
 
 const HOT_KEY_TAG: u32 = 1314080844; // NSHL
@@ -49,10 +49,16 @@ impl PlatformHotKeyManager {
     pub fn assign_weak_self(&self, weak: Weak<PlatformHotKeyManager>) {
         self.weak_self.set(weak.clone());
 
-        let spec = EventTypeSpec {
-            eventClass: kEventClassKeyboard,
-            eventKind: kEventHotKeyPressed,
-        };
+        let spec = [
+            EventTypeSpec {
+                eventClass: kEventClassKeyboard,
+                eventKind: kEventHotKeyPressed,
+            },
+            EventTypeSpec {
+                eventClass: kEventClassKeyboard,
+                eventKind: kEventHotKeyReleased,
+            },
+        ];
 
         let ptr = Box::into_raw(Box::new(weak));
         let mut event_handler_ref: EventHandlerRef = std::ptr::null_mut();
@@ -61,7 +67,7 @@ impl PlatformHotKeyManager {
             InstallEventHandler(
                 GetEventDispatcherTarget(),
                 Some(event_handler),
-                1,
+                2,
                 &spec as *const _,
                 ptr as *mut _,
                 &mut event_handler_ref as *mut _,
@@ -73,10 +79,18 @@ impl PlatformHotKeyManager {
         }
     }
 
-    fn on_hot_key(&self, hot_key_id: u32) {
+    fn on_hot_key_pressed(&self, hot_key_id: u32) {
         if let Some(key) = self.hot_keys.borrow().get(&hot_key_id) {
             if let Some(delegate) = self.delegate.upgrade() {
                 delegate.on_hot_key_pressed(key.handle);
+            }
+        }
+    }
+
+    fn on_hot_key_released(&self, hot_key_id: u32) {
+        if let Some(key) = self.hot_keys.borrow().get(&hot_key_id) {
+            if let Some(delegate) = self.delegate.upgrade() {
+                delegate.on_hot_key_released(key.handle);
             }
         }
     }
@@ -161,7 +175,6 @@ unsafe extern "C" fn event_handler(
         signature: 0,
         id: 0,
     };
-
     #[allow(clippy::collapsible_if)]
     if GetEventParameter(
         in_event,
@@ -174,10 +187,15 @@ unsafe extern "C" fn event_handler(
     ) == 0
     {
         if hot_key_id.signature == HOT_KEY_TAG {
+            let kind = GetEventKind(in_event);
             let manager = in_user_data as *mut Weak<PlatformHotKeyManager>;
             let manager = &*manager;
             if let Some(manager) = manager.upgrade() {
-                manager.on_hot_key(hot_key_id.id);
+                if kind == kEventHotKeyPressed {
+                    manager.on_hot_key_pressed(hot_key_id.id);
+                } else if kind == kEventHotKeyReleased {
+                    manager.on_hot_key_released(hot_key_id.id);
+                }
             }
         }
     }

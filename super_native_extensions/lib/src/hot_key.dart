@@ -26,7 +26,8 @@ class HotKeyDefinition {
 
 abstract class HotKeyManagerDelegate {
   /// Invoked when hot key with given handle is pressed.
-  void onHotKey(int handle);
+  void onHotKeyPressed(int handle);
+  void onHotKeyReleased(int handle);
 }
 
 abstract class HotKeyManager {
