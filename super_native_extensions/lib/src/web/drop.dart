@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:html' as html;
-import 'dart:typed_data';
+
 import 'dart:js_util' as js_util;
 
 import 'package:collection/collection.dart';
@@ -12,175 +12,8 @@ import '../drag.dart';
 import '../drop.dart';
 import '../reader.dart';
 import '../reader_manager.dart';
-
 import 'js_interop.dart';
-import 'clipboard_api.dart';
-import 'reader_manager.dart';
-
-class WebItemDataReaderHandle implements DataReaderItemHandleImpl {
-  WebItemDataReaderHandle(this.items, {required bool canRead})
-      : file = canRead ? _getFile(items) : null,
-        entry = canRead ? _getEntry(items) : null,
-        // reading strings multiple times fails in Chrome so we cache them
-        strings = canRead ? _getStrings(items) : {};
-
-  static html.File? _getFile(List<html.DataTransferItem> items) {
-    for (final item in items) {
-      if (item.isFile) {
-        return item.getAsFile();
-      }
-    }
-    return null;
-  }
-
-  static html.Entry? _getEntry(List<html.DataTransferItem> items) {
-    for (final item in items) {
-      if (item.isFile) {
-        return item.getAsEntry();
-      }
-    }
-    return null;
-  }
-
-  static Map<String, Future<String>> _getStrings(
-      List<html.DataTransferItem> items) {
-    final res = <String, Future<String>>{};
-    for (final item in items) {
-      if (item.isString) {
-        final completer = Completer<String>();
-        item.getAsString(completer.complete);
-        res[item.format] = completer.future;
-      }
-    }
-    return res;
-  }
-
-  @override
-  Future<Object?> getDataForFormat(String format) async {
-    // meta-formats
-    if (format == 'web:file') {
-      return file;
-    }
-    if (format == 'web:entry') {
-      return entry;
-    }
-    if (strings.containsKey(format)) {
-      return strings[format];
-    }
-    for (final item in items) {
-      if (item.isFile && item.format == format) {
-        final file = this.file;
-        if (file != null) {
-          final slice = file.slice();
-          final buffer = await slice.arrayBuffer();
-          return buffer?.asUint8List();
-        }
-      }
-    }
-    return Future.value(null);
-  }
-
-  List<String> getFormatsSync() {
-    final formats = items.map((e) => e.format).toList(growable: true);
-    // meta formats for file (html.File) and entry (html.Entry)
-    if (file != null) {
-      formats.add('web:file');
-    }
-    if (entry != null) {
-      formats.add('web:entry');
-    }
-    // safari doesn't provide types during dragging, but we still need to report
-    // to use that there is potential contents.
-    return formats.isNotEmpty ? formats : ['web:unknown'];
-  }
-
-  @override
-  Future<List<String>> getFormats() async {
-    return getFormatsSync();
-  }
-
-  @override
-  Future<String?> suggestedName() async {
-    return file?.name;
-  }
-
-  final html.File? file;
-  final html.Entry? entry;
-  final Map<String, Future<String>> strings;
-  final List<html.DataTransferItem> items;
-
-  @override
-  Future<bool> canGetVirtualFile(String format) async {
-    return !format.startsWith('web:') && file != null;
-  }
-
-  @override
-  Future<VirtualFileReceiver?> createVirtualFileReceiver(
-    DataReaderItemHandle handle, {
-    required String format,
-  }) async {
-    if (await canGetVirtualFile(format)) {
-      return _VirtualFileReceiver(format, file!);
-    } else {
-      return null;
-    }
-  }
-}
-
-class _VirtualFileReceiver extends VirtualFileReceiver {
-  _VirtualFileReceiver(this.format, this.file);
-
-  @override
-  final String format;
-  final html.File file;
-
-  @override
-  (Future<String>, ReadProgress) copyVirtualFile(
-      {required String targetFolder}) {
-    throw UnimplementedError();
-  }
-
-  @override
-  (Future<VirtualFile>, ReadProgress) receiveVirtualFile() {
-    final progress = SimpleProgress();
-    progress.done();
-    return (Future.value(_VirtualFile(file)), progress);
-  }
-}
-
-class _VirtualFile extends VirtualFile {
-  _VirtualFile(this.file);
-
-  final html.File file;
-
-  ReadableStreamDefaultReader? _reader;
-
-  @override
-  void close() {
-    _reader?.cancel();
-  }
-
-  @override
-  String? get fileName => file.name;
-
-  @override
-  int? get length => file.size;
-
-  @override
-  Future<Uint8List> readNext() async {
-    if (_reader == null) {
-      final stream = file.stream();
-      _reader = stream.getReader();
-    }
-
-    final next = await _reader!.read();
-    if (next.done) {
-      return Uint8List(0);
-    } else {
-      return next.value as Uint8List;
-    }
-  }
-}
+import 'reader.dart';
 
 List<DropItem> _translateDataTransfer(
   html.DataTransfer dataTransfer, {
@@ -197,7 +30,7 @@ List<DropItem> _translateDataTransfer(
       .toList(growable: false);
 }
 
-Iterable<(List<String> formats, DataReaderItemHandle? readerHandle)>
+Iterable<(List<String> formats, $DataReaderItemHandle? readerHandle)>
     translateDataTransfer(
   html.DataTransfer dataTransfer, {
   required bool allowReader,
@@ -205,26 +38,25 @@ Iterable<(List<String> formats, DataReaderItemHandle? readerHandle)>
   final itemList = dataTransfer.items;
   final hasFiles = dataTransfer.types?.contains("Files") ?? false;
 
-  final res = <WebItemDataReaderHandle>[];
+  final res = <DataTransferItemHandle>[];
   var items = <html.DataTransferItem>[];
 
   for (int i = 0; i < (itemList?.length ?? 0); ++i) {
     final item = itemList![i];
     if ((item.isString && items.any((element) => element.type == item.type)) ||
         (item.isFile && items.any((element) => element.isFile))) {
-      res.add(WebItemDataReaderHandle(items, canRead: allowReader));
+      res.add(DataTransferItemHandle(items, canRead: allowReader));
       items = <html.DataTransferItem>[];
     }
     items.add(item);
   }
   if (items.isNotEmpty) {
-    res.add(WebItemDataReaderHandle(items, canRead: allowReader));
+    res.add(DataTransferItemHandle(items, canRead: allowReader));
   }
   if (res.isEmpty && hasFiles) {
-    res.add(WebItemDataReaderHandle([], canRead: false));
+    res.add(DataTransferItemHandle([], canRead: false));
   }
-  return res.map((e) =>
-      (e.getFormatsSync(), allowReader ? e as DataReaderItemHandle : null));
+  return res.map((e) => (e.getFormatsSync(), allowReader ? e : null));
 }
 
 List<DropOperation> _translateAllowedEffect(String? effects) {
@@ -407,7 +239,7 @@ class DropContextImpl extends DropContext {
               formats: itemFormats(item.dataProvider),
               localData: item.localData,
               readerItem: DataReaderItem(
-                handle: DataProviderReaderItem(item.dataProvider)
+                handle: DataProviderItemHandle(item.dataProvider)
                     as DataReaderItemHandle,
               ),
             ),

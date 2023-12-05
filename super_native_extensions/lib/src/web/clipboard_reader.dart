@@ -5,57 +5,17 @@ import '../reader.dart';
 import '../reader_manager.dart';
 import 'clipboard_api.dart';
 import 'drop.dart';
+import 'reader.dart';
 import 'reader_manager.dart';
-
-class ClipboardReaderHandle extends DataReaderItemHandleImpl {
-  ClipboardReaderHandle(this.item);
-
-  final ClipboardItem item;
-
-  @override
-  Future<List<String>> getFormats() async {
-    return item.types.toList(growable: false);
-  }
-
-  @override
-  Future<Object?> getDataForFormat(String format) async {
-    final data = await item.getType(format);
-    if (format.startsWith('text/')) {
-      return data.text();
-    } else {
-      return (await data.arrayBuffer())?.asUint8List();
-    }
-  }
-
-  @override
-  Future<String?> suggestedName() async {
-    // ClipboardItem can tell that it is an attachment but can not
-    // provide name. Go figure.
-    return null;
-  }
-
-  @override
-  Future<bool> canGetVirtualFile(String format) async {
-    return false;
-  }
-
-  @override
-  Future<VirtualFileReceiver?> createVirtualFileReceiver(
-    DataReaderItemHandle handle, {
-    required String format,
-  }) async {
-    return null;
-  }
-}
 
 class ClipboardReaderImpl extends ClipboardReader {
   @override
   Future<DataReader> newClipboardReader() async {
     final items = await getClipboard().read();
-    final handle = DataReaderHandleImpl(
+    final handle = $DataReaderHandle(
       items
           .map(
-            (e) => ClipboardReaderHandle(e),
+            (e) => ClipboardItemHandle(e),
           )
           .toList(growable: false),
     );
@@ -80,10 +40,10 @@ class ClipboardReaderImpl extends ClipboardReader {
         }
         final translated = translateDataTransfer(clipboardEvent.clipboardData!,
             allowReader: true);
-        final readerHandle = DataReaderHandleImpl(
+        final readerHandle = $DataReaderHandle(
           translated.map(
             (e) {
-              return e.$2 as DataReaderItemHandleImpl;
+              return e.$2 as $DataReaderItemHandle;
             },
           ).toList(growable: false),
         );
