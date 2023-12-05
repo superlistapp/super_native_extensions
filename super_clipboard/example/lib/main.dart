@@ -142,6 +142,18 @@ class _MyHomePageState extends State<MyHomePage>
     );
   }
 
+  @override
+  void initState() {
+    super.initState();
+    ClipboardReader.registerPasteEventListener(_paste);
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+    ClipboardReader.unregisterPasteEventListener(_paste);
+  }
+
   void copyText() async {
     final item = DataWriterItem();
     item.add(Formats.htmlText('<b>This is a <em>HTML</en> value</b>.'));
@@ -201,8 +213,7 @@ class _MyHomePageState extends State<MyHomePage>
     await ClipboardWriter.instance.write([item]);
   }
 
-  void _paste() async {
-    final reader = await ClipboardReader.readClipboard();
+  void _paste(ClipboardReader reader) async {
     final readers = await Future.wait(
       reader.items.map((e) => ReaderInfo.fromReader(e)),
     );
@@ -245,7 +256,10 @@ class _MyHomePageState extends State<MyHomePage>
               child: const Text('Copy Custom - Lazy')),
           OutlinedButton(onPressed: copyUri, child: const Text('Copy URI')),
           OutlinedButton(
-              onPressed: _paste,
+              onPressed: () async {
+                final reader = await ClipboardReader.readClipboard();
+                _paste(reader);
+              },
               style: OutlinedButton.styleFrom(
                 backgroundColor: Colors.blue.shade600,
                 foregroundColor: Colors.white,

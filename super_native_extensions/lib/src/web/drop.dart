@@ -182,11 +182,29 @@ class _VirtualFile extends VirtualFile {
   }
 }
 
-List<DropItem> _translateTransferItems(
-  html.DataTransferItemList? itemList, {
+List<DropItem> _translateDataTransfer(
+  html.DataTransfer dataTransfer, {
   required bool allowReader,
-  required bool hasFiles,
 }) {
+  return translateDataTransfer(dataTransfer, allowReader: allowReader)
+      .mapIndexed((i, e) => DropItem(
+            itemId: i,
+            formats: e.$1,
+            readerItem: allowReader
+                ? DataReaderItem(handle: e.$2 as DataReaderItemHandle)
+                : null,
+          ))
+      .toList(growable: false);
+}
+
+Iterable<(List<String> formats, DataReaderItemHandle? readerHandle)>
+    translateDataTransfer(
+  html.DataTransfer dataTransfer, {
+  required bool allowReader,
+}) {
+  final itemList = dataTransfer.items;
+  final hasFiles = dataTransfer.types?.contains("Files") ?? false;
+
   final res = <WebItemDataReaderHandle>[];
   var items = <html.DataTransferItem>[];
 
@@ -205,15 +223,8 @@ List<DropItem> _translateTransferItems(
   if (res.isEmpty && hasFiles) {
     res.add(WebItemDataReaderHandle([], canRead: false));
   }
-  return res
-      .mapIndexed((i, e) => DropItem(
-            itemId: i,
-            formats: e.getFormatsSync(),
-            readerItem: allowReader
-                ? DataReaderItem(handle: e as DataReaderItemHandle)
-                : null,
-          ))
-      .toList(growable: false);
+  return res.map((e) =>
+      (e.getFormatsSync(), allowReader ? e as DataReaderItemHandle : null));
 }
 
 List<DropOperation> _translateAllowedEffect(String? effects) {
@@ -275,15 +286,14 @@ class DropContextImpl extends DropContext {
     if (_sessionId == null) {
       return;
     }
-    final bool hasFiles = transfer.types?.contains("Files") ?? false;
+
     final dropEvent = DropEvent(
       sessionId: _sessionId!,
       locationInView: Offset(event.page.x.toDouble(), event.page.y.toDouble()),
       allowedOperations: _translateAllowedEffect(transfer.effectAllowed),
-      items: _translateTransferItems(
-        transfer.items,
+      items: _translateDataTransfer(
+        transfer,
         allowReader: false,
-        hasFiles: hasFiles,
       ),
     );
     final currentSessionId = _sessionId;
@@ -311,15 +321,13 @@ class DropContextImpl extends DropContext {
   }
 
   void _onDrop(html.DataTransfer transfer, html.MouseEvent event) async {
-    final bool hasFiles = transfer.types?.contains("Files") ?? false;
     final dropEvent = DropEvent(
       sessionId: _sessionId!,
       locationInView: Offset(event.page.x.toDouble(), event.page.y.toDouble()),
       allowedOperations: _translateAllowedEffect(transfer.effectAllowed),
-      items: _translateTransferItems(
-        transfer.items,
+      items: _translateDataTransfer(
+        transfer,
         allowReader: true,
-        hasFiles: hasFiles,
       ),
       acceptedOperation: lastOperation,
     );

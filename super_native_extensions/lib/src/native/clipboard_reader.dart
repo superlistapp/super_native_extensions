@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:irondash_message_channel/irondash_message_channel.dart';
 
 import 'context.dart';
@@ -16,4 +18,13 @@ class ClipboardReaderImpl extends ClipboardReader {
 
   final _channel = NativeMethodChannel('ClipboardReader',
       context: superNativeExtensionsContext);
+
+  @override
+  void registerPasteEventListener(void Function(DataReader reader) listener) {}
+
+  @override
+  void unregisterPasteEventListener(void Function(DataReader reader) listener) {}
+
+  @override
+  bool get supportsPasteEvent => false;
 }
