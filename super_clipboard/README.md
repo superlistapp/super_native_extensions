@@ -6,18 +6,18 @@
 - Supports macOS, iOS, Android, Windows, Linux and Web.
 - Platform agnostic code for reading and writing common clipboard formats.
 - Support for custom data formats.
-- Multiple representation for clipboard items.
+- Multiple representations for clipboard items.
 - Providing clipboard data on demand.
 
 <img src="https://matejknopp.com/super_native_extensions/super_clipboard.png" width="831"/>
 
 ## Getting started
 
-`super_clipboard` uses Rust internally to implement low-level platform specific functionality.
+`super_clipboard` uses Rust internally to implement low-level platform-specific functionality.
 
-If you don't have Rust installed, the plugin will automatically download precompiled binaries for target platform.
+If you don't have Rust installed, the plugin will automatically download precompiled binaries for the target platform.
 
-If you want to have the Rust code compiled from source instead, you can install Rust through [rustup](https://rustup.rs/). The presence of rustup will be detected during build automatically.
+If you want to have the Rust code compiled from the source instead, you can install Rust through [rustup](https://rustup.rs/). The presence of rustup will be detected during the build automatically.
 
 For macOS or Linux, execute the following command in Terminal.
 ```bash
@@ -25,17 +25,17 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 ```
 For Windows, you can use the [Rust Installer](https://static.rust-lang.org/rustup/dist/x86_64-pc-windows-msvc/rustup-init.exe).
 
-In case you have Rust already installed, make sure to update it to latest version:
+In case you have Rust already installed, make sure to update it to the latest version:
 
 ```bash
 rustup update
 ```
 
-That is it. The build integration will automatically install required Rust targets and other dependencies (NDK). This also means that first build might take a little bit longer.
+That is it. The build integration will automatically install required Rust targets and other dependencies (NDK). This also means that the first build might take a little bit longer.
 
 ### Android support
 
-NDK is required to use `super_clipboard`. If not present it will be automatically installed during first build. The NDK is a large download (~1GB) so it might take a while to install.
+NDK is required to use `super_clipboard`. If not present it will be automatically installed during the first build. The NDK is a large download (~1GB) so it might take a while to install.
 
 The NDK version used is specified in `android/app/build.gradle` of your Flutter project.
 
@@ -45,7 +45,7 @@ android {
     ndkVersion flutter.ndkVersion
 ```
 
-If you have older Flutter android project, you will need to specify reasonably recent minimal SDK version in `android/app/build.gradle`:
+If you have an older Flutter android project, you will need to specify a reasonably recent minimal SDK version in `android/app/build.gradle`:
 
 ```groovy
 android {
@@ -53,19 +53,18 @@ android {
         minSdkVersion 23
 ```
 
-To be able to write images and other custom data to Android clipboard you need
+To be able to write images and other custom data to an Android clipboard you need
 to declare a content provider in `AndroidManifest.xml`:
 
 ```xml
 <manifest>
     <application>
         ...
-        <provider
+           <provider
             android:name="com.superlist.super_native_extensions.DataProvider"
-            android:authorities="<your-package-name>.SuperClipboardDataProvider"
+            android:authorities="com.example.example.SuperClipboardDataProvider"
             android:exported="true"
-            android:grantUriPermissions="true" >
-        </provider>
+            android:grantUriPermissions="true" />
         ...
     </application>
 </manifest>
@@ -98,11 +97,11 @@ Be sure to replace `<your-package-name>` in the snippet with your actual package
     }
 ```
 
-For more formats supported out of box look at the [Formats](https://github.com/superlistapp/super_native_extensions/blob/main/super_clipboard/lib/src/standard_formats.dart) class.
+For more formats supported out of the box look at the [Formats](https://github.com/superlistapp/super_native_extensions/blob/main/super_clipboard/lib/src/standard_formats.dart) class.
 
 Note that on Windows clipboard images are usually stored in DIB or DIBv5 format, while on macOS TIFF is commonly used. `super_clipboard` will transparently expose these images as PNG.
 
-You can query whether the PNG image in clipboard has been synthesized through `reader.isSynthesized(Formats.png)`.
+You can query whether the PNG image in the clipboard has been synthesized through `reader.isSynthesized(Formats.png)`.
 
 ### Writing to clipboard
 
@@ -124,13 +123,13 @@ You can also provide representations on demand:
     await ClipboardWriter.instance.write([item]);
 ```
 
-If you do this make sure that the callback can provide requested data without any uncecessary delay. On some platforms main thread may be blocked while the data is being requested. This functionality is meant for providing alternative representations on demand. Do **not** start downloading a file from lazy callback or any other action that is not guaranteed to complete in short time. For copying or dragging files that are not readily available use `DataWriterItem.addVirtualFile` instead.
+If you do this make sure that the callback can provide requested data without any unnecessary delay. On some platforms, the main thread may be blocked while the data is being requested. This functionality is meant to provide alternative representations on demand. Do **not** start downloading a file from a lazy callback or any other action that is not guaranteed to be completed in a short time. For copying or dragging files that are not readily available use `DataWriterItem.addVirtualFile` instead.
 
-On some platform the data may be requested eagerly when writing to clipboard. In this case the callback will be called immediately.
+On some platforms, the data may be requested eagerly when writing to a clipboard. In this case, the callback will be called immediately.
 
-When writing images preferred format is PNG. Most platform can handle PNG images in clipboard natively. On Windows PNGs are on-demand converted to DIB and DIBv5 formats, which is what native applications expect.
+When writing images preferred format is PNG. Most platforms can handle PNG images in a clipboard natively. On Windows, PNGs are on-demand converted to DIB and DIBv5 formats, which is what native applications expect.
 
-While the Clipboard API supports writing multiple items, not all platforms support that fully. On Windows clipboard items past the first one only support `Formats.fileUri` type (so it is possible to store multiple file URIs in clipboard) and on Linux only supported formats for additional items are `Formats.uri` and `Formats.fileUri`.
+While the Clipboard API supports writing multiple items, not all platforms support that fully. On Windows clipboard items past the first one only support `Formats.fileUri` type (so it is possible to store multiple file URIs in the clipboard) and on Linux only supported formats for additional items are `Formats.uri` and `Formats.fileUri`.
 
 ## Running the example
 
@@ -143,12 +142,12 @@ cd super_native_extensions
 melos bootstrap
 ```
 
-After this you can open the folder in VSCode and run the `clipboard_example` launcher configuration.
+After this, you can open the folder in VSCode and run the `clipboard_example` launcher configuration.
 
 TODO(knopp): Add Intellij launcher configuration
 
 ## Additional information
 
-This plugin is in a very early stages of development and quite experimental.
+This plugin is in the very early stages of development and quite experimental.
 
 [PRs](https://github.com/superlistapp/super_native_extensions/pulls) and [bug reports](https://github.com/superlistapp/super_native_extensions/issues) are welcome!
