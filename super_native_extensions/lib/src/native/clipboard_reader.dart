@@ -23,7 +23,8 @@ class ClipboardReaderImpl extends ClipboardReader {
   void registerPasteEventListener(void Function(DataReader reader) listener) {}
 
   @override
-  void unregisterPasteEventListener(void Function(DataReader reader) listener) {}
+  void unregisterPasteEventListener(
+      void Function(DataReader reader) listener) {}
 
   @override
   bool get supportsPasteEvent => false;
