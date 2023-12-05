@@ -156,11 +156,11 @@ class ClipboardReader extends ClipboardDataReader {
   /// Individual items of this clipboard reader.
   final List<ClipboardDataReader> items;
 
-  /// Reads clipboard contents. Note that on some platforms the clipboard access may trigger
-  /// a prompt to user to allow access to clipboard. This is the case on iOS and web.
+  /// Reads clipboard contents. Note that on some platforms accessing clipboard may trigger
+  /// a prompt for user to confirm clipboard access. This is the case on iOS and web.
   ///
-  /// For web the preferred way to access clipboard is through [registerPasteEventListener], which
-  /// is triggered when user pastes something into the page and does not require any
+  /// For web the preferred way to get clipboard contents is through [registerPasteEventListener],
+  /// which is triggered when user pastes something into the page and does not require any
   /// user confirmation.
   static Future<ClipboardReader> readClipboard() async {
     final reader = await raw.ClipboardReader.instance.newClipboardReader();
@@ -180,8 +180,8 @@ class ClipboardReader extends ClipboardDataReader {
   /// Registers a listener for paste event (triggered through Ctrl/Cmd + V or browser menu action).
   /// This is only supported on web and is a no-op on other platforms.
   ///
-  /// The clipboard access will not require any use conformation and allows accessing files, unlike
-  /// [readClipboard] which is more limited on web.
+  /// The clipboard access in the listener will not require any use conformation and allows
+  /// accessing files, unlike [readClipboard] which is more limited on web.
   static void registerPasteEventListener(
     void Function(ClipboardReader reader) listener,
   ) {
