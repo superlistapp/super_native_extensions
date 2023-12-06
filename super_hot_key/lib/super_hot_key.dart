@@ -44,8 +44,8 @@ class HotKey {
 
   static Future<HotKey?> create({
     required HotKeyDefinition definition,
-    required VoidCallback? onPressed,
-    required VoidCallback? onReleased,
+    VoidCallback? onPressed,
+    VoidCallback? onReleased,
   }) async {
     return _HotKeyManager.instance.createHotKey(
       definition,
