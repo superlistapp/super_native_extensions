@@ -3,8 +3,11 @@ import 'reader.dart';
 import 'native/reader_manager.dart'
     if (dart.library.js) 'web/reader_manager.dart';
 
-typedef DataReaderHandle = DataReaderHandleImpl;
-typedef DataReaderItemHandle = DataReaderItemHandleImpl;
+// There is a separate $DataReaderHandle and $DataReaderItemHandle definition for
+// web and native. The typedef with $prefix is used within the web/native section
+// so that dart analyzer can find the correct type.
+typedef DataReaderHandle = $DataReaderHandle;
+typedef DataReaderItemHandle = $DataReaderItemHandle;
 
 abstract class ReaderManager {
   static final ReaderManager instance = ReaderManagerImpl();

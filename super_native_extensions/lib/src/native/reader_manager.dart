@@ -10,8 +10,8 @@ import '../reader.dart';
 import '../reader_manager.dart';
 import 'virtual_file.dart';
 
-class DataReaderHandleImpl {
-  DataReaderHandleImpl._({
+class $DataReaderHandle {
+  $DataReaderHandle._({
     required int handle,
     required FinalizableHandle finalizableHandle,
   })  : _handle = handle,
@@ -23,9 +23,9 @@ class DataReaderHandleImpl {
     _useHandle();
   }
 
-  static DataReaderHandleImpl deserialize(dynamic handle) {
+  static $DataReaderHandle deserialize(dynamic handle) {
     final map = handle as Map;
-    return DataReaderHandleImpl._(
+    return $DataReaderHandle._(
       handle: map["handle"],
       finalizableHandle: map["finalizableHandle"],
     );
@@ -45,10 +45,10 @@ class DataReaderHandleImpl {
   final FinalizableHandle _finalizableHandle;
 }
 
-class DataReaderItemHandleImpl {
-  DataReaderItemHandleImpl._({
+class $DataReaderItemHandle {
+  $DataReaderItemHandle._({
     required int itemHandle,
-    required DataReaderHandleImpl reader,
+    required $DataReaderHandle reader,
   })  : _itemHandle = itemHandle,
         _reader = reader;
 
@@ -56,7 +56,7 @@ class DataReaderItemHandleImpl {
   int get _readerHandle => _reader._handle;
 
   // keep reader alive otherwise finalizable handle may dispose it
-  final DataReaderHandleImpl _reader;
+  final $DataReaderHandle _reader;
 }
 
 class ReaderManagerImpl extends ReaderManager {
@@ -73,8 +73,7 @@ class ReaderManagerImpl extends ReaderManager {
   }
 
   @override
-  Future<List<DataReaderItemHandleImpl>> getItems(
-      DataReaderHandle reader) async {
+  Future<List<$DataReaderItemHandle>> getItems(DataReaderHandle reader) async {
     final handles =
         await _channel.invokeMethod("getItems", reader._handle) as List<int>;
     return handles
