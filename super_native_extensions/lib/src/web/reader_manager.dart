@@ -4,7 +4,19 @@ import 'package:flutter/foundation.dart';
 
 import '../reader.dart';
 import '../reader_manager.dart';
-import 'reader.dart';
+
+/// Unlike native implementation, item handle on web contains the actual implementation and
+/// [ReaderManagerImpl] merely forwards calls to the handle.
+abstract class $DataReaderItemHandle {
+  Future<List<String>> getFormats();
+  Future<Object?> getDataForFormat(String format);
+  Future<String?> suggestedName();
+  Future<bool> canGetVirtualFile(String format);
+  Future<VirtualFileReceiver?> createVirtualFileReceiver(
+    DataReaderItemHandle handle, {
+    required String format,
+  });
+}
 
 class SimpleProgress extends ReadProgress {
   @override

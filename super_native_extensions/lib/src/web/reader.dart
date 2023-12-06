@@ -9,19 +9,6 @@ import 'clipboard_api.dart';
 import 'js_interop.dart';
 import 'reader_manager.dart';
 
-/// Unlike native implementation, item handle on web contains the actual implementation and
-/// [ReaderManagerImpl] merely forwards calls to the handle.
-sealed class $DataReaderItemHandle {
-  Future<List<String>> getFormats();
-  Future<Object?> getDataForFormat(String format);
-  Future<String?> suggestedName();
-  Future<bool> canGetVirtualFile(String format);
-  Future<VirtualFileReceiver?> createVirtualFileReceiver(
-    DataReaderItemHandle handle, {
-    required String format,
-  });
-}
-
 /// Item handle that simply returns the data from the DataProvider.
 /// This is used when dropping within same browser tab.
 class DataProviderItemHandle extends $DataReaderItemHandle {

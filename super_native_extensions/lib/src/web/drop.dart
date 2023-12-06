@@ -14,6 +14,7 @@ import '../reader.dart';
 import '../reader_manager.dart';
 import 'js_interop.dart';
 import 'reader.dart';
+import 'reader_manager.dart';
 
 List<DropItem> _translateDataTransfer(
   html.DataTransfer dataTransfer, {
