@@ -20,11 +20,11 @@ class ClipboardReaderImpl extends ClipboardReader {
       context: superNativeExtensionsContext);
 
   @override
-  void registerPasteEventListener(void Function(DataReader reader) listener) {}
+  void registerPasteEventListener(void Function(PasteEvent reader) listener) {}
 
   @override
   void unregisterPasteEventListener(
-      void Function(DataReader reader) listener) {}
+      void Function(PasteEvent reader) listener) {}
 
   @override
   bool get supportsPasteEvent => false;

@@ -145,13 +145,13 @@ class _MyHomePageState extends State<MyHomePage>
   @override
   void initState() {
     super.initState();
-    ClipboardReader.registerPasteEventListener(_paste);
+    ClipboardReader.registerPasteEventListener(_onPasteEvent);
   }
 
   @override
   void dispose() {
     super.dispose();
-    ClipboardReader.unregisterPasteEventListener(_paste);
+    ClipboardReader.unregisterPasteEventListener(_onPasteEvent);
   }
 
   void copyText() async {
@@ -225,6 +225,10 @@ class _MyHomePageState extends State<MyHomePage>
         contentWidgets = widgets;
       });
     });
+  }
+
+  void _onPasteEvent(PasteEvent event) {
+    _paste(event.clipboardReader);
   }
 
   var contentWidgets = <Widget>[];
