@@ -154,9 +154,8 @@ class PasteEvent {
   /// Returns the clipboard reader for paste event, which is not restricted nor requires user
   /// confirmation
   ///
-  /// Once requested, this will prevent
-  /// browser from performing default paste action, such as inserting
-  /// text into input or content editable elements.
+  /// Once requested, this will prevent browser from performing default paste action,
+  /// such as inserting text into input or content editable elements.
   Future<ClipboardReader> getClipboardReader() async {
     final readerItems = await _event.getReader().getItems();
     final items = await Future.wait(
