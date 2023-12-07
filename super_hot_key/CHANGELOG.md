@@ -1,3 +1,7 @@
+## 0.8.0-dev.1
+
+ - **FIX**: hot key event handlers should not be required (#248).
+
 ## 0.7.3
 
  - Bump "super_hot_key" to `0.7.3`.

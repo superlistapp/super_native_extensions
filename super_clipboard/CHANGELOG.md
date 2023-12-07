@@ -1,3 +1,8 @@
+## 0.8.0-dev.1
+
+ - **FEAT**: preventDefault for paste event (#249).
+ - **FEAT**: implement paste event on web (#246).
+
 ## 0.7.3
 
 ## 0.7.2

@@ -1,3 +1,5 @@
+## 0.8.0-dev.1
+
 ## 0.7.3
 
  - **FEAT**: improve touch device detection (#227).

@@ -1,3 +1,9 @@
+## 0.8.0-dev.1
+
+ - **FEAT**: preventDefault for paste event (#249).
+ - **FEAT**: implement paste event on web (#246).
+ - **FEAT**: migrate to objc2 (#239).
+
 ## 0.7.3
 
  - **FIX**: let zone handle menu callback errors (#228).

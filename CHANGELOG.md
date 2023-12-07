@@ -3,6 +3,49 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## 2023-12-07
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - There are no breaking changes in this release.
+
+Packages with other changes:
+
+ - [`super_clipboard` - `v0.8.0-dev.1`](#super_clipboard---v080-dev1)
+ - [`super_drag_and_drop` - `v0.8.0-dev.1`](#super_drag_and_drop---v080-dev1)
+ - [`super_context_menu` - `v0.8.0-dev.1`](#super_context_menu---v080-dev1)
+ - [`super_native_extensions` - `v0.8.0-dev.1`](#super_native_extensions---v080-dev1)
+ - [`super_hot_key` - `v0.8.0-dev.1`](#super_hot_key---v080-dev1)
+ - [`super_keyboard_layout` - `v0.8.0-dev.1`](#super_keyboard_layout---v080-dev1)
+
+---
+
+#### `super_clipboard` - `v0.8.0-dev.1`
+
+ - **FEAT**: preventDefault for paste event (#249).
+ - **FEAT**: implement paste event on web (#246).
+
+#### `super_drag_and_drop` - `v0.8.0-dev.1`
+
+#### `super_context_menu` - `v0.8.0-dev.1`
+
+#### `super_native_extensions` - `v0.8.0-dev.1`
+
+ - **FEAT**: preventDefault for paste event (#249).
+ - **FEAT**: implement paste event on web (#246).
+ - **FEAT**: migrate to objc2 (#239).
+
+#### `super_hot_key` - `v0.8.0-dev.1`
+
+ - **FIX**: hot key event handlers should not be required (#248).
+
+#### `super_keyboard_layout` - `v0.8.0-dev.1`
+
+
 ## 2023-11-15
 
 ### Changes
