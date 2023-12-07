@@ -98,6 +98,26 @@ Be sure to replace `<your-package-name>` in the snippet with your actual package
     }
 ```
 
+### Accessing clipboard on web
+
+Web browsers impose some restrictions when reading from clipboard. If value in clipboard has been copied from another application, user needs to confirm clipboard access (usually in form of popover). Asynchronous clipboard API is disabled by default on Firefox.
+
+To get around this limitation, `super_clipboard` provides a way to listen to a `paste` event, which is triggered when user presses `Ctrl+V` or `Cmd+V` in browser window (or selects the appropriate option from menu). The clipboard reader provided throug the event can be accessed without restriction on all browsers (including Firefox) and can also read content of local files copied to clipboard.
+
+```dart
+   ClipboardReader.registerPasteEventListener((event) async {
+      // Prevent the default paste action, which is to insert the clipboard content
+      // into the focused element.
+      event.preventDefault();
+      if (event.clipboardReader.canProvide(Formats.htmlText)) {
+        final html = await event.clipboardReader.readValue(Formats.htmlText);
+        // .. do something with the HTML text
+      }
+   });
+```
+
+### Formats
+
 For more formats supported out of box look at the [Formats](https://github.com/superlistapp/super_native_extensions/blob/main/super_clipboard/lib/src/standard_formats.dart) class.
 
 Note that on Windows clipboard images are usually stored in DIB or DIBv5 format, while on macOS TIFF is commonly used. `super_clipboard` will transparently expose these images as PNG.

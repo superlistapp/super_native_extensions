@@ -4,6 +4,14 @@ import 'native/clipboard_reader.dart'
     if (dart.library.js) 'web/clipboard_reader.dart';
 import 'reader.dart';
 
+abstract class PasteEvent {
+  DataReader get reader;
+
+  /// Prevents browser from performing default paste action, such as inserting
+  /// text into input or content editable elements.
+  void preventDefault();
+}
+
 abstract class ClipboardReader {
   static final ClipboardReader instance = ClipboardReaderImpl();
 
@@ -23,8 +31,8 @@ abstract class ClipboardReader {
   ///
   /// The clipboard access will not display any any paste prompt UI,
   /// unlike accessing clipboard through [newClipboardReader].
-  void registerPasteEventListener(void Function(DataReader) listener);
+  void registerPasteEventListener(void Function(PasteEvent) listener);
 
   /// Removes a listener for paste event. This is currently only supported on web.
-  void unregisterPasteEventListener(void Function(DataReader) listener);
+  void unregisterPasteEventListener(void Function(PasteEvent) listener);
 }
