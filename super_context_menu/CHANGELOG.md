@@ -1,3 +1,7 @@
+## 0.8.0-dev.2
+
+ - Bump "super_context_menu" to `0.8.0-dev.2`.
+
 ## 0.8.0-dev.1
 
 ## 0.7.3

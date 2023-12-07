@@ -15,6 +15,52 @@ Packages with breaking changes:
 
 Packages with other changes:
 
+ - [`super_clipboard` - `v0.8.0-dev.2`](#super_clipboard---v080-dev2)
+ - [`super_drag_and_drop` - `v0.8.0-dev.2`](#super_drag_and_drop---v080-dev2)
+ - [`super_context_menu` - `v0.8.0-dev.2`](#super_context_menu---v080-dev2)
+ - [`super_native_extensions` - `v0.8.0-dev.2`](#super_native_extensions---v080-dev2)
+ - [`super_hot_key` - `v0.8.0-dev.2`](#super_hot_key---v080-dev2)
+ - [`super_keyboard_layout` - `v0.8.0-dev.2`](#super_keyboard_layout---v080-dev2)
+
+---
+
+#### `super_clipboard` - `v0.8.0-dev.2`
+
+ - Bump "super_clipboard" to `0.8.0-dev.2`.
+
+#### `super_drag_and_drop` - `v0.8.0-dev.2`
+
+ - Bump "super_drag_and_drop" to `0.8.0-dev.2`.
+
+#### `super_context_menu` - `v0.8.0-dev.2`
+
+ - Bump "super_context_menu" to `0.8.0-dev.2`.
+
+#### `super_native_extensions` - `v0.8.0-dev.2`
+
+ - Bump "super_native_extensions" to `0.8.0-dev.2`.
+
+#### `super_hot_key` - `v0.8.0-dev.2`
+
+ - Bump "super_hot_key" to `0.8.0-dev.2`.
+
+#### `super_keyboard_layout` - `v0.8.0-dev.2`
+
+ - Bump "super_keyboard_layout" to `0.8.0-dev.2`.
+
+
+## 2023-12-07
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - There are no breaking changes in this release.
+
+Packages with other changes:
+
  - [`super_clipboard` - `v0.8.0-dev.1`](#super_clipboard---v080-dev1)
  - [`super_drag_and_drop` - `v0.8.0-dev.1`](#super_drag_and_drop---v080-dev1)
  - [`super_context_menu` - `v0.8.0-dev.1`](#super_context_menu---v080-dev1)

@@ -1,3 +1,7 @@
+## 0.8.0-dev.2
+
+ - Bump "super_clipboard" to `0.8.0-dev.2`.
+
 ## 0.8.0-dev.1
 
  - **FEAT**: preventDefault for paste event (#249).

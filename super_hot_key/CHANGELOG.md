@@ -1,3 +1,7 @@
+## 0.8.0-dev.2
+
+ - Bump "super_hot_key" to `0.8.0-dev.2`.
+
 ## 0.8.0-dev.1
 
  - **FIX**: hot key event handlers should not be required (#248).
