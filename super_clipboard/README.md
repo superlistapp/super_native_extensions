@@ -106,10 +106,10 @@ To get around this limitation, `super_clipboard` provides a way to listen to a `
 
 ```dart
    ClipboardReader.registerPasteEventListener((event) async {
-      // Prevent the default paste action, which is to insert the clipboard content
-      // into the focused element.
-      event.preventDefault();
-      if (event.clipboardReader.canProvide(Formats.htmlText)) {
+      // Requesting the clipboard reader will prevent the default paste action
+      // such as inserting the text in editable element.
+      final reader = await event.getClipboardReader();
+      if (reader.canProvide(Formats.htmlText)) {
         final html = await event.clipboardReader.readValue(Formats.htmlText);
         // .. do something with the HTML text
       }

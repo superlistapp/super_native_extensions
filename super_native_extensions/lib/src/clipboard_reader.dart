@@ -5,11 +5,10 @@ import 'native/clipboard_reader.dart'
 import 'reader.dart';
 
 abstract class PasteEvent {
-  DataReader get reader;
-
-  /// Prevents browser from performing default paste action, such as inserting
+  /// Returns the clipboard reader. Once requested, this will prevent
+  /// browser from performing default paste action, such as inserting
   /// text into input or content editable elements.
-  void preventDefault();
+  DataReader getReader();
 }
 
 abstract class ClipboardReader {
