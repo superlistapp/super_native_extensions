@@ -151,18 +151,22 @@ abstract class ClipboardDataReader extends DataReader {
 
 /// Paste event dispatched during a browser paste action (only available on web)
 class PasteEvent {
-  /// Reader for paste event clipboard. Reading the data during paste event
-  /// is not restricted nor requires user confirmation.
-  final ClipboardReader clipboardReader;
-
-  /// Prevents browser from performing default paste action, such as inserting
-  /// text into input or content editable elements.
-  void preventDefault() {
-    _event.preventDefault();
+  /// Returns the clipboard reader for paste event, which is not restricted nor requires user
+  /// confirmation
+  ///
+  /// Once requested, this will prevent browser from performing default paste action,
+  /// such as inserting text into input or content editable elements.
+  Future<ClipboardReader> getClipboardReader() async {
+    final readerItems = await _event.getReader().getItems();
+    final items = await Future.wait(
+      readerItems.map(
+        (e) => ClipboardDataReader.forItem(e),
+      ),
+    );
+    return ClipboardReader._(items);
   }
 
   PasteEvent._({
-    required this.clipboardReader,
     required raw.PasteEvent event,
   }) : _event = event;
 
@@ -209,15 +213,7 @@ class ClipboardReader extends ClipboardDataReader {
     if (!_pasteEventRegistered) {
       _pasteEventRegistered = true;
       raw.ClipboardReader.instance.registerPasteEventListener((event) async {
-        final readerItems = await event.reader.getItems();
-        final items = await Future.wait(
-          readerItems.map(
-            (e) => ClipboardDataReader.forItem(e),
-          ),
-        );
-        final clipboardReader = ClipboardReader._(items);
-        final pasteEvent =
-            PasteEvent._(clipboardReader: clipboardReader, event: event);
+        final pasteEvent = PasteEvent._(event: event);
         for (final listener in _pasteEventListeners) {
           listener(pasteEvent);
         }

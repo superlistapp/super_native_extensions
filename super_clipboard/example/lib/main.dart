@@ -227,8 +227,8 @@ class _MyHomePageState extends State<MyHomePage>
     });
   }
 
-  void _onPasteEvent(PasteEvent event) {
-    _paste(event.clipboardReader);
+  void _onPasteEvent(PasteEvent event) async {
+    _paste(await event.getClipboardReader());
   }
 
   var contentWidgets = <Widget>[];

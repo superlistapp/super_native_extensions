@@ -14,13 +14,18 @@ class _PasteEvent extends PasteEvent {
     required this.event,
   });
 
-  @override
   final DataReader reader;
   final html.Event event;
 
+  bool _defaultPrevented = false;
+
   @override
-  void preventDefault() {
-    event.preventDefault();
+  DataReader getReader() {
+    if (!_defaultPrevented) {
+      _defaultPrevented = true;
+      event.preventDefault();
+    }
+    return reader;
   }
 }
 
