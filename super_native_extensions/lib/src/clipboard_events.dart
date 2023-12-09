@@ -21,14 +21,8 @@ abstract class ClipboardEvents {
   /// only supported on web.
   bool get supported;
 
-  /// Registers a listener for paste event. This is only supported on web.
-  /// It is a no-op on other platforms.
-  ///
-  /// The clipboard access will not display any any paste prompt UI,
-  /// unlike accessing clipboard through [newClipboardReader].
   void registerPasteEventListener(void Function(ClipboardReadEvent) listener);
 
-  /// Removes a listener for paste event. This is currently only supported on web.
   void unregisterPasteEventListener(void Function(ClipboardReadEvent) listener);
 
   void registerCopyEventListener(void Function(ClipboardWriteEvent) listener);

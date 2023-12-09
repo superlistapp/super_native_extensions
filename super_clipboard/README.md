@@ -6,7 +6,7 @@
 - Supports macOS, iOS, Android, Windows, Linux and Web.
 - Platform agnostic code for reading and writing common clipboard formats.
 - Support for custom data formats.
-- Multiple representation for clipboard items.
+- Multiple representations for clipboard items.
 - Providing clipboard data on demand.
 
 <img src="https://matejknopp.com/super_native_extensions/super_clipboard.png" width="831"/>
@@ -35,7 +35,7 @@ That is it. The build integration will automatically install required Rust targe
 
 ### Android support
 
-NDK is required to use `super_clipboard`. If not present it will be automatically installed during first build. The NDK is a large download (~1GB) so it might take a while to install.
+NDK is required to use `super_clipboard`. If not present it will be automatically installed during the first build. The NDK is a large download (~1GB) so it might take a while to install.
 
 The NDK version used is specified in `android/app/build.gradle` of your Flutter project.
 
@@ -45,7 +45,7 @@ android {
     ndkVersion flutter.ndkVersion
 ```
 
-If you have older Flutter android project, you will need to specify reasonably recent minimal SDK version in `android/app/build.gradle`:
+If you have older Flutter android project, you will need to specify a reasonably recent minimal SDK version in `android/app/build.gradle`:
 
 ```groovy
 android {
@@ -77,7 +77,15 @@ Be sure to replace `<your-package-name>` in the snippet with your actual package
 ### Reading from clipboard
 
 ```dart
-    final reader = await ClipboardReader.readClipboard();
+    import 'package:super_clipboard/super_clipboard.dart';
+
+    // ...
+
+    final clipboard = Clipboard.instance;
+    if (clipboard == null) {
+        return; // Clipboard is not supported on this platform.
+    }
+    final reader = await clipboard.read();
 
     if (reader.canProvide(Formats.htmlText)) {
         final html = await reader.readValue(Formats.htmlText);
@@ -98,24 +106,6 @@ Be sure to replace `<your-package-name>` in the snippet with your actual package
     }
 ```
 
-### Accessing clipboard on web
-
-Web browsers impose some restrictions when reading from clipboard. If value in clipboard has been copied from another application, user needs to confirm clipboard access (usually in form of popover). Asynchronous clipboard API is disabled by default on Firefox.
-
-To get around this limitation, `super_clipboard` provides a way to listen to a `paste` event, which is triggered when user presses `Ctrl+V` or `Cmd+V` in browser window (or selects the appropriate option from menu). The clipboard reader provided throug the event can be accessed without restriction on all browsers (including Firefox) and can also read content of local files copied to clipboard.
-
-```dart
-   ClipboardReader.registerPasteEventListener((event) async {
-      // Requesting the clipboard reader will prevent the default paste action
-      // such as inserting the text in editable element.
-      final reader = await event.getClipboardReader();
-      if (reader.canProvide(Formats.htmlText)) {
-        final html = await event.clipboardReader.readValue(Formats.htmlText);
-        // .. do something with the HTML text
-      }
-   });
-```
-
 ### Formats
 
 For more formats supported out of box look at the [Formats](https://github.com/superlistapp/super_native_extensions/blob/main/super_clipboard/lib/src/standard_formats.dart) class.
@@ -127,11 +117,19 @@ You can query whether the PNG image in clipboard has been synthesized through `r
 ### Writing to clipboard
 
 ```dart
+    import 'package:super_clipboard/super_clipboard.dart';
+
+    // ...
+
+    final clipboard = Clipboard.instance;
+    if (clipboard == null) {
+        return; // Clipboard is not supported on this platform.
+    }
     final item = DataWriterItem();
     item.add(Formats.htmlText('<b>HTML text</b>'));
     item.add(Formats.plainText('plain text'));
     item.add(Formats.png(imageData));
-    await ClipboardWriter.instance.write([item]);
+    await clipboard.write([item]);
 ```
 
 You can also provide representations on demand:
@@ -141,16 +139,52 @@ You can also provide representations on demand:
     item.add(Formats.htmlText.lazy(() => '<b>HTML text</b>'));
     item.add(Formats.plainText.lazy(() => 'plain text'));
     item.add(Formats.png.lazy(() => imageData));
-    await ClipboardWriter.instance.write([item]);
+    await clipboard.write([item]);
 ```
 
-If you do this make sure that the callback can provide requested data without any uncecessary delay. On some platforms main thread may be blocked while the data is being requested. This functionality is meant for providing alternative representations on demand. Do **not** start downloading a file from lazy callback or any other action that is not guaranteed to complete in short time. For copying or dragging files that are not readily available use `DataWriterItem.addVirtualFile` instead.
+If you do this make sure that the callback can provide requested data without any unnecessary delay. On some platforms main thread may be blocked while the data is being requested. This functionality is meant for providing alternative representations on demand. Do **not** start downloading a file from lazy callback or any other action that is not guaranteed to complete in short time. For copying or dragging files that are not readily available use `DataWriterItem.addVirtualFile` instead.
 
 On some platform the data may be requested eagerly when writing to clipboard. In this case the callback will be called immediately.
 
-When writing images preferred format is PNG. Most platform can handle PNG images in clipboard natively. On Windows PNGs are on-demand converted to DIB and DIBv5 formats, which is what native applications expect.
+When writing images preferred format is PNG. Most platforms can handle PNG images in clipboard natively. On Windows PNGs are on-demand converted to DIB and DIBv5 formats, which is what native applications expect.
 
 While the Clipboard API supports writing multiple items, not all platforms support that fully. On Windows clipboard items past the first one only support `Formats.fileUri` type (so it is possible to store multiple file URIs in clipboard) and on Linux only supported formats for additional items are `Formats.uri` and `Formats.fileUri`.
+
+### Accessing clipboard on web
+
+Web browsers impose some restrictions when reading from clipboard. If value in clipboard has been copied from another application, user needs to confirm clipboard access (usually in form of popover). Asynchronous clipboard API is unavailable by default on Firefox.
+
+To get around this limitation, `super_clipboard` provides a way to listen to a browser clipboard event, which is triggered when user presses the appropriate keyboard shortcut in browser window (or selects the option from menu).
+
+The clipboard reader provided through the `paste` event can access clipboard data without restriction on all browsers (including Firefox) and can also read content of local files copied to clipboard.
+
+The `copy` and `cut` event handlers are the only way to write to clipboard on Firefox. However these have the limitation of only being able to write textual data to clipboard and do not support providing data asynchronously. So when `Clipboard.instance` is non `null` on web, it is recommended to use the clipboard API instead.
+
+```dart
+   if (!ClipboardEvents.supported) {
+     // Clipboard events are only supported on web.
+     return;
+   }
+
+   ClipboardEvents.registerPasteEventListener((event) async {
+      // Requesting the clipboard reader will prevent the default paste action
+      // such as inserting the text in editable element.
+      final reader = await event.getClipboardReader();
+      if (reader.canProvide(Formats.htmlText)) {
+        final html = await event.clipboardReader.readValue(Formats.htmlText);
+        // .. do something with the HTML text
+      }
+   });
+
+   ClipboardEvents.registerCopyEventListener((event) {
+      // Calling the [write] method on event will prevent the default copy action
+      // such as copying the selected text to clipboard.
+      final item = DataWriterItem();
+      item.add(Formats.htmlText('<b>HTML text</b>'));
+      item.add(Formats.plainText('plain text'));
+      await event.write([item]);
+   });
+```
 
 ## Running the example
 
