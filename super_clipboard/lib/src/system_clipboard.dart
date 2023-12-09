@@ -4,19 +4,19 @@ import 'writer_data_provider.dart';
 import 'events.dart';
 import 'package:super_native_extensions/raw_clipboard.dart' as raw;
 
-class Clipboard implements ClipboardWriter {
+class SystemClipboard implements ClipboardWriter {
   /// Returns the shared clipboard instance if available on the current platform.
   /// Clipboard API is available on all platforms except Firefox, where it is
   /// disabled by default.
   /// If clipboard is not available, you can still use the [ClipboardEvents] API.
-  static Clipboard? get instance {
+  static SystemClipboard? get instance {
     if (!raw.ClipboardReader.instance.available) {
       return null;
     }
     return _instance;
   }
 
-  static final _instance = Clipboard._();
+  static final _instance = SystemClipboard._();
 
   /// Writes the content of the [items] to the clipboard.
   @override
@@ -42,5 +42,5 @@ class Clipboard implements ClipboardWriter {
     return ClipboardReader(items);
   }
 
-  Clipboard._();
+  SystemClipboard._();
 }

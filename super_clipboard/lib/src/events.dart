@@ -3,7 +3,7 @@ import 'package:super_native_extensions/raw_clipboard.dart' as raw;
 import 'reader.dart';
 import 'writer.dart';
 import 'writer_data_provider.dart';
-import 'clipboard.dart';
+import 'system_clipboard.dart';
 
 /// Event dispatched during a browser paste action (only available on web).
 /// Allows reading data from clipboard.
@@ -56,17 +56,15 @@ class ClipboardEvents {
     raw.ClipboardEvents.instance.registerCutEventListener(_onCut);
   }
 
-  static final instance = ClipboardEvents._();
+  /// Returns clipboard events instance if available on current platform.
+  /// This is only supported on web, on other platforms use [SystemClipboard.instance]
+  /// to access the clipboard.
+  static ClipboardEvents? get instance =>
+      raw.ClipboardEvents.instance.supported ? _instance : null;
 
-  /// Returns whether clipboard events are supported on current platform. This is
-  /// only supported on web. On other platforms use [Clipboard.instance] to access
-  /// the clipboard.
-  ///
-  /// You can register listeners on other platforms but they will not be invoked.
-  bool get supported => raw.ClipboardEvents.instance.supported;
+  static final _instance = ClipboardEvents._();
 
   /// Registers a listener for paste event (triggered through Ctrl/Cmd + V or browser menu action).
-  /// This is only supported on web and is a no-op on other platforms.
   ///
   /// The clipboard access in the listener will not require any use conformation and allows
   /// accessing files, unlike [readClipboard] which is more limited on web.
@@ -81,7 +79,6 @@ class ClipboardEvents {
   }
 
   /// Registers a listener for copy event (triggered through Ctrl/Cmd + C or browser menu action).
-  /// This is only supported on web and is a no-op on other platforms.
   ///
   /// The clipboard event can only be used to write text data and does not allow
   /// asynchronous data providers.
@@ -96,7 +93,6 @@ class ClipboardEvents {
   }
 
   /// Registers a listener for cut event (triggered through Ctrl/Cmd + X or browser menu action).
-  /// This is only supported on web and is a no-op on other platforms.
   ///
   /// The clipboard event can only be used to write text data and does not allow
   /// asynchronous data providers.

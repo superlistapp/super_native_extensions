@@ -81,7 +81,7 @@ Be sure to replace `<your-package-name>` in the snippet with your actual package
 
     // ...
 
-    final clipboard = Clipboard.instance;
+    final clipboard = SystemClipboard.instance;
     if (clipboard == null) {
         return; // Clipboard API is not supported on this platform.
     }
@@ -121,7 +121,7 @@ You can query whether the PNG image in clipboard has been synthesized through `r
 
     // ...
 
-    final clipboard = Clipboard.instance;
+    final clipboard = SystemClipboard.instance;
     if (clipboard == null) {
         return; // Clipboard API is not supported on this platform.
     }
@@ -158,15 +158,16 @@ To get around this limitation, `super_clipboard` provides a way to listen to a b
 
 The clipboard reader provided through the `paste` event can access clipboard data without restriction on all browsers (including Firefox) and can also read content of local files copied to clipboard.
 
-The `copy` and `cut` event handlers are the only way to write to clipboard on Firefox. However these have the limitation of only being able to write textual data to clipboard and do not support providing data asynchronously. So when `Clipboard.instance` is non `null` on web, it is recommended to use the clipboard API instead.
+The `copy` and `cut` event handlers are the only way to write to clipboard on Firefox. However these have the limitation of only being able to write textual data to clipboard and do not support providing data asynchronously. So when `SystemClipboard.instance` is non `null` on web, it is recommended to use the system clipboard API instead.
 
 ```dart
-   if (!ClipboardEvents.supported) {
+   final events = ClipboardEvents.instance;
+   if (events == null) {
      // Clipboard events are only supported on web.
      return;
    }
 
-   ClipboardEvents.registerPasteEventListener((event) async {
+   events.registerPasteEventListener((event) async {
       // Requesting the clipboard reader will prevent the default paste action
       // such as inserting the text in editable element.
       final reader = await event.getClipboardReader();
@@ -176,7 +177,7 @@ The `copy` and `cut` event handlers are the only way to write to clipboard on Fi
       }
    });
 
-   ClipboardEvents.registerCopyEventListener((event) {
+   events.registerCopyEventListener((event) {
       // Calling the [write] method on event will prevent the default copy action
       // such as copying the selected text to clipboard.
       final item = DataWriterItem();

@@ -7,4 +7,4 @@ export 'src/formats_base.dart';
 export 'src/reader.dart';
 export 'src/writer.dart';
 export 'src/events.dart';
-export 'src/clipboard.dart';
+export 'src/system_clipboard.dart';

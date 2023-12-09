@@ -12,7 +12,8 @@ export 'package:super_native_extensions/raw_clipboard.dart'
 import 'format.dart';
 import 'util.dart';
 import 'writer.dart';
-import 'clipboard.dart';
+import 'system_clipboard.dart';
+import 'events.dart';
 
 /// Represents a single item in the clipboard. The item can have multiple
 /// renditions (each represented as entries in [EncodedData]).
@@ -75,21 +76,24 @@ class DataWriterItem {
   List<FutureOr<EncodedData>> get data => _data;
 }
 
+/// Writes the provided data to the clipboard. The writer can be obtained
+/// using [SystemClipboard.instance], if available, or from a [ClipboardWriteEvent].
+///
 /// Example for using clipboard writer:
 /// ```dart
 /// final item = ClipboardWriterItem();
 /// item.addData(formatHtmlText.encode('<b><i>Html</i></b> Value'));
 /// item.addData(formatPlainText.encodeLazy(() =>
 ///                                   'Plaintext value resolved lazily'));
-/// await ClipboardWriter.instance.write([item]);
+/// await SystemClipboard.instance?.write([item]);
 /// ```
 abstract class ClipboardWriter {
-  /// Writes the provided items in system clipboard.
+  /// Writes the provided items to the clipboard.
   Future<void> write(Iterable<DataWriterItem> items);
 
-  @Deprecated('use Clipboard.instance instead')
+  @Deprecated('Use SystemClipboard.instance instead.')
   static ClipboardWriter get instance {
-    final clipboard = Clipboard.instance;
+    final clipboard = SystemClipboard.instance;
     if (clipboard == null) {
       throw UnsupportedError('Clipboard API is not available on this platform');
     }

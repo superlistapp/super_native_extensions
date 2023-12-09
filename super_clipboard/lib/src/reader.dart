@@ -4,7 +4,7 @@ import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import 'package:super_native_extensions/raw_clipboard.dart' as raw;
 
-import 'clipboard.dart';
+import 'system_clipboard.dart';
 import 'format.dart';
 import 'reader_internal.dart';
 import 'standard_formats.dart';
@@ -157,9 +157,9 @@ class ClipboardReader extends ClipboardDataReader {
   /// Individual items of this clipboard reader.
   final List<ClipboardDataReader> items;
 
-  @Deprecated('use Clipboard.instance?.read() instead')
+  @Deprecated('Use SystemClipboard.instance?.read() instead.')
   static Future<ClipboardReader> readClipboard() async {
-    final clipboard = Clipboard.instance;
+    final clipboard = SystemClipboard.instance;
     if (clipboard == null) {
       throw UnsupportedError('Clipboard API is not available on this platform');
     }

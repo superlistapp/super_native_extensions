@@ -148,17 +148,17 @@ class _MyHomePageState extends State<MyHomePage>
   @override
   void initState() {
     super.initState();
-    ClipboardEvents.instance.registerPasteEventListener(_onPasteEvent);
+    ClipboardEvents.instance?.registerPasteEventListener(_onPasteEvent);
   }
 
   @override
   void dispose() {
     super.dispose();
-    ClipboardEvents.instance.unregisterPasteEventListener(_onPasteEvent);
+    ClipboardEvents.instance?.unregisterPasteEventListener(_onPasteEvent);
   }
 
   void copyText() async {
-    final clipboard = Clipboard.instance;
+    final clipboard = SystemClipboard.instance;
     if (clipboard != null) {
       final item = DataWriterItem();
       item.add(Formats.htmlText('<b>This is a <em>HTML</en> value</b>.'));
@@ -170,7 +170,7 @@ class _MyHomePageState extends State<MyHomePage>
   }
 
   void copyTextLazy() async {
-    final clipboard = Clipboard.instance;
+    final clipboard = SystemClipboard.instance;
     if (clipboard != null) {
       final item = DataWriterItem();
       item.add(Formats.htmlText.lazy(() {
@@ -188,7 +188,7 @@ class _MyHomePageState extends State<MyHomePage>
   }
 
   void copyImage() async {
-    final clipboard = Clipboard.instance;
+    final clipboard = SystemClipboard.instance;
     if (clipboard != null) {
       final image = await createImageData(Colors.red);
       final item = DataWriterItem(suggestedName: 'RedCircle.png');
@@ -200,7 +200,7 @@ class _MyHomePageState extends State<MyHomePage>
   }
 
   void copyImageLazy() async {
-    final clipboard = Clipboard.instance;
+    final clipboard = SystemClipboard.instance;
     if (clipboard != null) {
       final item = DataWriterItem(suggestedName: 'BlueCircle.png');
       item.add(Formats.png.lazy(() {
@@ -214,7 +214,7 @@ class _MyHomePageState extends State<MyHomePage>
   }
 
   void copyCustomData() async {
-    final clipboard = Clipboard.instance;
+    final clipboard = SystemClipboard.instance;
     if (clipboard != null) {
       final item = DataWriterItem();
       item.add(formatCustom(Uint8List.fromList([1, 2, 3, 4])));
@@ -225,7 +225,7 @@ class _MyHomePageState extends State<MyHomePage>
   }
 
   void copyCustomDataLazy() async {
-    final clipboard = Clipboard.instance;
+    final clipboard = SystemClipboard.instance;
     if (clipboard != null) {
       final item = DataWriterItem();
       item.add(formatCustom.lazy(() async {
@@ -239,7 +239,7 @@ class _MyHomePageState extends State<MyHomePage>
   }
 
   void copyUri() async {
-    final clipboard = Clipboard.instance;
+    final clipboard = SystemClipboard.instance;
     if (clipboard != null) {
       final item = DataWriterItem();
       item.add(Formats.uri(NamedUri(
@@ -299,7 +299,7 @@ class _MyHomePageState extends State<MyHomePage>
           OutlinedButton(onPressed: copyUri, child: const Text('Copy URI')),
           OutlinedButton(
               onPressed: () async {
-                final clipboard = Clipboard.instance;
+                final clipboard = SystemClipboard.instance;
                 if (clipboard != null) {
                   final reader = await clipboard.read();
                   _paste(reader);
