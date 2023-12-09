@@ -83,7 +83,7 @@ Be sure to replace `<your-package-name>` in the snippet with your actual package
 
     final clipboard = Clipboard.instance;
     if (clipboard == null) {
-        return; // Clipboard is not supported on this platform.
+        return; // Clipboard API is not supported on this platform.
     }
     final reader = await clipboard.read();
 
@@ -123,7 +123,7 @@ You can query whether the PNG image in clipboard has been synthesized through `r
 
     final clipboard = Clipboard.instance;
     if (clipboard == null) {
-        return; // Clipboard is not supported on this platform.
+        return; // Clipboard API is not supported on this platform.
     }
     final item = DataWriterItem();
     item.add(Formats.htmlText('<b>HTML text</b>'));
