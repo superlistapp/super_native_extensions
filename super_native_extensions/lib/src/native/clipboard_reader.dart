@@ -14,6 +14,9 @@ class ClipboardReaderImpl extends ClipboardReader {
     return DataReader(handle: DataReaderHandle.deserialize(handle));
   }
 
+  @override
+  bool get available => true;
+
   ClipboardReaderImpl();
 
   final _channel = NativeMethodChannel('ClipboardReader',

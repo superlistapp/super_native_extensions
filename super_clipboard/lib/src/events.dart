@@ -3,11 +3,13 @@ import 'package:super_native_extensions/raw_clipboard.dart' as raw;
 import 'reader.dart';
 import 'writer.dart';
 import 'writer_data_provider.dart';
+import 'clipboard.dart';
 
-/// Paste event dispatched during a browser paste action (only available on web)
+/// Event dispatched during a browser paste action (only available on web).
+/// Allows reading data from clipboard.
 class ClipboardReadEvent {
   /// Returns the clipboard reader for paste event, which is not restricted nor requires user
-  /// confirmation
+  /// confirmation. This is the preferred way of reading clipboard data on web.
   ///
   /// Once requested, this will prevent browser from performing default paste action,
   /// such as inserting text into input or content editable elements.
@@ -28,6 +30,10 @@ class ClipboardReadEvent {
   final raw.ClipboardReadEvent _event;
 }
 
+/// Event dispatched during copy and cut actions (only available on web).
+/// Allows writing data to clipboard. However this is generally more limited than
+/// [ClipboardWriter] and only allows writing text contents. It also does
+/// not support providing data asynchronously.
 class ClipboardWriteEvent extends ClipboardWriter {
   ClipboardWriteEvent._({
     required raw.ClipboardWriteEvent event,
@@ -52,8 +58,11 @@ class ClipboardEvents {
 
   static final instance = ClipboardEvents._();
 
-  /// Returns whether paste event is supported on current platform. This is
-  /// only supported on web.
+  /// Returns whether clipboard events are supported on current platform. This is
+  /// only supported on web. On other platforms use [Clipboard.instance] to access
+  /// the clipboard.
+  ///
+  /// You can register listeners on other platforms but they will not be invoked.
   bool get supported => raw.ClipboardEvents.instance.supported;
 
   /// Registers a listener for paste event (triggered through Ctrl/Cmd + V or browser menu action).
@@ -71,19 +80,31 @@ class ClipboardEvents {
     _pasteEventListeners.remove(listener);
   }
 
+  /// Registers a listener for copy event (triggered through Ctrl/Cmd + C or browser menu action).
+  /// This is only supported on web and is a no-op on other platforms.
+  ///
+  /// The clipboard event can only be used to write text data and does not allow
+  /// asynchronous data providers.
   void registerCopyEventListener(void Function(ClipboardWriteEvent) listener) {
     _copyEventListeners.add(listener);
   }
 
+  /// Unregisters a listener for copy event previously registered with [registerCopyEventListener].
   void unregisterCopyEventListener(
       void Function(ClipboardWriteEvent) listener) {
     _copyEventListeners.remove(listener);
   }
 
+  /// Registers a listener for cut event (triggered through Ctrl/Cmd + X or browser menu action).
+  /// This is only supported on web and is a no-op on other platforms.
+  ///
+  /// The clipboard event can only be used to write text data and does not allow
+  /// asynchronous data providers.
   void registerCutEventListener(void Function(ClipboardWriteEvent) listener) {
     _cutEventListeners.add(listener);
   }
 
+  /// Unregisters a listener for cut event previously registered with [registerCutEventListener].
   void unregisterCutEventListener(void Function(ClipboardWriteEvent) listener) {
     _cutEventListeners.remove(listener);
   }

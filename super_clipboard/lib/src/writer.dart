@@ -12,7 +12,7 @@ export 'package:super_native_extensions/raw_clipboard.dart'
 import 'format.dart';
 import 'util.dart';
 import 'writer.dart';
-import 'writer_data_provider.dart';
+import 'clipboard.dart';
 
 /// Represents a single item in the clipboard. The item can have multiple
 /// renditions (each represented as entries in [EncodedData]).
@@ -87,14 +87,12 @@ abstract class ClipboardWriter {
   /// Writes the provided items in system clipboard.
   Future<void> write(Iterable<DataWriterItem> items);
 
-  static final instance = _ClipboardWriter();
-}
-
-class _ClipboardWriter extends ClipboardWriter {
-  @override
-  Future<void> write(Iterable<DataWriterItem> items) async {
-    await items.withHandles((handles) async {
-      await raw.ClipboardWriter.instance.write(handles);
-    });
+  @Deprecated('use Clipboard.instance instead')
+  static ClipboardWriter get instance {
+    final clipboard = Clipboard.instance;
+    if (clipboard == null) {
+      throw UnsupportedError('Clipboard API is not available on this platform');
+    }
+    return clipboard;
   }
 }

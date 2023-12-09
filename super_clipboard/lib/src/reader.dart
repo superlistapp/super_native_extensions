@@ -4,6 +4,7 @@ import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import 'package:super_native_extensions/raw_clipboard.dart' as raw;
 
+import 'clipboard.dart';
 import 'format.dart';
 import 'reader_internal.dart';
 import 'standard_formats.dart';
@@ -156,20 +157,13 @@ class ClipboardReader extends ClipboardDataReader {
   /// Individual items of this clipboard reader.
   final List<ClipboardDataReader> items;
 
-  /// Reads clipboard contents. Note that on some platforms accessing clipboard may trigger
-  /// a prompt for user to confirm clipboard access. This is the case on iOS and web.
-  ///
-  /// For web the preferred way to get clipboard contents is through [registerPasteEventListener],
-  /// which is triggered when user pastes something into the page and does not require any
-  /// user confirmation.
+  @Deprecated('use Clipboard.instance?.read() instead')
   static Future<ClipboardReader> readClipboard() async {
-    final reader = await raw.ClipboardReader.instance.newClipboardReader();
-    final readerItems = await reader.getItems();
-    final items = <ClipboardDataReader>[];
-    for (final item in readerItems) {
-      items.add(await ClipboardDataReader.forItem(item));
+    final clipboard = Clipboard.instance;
+    if (clipboard == null) {
+      throw UnsupportedError('Clipboard API is not available on this platform');
     }
-    return ClipboardReader(items);
+    return clipboard.read();
   }
 
   @override

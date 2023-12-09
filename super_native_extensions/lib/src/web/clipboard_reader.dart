@@ -3,6 +3,7 @@ import '../reader.dart';
 import '../reader_manager.dart';
 import 'clipboard_api.dart';
 
+import 'js_interop.dart';
 import 'reader.dart';
 import 'reader_manager.dart';
 
@@ -20,4 +21,7 @@ class ClipboardReaderImpl extends ClipboardReader {
 
     return DataReader(handle: handle as DataReaderHandle);
   }
+
+  @override
+  bool get available => clipboardItemAvailable;
 }
