@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:meta/meta.dart';
 import 'package:super_native_extensions/raw_clipboard.dart' as raw;
 
+import 'future_util.dart';
 import 'reader.dart';
 import 'writer.dart';
 
@@ -97,16 +98,38 @@ abstract class ValueFormat<T extends Object> extends DataFormat<T> {
   PlatformCodec<T> get codec;
 
   @override
-  FutureOr<EncodedData> call(T data) async {
+  FutureOr<EncodedData> call(T data) {
     final encoder = codec;
-    final entries = <raw.DataRepresentation>[];
+    final entries = <raw.DataRepresentationSimple>[];
+    bool needResolve = false;
     for (final format in encoder.encodingFormats) {
-      entries.add(
-        raw.DataRepresentation.simple(
-            format: format, data: await encoder.encode(data, format)),
-      );
+      final representation = raw.DataRepresentation.simple(
+          format: format, data: encoder.encode(data, format));
+      needResolve |= representation.data is Future;
+      entries.add(representation);
     }
-    return EncodedData(entries);
+    if (needResolve) {
+      return _resolveEntries(entries);
+    } else {
+      return EncodedData(entries);
+    }
+  }
+
+  Future<EncodedData> _resolveEntries(
+      List<raw.DataRepresentationSimple> entries) async {
+    final resolved = <raw.DataRepresentationSimple>[];
+    for (final entry in entries) {
+      final data = entry.data;
+      if (data is Future) {
+        resolved.add(raw.DataRepresentation.simple(
+          format: entry.format,
+          data: await data,
+        ));
+      } else {
+        resolved.add(entry);
+      }
+    }
+    return EncodedData(resolved);
   }
 
   @override
@@ -114,10 +137,16 @@ abstract class ValueFormat<T extends Object> extends DataFormat<T> {
     final encoder = codec;
     final entries = <raw.DataRepresentation>[];
     for (final format in encoder.encodingFormats) {
+      dataProvider() {
+        final value = provider();
+        return value.then((value) => encoder.encode(value, format));
+      }
+
       entries.add(
         raw.DataRepresentation.lazy(
-            format: format,
-            dataProvider: () async => encoder.encode(await provider(), format)),
+          format: format,
+          dataProvider: dataProvider,
+        ),
       );
     }
     return EncodedData(entries);

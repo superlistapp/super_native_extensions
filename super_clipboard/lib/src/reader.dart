@@ -149,33 +149,9 @@ abstract class ClipboardDataReader extends DataReader {
       ItemDataReader.fromItem(item);
 }
 
-/// Paste event dispatched during a browser paste action (only available on web)
-class PasteEvent {
-  /// Returns the clipboard reader for paste event, which is not restricted nor requires user
-  /// confirmation
-  ///
-  /// Once requested, this will prevent browser from performing default paste action,
-  /// such as inserting text into input or content editable elements.
-  Future<ClipboardReader> getClipboardReader() async {
-    final readerItems = await _event.getReader().getItems();
-    final items = await Future.wait(
-      readerItems.map(
-        (e) => ClipboardDataReader.forItem(e),
-      ),
-    );
-    return ClipboardReader._(items);
-  }
-
-  PasteEvent._({
-    required raw.PasteEvent event,
-  }) : _event = event;
-
-  final raw.PasteEvent _event;
-}
-
 /// Clipboard reader exposes contents of the clipboard.
 class ClipboardReader extends ClipboardDataReader {
-  ClipboardReader._(this.items);
+  ClipboardReader(this.items);
 
   /// Individual items of this clipboard reader.
   final List<ClipboardDataReader> items;
@@ -193,44 +169,8 @@ class ClipboardReader extends ClipboardDataReader {
     for (final item in readerItems) {
       items.add(await ClipboardDataReader.forItem(item));
     }
-    return ClipboardReader._(items);
+    return ClipboardReader(items);
   }
-
-  /// Returns whether paste event is supported on current platform. This is
-  /// only supported on web.
-  static bool get supportsPasteEvent =>
-      raw.ClipboardReader.instance.supportsPasteEvent;
-
-  /// Registers a listener for paste event (triggered through Ctrl/Cmd + V or browser menu action).
-  /// This is only supported on web and is a no-op on other platforms.
-  ///
-  /// The clipboard access in the listener will not require any use conformation and allows
-  /// accessing files, unlike [readClipboard] which is more limited on web.
-  static void registerPasteEventListener(
-    void Function(PasteEvent event) listener,
-  ) {
-    _pasteEventListeners.add(listener);
-    if (!_pasteEventRegistered) {
-      _pasteEventRegistered = true;
-      raw.ClipboardReader.instance.registerPasteEventListener((event) async {
-        final pasteEvent = PasteEvent._(event: event);
-        for (final listener in _pasteEventListeners) {
-          listener(pasteEvent);
-        }
-      });
-    }
-  }
-
-  /// Unregisters a listener for paste event previously registered with [registerPasteEventListener].
-  static void unregisterPasteEventListener(
-    void Function(PasteEvent event) listener,
-  ) {
-    _pasteEventListeners.remove(listener);
-  }
-
-  static final _pasteEventListeners = <void Function(PasteEvent event)>[];
-
-  static bool _pasteEventRegistered = false;
 
   @override
   List<DataFormat> getFormats(List<DataFormat> allFormats) {

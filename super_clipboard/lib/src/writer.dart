@@ -83,31 +83,18 @@ class DataWriterItem {
 ///                                   'Plaintext value resolved lazily'));
 /// await ClipboardWriter.instance.write([item]);
 /// ```
-class ClipboardWriter {
-  ClipboardWriter._();
-
+abstract class ClipboardWriter {
   /// Writes the provided items in system clipboard.
-  Future<void> write(Iterable<DataWriterItem> items) async {
-    final providers = <(raw.DataProvider, DataWriterItem)>[];
-    for (final item in items) {
-      final provider = await item.asDataProvider();
-      if (provider.representations.isNotEmpty) {
-        providers.add((provider, item));
-      }
-    }
-    final handles = <raw.DataProviderHandle>[];
-    for (final (provider, writer) in providers) {
-      handles.add(await writer.registerWithDataProvider(provider));
-    }
-    try {
-      await raw.ClipboardWriter.instance.write(handles);
-    } catch (e) {
-      for (final handle in handles) {
-        handle.dispose();
-      }
-      rethrow;
-    }
-  }
+  Future<void> write(Iterable<DataWriterItem> items);
 
-  static final instance = ClipboardWriter._();
+  static final instance = _ClipboardWriter();
+}
+
+class _ClipboardWriter extends ClipboardWriter {
+  @override
+  Future<void> write(Iterable<DataWriterItem> items) async {
+    await items.withHandles((handles) async {
+      await raw.ClipboardWriter.instance.write(handles);
+    });
+  }
 }
