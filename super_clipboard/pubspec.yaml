@@ -3,7 +3,7 @@ description: Comprehensive clipboard access package for Flutter. Supports readin
 version: 0.7.3
 homepage: https://github.com/superlistapp/super_native_extensions
 repository: https://github.com/superlistapp/super_native_extensions/tree/main/super_clipboard
-issue_tracker:: https://github.com/superlistapp/super_native_extensions/tree/main/super_clipboard/issues
+issue_tracker: https://github.com/superlistapp/super_native_extensions/tree/main/super_clipboard/issues
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
