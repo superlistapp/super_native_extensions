@@ -158,7 +158,7 @@ To get around this limitation, `super_clipboard` provides a way to listen to a b
 
 The clipboard reader provided through the `paste` event can access clipboard data without restriction on all browsers (including Firefox) and can also read content of local files copied to clipboard.
 
-The `copy` and `cut` event handlers are the only way to write to clipboard on Firefox. However these have the limitation of only being able to write textual data to clipboard and do not support providing data asynchronously. So when `SystemClipboard.instance` is non `null` on web, it is recommended to use the system clipboard API instead.
+The `copy` and `cut` event handlers are the only way to write to clipboard on Firefox. However these have the limitation of only being able to write textual data to clipboard and do not support providing data asynchronously. So when `SystemClipboard.instance` is non `null` on web, it is recommended to use regular clipboard API instead.
 
 ```dart
    final events = ClipboardEvents.instance;
