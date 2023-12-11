@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'data_provider.dart';
 
 import 'native/data_provider_manager.dart'
@@ -6,6 +8,6 @@ import 'native/data_provider_manager.dart'
 abstract class DataProviderManager {
   static final DataProviderManager instance = DataProviderManagerImpl();
 
-  Future<DataProviderHandle> registerDataProvider(DataProvider provider);
-  Future<void> unregisterDataProvider(int providerId);
+  FutureOr<DataProviderHandle> registerDataProvider(DataProvider provider);
+  FutureOr<void> unregisterDataProvider(int providerId);
 }

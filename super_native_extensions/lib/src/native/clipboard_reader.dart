@@ -14,18 +14,11 @@ class ClipboardReaderImpl extends ClipboardReader {
     return DataReader(handle: DataReaderHandle.deserialize(handle));
   }
 
+  @override
+  bool get available => true;
+
   ClipboardReaderImpl();
 
   final _channel = NativeMethodChannel('ClipboardReader',
       context: superNativeExtensionsContext);
-
-  @override
-  void registerPasteEventListener(void Function(PasteEvent reader) listener) {}
-
-  @override
-  void unregisterPasteEventListener(
-      void Function(PasteEvent reader) listener) {}
-
-  @override
-  bool get supportsPasteEvent => false;
 }

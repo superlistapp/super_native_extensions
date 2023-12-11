@@ -91,3 +91,7 @@ extension PropsReadableStreamReadResult on ReadableStreamReadResult {
 class ReadableStreamGenericReader {
   external factory ReadableStreamGenericReader();
 }
+
+bool get clipboardItemAvailable {
+  return js_util.getProperty(html.window, 'ClipboardItem') != null;
+}

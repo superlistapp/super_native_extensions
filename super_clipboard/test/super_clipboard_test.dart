@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:super_clipboard/src/format_conversions.dart';
 import 'package:super_clipboard/src/format.dart';
+import 'package:super_clipboard/src/formats_base.dart';
+import 'package:super_native_extensions/raw_clipboard.dart';
 
 class SimpleProvider extends PlatformDataProvider {
   final Object data;
@@ -33,5 +35,72 @@ void main() {
     final decoded2 =
         await windowsHtmlFromSystem(SimpleProvider(encoded1), cfHtml);
     expect(decoded2, 'Another\r\nTest');
+  });
+
+  test('value format with synchronous encoder', () {
+    final format = SimpleValueFormat<String>(
+      fallback: SimplePlatformCodec<String>(
+        formats: ['format'],
+        onEncode: (value, format) => value,
+      ),
+    );
+    final encoded = format('test');
+    expect(encoded, isA<EncodedData>());
+
+    final data = encoded as EncodedData;
+    final representation =
+        data.representations.first as DataRepresentationSimple;
+    expect(representation.data, 'test');
+    expect(representation.format, 'format');
+  });
+
+  test('value format with synchronous encoder (lazy)', () {
+    final format = SimpleValueFormat<String>(
+      fallback: SimplePlatformCodec<String>(
+        formats: ['format'],
+        onEncode: (value, format) => value,
+      ),
+    );
+    final encoded = format.lazy(() => 'test');
+    expect(encoded, isA<EncodedData>());
+
+    final data = encoded as EncodedData;
+    final representation = data.representations.first as DataRepresentationLazy;
+    expect(representation.dataProvider(), 'test');
+    expect(representation.format, 'format');
+  });
+
+  test('value format with asynchronous encoder', () async {
+    final format = SimpleValueFormat<String>(
+      fallback: SimplePlatformCodec<String>(
+        formats: ['format'],
+        onEncode: (value, format) async => value,
+      ),
+    );
+    final encoded = format('test');
+    expect(encoded, isA<Future<EncodedData>>());
+
+    final data = await encoded;
+    final representation =
+        data.representations.first as DataRepresentationSimple;
+    expect(representation.data, 'test');
+    expect(representation.format, 'format');
+  });
+
+  test('value format with asynchronous encoder (lazy)', () async {
+    final format = SimpleValueFormat<String>(
+      fallback: SimplePlatformCodec<String>(
+        formats: ['format'],
+        onEncode: (value, format) async => value,
+      ),
+    );
+    final encoded = format.lazy(() => 'test');
+
+    expect(encoded, isA<EncodedData>());
+
+    final data = encoded as EncodedData;
+    final representation = data.representations.first as DataRepresentationLazy;
+    expect(await representation.dataProvider(), 'test');
+    expect(representation.format, 'format');
   });
 }
