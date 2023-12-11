@@ -1,3 +1,7 @@
+## 0.8.0-dev.3
+
+ - **FEAT**: implement copy and cut events (#253).
+
 ## 0.8.0-dev.2
 
  - Bump "super_clipboard" to `0.8.0-dev.2`.
