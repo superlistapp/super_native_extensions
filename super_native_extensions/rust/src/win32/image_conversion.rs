@@ -14,10 +14,9 @@ use windows::{
                 StructuredStorage::{
                     CreateStreamOnHGlobal, GetHGlobalFromStream, IPropertyBag2, PROPBAG2,
                 },
-                VT_BOOL,
             },
             Memory::{GlobalLock, GlobalSize, GlobalUnlock},
-            Ole::VariantInit,
+            Variant::{VariantInit, VT_BOOL},
         },
     },
 };
@@ -31,7 +30,7 @@ pub fn convert_to_png(input_stream: IStream) -> windows::core::Result<Vec<u8>> {
         let decoder =
             factory.CreateDecoderFromStream(&input_stream, null_mut(), Default::default())?;
         let encoder = factory.CreateEncoder(&GUID_ContainerFormatPng, null_mut())?;
-        let output_stream = CreateStreamOnHGlobal(HGLOBAL(0), true)?;
+        let output_stream = CreateStreamOnHGlobal(HGLOBAL::default(), true)?;
         encoder.Initialize(&output_stream, WICBitmapEncoderNoCache)?;
         let frame = decoder.GetFrame(0)?;
         let mut encoder_frame = Option::<IWICBitmapFrameEncode>::None;
@@ -46,7 +45,7 @@ pub fn convert_to_png(input_stream: IStream) -> windows::core::Result<Vec<u8>> {
         let data = GlobalLock(hglobal);
         let v = slice::from_raw_parts(data as *const u8, size);
         let res: Vec<u8> = v.into();
-        GlobalUnlock(hglobal);
+        GlobalUnlock(hglobal).ok();
         // prevent clippy from complaining. want the stream to outlive
         // hglobal
         let _output_stream = output_stream;
@@ -61,7 +60,7 @@ pub fn convert_to_dib(input_stream: IStream, use_v5: bool) -> windows::core::Res
         let decoder =
             factory.CreateDecoderFromStream(&input_stream, null_mut(), Default::default())?;
         let encoder = factory.CreateEncoder(&GUID_ContainerFormatBmp, null_mut())?;
-        let output_stream = CreateStreamOnHGlobal(HGLOBAL(0), true)?;
+        let output_stream = CreateStreamOnHGlobal(HGLOBAL::default(), true)?;
         encoder.Initialize(&output_stream, WICBitmapEncoderNoCache)?;
         let frame = decoder.GetFrame(0)?;
         let mut encoder_frame = Option::<IWICBitmapFrameEncode>::None;
@@ -92,7 +91,7 @@ pub fn convert_to_dib(input_stream: IStream, use_v5: bool) -> windows::core::Res
         // Strip BMP file header
         let sub = &v[14..];
         let res: Vec<u8> = sub.into();
-        GlobalUnlock(hglobal);
+        GlobalUnlock(hglobal).ok();
         // prevent clippy from complaining. want the stream to outlive
         // hglobal
         let _output_stream = output_stream;

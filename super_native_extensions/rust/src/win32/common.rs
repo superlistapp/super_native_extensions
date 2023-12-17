@@ -2,8 +2,7 @@ use std::{fs::OpenOptions, io::Write, mem::size_of, path::Path, ptr::null_mut};
 
 use once_cell::sync::Lazy;
 use windows::{
-    core::{ComInterface, GUID, HRESULT, HSTRING},
-    s,
+    core::{s, ComInterface, GUID, HRESULT, HSTRING},
     Win32::{
         Foundation::{E_UNEXPECTED, HANDLE, HWND, S_OK},
         Graphics::Gdi::{
@@ -97,7 +96,7 @@ pub fn image_data_to_hbitmap(image: &ImageData) -> NativeExtensionsResult<HBITMA
             biHeight: image.height,
             biPlanes: 1,
             biBitCount: 32,
-            biCompression: BI_RGB.0 as u32,
+            biCompression: BI_RGB.0,
             biSizeImage: (image.width * image.height * 4) as u32,
             biXPelsPerMeter: 0,
             biYPelsPerMeter: 0,

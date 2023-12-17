@@ -15,8 +15,8 @@ use windows::{
     core::{implement, HRESULT, HSTRING},
     Win32::{
         Foundation::{
-            BOOL, DATA_S_SAMEFORMATETC, DV_E_FORMATETC, E_NOTIMPL, E_OUTOFMEMORY, HGLOBAL,
-            OLE_E_ADVISENOTSUPPORTED, POINT, S_FALSE, S_OK,
+            GlobalFree, BOOL, DATA_S_SAMEFORMATETC, DV_E_FORMATETC, E_NOTIMPL, E_OUTOFMEMORY,
+            HGLOBAL, OLE_E_ADVISENOTSUPPORTED, POINT, S_FALSE, S_OK,
         },
         System::{
             Com::{
@@ -25,9 +25,7 @@ use windows::{
                 TYMED_HGLOBAL, TYMED_ISTREAM,
             },
             DataExchange::RegisterClipboardFormatW,
-            Memory::{
-                GlobalAlloc, GlobalFree, GlobalLock, GlobalSize, GlobalUnlock, GLOBAL_ALLOC_FLAGS,
-            },
+            Memory::{GlobalAlloc, GlobalLock, GlobalSize, GlobalUnlock, GLOBAL_ALLOC_FLAGS},
             Ole::{ReleaseStgMedium, CF_DIB, CF_DIBV5, CF_HDROP, DROPEFFECT},
         },
         UI::Shell::{
@@ -111,7 +109,7 @@ impl DataObject {
                 Err(E_OUTOFMEMORY.into())
             } else {
                 std::ptr::copy_nonoverlapping(data.as_ptr(), global_data as *mut u8, data.len());
-                GlobalUnlock(global);
+                GlobalUnlock(global).ok();
                 Ok(global)
             }
         }
@@ -498,8 +496,8 @@ impl IDataObject_Impl for DataObject {
             let stream = self
                 .stream_for_virtual_file_index(format.lindex as usize, Self::is_local_request());
             return Ok(STGMEDIUM {
-                tymed: TYMED_ISTREAM,
-                Anonymous: STGMEDIUM_0 {
+                tymed: TYMED_ISTREAM.0 as u32,
+                u: STGMEDIUM_0 {
                     pstm: ManuallyDrop::new(stream),
                 },
                 pUnkForRelease: ManuallyDrop::new(None),
@@ -534,8 +532,8 @@ impl IDataObject_Impl for DataObject {
                 if (format.tymed & TYMED_HGLOBAL.0 as u32) != 0 {
                     let global = self.global_from_data(&data)?;
                     Ok(STGMEDIUM {
-                        tymed: TYMED_HGLOBAL,
-                        Anonymous: STGMEDIUM_0 { hGlobal: global },
+                        tymed: TYMED_HGLOBAL.0 as u32,
+                        u: STGMEDIUM_0 { hGlobal: global },
                         pUnkForRelease: ManuallyDrop::new(None),
                     })
                 } else if (format.tymed & TYMED_ISTREAM.0 as u32) != 0 {
@@ -546,8 +544,8 @@ impl IDataObject_Impl for DataObject {
                         stream.Seek(0, STREAM_SEEK_END, None)?;
                     }
                     Ok(STGMEDIUM {
-                        tymed: TYMED_ISTREAM,
-                        Anonymous: STGMEDIUM_0 {
+                        tymed: TYMED_ISTREAM.0 as u32,
+                        u: STGMEDIUM_0 {
                             pstm: ManuallyDrop::new(Some(stream)),
                         },
                         pUnkForRelease: ManuallyDrop::new(None),
@@ -617,13 +615,13 @@ impl IDataObject_Impl for DataObject {
         if format.tymed == TYMED_HGLOBAL.0 as u32 {
             unsafe {
                 let medium = &*pmedium;
-                let size = GlobalSize(medium.Anonymous.hGlobal);
-                let global_data = GlobalLock(medium.Anonymous.hGlobal);
+                let size = GlobalSize(medium.u.hGlobal);
+                let global_data = GlobalLock(medium.u.hGlobal);
 
                 let v = slice::from_raw_parts(global_data as *const u8, size);
                 let global_data: Vec<u8> = v.into();
 
-                GlobalUnlock(medium.Anonymous.hGlobal);
+                GlobalUnlock(medium.u.hGlobal).ok();
                 self.extra_data
                     .borrow_mut()
                     .insert(format.cfFormat, global_data);
@@ -637,7 +635,7 @@ impl IDataObject_Impl for DataObject {
         } else if format.tymed == TYMED_ISTREAM.0 as u32 {
             unsafe {
                 let medium = &*pmedium;
-                let stream = medium.Anonymous.pstm.as_ref().cloned();
+                let stream = medium.u.pstm.as_ref().cloned();
 
                 let stream_data = if let Some(stream) = stream {
                     stream.Seek(0, STREAM_SEEK_SET, None)?;
@@ -733,8 +731,8 @@ pub trait GetData {
 
         unsafe {
             let mut medium = self.do_get_data(&format as *const _)?;
-            let res = if medium.tymed == TYMED_ISTREAM {
-                let stream = medium.Anonymous.pstm.as_ref().cloned();
+            let res = if medium.tymed == TYMED_ISTREAM.0 as u32 {
+                let stream = medium.u.pstm.as_ref().cloned();
                 if let Some(stream) = stream {
                     // IDataObject streams need to be rewound
                     stream.Seek(0, STREAM_SEEK_SET, None)?;
@@ -742,14 +740,14 @@ pub trait GetData {
                 } else {
                     Ok(Vec::new())
                 }
-            } else if medium.tymed == TYMED_HGLOBAL {
-                let size = GlobalSize(medium.Anonymous.hGlobal);
-                let data = GlobalLock(medium.Anonymous.hGlobal);
+            } else if medium.tymed == TYMED_HGLOBAL.0 as u32 {
+                let size = GlobalSize(medium.u.hGlobal);
+                let data = GlobalLock(medium.u.hGlobal);
 
                 let v = slice::from_raw_parts(data as *const u8, size);
                 let res: Vec<u8> = v.into();
 
-                GlobalUnlock(medium.Anonymous.hGlobal);
+                GlobalUnlock(medium.u.hGlobal).ok();
 
                 Ok(res)
             } else {
@@ -764,14 +762,14 @@ pub trait GetData {
         let format = make_format_with_tymed(format, TYMED(TYMED_ISTREAM.0 | TYMED_HGLOBAL.0));
         let res = unsafe {
             let mut medium = self.do_get_data(&format as *const _)?;
-            let res = if medium.tymed == TYMED_ISTREAM {
-                medium.Anonymous.pstm.as_ref().cloned()
-            } else if medium.tymed == TYMED_HGLOBAL {
-                let size = GlobalSize(medium.Anonymous.hGlobal);
-                let data = GlobalLock(medium.Anonymous.hGlobal);
+            let res = if medium.tymed == TYMED_ISTREAM.0 as u32 {
+                medium.u.pstm.as_ref().cloned()
+            } else if medium.tymed == TYMED_HGLOBAL.0 as u32 {
+                let size = GlobalSize(medium.u.hGlobal);
+                let data = GlobalLock(medium.u.hGlobal);
                 let data = slice::from_raw_parts(data as *const u8, size);
                 let res = SHCreateMemStream(Some(data));
-                GlobalUnlock(medium.Anonymous.hGlobal);
+                GlobalUnlock(medium.u.hGlobal).ok();
                 res
             } else {
                 None

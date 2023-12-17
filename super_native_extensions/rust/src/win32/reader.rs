@@ -25,8 +25,7 @@ use rand::{distributions::Alphanumeric, Rng};
 use threadpool::ThreadPool;
 use url::Url;
 use windows::{
-    core::HSTRING,
-    w,
+    core::{w, HSTRING},
     Win32::{
         Foundation::S_OK,
         Storage::FileSystem::{
@@ -463,14 +462,14 @@ impl PlatformDataReader {
     }
 
     fn stream_from_medium(medium: &STGMEDIUM) -> NativeExtensionsResult<IStream> {
-        match medium.tymed {
+        match TYMED(medium.tymed as i32) {
             TYMED_HGLOBAL => {
                 let stream = unsafe {
-                    let size = GlobalSize(medium.Anonymous.hGlobal);
-                    let data = GlobalLock(medium.Anonymous.hGlobal);
+                    let size = GlobalSize(medium.u.hGlobal);
+                    let data = GlobalLock(medium.u.hGlobal);
                     let data = slice::from_raw_parts(data as *const u8, size);
                     let res = SHCreateMemStream(Some(data));
-                    GlobalUnlock(medium.Anonymous.hGlobal);
+                    GlobalUnlock(medium.u.hGlobal).ok();
                     res
                 };
                 match stream {
@@ -480,7 +479,7 @@ impl PlatformDataReader {
                     )),
                 }
             }
-            TYMED_ISTREAM => match unsafe { medium.Anonymous.pstm.as_ref() } {
+            TYMED_ISTREAM => match unsafe { medium.u.pstm.as_ref() } {
                 Some(stream) => Ok(stream.clone()),
                 None => Err(NativeExtensionsError::VirtualFileReceiveError(
                     "IStream missing".into(),
@@ -522,15 +521,15 @@ impl PlatformDataReader {
         supports_async: bool,
         completer: FutureCompleter<NativeExtensionsResult<PathBuf>>,
     ) {
-        match medium.tymed {
+        match TYMED(medium.tymed as i32) {
             TYMED_HGLOBAL => {
                 let path = get_target_path(&target_folder, file_name);
                 let res = unsafe {
-                    let size = GlobalSize(medium.Anonymous.hGlobal);
-                    let data = GlobalLock(medium.Anonymous.hGlobal);
+                    let size = GlobalSize(medium.u.hGlobal);
+                    let data = GlobalLock(medium.u.hGlobal);
                     let data = slice::from_raw_parts(data as *const u8, size);
                     let res = fs::write(&path, data);
-                    GlobalUnlock(medium.Anonymous.hGlobal);
+                    GlobalUnlock(medium.u.hGlobal).ok();
                     progress.report_progress(Some(1.0));
                     res
                 };
@@ -541,7 +540,7 @@ impl PlatformDataReader {
                     )),
                 }
             }
-            TYMED_ISTREAM => match unsafe { medium.Anonymous.pstm.as_ref() } {
+            TYMED_ISTREAM => match unsafe { medium.u.pstm.as_ref() } {
                 Some(stream) => {
                     if supports_async {
                         let copier = AsyncVirtualStreamCopier {
@@ -833,7 +832,7 @@ impl AsyncVirtualStreamCopier {
         unsafe {
             let path: String = temp_path.to_string_lossy().into();
             let path = HSTRING::from(path);
-            SetFileAttributesW(&path, FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_TEMPORARY);
+            SetFileAttributesW(&path, FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_TEMPORARY)?;
         }
         match self.read_and_write(file) {
             Ok(_) => {
@@ -842,7 +841,7 @@ impl AsyncVirtualStreamCopier {
                 unsafe {
                     let path: String = path.to_string_lossy().into();
                     let path = HSTRING::from(path);
-                    SetFileAttributesW(&path, FILE_ATTRIBUTE_ARCHIVE);
+                    SetFileAttributesW(&path, FILE_ATTRIBUTE_ARCHIVE)?;
                 }
                 Ok(path)
             }
