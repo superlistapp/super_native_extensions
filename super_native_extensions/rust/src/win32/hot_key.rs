@@ -74,7 +74,7 @@ impl PlatformHotKeyManager {
         self.next_id.replace(id + 1);
         unsafe {
             let vk = MapVirtualKeyW(request.platform_code as u32, MAPVK_VSC_TO_VK);
-            RegisterHotKey(Self::hwnd(), id, modifiers, vk);
+            RegisterHotKey(Self::hwnd(), id, modifiers, vk)?;
         }
         self.hot_keys.borrow_mut().insert(id, (handle, request));
         Ok(())
@@ -89,7 +89,7 @@ impl PlatformHotKeyManager {
             .map(|e| *e.0);
         if let Some(hot_key_id) = hot_key_id {
             hot_keys.remove(&hot_key_id);
-            unsafe { UnregisterHotKey(Self::hwnd(), hot_key_id) };
+            unsafe { UnregisterHotKey(Self::hwnd(), hot_key_id)? };
         }
 
         Ok(())

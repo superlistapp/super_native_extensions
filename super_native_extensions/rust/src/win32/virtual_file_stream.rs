@@ -130,7 +130,7 @@ impl Stream {
     fn stat(
         &self,
         pstatstg: *mut windows::Win32::System::Com::STATSTG,
-        _grfstatflag: STATFLAG,
+        _grfstatflag: &STATFLAG,
     ) -> windows::core::Result<()> {
         self.initialize_if_needed();
         let size_promise = {
@@ -330,7 +330,7 @@ impl IStream_Impl for VirtualFileStream {
 
     fn Commit(
         &self,
-        _grfcommitflags: windows::Win32::System::Com::STGC,
+        _grfcommitflags: &windows::Win32::System::Com::STGC,
     ) -> windows::core::Result<()> {
         Err(E_NOTIMPL.into())
     }
@@ -343,7 +343,7 @@ impl IStream_Impl for VirtualFileStream {
         &self,
         _liboffset: u64,
         _cb: u64,
-        _dwlocktype: LOCKTYPE,
+        _dwlocktype: &LOCKTYPE,
     ) -> windows::core::Result<()> {
         Err(E_NOTIMPL.into())
     }
@@ -360,7 +360,7 @@ impl IStream_Impl for VirtualFileStream {
     fn Stat(
         &self,
         pstatstg: *mut windows::Win32::System::Com::STATSTG,
-        grfstatflag: STATFLAG,
+        grfstatflag: &STATFLAG,
     ) -> windows::core::Result<()> {
         self.stream.stat(pstatstg, grfstatflag)
     }
