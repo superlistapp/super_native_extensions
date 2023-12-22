@@ -1,3 +1,5 @@
+## 0.8.0
+
 ## 0.8.0-dev.3
 
  - **FEAT**: implement copy and cut events (#253).

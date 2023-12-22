@@ -1,3 +1,7 @@
+## 0.8.0
+
+ - **FIX**: access NSURL within security scope (#264).
+
 ## 0.8.0-dev.3
 
  - **FEAT**: implement copy and cut events (#253).
