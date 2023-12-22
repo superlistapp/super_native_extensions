@@ -22,6 +22,10 @@ rootProject.allprojects {
 apply plugin: 'com.android.library'
 
 android {
+    if (project.android.hasProperty("namespace")) {
+        namespace 'com.superlist.super_native_extensions'
+    }
+
     compileSdkVersion 31
 
     compileOptions {
