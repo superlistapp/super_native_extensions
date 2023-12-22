@@ -72,6 +72,7 @@ pub struct PlatformDataReader {
     data_object: IDataObject,
     _drop_notifier: Option<Arc<DropNotifier>>,
     supports_async: Cell<bool>,
+    file_descriptors: RefCell<Option<Option<Vec<FileDescriptor>>>>,
 }
 
 /// Virtual file descriptor
@@ -322,6 +323,7 @@ impl PlatformDataReader {
             data_object,
             _drop_notifier: drop_notifier,
             supports_async: Cell::new(false),
+            file_descriptors: RefCell::new(None),
         });
         res.assign_weak_self(Rc::downgrade(&res));
         res
@@ -349,12 +351,20 @@ impl PlatformDataReader {
     }
 
     fn get_file_descriptors(&self) -> NativeExtensionsResult<Option<Vec<FileDescriptor>>> {
-        let format = unsafe { RegisterClipboardFormatW(CFSTR_FILEDESCRIPTOR) };
-        if self.data_object.has_data(format) {
-            let data = self.data_object.get_data(format)?;
-            Ok(Some(Self::extract_file_descriptors(data)?))
-        } else {
-            Ok(None)
+        let descriptors = self.file_descriptors.clone().take();
+        match descriptors {
+            Some(descriptors) => Ok(descriptors),
+            None => {
+                let format = unsafe { RegisterClipboardFormatW(CFSTR_FILEDESCRIPTOR) };
+                let descriptors = if self.data_object.has_data(format) {
+                    let data = self.data_object.get_data(format)?;
+                    Some(Self::extract_file_descriptors(data)?)
+                } else {
+                    None
+                };
+                self.file_descriptors.replace(Some(descriptors.clone()));
+                Ok(descriptors)
+            }
         }
     }
 
