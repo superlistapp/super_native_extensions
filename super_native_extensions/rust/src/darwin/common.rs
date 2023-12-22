@@ -43,7 +43,9 @@ pub fn path_from_url(url: &NSURL) -> PathBuf {
 
 pub unsafe fn format_from_url(url: &NSURL) -> Option<String> {
     let mut ty: Option<Id<AnyObject>> = None;
+    url.startAccessingSecurityScopedResource();
     let res = url.getResourceValue_forKey_error(&mut ty, NSURLTypeIdentifierKey);
+    url.stopAccessingSecurityScopedResource();
     if let (Some(ty), Ok(_)) = (ty, res) {
         Some(Id::cast::<NSString>(ty).to_string())
     } else {

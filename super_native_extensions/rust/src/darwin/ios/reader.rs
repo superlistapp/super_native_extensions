@@ -24,6 +24,7 @@ use irondash_run_loop::{
     util::{Capsule, FutureCompleter},
     RunLoop,
 };
+
 use objc2::{
     rc::{autoreleasepool, Id},
     runtime::{Bool, NSObject},
@@ -381,6 +382,7 @@ impl FileWithBackgroundCoordinator {
         thread::spawn(move || {
             let block = ConcreteBlock::new(move |new_url: NonNull<NSURL>| {
                 let new_url = unsafe { Id::retain(new_url.as_ptr()).unwrap() };
+                unsafe { new_url.startAccessingSecurityScopedResource() };
                 let path = path_from_url(&new_url);
                 let release = Arc::new(Promise::new());
                 let file = File::open(&path);
@@ -398,10 +400,12 @@ impl FileWithBackgroundCoordinator {
                         promise_clone2.set(Err(NativeExtensionsError::from(err)));
                     }
                 }
+                unsafe { new_url.stopAccessingSecurityScopedResource() };
             });
             let block = block.copy();
             let mut error: Option<Id<NSError>> = None;
             autoreleasepool(|_| unsafe {
+                url.startAccessingSecurityScopedResource();
                 let coordinator =
                     NSFileCoordinator::initWithFilePresenter(NSFileCoordinator::alloc(), None);
                 coordinator.coordinateReadingItemAtURL_options_error_byAccessor(
@@ -415,6 +419,7 @@ impl FileWithBackgroundCoordinator {
                         error.localizedDescription().to_string(),
                     )));
                 }
+                url.stopAccessingSecurityScopedResource();
             });
         });
         promise.wait()
