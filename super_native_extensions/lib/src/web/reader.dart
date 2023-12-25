@@ -121,7 +121,7 @@ class DataTransferItemHandle implements $DataReaderItemHandle {
   static html.Entry? _getEntry(List<html.DataTransferItem> items) {
     for (final item in items) {
       if (item.isFile) {
-        return item.getAsEntry();
+        return item.getAsEntryNullabble();
       }
     }
     return null;

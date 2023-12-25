@@ -32,6 +32,18 @@ extension DataTransferItemExt on html.DataTransferItem {
     }
   }
 
+  html.Entry? getAsEntryNullabble() {
+    dynamic entry = js_util.callMethod(this, 'webkitGetAsEntry', []);
+    // Workaround for `LegacyJavaScriptObject` in dart2 js when casting dynamic (FileEntry) to Entry. :-/
+    if (entry is html.FileEntry) {
+      return entry;
+    } else if (entry is html.DirectoryEntry) {
+      return entry;
+    } else {
+      return null;
+    }
+  }
+
   void getAsString(ValueChanged<String> callback) {
     js_util.callMethod(this, 'getAsString', [allowInterop(callback)]);
   }
