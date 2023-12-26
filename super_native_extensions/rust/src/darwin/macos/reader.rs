@@ -10,9 +10,10 @@ use std::{
 
 use icrate::{
     block2::ConcreteBlock,
-    ns_string,
     AppKit::{NSBitmapImageFileTypePNG, NSBitmapImageRep, NSFilePromiseReceiver, NSPasteboard},
-    Foundation::{NSArray, NSData, NSDictionary, NSError, NSOperationQueue, NSString, NSURL},
+    Foundation::{
+        ns_string, NSArray, NSData, NSDictionary, NSError, NSOperationQueue, NSString, NSURL,
+    },
 };
 use irondash_message_channel::{value_darwin::ValueObjcConversion, Value};
 use irondash_run_loop::{

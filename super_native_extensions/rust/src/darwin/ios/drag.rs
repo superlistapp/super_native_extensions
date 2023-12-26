@@ -8,18 +8,16 @@ use std::{
 
 use icrate::{
     block2::ConcreteBlock,
-    ns_string,
-    Foundation::{CGPoint, CGRect, NSArray, NSDictionary, NSNumber},
+    Foundation::{ns_string, CGPoint, CGRect, NSArray, NSDictionary, NSNumber},
 };
 use irondash_engine_context::EngineContext;
 use irondash_message_channel::{Late, Value};
 use irondash_run_loop::{platform::PollSession, RunLoop};
 use objc2::{
-    declare::{Ivar, IvarDrop},
     declare_class, msg_send_id, mutability,
     rc::Id,
     runtime::{NSObject, NSObjectProtocol, ProtocolObject},
-    ClassType,
+    ClassType, DeclaredClass,
 };
 
 use crate::{
@@ -30,7 +28,7 @@ use crate::{
         PlatformDragContextDelegate, PlatformDragContextId,
     },
     error::{NativeExtensionsError, NativeExtensionsResult},
-    platform_impl::platform::{common::UnsafeMutRef, os::util::IgnoreInteractionEvents},
+    platform_impl::platform::os::util::IgnoreInteractionEvents,
     util::DropNotifier,
     value_promise::PromiseResult,
 };
@@ -766,16 +764,16 @@ impl Inner {
 }
 
 declare_class!(
-    struct SNEDragContext {
-        context: IvarDrop<Box<Inner>, "_context">,
-    }
-
-    mod ivars;
+    struct SNEDragContext;
 
     unsafe impl ClassType for SNEDragContext {
         type Super = NSObject;
         type Mutability = mutability::InteriorMutable;
         const NAME: &'static str = "SNEDragContext";
+    }
+
+    impl DeclaredClass for SNEDragContext {
+        type Ivars = Inner;
     }
 
     unsafe impl NSObjectProtocol for SNEDragContext {}
@@ -788,7 +786,7 @@ declare_class!(
             interaction: &UIDragInteraction,
             session: &ProtocolObject<dyn UIDragSession>,
         ) -> Id<NSArray<UIDragItem>> {
-            self.context.with_state(
+            self.ivars().with_state(
                 |state| state.items_for_beginning(interaction, session),
                 || unsafe { NSArray::array() },
             )
@@ -801,7 +799,7 @@ declare_class!(
             session: &ProtocolObject<dyn UIDragSession>,
             point: CGPoint,
         ) -> Id<NSArray<UIDragItem>> {
-            self.context.with_state(
+            self.ivars().with_state(
                 |state| state.items_for_adding(interaction, session, point),
                 || unsafe { NSArray::array() },
             )
@@ -813,7 +811,7 @@ declare_class!(
             interaction: &UIDragInteraction,
             session: &ProtocolObject<dyn UIDragSession>,
         ) {
-            self.context
+            self.ivars()
                 .with_state(|state| state.drag_will_begin(interaction, session), || ())
         }
 
@@ -823,7 +821,7 @@ declare_class!(
             interaction: &UIDragInteraction,
             session: &ProtocolObject<dyn UIDragSession>,
         ) {
-            self.context
+            self.ivars()
                 .with_state(|state| state.did_move(interaction, session), || ())
         }
 
@@ -834,7 +832,7 @@ declare_class!(
             session: &ProtocolObject<dyn UIDragSession>,
             operation: UIDropOperation,
         ) {
-            self.context.with_state(
+            self.ivars().with_state(
                 |state| state.did_end_with_operation(interaction, session, operation),
                 || (),
             )
@@ -846,7 +844,7 @@ declare_class!(
             interaction: &UIDragInteraction,
             session: &ProtocolObject<dyn UIDragSession>,
         ) {
-            self.context.with_state(
+            self.ivars().with_state(
                 |state| state.did_transfer_items(interaction, session),
                 || (),
             )
@@ -859,7 +857,7 @@ declare_class!(
             item: &UIDragItem,
             _session: &ProtocolObject<dyn UIDragSession>,
         ) -> Option<Id<UITargetedDragPreview>> {
-            self.context
+            self.ivars()
                 .with_state(|state| state.preview_for_item(interaction, item), || None)
         }
 
@@ -870,7 +868,7 @@ declare_class!(
             item: &UIDragItem,
             _default_preview: &UITargetedDragPreview,
         ) -> Option<Id<UITargetedDragPreview>> {
-            self.context.with_state(
+            self.ivars().with_state(
                 |state| state.preview_for_canceling(interaction, item),
                 || None,
             )
@@ -882,7 +880,7 @@ declare_class!(
             interaction: &UIDragInteraction,
             session: &ProtocolObject<dyn UIDragSession>,
         ) -> bool {
-            self.context.with_state(
+            self.ivars().with_state(
                 |state| state.prefers_full_size_previews(interaction, session),
                 || false,
             )
@@ -894,7 +892,7 @@ declare_class!(
             interaction: &UIDragInteraction,
             session: &ProtocolObject<dyn UIDragSession>,
         ) -> bool {
-            self.context.with_state(
+            self.ivars().with_state(
                 |state| state.allows_move_operation(interaction, session),
                 || false,
             )
@@ -904,12 +902,8 @@ declare_class!(
 
 impl SNEDragContext {
     fn new(context: Weak<PlatformDragContext>) -> Id<Self> {
-        let this: Id<Self> = unsafe { msg_send_id![Self::alloc(), init] };
-        unsafe {
-            this.unsafe_mut_ref(|this| {
-                Ivar::write(&mut this.context, Box::new(Inner { context }));
-            });
-        }
-        this
+        let this = Self::alloc();
+        let this = this.set_ivars(Inner { context });
+        unsafe { msg_send_id![super(this), init] }
     }
 }

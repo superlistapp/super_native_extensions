@@ -107,7 +107,7 @@ extern_methods!(
         pub unsafe fn userInteractionEnabled(&self) -> bool;
 
         #[method_id(@__retain_semantics Init initWithFrame:)]
-        pub unsafe fn initWithFrame(this: Option<Allocated<Self>>, frame: CGRect) -> Id<Self>;
+        pub unsafe fn initWithFrame(this: Allocated<Self>, frame: CGRect) -> Id<Self>;
 
         #[method(addSubview:)]
         pub unsafe fn addSubview(&self, subview: &UIView);
@@ -176,7 +176,7 @@ extern_methods!(
     unsafe impl UIActivityIndicatorView {
         #[method_id(@__retain_semantics Init initWithActivityIndicatorStyle:)]
         pub unsafe fn initWithActivityIndicatorStyle(
-            this: Option<Allocated<Self>>,
+            this: Allocated<Self>,
             style: UIActivityIndicatorViewStyle,
         ) -> Id<Self>;
 
@@ -220,7 +220,7 @@ extern_methods!(
         pub unsafe fn preferredContentSize(&self) -> CGSize;
 
         #[method_id(@__retain_semantics Init init)]
-        pub unsafe fn init(this: Option<Allocated<Self>>) -> Id<Self>;
+        pub unsafe fn init(this: Allocated<Self>) -> Id<Self>;
     }
 );
 
@@ -241,10 +241,7 @@ extern_class!(
 extern_methods!(
     unsafe impl UIImageView {
         #[method_id(@__retain_semantics Init initWithImage:)]
-        pub unsafe fn initWithImage(
-            this: Option<Allocated<Self>>,
-            image: &UIImage,
-        ) -> Id<UIImageView>;
+        pub unsafe fn initWithImage(this: Allocated<Self>, image: &UIImage) -> Id<UIImageView>;
     }
 );
 
@@ -309,7 +306,7 @@ extern_methods!(
     unsafe impl UIDragItem {
         #[method_id(@__retain_semantics Init initWithItemProvider:)]
         pub unsafe fn initWithItemProvider(
-            this: Option<Allocated<Self>>,
+            this: Allocated<Self>,
             provider: &NSItemProvider,
         ) -> Id<Self>;
 
@@ -344,7 +341,7 @@ extern_methods!(
     unsafe impl UIDragPreview {
         #[method_id(@__retain_semantics Init initWithView:parameters:)]
         pub unsafe fn initWithView_parameters(
-            this: Option<Allocated<Self>>,
+            this: Allocated<Self>,
             view: &UIView,
             parameters: &UIDragPreviewParameters,
         ) -> Id<Self>;
@@ -365,14 +362,14 @@ extern_methods!(
     unsafe impl UIPreviewTarget {
         #[method_id(@__retain_semantics Init initWithContainer:center:)]
         pub unsafe fn initWithContainer_center(
-            this: Option<Allocated<Self>>,
+            this: Allocated<Self>,
             container: &UIView,
             center: CGPoint,
         ) -> Id<Self>;
 
         #[method_id(@__retain_semantics Init initWithContainer:center:transform:)]
         pub unsafe fn initWithContainer_center_transform(
-            this: Option<Allocated<Self>>,
+            this: Allocated<Self>,
             container: &UIView,
             center: CGPoint,
             transform: CGAffineTransform,
@@ -394,14 +391,14 @@ extern_methods!(
     unsafe impl UIDragPreviewTarget {
         #[method_id(@__retain_semantics Init initWithContainer:center:)]
         pub unsafe fn initWithContainer_center(
-            this: Option<Allocated<Self>>,
+            this: Allocated<Self>,
             container: &UIView,
             center: CGPoint,
         ) -> Id<Self>;
 
         #[method_id(@__retain_semantics Init initWithContainer:center:transform:)]
         pub unsafe fn initWithContainer_center_transform(
-            this: Option<Allocated<Self>>,
+            this: Allocated<Self>,
             container: &UIView,
             center: CGPoint,
             transform: CGAffineTransform,
@@ -423,7 +420,7 @@ extern_methods!(
     unsafe impl UITargetedPreview {
         #[method_id(@__retain_semantics Init initWithView:parameters:target:)]
         pub unsafe fn initWithView_parameters_target(
-            this: Option<Allocated<Self>>,
+            this: Allocated<Self>,
             view: &UIView,
             parameters: &UIPreviewParameters,
             target: &UIPreviewTarget,
@@ -454,7 +451,7 @@ extern_methods!(
     unsafe impl UITargetedDragPreview {
         #[method_id(@__retain_semantics Init initWithView:parameters:target:)]
         pub unsafe fn initWithView_parameters_target(
-            this: Option<Allocated<Self>>,
+            this: Allocated<Self>,
             view: &UIView,
             parameters: &UIDragPreviewParameters,
             target: &UIPreviewTarget,
@@ -491,7 +488,7 @@ extern_class!(
 extern_methods!(
     unsafe impl UIPreviewParameters {
         #[method_id(@__retain_semantics Init init)]
-        pub unsafe fn init(this: Option<Allocated<Self>>) -> Id<Self>;
+        pub unsafe fn init(this: Allocated<Self>) -> Id<Self>;
 
         #[method(setBackgroundColor:)]
         pub unsafe fn setBackgroundColor(&self, color: Option<&UIColor>);
@@ -504,7 +501,7 @@ extern_methods!(
 extern_methods!(
     unsafe impl UIDragPreviewParameters {
         #[method_id(@__retain_semantics Init init)]
-        pub unsafe fn init(this: Option<Allocated<Self>>) -> Id<Self>;
+        pub unsafe fn init(this: Allocated<Self>) -> Id<Self>;
     }
 );
 
@@ -568,7 +565,7 @@ extern_methods!(
     unsafe impl UIDropProposal {
         #[method_id(@__retain_semantics Init initWithDropOperation:)]
         pub unsafe fn initWithDropOperation(
-            this: Option<Allocated<Self>>,
+            this: Allocated<Self>,
             operation: UIDropOperation,
         ) -> Id<Self>;
 
@@ -764,7 +761,7 @@ extern_methods!(
     unsafe impl UIDragInteraction {
         #[method_id(@__retain_semantics Init initWithDelegate:)]
         pub unsafe fn initWithDelegate(
-            this: Option<Allocated<Self>>,
+            this: Allocated<Self>,
             delegate: &ProtocolObject<dyn UIDragInteractionDelegate>,
         ) -> Id<Self>;
     }
@@ -784,7 +781,7 @@ extern_methods!(
     unsafe impl UIDropInteraction {
         #[method_id(@__retain_semantics Init initWithDelegate:)]
         pub unsafe fn initWithDelegate(
-            this: Option<Allocated<Self>>,
+            this: Allocated<Self>,
             delegate: &ProtocolObject<dyn UIDropInteractionDelegate>,
         ) -> Id<Self>;
     }
@@ -931,7 +928,7 @@ extern_methods!(
     unsafe impl UIContextMenuInteraction {
         #[method_id(@__retain_semantics Init initWithDelegate:)]
         pub unsafe fn initWithDelegate(
-            this: Option<Allocated<Self>>,
+            this: Allocated<Self>,
             delegate: &ProtocolObject<dyn UIContextMenuInteractionDelegate>,
         ) -> Id<Self>;
     }

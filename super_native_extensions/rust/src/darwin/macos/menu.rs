@@ -2,20 +2,19 @@ use std::rc::{Rc, Weak};
 
 use icrate::{
     block2::{Block, ConcreteBlock},
-    ns_string,
     AppKit::{
         NSEvent, NSEventModifierFlagCommand, NSEventModifierFlagControl, NSEventModifierFlagOption,
         NSEventModifierFlagShift, NSEventModifierFlags, NSEventTypeFlagsChanged, NSMenu,
         NSMenuItem, NSView,
     },
-    Foundation::{NSPoint, NSString},
+    Foundation::{ns_string, MainThreadMarker, NSPoint, NSString},
 };
 use irondash_engine_context::EngineContext;
 use irondash_message_channel::IsolateId;
 use irondash_run_loop::{spawn, util::FutureCompleter, RunLoop};
 use objc2::{
     extern_class, extern_methods,
-    mutability::InteriorMutable,
+    mutability::MainThreadOnly,
     rc::{Allocated, Id},
     ClassType,
 };
@@ -109,12 +108,16 @@ impl PlatformMenu {
         menu: &Menu,
         isolate: IsolateId,
         delegate: Weak<dyn PlatformMenuDelegate>,
+        main_thread_marker: MainThreadMarker,
     ) -> Id<NSMenu> {
         let title = menu.title.as_deref().unwrap_or_default();
-
-        let res = SNEMenu::initWithTitle(SNEMenu::alloc(), &NSString::from_str(title));
+        let res = SNEMenu::initWithTitle(
+            main_thread_marker.alloc::<SNEMenu>(),
+            &NSString::from_str(title),
+        );
         for child in &menu.children {
-            let child = Self::translate_element(child, isolate, delegate.clone());
+            let child =
+                Self::translate_element(child, isolate, delegate.clone(), main_thread_marker);
             res.addItem(&child);
         }
         Id::into_super(res)
@@ -125,6 +128,7 @@ impl PlatformMenu {
         item_id: i64,
         isolate: IsolateId,
         weak_delegate: Weak<dyn PlatformMenuDelegate>,
+        main_thread_marker: MainThreadMarker,
     ) {
         if let Some(delegate) = weak_delegate.upgrade() {
             let parent_menu = item.menu();
@@ -134,7 +138,12 @@ impl PlatformMenu {
             let elements = delegate.get_deferred_menu(isolate, item_id).await.ok_log();
 
             for element in elements.unwrap_or_default() {
-                let element = Self::translate_element(&element, isolate, weak_delegate.clone());
+                let element = Self::translate_element(
+                    &element,
+                    isolate,
+                    weak_delegate.clone(),
+                    main_thread_marker,
+                );
                 let index = parent_menu.indexOfItem(item);
                 parent_menu.insertItem_atIndex(&element, index);
             }
@@ -146,6 +155,7 @@ impl PlatformMenu {
         element: &MenuElement,
         isolate: IsolateId,
         delegate: Weak<dyn PlatformMenuDelegate>,
+        main_thread_marker: MainThreadMarker,
     ) -> Id<NSMenuItem> {
         match element {
             MenuElement::Action(menu_action) => {
@@ -153,7 +163,7 @@ impl PlatformMenu {
                 let delegate = delegate.clone();
                 let item = if menu_action.attributes.disabled {
                     SNEBlockMenuItem::initWithTitle(
-                        SNEBlockMenuItem::alloc(),
+                        main_thread_marker.alloc::<SNEBlockMenuItem>(),
                         &NSString::from_str(title),
                         ns_string!(""),
                         None,
@@ -168,7 +178,7 @@ impl PlatformMenu {
                     let action = ConcreteBlock::new(action);
                     let action = action.copy();
                     SNEBlockMenuItem::initWithTitle(
-                        SNEBlockMenuItem::alloc(),
+                        main_thread_marker.alloc::<SNEBlockMenuItem>(),
                         &NSString::from_str(title),
                         ns_string!(""),
                         Some(&action),
@@ -204,7 +214,7 @@ impl PlatformMenu {
             MenuElement::Menu(menu) => {
                 let title = menu.title.as_deref().unwrap_or_default();
                 let item = NSMenuItem::initWithTitle_action_keyEquivalent(
-                    NSMenuItem::alloc(),
+                    main_thread_marker.alloc::<NSMenuItem>(),
                     &NSString::from_str(title),
                     None,
                     ns_string!(""),
@@ -214,7 +224,8 @@ impl PlatformMenu {
                     let image = ns_image_for_menu_item(data.clone());
                     item.setImage(Some(&image));
                 }
-                let submenu = Self::translate_menu(menu, isolate, delegate.clone());
+                let submenu =
+                    Self::translate_menu(menu, isolate, delegate.clone(), main_thread_marker);
                 item.setSubmenu(Some(&submenu));
                 item
             }
@@ -224,18 +235,26 @@ impl PlatformMenu {
                     let delegate = delegate.clone();
                     let item = item.retain();
                     spawn(async move {
-                        Self::load_deferred_menu_item(&item, item_id, isolate, delegate.clone())
-                            .await;
+                        Self::load_deferred_menu_item(
+                            &item,
+                            item_id,
+                            isolate,
+                            delegate.clone(),
+                            main_thread_marker,
+                        )
+                        .await;
                     });
                 };
                 let action = ConcreteBlock::new(action);
                 let action = action.copy();
 
-                let item =
-                    SNEDeferredMenuItem::initWithBlock(SNEDeferredMenuItem::alloc(), &action);
+                let item = SNEDeferredMenuItem::initWithBlock(
+                    main_thread_marker.alloc::<SNEDeferredMenuItem>(),
+                    &action,
+                );
                 Id::into_super(item)
             }
-            MenuElement::Separator(_) => NSMenuItem::separatorItem(),
+            MenuElement::Separator(_) => NSMenuItem::separatorItem(main_thread_marker),
         }
     }
 
@@ -244,7 +263,8 @@ impl PlatformMenu {
         delegate: Weak<dyn PlatformMenuDelegate>,
         menu: Menu,
     ) -> NativeExtensionsResult<Rc<Self>> {
-        let menu = unsafe { Self::translate_menu(&menu, isolate, delegate) };
+        let main_thread_marker = MainThreadMarker::new().unwrap();
+        let menu = unsafe { Self::translate_menu(&menu, isolate, delegate, main_thread_marker) };
         Ok(Rc::new(Self { menu }))
     }
 }
@@ -341,7 +361,7 @@ extern_class!(
 
     unsafe impl ClassType for SNEMenu {
         type Super = NSMenu;
-        type Mutability = InteriorMutable;
+        type Mutability = MainThreadOnly;
     }
 );
 
@@ -351,7 +371,7 @@ extern_class!(
 
     unsafe impl ClassType for SNEBlockMenuItem {
         type Super = NSMenuItem;
-        type Mutability = InteriorMutable;
+        type Mutability = MainThreadOnly;
     }
 );
 
@@ -361,7 +381,7 @@ extern_class!(
 
     unsafe impl ClassType for SNEDeferredMenuItem {
         type Super = NSMenuItem;
-        type Mutability = InteriorMutable;
+        type Mutability = MainThreadOnly;
     }
 );
 
@@ -369,14 +389,14 @@ extern_methods!(
     unsafe impl SNEMenu {
         #[allow(non_snake_case)]
         #[method_id(@__retain_semantics Init initWithTitle:)]
-        pub unsafe fn initWithTitle(this: Option<Allocated<Self>>, title: &NSString) -> Id<Self>;
+        pub unsafe fn initWithTitle(this: Allocated<Self>, title: &NSString) -> Id<Self>;
     }
 
     unsafe impl SNEBlockMenuItem {
         #[allow(non_snake_case)]
         #[method_id(@__retain_semantics Init initWithTitle:keyEquivalent:block:)]
         pub unsafe fn initWithTitle(
-            this: Option<Allocated<Self>>,
+            this: Allocated<Self>,
             title: &NSString,
             keyEquivalent: &NSString,
             block: Option<&Block<(&NSMenuItem,), ()>>,
@@ -387,7 +407,7 @@ extern_methods!(
         #[allow(non_snake_case)]
         #[method_id(@__retain_semantics Init initWithBlock:)]
         pub unsafe fn initWithBlock(
-            this: Option<Allocated<Self>>,
+            this: Allocated<Self>,
             block: &Block<(&NSMenuItem,), ()>,
         ) -> Id<Self>;
     }

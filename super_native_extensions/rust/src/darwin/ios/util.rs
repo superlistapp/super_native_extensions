@@ -199,7 +199,7 @@ impl IntoObjc for HashMap<&str, Id<NSObject>> {
         }
         let keys = keys.iter().map(|k| k.deref()).collect::<Vec<_>>();
         unsafe {
-            let res = NSDictionary::from_keys_and_objects(&keys, objects);
+            let res = NSDictionary::from_vec(&keys, objects);
             Id::cast(res)
         }
     }

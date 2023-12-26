@@ -1,19 +1,15 @@
 use std::{ffi::c_void, sync::Arc};
 
-use icrate::{
-    ns_string,
-    Foundation::{
-        NSKeyValueObservingOptionInitial, NSKeyValueObservingOptions, NSProgress, NSString,
-    },
+use icrate::Foundation::{
+    ns_string, NSKeyValueObservingOptionInitial, NSKeyValueObservingOptions, NSProgress, NSString,
 };
 use objc2::{
-    declare::{Ivar, IvarDrop},
     declare_class, extern_methods,
     ffi::{objc_setAssociatedObject, OBJC_ASSOCIATION_RETAIN},
     msg_send_id, mutability,
     rc::{Id, WeakId},
     runtime::NSObject,
-    ClassType,
+    ClassType, DeclaredClass,
 };
 
 use crate::{reader_manager::ReadProgress, util::Movable};
@@ -67,16 +63,16 @@ impl ProgressBridgeInner {
 }
 
 declare_class!(
-    struct SNEProgressBridge {
-        inner: IvarDrop<Box<ProgressBridgeInner>, "_inner">,
-    }
-
-    mod ivars;
+    struct SNEProgressBridge;
 
     unsafe impl ClassType for SNEProgressBridge {
         type Super = NSObject;
         type Mutability = mutability::Mutable;
         const NAME: &'static str = "SNEProgressBridge";
+    }
+
+    impl DeclaredClass for SNEProgressBridge {
+        type Ivars = ProgressBridgeInner;
     }
 
     unsafe impl SNEProgressBridge {
@@ -88,16 +84,17 @@ declare_class!(
             _change: &NSObject,
             _context: *mut c_void,
         ) {
-            self.inner.update();
+            self.ivars_mut().update();
         }
     }
 );
 
 impl SNEProgressBridge {
     fn new(inner: ProgressBridgeInner) -> Id<Self> {
-        let mut this: Id<Self> = unsafe { msg_send_id![Self::alloc(), init] };
-        Ivar::write(&mut this.inner, Box::new(inner));
-        if let Some(progress) = this.inner.ns_progress.load() {
+        let this = Self::alloc();
+        let this = this.set_ivars(inner);
+        let this: Id<Self> = unsafe { msg_send_id![super(this), init] };
+        if let Some(progress) = this.ivars().ns_progress.load() {
             // https://github.com/madsmtm/objc2/issues/531
             unsafe {
                 let progress = Id::cast::<NSProgressKVO>(progress);
@@ -115,7 +112,7 @@ impl SNEProgressBridge {
 
 impl Drop for SNEProgressBridge {
     fn drop(&mut self) {
-        if let Some(progress) = self.inner.ns_progress.load() {
+        if let Some(progress) = self.ivars().ns_progress.load() {
             unsafe {
                 let progress = Id::cast::<NSProgressKVO>(progress);
                 progress.removeObserver_forKeyPath_context(
