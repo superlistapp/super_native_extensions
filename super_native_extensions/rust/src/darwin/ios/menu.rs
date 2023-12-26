@@ -16,11 +16,10 @@ use irondash_message_channel::{IsolateId, Late};
 use irondash_run_loop::{platform::PollSession, spawn, RunLoop};
 
 use objc2::{
-    declare::{Ivar, IvarDrop},
     declare_class, msg_send_id, mutability,
     rc::Id,
     runtime::{NSObject, NSObjectProtocol, ProtocolObject},
-    ClassType,
+    ClassType, DeclaredClass,
 };
 
 use crate::{
@@ -30,12 +29,9 @@ use crate::{
     },
     error::{NativeExtensionsError, NativeExtensionsResult},
     menu_manager::{PlatformMenuContextDelegate, PlatformMenuContextId, PlatformMenuDelegate},
-    platform_impl::platform::{
-        common::UnsafeMutRef,
-        os::{
-            uikit::{UIMenu, UIMenuOptionsDisplayInline},
-            util::{image_view_from_data, IgnoreInteractionEvents},
-        },
+    platform_impl::platform::os::{
+        uikit::{UIMenu, UIMenuOptionsDisplayInline},
+        util::{image_view_from_data, IgnoreInteractionEvents},
     },
     value_promise::PromiseResult,
 };
@@ -657,16 +653,16 @@ impl Inner {
 }
 
 declare_class!(
-    struct SNEMenuContext {
-        context: IvarDrop<Box<Inner>, "_context">,
-    }
-
-    mod ivars;
+    struct SNEMenuContext;
 
     unsafe impl ClassType for SNEMenuContext {
         type Super = NSObject;
         type Mutability = mutability::InteriorMutable;
         const NAME: &'static str = "SNEMenuContext";
+    }
+
+    impl DeclaredClass for SNEMenuContext {
+        type Ivars = Inner;
     }
 
     unsafe impl NSObjectProtocol for SNEMenuContext {}
@@ -679,7 +675,7 @@ declare_class!(
             interaction: &UIContextMenuInteraction,
             location: CGPoint,
         ) -> Option<Id<UIContextMenuConfiguration>> {
-            self.context.with_state(
+            self.ivars().with_state(
                 |state| state.configuration_for_menu_at_location(interaction, location),
                 || None,
             )
@@ -691,7 +687,7 @@ declare_class!(
             interaction: &UIContextMenuInteraction,
             configuration: &UIContextMenuConfiguration,
         ) -> Option<Id<UITargetedPreview>> {
-            self.context.with_state(
+            self.ivars().with_state(
                 |state| {
                     state.preview_for_highlighting_menu_with_configuration(
                         interaction,
@@ -709,7 +705,7 @@ declare_class!(
             configuration: &UIContextMenuConfiguration,
             animator: &ProtocolObject<dyn UIContextMenuInteractionAnimating>,
         ) {
-            self.context.with_state(
+            self.ivars().with_state(
                 |state| {
                     state.interaction_will_perform_preview_action_for_menu_with_configuration(
                         interaction,
@@ -728,7 +724,7 @@ declare_class!(
             configuration: &UIContextMenuConfiguration,
             animator: Option<&ProtocolObject<dyn UIContextMenuInteractionAnimating>>,
         ) {
-            self.context.with_state(
+            self.ivars().with_state(
                 |state| {
                     state.interaction_will_display_menu_for_configuration(
                         interaction,
@@ -747,7 +743,7 @@ declare_class!(
             configuration: &UIContextMenuConfiguration,
             animator: Option<&ProtocolObject<dyn UIContextMenuInteractionAnimating>>,
         ) {
-            self.context.with_state(
+            self.ivars().with_state(
                 |state| {
                     state.interaction_will_end_for_configuration(
                         interaction,
@@ -763,12 +759,8 @@ declare_class!(
 
 impl SNEMenuContext {
     fn new(context: Weak<PlatformMenuContext>) -> Id<Self> {
-        let this: Id<Self> = unsafe { msg_send_id![Self::alloc(), init] };
-        unsafe {
-            this.unsafe_mut_ref(|this| {
-                Ivar::write(&mut this.context, Box::new(Inner { context }));
-            });
-        }
-        this
+        let this = Self::alloc();
+        let this = this.set_ivars(Inner { context });
+        unsafe { msg_send_id![super(this), init] }
     }
 }

@@ -1,11 +1,7 @@
 use std::sync::Arc;
 
 use objc2::{
-    declare::{Ivar, IvarDrop},
-    declare_class, msg_send_id, mutability,
-    rc::Id,
-    runtime::NSObject,
-    ClassType,
+    declare_class, msg_send_id, mutability, rc::Id, runtime::NSObject, ClassType, DeclaredClass,
 };
 
 use crate::util::DropNotifier;
@@ -18,24 +14,30 @@ impl IntoObjc for Arc<DropNotifier> {
     }
 }
 
-declare_class!(
-    struct SNEDropNotifier {
-        drop_notifier: IvarDrop<Box<Arc<DropNotifier>>, "_drop_notifier">,
-    }
+struct Ivars {
+    _notifier: Arc<DropNotifier>,
+}
 
-    mod ivars;
+declare_class!(
+    struct SNEDropNotifier;
 
     unsafe impl ClassType for SNEDropNotifier {
         type Super = NSObject;
         type Mutability = mutability::Mutable;
         const NAME: &'static str = "SNEDropNotifier";
     }
+
+    impl DeclaredClass for SNEDropNotifier {
+        type Ivars = Ivars;
+    }
 );
 
 impl SNEDropNotifier {
     fn new(drop_notifier: Arc<DropNotifier>) -> Id<Self> {
-        let mut this: Id<Self> = unsafe { msg_send_id![Self::alloc(), init] };
-        Ivar::write(&mut this.drop_notifier, Box::new(drop_notifier));
-        this
+        let this = Self::alloc();
+        let this = this.set_ivars(Ivars {
+            _notifier: drop_notifier,
+        });
+        unsafe { msg_send_id![super(this), init] }
     }
 }

@@ -7,12 +7,11 @@ use std::{
 
 use icrate::{
     block2::ConcreteBlock,
-    ns_string,
     AppKit::{
         NSDragOperation, NSDragOperationNone, NSDraggingInfo, NSDraggingItem,
         NSFilePromiseReceiver, NSPasteboardItem, NSView,
     },
-    Foundation::{NSArray, NSDictionary, NSMutableArray, NSRect, NSString},
+    Foundation::{ns_string, NSArray, NSDictionary, NSMutableArray, NSRect, NSString},
 };
 use irondash_engine_context::EngineContext;
 use irondash_message_channel::{Late, Value};
@@ -87,7 +86,7 @@ impl Session {
             .unwrap_or_default();
 
         let location = unsafe { dragging_info.draggingLocation() }; // window coordinates
-        let location = unsafe { self.context_view.convertPoint_fromView(location, None) };
+        let location = self.context_view.convertPoint_fromView(location, None);
 
         let operation_mask = unsafe { dragging_info.draggingSourceOperationMask() };
 

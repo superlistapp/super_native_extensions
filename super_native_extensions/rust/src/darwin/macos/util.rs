@@ -62,14 +62,14 @@ impl From<NSSize> for Size {
 pub(super) fn flip_rect(view: &NSView, rect: &mut NSRect) {
     let flipped: bool = unsafe { view.isFlipped() };
     if !flipped {
-        rect.origin.y = unsafe { view.bounds() }.size.height - rect.size.height - rect.origin.y;
+        rect.origin.y = view.bounds().size.height - rect.size.height - rect.origin.y;
     }
 }
 
 pub(super) fn flip_position(view: &NSView, position: &mut NSPoint) {
     let flipped: bool = unsafe { view.isFlipped() };
     if !flipped {
-        position.y = unsafe { view.bounds() }.size.height - position.y;
+        position.y = view.bounds().size.height - position.y;
     }
 }
 

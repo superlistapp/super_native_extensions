@@ -22,12 +22,11 @@ use irondash_message_channel::{value_darwin::ValueObjcConversion, IsolateId, Lat
 use irondash_run_loop::{platform::PollSession, RunLoop};
 
 use objc2::{
-    declare::{Ivar, IvarDrop},
     declare_class, extern_class, extern_methods, msg_send_id,
     mutability::{self, InteriorMutable},
     rc::{Allocated, Id},
     runtime::{AnyObject, NSObject, NSObjectProtocol, ProtocolObject},
-    ClassType,
+    ClassType, DeclaredClass,
 };
 use once_cell::sync::Lazy;
 
@@ -38,7 +37,7 @@ use crate::{
     },
     error::NativeExtensionsResult,
     log::OkLog,
-    platform_impl::platform::common::{path_from_url, to_nserror, UnsafeMutRef},
+    platform_impl::platform::common::{path_from_url, to_nserror},
     value_promise::ValuePromiseResult,
 };
 
@@ -151,14 +150,11 @@ struct VirtualFileInfo {
 
 impl ItemState {
     fn create_item(self: Rc<Self>) -> Id<NSObject> {
-        let writer: Id<SNEPasteboardWriter> =
-            unsafe { msg_send_id![SNEPasteboardWriter::alloc(), init] };
-
-        unsafe {
-            writer.unsafe_mut_ref(|writer| {
-                Ivar::write(&mut writer.inner, Box::new(self.clone()));
-            });
-        }
+        let writer = SNEPasteboardWriter::alloc();
+        let writer = writer.set_ivars(Ivars {
+            item_state: self.clone(),
+        });
+        let writer: Id<SNEPasteboardWriter> = unsafe { msg_send_id![super(writer), init] };
 
         let info = self.virtual_file_info();
 
@@ -388,17 +384,21 @@ impl ItemState {
     }
 }
 
-declare_class!(
-    struct SNEPasteboardWriter {
-        inner: IvarDrop<Box<Rc<ItemState>>, "_item_state">,
-    }
+struct Ivars {
+    item_state: Rc<ItemState>,
+}
 
-    mod ivars;
+declare_class!(
+    struct SNEPasteboardWriter;
 
     unsafe impl ClassType for SNEPasteboardWriter {
         type Super = NSObject;
         type Mutability = mutability::InteriorMutable;
         const NAME: &'static str = "SNEPasteboardWriter";
+    }
+
+    impl DeclaredClass for SNEPasteboardWriter {
+        type Ivars = Ivars;
     }
 
     unsafe impl NSObjectProtocol for SNEPasteboardWriter {}
@@ -410,7 +410,7 @@ declare_class!(
             &self,
             _pasteboard: &NSPasteboard,
         ) -> Id<NSArray<NSPasteboardType>> {
-            self.inner.writable_types()
+            self.ivars().item_state.writable_types()
         }
 
         #[method(writingOptionsForType:pasteboard:)]
@@ -429,7 +429,7 @@ declare_class!(
             &self,
             r#type: &NSPasteboardType,
         ) -> Option<Id<AnyObject>> {
-            self.inner.object_for_type(r#type).map(|v| Id::cast(v))
+            self.ivars().item_state.object_for_type(r#type).map(|v| Id::cast(v))
         }
     }
 
@@ -441,7 +441,7 @@ declare_class!(
             _file_promise_provider: &NSFilePromiseProvider,
             file_type: &NSString,
         ) -> Id<NSString> {
-            self.inner.file_promise_file_name_for_type(file_type)
+            self.ivars().item_state.file_promise_file_name_for_type(file_type)
         }
 
         #[method(filePromiseProvider:writePromiseToURL:completionHandler:)]
@@ -461,7 +461,7 @@ declare_class!(
                 };
                 unsafe { completion_handler.call((error as *mut _,)) };
             };
-            self.inner
+            self.ivars().item_state
                 .file_promise_write_to_url(url, Box::new(completion_fn));
         }
     }
@@ -489,6 +489,6 @@ extern_methods!(
         );
 
         #[method_id(@__retain_semantics Init init)]
-        pub unsafe fn init(this: Option<Allocated<Self>>) -> Id<Self>;
+        pub unsafe fn init(this: Allocated<Self>) -> Id<Self>;
     }
 );

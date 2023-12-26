@@ -15,9 +15,8 @@ use core_graphics::{
     data_provider::CGDataProvider,
     image::CGImage,
 };
-use icrate::{
-    ns_string,
-    Foundation::{NSDictionary, NSError, NSString, NSURLTypeIdentifierKey, NSURL},
+use icrate::Foundation::{
+    ns_string, NSDictionary, NSError, NSString, NSURLTypeIdentifierKey, NSURL,
 };
 use objc2::{ffi::NSInteger, rc::Id, runtime::AnyObject, ClassType, Encode, Encoding, RefEncode};
 
@@ -50,7 +49,7 @@ impl Drop for NSURLSecurtyScopeAccess {
 
 pub fn to_nserror(domain: &str, code: NSInteger, message: &str) -> Id<NSError> {
     unsafe {
-        let user_info = NSDictionary::<NSString, AnyObject>::from_keys_and_objects(
+        let user_info = NSDictionary::<NSString, AnyObject>::from_vec(
             &[ns_string!("NSLocalizedDescription")],
             vec![Id::cast(NSString::from_str(message))],
         );
@@ -146,18 +145,4 @@ pub fn uti_conforms_to(uti: &str, conforms_to: &str) -> bool {
         unsafe { UTTypeConformsTo(uti.as_concrete_TypeRef(), conforms_to.as_concrete_TypeRef()) };
 
     conforms_to != 0
-}
-
-pub trait UnsafeMutRef<T> {
-    /// Allows unsafe mutable reference to Self.
-    /// Safety: Caller must ensure that self is the only existing reference.
-    unsafe fn unsafe_mut_ref<F: FnOnce(&mut T)>(&self, f: F);
-}
-
-impl<T: objc2::Message> UnsafeMutRef<T> for Id<T> {
-    unsafe fn unsafe_mut_ref<F: FnOnce(&mut T)>(&self, f: F) {
-        let ptr = Id::as_ptr(self);
-        let ptr = ptr as *mut T;
-        f(&mut *ptr);
-    }
 }

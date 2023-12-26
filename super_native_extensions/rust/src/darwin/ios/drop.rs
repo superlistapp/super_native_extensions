@@ -13,11 +13,10 @@ use irondash_engine_context::EngineContext;
 use irondash_message_channel::{Late, Value};
 use irondash_run_loop::{platform::PollSession, RunLoop};
 use objc2::{
-    declare::{Ivar, IvarDrop},
     declare_class, msg_send_id, mutability,
     rc::Id,
     runtime::{NSObject, NSObjectProtocol, ProtocolObject},
-    ClassType,
+    ClassType, DeclaredClass,
 };
 
 use crate::{
@@ -28,7 +27,7 @@ use crate::{
     },
     error::{NativeExtensionsError, NativeExtensionsResult},
     log::OkLog,
-    platform_impl::platform::common::{CGAffineTransformMakeScale, UnsafeMutRef},
+    platform_impl::platform::common::CGAffineTransformMakeScale,
     value_promise::PromiseResult,
 };
 
@@ -504,16 +503,16 @@ impl Inner {
 }
 
 declare_class!(
-    struct SNEDropContext {
-        context: IvarDrop<Box<Inner>, "_context">,
-    }
-
-    mod ivars;
+    struct SNEDropContext;
 
     unsafe impl ClassType for SNEDropContext {
         type Super = NSObject;
         type Mutability = mutability::InteriorMutable;
         const NAME: &'static str = "SNEDropContext";
+    }
+
+    impl DeclaredClass for SNEDropContext {
+        type Ivars = Inner;
     }
 
     unsafe impl NSObjectProtocol for SNEDropContext {}
@@ -541,7 +540,7 @@ declare_class!(
                     UIDropOperationCancel,
                 )
             };
-            self.context.with_state(
+            self.ivars().with_state(
                 |state| {
                     state
                         .session_did_update(session)
@@ -558,7 +557,7 @@ declare_class!(
             _interaction: &UIDropInteraction,
             session: &ProtocolObject<dyn UIDropSession>,
         ) {
-            self.context.with_state(
+            self.ivars().with_state(
                 |state| state.session_did_exit(session).ok_log().unwrap_or(()),
                 || (),
             )
@@ -570,7 +569,7 @@ declare_class!(
             _interaction: &UIDropInteraction,
             session: &ProtocolObject<dyn UIDropSession>,
         ) {
-            self.context.with_state(
+            self.ivars().with_state(
                 |state| state.perform_drop(session).ok_log().unwrap_or(()),
                 || (),
             )
@@ -582,7 +581,7 @@ declare_class!(
             _interaction: &UIDropInteraction,
             session: &ProtocolObject<dyn UIDropSession>,
         ) {
-            self.context.with_state(
+            self.ivars().with_state(
                 |state| state.session_did_end(session).ok_log().unwrap_or(()),
                 || (),
             )
@@ -595,7 +594,7 @@ declare_class!(
             item: &UIDragItem,
             default_preview: &UITargetedDragPreview,
         ) -> Option<Id<UITargetedDragPreview>> {
-            self.context.with_state(
+            self.ivars().with_state(
                 |state| {
                     state
                         .preview_for_dropping_item(item, default_preview)
@@ -610,12 +609,8 @@ declare_class!(
 
 impl SNEDropContext {
     fn new(context: Weak<PlatformDropContext>) -> Id<Self> {
-        let this: Id<Self> = unsafe { msg_send_id![Self::alloc(), init] };
-        unsafe {
-            this.unsafe_mut_ref(|this| {
-                Ivar::write(&mut this.context, Box::new(Inner { context }));
-            });
-        }
-        this
+        let this = Self::alloc();
+        let this = this.set_ivars(Inner { context });
+        unsafe { msg_send_id![super(this), init] }
     }
 }

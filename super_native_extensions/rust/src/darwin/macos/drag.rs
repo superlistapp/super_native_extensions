@@ -32,7 +32,7 @@ use icrate::{
         NSEventTypeKeyDown, NSEventTypeLeftMouseDown, NSEventTypeMouseMoved,
         NSEventTypeRightMouseDown, NSView,
     },
-    Foundation::{NSArray, NSPoint, NSProcessInfo, NSRect},
+    Foundation::{MainThreadMarker, NSArray, NSPoint, NSProcessInfo, NSRect},
 };
 use irondash_engine_context::EngineContext;
 use irondash_message_channel::Value;
@@ -71,6 +71,7 @@ pub struct PlatformDragContext {
     last_mouse_up_event: RefCell<Option<Id<NSEvent>>>,
     last_momentum_event: RefCell<Option<Id<NSEvent>>>,
     sessions: RefCell<HashMap<isize /* draggingSequenceNumber */, DragSession>>,
+    main_thread_marker: MainThreadMarker,
 }
 
 static ONCE: std::sync::Once = std::sync::Once::new();
@@ -95,6 +96,7 @@ impl PlatformDragContext {
             last_mouse_up_event: RefCell::new(None),
             last_momentum_event: RefCell::new(None),
             sessions: RefCell::new(HashMap::new()),
+            main_thread_marker: MainThreadMarker::new().unwrap(),
         })
     }
 
@@ -202,7 +204,9 @@ impl PlatformDragContext {
             .cloned()
             .ok_or(NativeExtensionsError::MouseEventNotFound)?;
 
-        unsafe { NSApplication::sharedApplication().preventWindowOrdering() };
+        unsafe {
+            NSApplication::sharedApplication(self.main_thread_marker).preventWindowOrdering()
+        };
 
         let dragging_items = NSArray::from_vec(dragging_items);
         let session = unsafe {
@@ -289,7 +293,7 @@ impl PlatformDragContext {
         operation: NSDragOperation,
     ) {
         let user_cancelled = unsafe {
-            let app = NSApplication::sharedApplication();
+            let app = NSApplication::sharedApplication(self.main_thread_marker);
             let event = app.currentEvent();
             match event {
                 Some(event) => {
@@ -345,7 +349,7 @@ impl PlatformDragContext {
     pub fn should_delay_window_ordering(&self, event: &NSEvent) -> bool {
         if unsafe { event.r#type() } == NSEventTypeLeftMouseDown {
             let location: NSPoint = unsafe { event.locationInWindow() };
-            let location: NSPoint = unsafe { self.view.convertPoint_fromView(location, None) };
+            let location: NSPoint = self.view.convertPoint_fromView(location, None);
             if let Some(delegate) = self.delegate.upgrade() {
                 let is_draggable_promise = delegate.is_location_draggable(self.id, location.into());
                 let mut poll_session = PollSession::new();
