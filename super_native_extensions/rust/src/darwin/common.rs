@@ -19,9 +19,34 @@ use icrate::{
     ns_string,
     Foundation::{NSDictionary, NSError, NSString, NSURLTypeIdentifierKey, NSURL},
 };
-use objc2::{ffi::NSInteger, rc::Id, runtime::AnyObject, Encode, Encoding, RefEncode};
+use objc2::{ffi::NSInteger, rc::Id, runtime::AnyObject, ClassType, Encode, Encoding, RefEncode};
 
 use crate::api_model::ImageData;
+
+pub struct NSURLSecurtyScopeAccess {
+    url: Id<NSURL>,
+}
+
+impl NSURLSecurtyScopeAccess {
+    pub fn new(url: &NSURL) -> Self {
+        // Necessary for iOS to access files outside of the app's sandbox.
+        // However on macOS it breaks accessing fileURLs in pasteboard.
+        #[cfg(target_os = "ios")]
+        unsafe {
+            url.startAccessingSecurityScopedResource();
+        }
+        Self { url: url.retain() }
+    }
+}
+
+impl Drop for NSURLSecurtyScopeAccess {
+    fn drop(&mut self) {
+        #[cfg(target_os = "ios")]
+        unsafe {
+            self.url.stopAccessingSecurityScopedResource();
+        }
+    }
+}
 
 pub fn to_nserror(domain: &str, code: NSInteger, message: &str) -> Id<NSError> {
     unsafe {
@@ -43,9 +68,8 @@ pub fn path_from_url(url: &NSURL) -> PathBuf {
 
 pub unsafe fn format_from_url(url: &NSURL) -> Option<String> {
     let mut ty: Option<Id<AnyObject>> = None;
-    url.startAccessingSecurityScopedResource();
+    let _access = NSURLSecurtyScopeAccess::new(url);
     let res = url.getResourceValue_forKey_error(&mut ty, NSURLTypeIdentifierKey);
-    url.stopAccessingSecurityScopedResource();
     if let (Some(ty), Ok(_)) = (ty, res) {
         Some(Id::cast::<NSString>(ty).to_string())
     } else {
