@@ -63,8 +63,13 @@ class _DropSession extends DropSession {
     final current = List<_DropItem>.from(_items);
     _items.clear();
 
-    for (final item in items) {
-      final existing = current
+    for (final (index, item) in items.indexed) {
+      // Try same position first.
+      var existing = index < current.length ? current[index] : null;
+      if (existing != null && existing._item.itemId != item.itemId) {
+        existing = null;
+      }
+      existing ??= current
           .firstWhereOrNull((element) => element._item.itemId == item.itemId);
       if (existing != null) {
         existing._item = item;
@@ -74,9 +79,9 @@ class _DropSession extends DropSession {
       }
     }
 
-    for (final item in _items) {
-      await item._maybeInitReader();
-    }
+    await Future.wait(_items.map(
+      (e) => e._maybeInitReader(),
+    ));
   }
 
   Future<raw.DropOperation> update({
