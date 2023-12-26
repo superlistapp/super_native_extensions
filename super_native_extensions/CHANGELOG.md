@@ -1,3 +1,9 @@
+## 0.8.1
+
+ - **FIX**: [ios] store user interaction properly (#272).
+ - **FIX**: no security scope NSURL access on macos (#271).
+ - **FEAT**: [windows] cache file descriptors in reader (#266).
+
 ## 0.8.0
 
  - **FIX**: access NSURL within security scope (#264).

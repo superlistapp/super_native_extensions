@@ -3,6 +3,46 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## 2023-12-26
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - There are no breaking changes in this release.
+
+Packages with other changes:
+
+ - [`super_clipboard` - `v0.8.1`](#super_clipboard---v081)
+ - [`super_drag_and_drop` - `v0.8.1`](#super_drag_and_drop---v081)
+ - [`super_context_menu` - `v0.8.1`](#super_context_menu---v081)
+ - [`super_native_extensions` - `v0.8.1`](#super_native_extensions---v081)
+ - [`super_hot_key` - `v0.8.1`](#super_hot_key---v081)
+ - [`super_keyboard_layout` - `v0.8.1`](#super_keyboard_layout---v081)
+
+---
+
+#### `super_clipboard` - `v0.8.1`
+
+#### `super_drag_and_drop` - `v0.8.1`
+
+#### `super_context_menu` - `v0.8.1`
+
+#### `super_native_extensions` - `v0.8.1`
+
+ - **FIX**: [ios] store user interaction properly (#272).
+ - **FIX**: no security scope NSURL access on macos (#271).
+ - **FEAT**: [windows] cache file descriptors in reader (#266).
+
+#### `super_hot_key` - `v0.8.1`
+
+ - Bump "super_hot_key" to `0.8.1`.
+
+#### `super_keyboard_layout` - `v0.8.1`
+
+
 ## 2023-12-22
 
 ### Changes
