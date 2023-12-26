@@ -478,6 +478,7 @@ impl PlatformDragContext {
             UIDragInteraction::initWithDelegate(UIDragInteraction::alloc(), &Id::cast(delegate))
         };
         unsafe { self.view.addInteraction(&interaction) };
+        self.interaction.set(interaction);
     }
 
     pub fn needs_combined_drag_image() -> bool {
