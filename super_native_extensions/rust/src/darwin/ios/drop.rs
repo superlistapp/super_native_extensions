@@ -48,7 +48,7 @@ pub struct PlatformDropContext {
     weak_self: Late<Weak<Self>>,
     view: Id<UIView>,
     delegate: Weak<dyn PlatformDropContextDelegate>,
-    interaction: Late<UIDropInteraction>,
+    interaction: Late<Id<UIDropInteraction>>,
     interaction_delegate: Late<Id<SNEDropContext>>,
     sessions: RefCell<HashMap<DropSessionId, Rc<Session>>>,
 }
@@ -400,6 +400,7 @@ impl PlatformDropContext {
             UIDropInteraction::initWithDelegate(UIDropInteraction::alloc(), &Id::cast(delegate))
         };
         unsafe { self.view.addInteraction(&interaction) };
+        self.interaction.set(interaction);
     }
 
     fn get_session(&self, session: &ProtocolObject<dyn UIDropSession>) -> Rc<Session> {

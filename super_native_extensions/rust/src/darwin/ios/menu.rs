@@ -345,6 +345,7 @@ impl PlatformMenuContext {
             )
         };
         unsafe { self.view.addInteraction(&interaction) };
+        self.interaction.set(interaction);
     }
 
     pub fn menu_active(&self) -> bool {
