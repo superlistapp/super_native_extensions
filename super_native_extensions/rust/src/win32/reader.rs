@@ -72,7 +72,9 @@ pub struct PlatformDataReader {
     data_object: IDataObject,
     _drop_notifier: Option<Arc<DropNotifier>>,
     supports_async: Cell<bool>,
+    formats_raw: RefCell<Option<Vec<u32>>>,
     file_descriptors: RefCell<Option<Option<Vec<FileDescriptor>>>>,
+    hdrop: RefCell<Option<Option<Vec<String>>>>,
 }
 
 /// Virtual file descriptor
@@ -109,8 +111,8 @@ impl PlatformDataReader {
     }
 
     fn item_count(&self) -> NativeExtensionsResult<usize> {
-        let descriptor_len = self.get_file_descriptors()?.map(|f| f.len()).unwrap_or(0);
-        let hdrop_len = self.get_hdrop()?.map(|f| f.len()).unwrap_or(0);
+        let descriptor_len = self.with_file_descriptors(|d| Ok(d.map(|f| f.len()).unwrap_or(0)))?;
+        let hdrop_len = self.with_hdrop(|h| Ok(h.map(|f| f.len()).unwrap_or(0)))?;
         let file_len = descriptor_len.max(hdrop_len);
         if file_len > 0 {
             Ok(file_len)
@@ -123,19 +125,26 @@ impl PlatformDataReader {
 
     /// Returns formats that DataObject can provide.
     fn data_object_formats_raw(&self) -> NativeExtensionsResult<Vec<u32>> {
-        let formats = extract_formats(&self.data_object)?
-            .iter()
-            .filter_map(|f| {
-                if (f.tymed & TYMED_HGLOBAL.0 as u32) != 0
-                    || (f.tymed & TYMED_ISTREAM.0 as u32) != 0
-                {
-                    Some(f.cfFormat as u32)
-                } else {
-                    None
-                }
-            })
-            .collect();
-        Ok(formats)
+        let formats = self.formats_raw.clone().take();
+        match formats {
+            Some(formats) => Ok(formats),
+            None => {
+                let formats: Vec<u32> = extract_formats(&self.data_object)?
+                    .iter()
+                    .filter_map(|f| {
+                        if (f.tymed & TYMED_HGLOBAL.0 as u32) != 0
+                            || (f.tymed & TYMED_ISTREAM.0 as u32) != 0
+                        {
+                            Some(f.cfFormat as u32)
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+                self.formats_raw.replace(Some(formats.clone()));
+                Ok(formats)
+            }
+        }
     }
 
     fn need_to_synthesize_png(&self) -> NativeExtensionsResult<bool> {
@@ -163,7 +172,7 @@ impl PlatformDataReader {
                 .map(|f| format_to_string(*f))
                 .collect()
         } else if item > 0 {
-            let hdrop_len = self.get_hdrop()?.map(|v| v.len()).unwrap_or(0);
+            let hdrop_len = self.with_hdrop(|h| Ok(h.map(|f| f.len()).unwrap_or(0)))?;
             if item < hdrop_len as i64 {
                 vec![format_to_string(CF_HDROP.0 as u32)]
             } else {
@@ -173,12 +182,9 @@ impl PlatformDataReader {
             Vec::new()
         };
 
-        let descriptors = self.get_file_descriptors()?;
-        if let Some(descriptors) = descriptors {
-            if let Some(descriptor) = descriptors.get(item as usize) {
-                // make virtual file highest priority
-                formats.insert(0, descriptor.format.clone());
-            }
+        if let Some(descriptor) = self.descriptor_for_item(item)? {
+            // make virtual file highest priority
+            formats.insert(0, descriptor.format);
         }
 
         Ok(formats)
@@ -201,13 +207,11 @@ impl PlatformDataReader {
         item: i64,
         format: &str,
     ) -> NativeExtensionsResult<bool> {
-        let descriptors = self.get_file_descriptors()?;
-        if let Some(descriptors) = descriptors {
-            if let Some(descriptor) = descriptors.get(item as usize) {
-                return Ok(descriptor.format == format);
-            }
+        if let Some(descriptor) = self.descriptor_for_item(item)? {
+            Ok(descriptor.format == format)
+        } else {
+            Ok(false)
         }
-        Ok(false)
     }
 
     pub async fn can_read_virtual_file_for_item(
@@ -222,17 +226,13 @@ impl PlatformDataReader {
         &self,
         item: i64,
     ) -> NativeExtensionsResult<Option<String>> {
-        let item = item as usize;
-        if let Some(descriptors) = self.get_file_descriptors()? {
-            if let Some(descriptor) = descriptors.get(item) {
-                return Ok(Some(descriptor.name.clone()));
-            }
+        if let Some(descriptor) = self.descriptor_for_item(item)? {
+            return Ok(Some(descriptor.name));
         }
-        if let Some(hdrop) = self.get_hdrop()? {
-            if let Some(hdrop) = hdrop.get(item) {
-                let path = Path::new(&hdrop);
-                return Ok(path.file_name().map(|f| f.to_string_lossy().to_string()));
-            }
+
+        if let Some(hdrop) = self.hdrop_for_item(item)? {
+            let path = Path::new(&hdrop);
+            return Ok(path.file_name().map(|f| f.to_string_lossy().to_string()));
         }
         Ok(None)
     }
@@ -285,10 +285,9 @@ impl PlatformDataReader {
         let format = format_from_string(&data_type);
         let png = unsafe { RegisterClipboardFormatW(w!("PNG")) };
         if format == CF_HDROP.0 as u32 {
-            let item = item as usize;
-            let hdrop = self.get_hdrop()?.unwrap_or_default();
-            if item < hdrop.len() {
-                Ok(hdrop[item].clone().into())
+            let hdrop = self.hdrop_for_item(item)?;
+            if let Some(hdrop) = hdrop {
+                Ok(hdrop.into())
             } else {
                 Ok(Value::Null)
             }
@@ -323,7 +322,9 @@ impl PlatformDataReader {
             data_object,
             _drop_notifier: drop_notifier,
             supports_async: Cell::new(false),
+            formats_raw: RefCell::new(None),
             file_descriptors: RefCell::new(None),
+            hdrop: RefCell::new(None),
         });
         res.assign_weak_self(Rc::downgrade(&res));
         res
@@ -341,31 +342,63 @@ impl PlatformDataReader {
     pub fn assign_weak_self(&self, _weak: Weak<PlatformDataReader>) {}
 
     /// Returns parsed hdrop content
-    fn get_hdrop(&self) -> NativeExtensionsResult<Option<Vec<String>>> {
-        if self.data_object.has_data(CF_HDROP.0 as u32) {
-            let data = self.data_object.get_data(CF_HDROP.0 as u32)?;
-            Ok(Some(Self::extract_drop_files(data)?))
-        } else {
-            Ok(None)
+    fn with_hdrop<F, R>(&self, f: F) -> NativeExtensionsResult<R>
+    where
+        F: FnOnce(Option<&[String]>) -> NativeExtensionsResult<R>,
+    {
+        if self.hdrop.borrow().is_none() {
+            let files = if self.data_object.has_data(CF_HDROP.0 as u32) {
+                let data = self.data_object.get_data(CF_HDROP.0 as u32)?;
+                let files = Self::extract_drop_files(data)?;
+
+                Some(files)
+            } else {
+                None
+            };
+            self.hdrop.replace(Some(files.clone()));
         }
+        let files = self.hdrop.borrow();
+        let files = files.as_ref().unwrap();
+        f(files.as_ref().map(|d| d.as_slice()))
     }
 
-    fn get_file_descriptors(&self) -> NativeExtensionsResult<Option<Vec<FileDescriptor>>> {
-        let descriptors = self.file_descriptors.clone().take();
-        match descriptors {
-            Some(descriptors) => Ok(descriptors),
-            None => {
-                let format = unsafe { RegisterClipboardFormatW(CFSTR_FILEDESCRIPTOR) };
-                let descriptors = if self.data_object.has_data(format) {
-                    let data = self.data_object.get_data(format)?;
-                    Some(Self::extract_file_descriptors(data)?)
-                } else {
-                    None
-                };
-                self.file_descriptors.replace(Some(descriptors.clone()));
-                Ok(descriptors)
+    fn hdrop_for_item(&self, item: i64) -> NativeExtensionsResult<Option<String>> {
+        self.with_hdrop(|hdrop| {
+            if let Some(hdrop) = hdrop {
+                Ok(hdrop.get(item as usize).cloned())
+            } else {
+                Ok(None)
             }
+        })
+    }
+
+    fn with_file_descriptors<F, R>(&self, f: F) -> NativeExtensionsResult<R>
+    where
+        F: FnOnce(Option<&[FileDescriptor]>) -> NativeExtensionsResult<R>,
+    {
+        if self.file_descriptors.borrow().is_none() {
+            let format = unsafe { RegisterClipboardFormatW(CFSTR_FILEDESCRIPTOR) };
+            let descriptors = if self.data_object.has_data(format) {
+                let data = self.data_object.get_data(format)?;
+                Some(Self::extract_file_descriptors(data)?)
+            } else {
+                None
+            };
+            self.file_descriptors.replace(Some(descriptors.clone()));
         }
+        let descriptors = self.file_descriptors.borrow();
+        let descriptors = descriptors.as_ref().unwrap();
+        f(descriptors.as_ref().map(|d| d.as_slice()))
+    }
+
+    fn descriptor_for_item(&self, item: i64) -> NativeExtensionsResult<Option<FileDescriptor>> {
+        self.with_file_descriptors(|descriptors| {
+            if let Some(descriptors) = descriptors {
+                Ok(descriptors.get(item as usize).cloned())
+            } else {
+                Ok(None)
+            }
+        })
     }
 
     fn extract_file_descriptors(buffer: Vec<u8>) -> NativeExtensionsResult<Vec<FileDescriptor>> {
@@ -588,15 +621,12 @@ impl PlatformDataReader {
     }
 
     fn descriptor_for_virtual_file(&self, item: i64) -> NativeExtensionsResult<FileDescriptor> {
-        let descriptors = self.get_file_descriptors()?.ok_or_else(|| {
-            NativeExtensionsError::VirtualFileReceiveError(
-                "DataObject has not virtual files".into(),
-            )
-        })?;
-        let descriptor = descriptors.get(item as usize).ok_or_else(|| {
-            NativeExtensionsError::VirtualFileReceiveError("item not found".into())
-        })?;
-        Ok(descriptor.clone())
+        if let Some(descriptor) = self.descriptor_for_item(item)? {
+            return Ok(descriptor);
+        }
+        Err(NativeExtensionsError::VirtualFileReceiveError(
+            "item not found".into(),
+        ))
     }
 
     fn medium_for_virtual_file(
