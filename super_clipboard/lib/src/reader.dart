@@ -137,6 +137,9 @@ abstract class DataReader {
 
   static Future<DataReader> forItem(raw.DataReaderItem item) async =>
       ItemDataReader.fromItem(item);
+
+  static DataReader forItemInfo(raw.DataReaderItemInfo info) =>
+      ItemDataReader.fromItemInfo(info);
 }
 
 abstract class ClipboardDataReader extends DataReader {

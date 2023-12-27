@@ -325,6 +325,44 @@ class ReaderManagerImpl extends ReaderManager {
     final file = File(uri.toFilePath());
     return VirtualFileFromFile(file: file, onClose: () {});
   }
+
+  @override
+  Future<List<DataReaderItemInfo>> getItemInfo(
+      Iterable<DataReaderItemHandle> handles) async {
+    if (handles.isEmpty) {
+      return [];
+    }
+
+    final reader = handles.first._reader;
+
+    final handleMap =
+        Map.fromEntries(handles.map((e) => MapEntry(e._itemHandle, e)));
+    final res_ = await _channel.invokeMethod('getItemInfo', {
+      'readerHandle': reader._handle,
+      'itemHandles': handles.map((e) => e._itemHandle),
+    });
+    final list = res_['items'] as List;
+    final res = list.map((e) {
+      final handle = handleMap[e['handle']]!;
+      final virtualFormats = (e['virtualFileFormats'] as List).cast<String>();
+      final receivers = virtualFormats.map((format) {
+        return _VirtualFileReceiver(
+          readerManager: this,
+          handle: handle,
+          format: format,
+        );
+      }).toList(growable: false);
+      return DataReaderItemInfo(
+        handle,
+        formats: (e['formats'] as List).cast<String>(),
+        synthesizedFormats: (e['synthesizedFormats'] as List).cast<String>(),
+        virtualReceivers: receivers,
+        suggestedName: e['suggestedName'],
+        synthesizedFromURIFormat: e['fileUriFormat'],
+      );
+    }).toList(growable: false);
+    return res;
+  }
 }
 
 class ReadProgressImpl extends ReadProgress {

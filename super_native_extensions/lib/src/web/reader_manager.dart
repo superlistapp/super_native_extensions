@@ -120,4 +120,11 @@ class ReaderManagerImpl extends ReaderManager {
   VirtualFile createVirtualFileFromUri(Uri uri) {
     throw UnsupportedError('createVirtualFileFromUri is not supported on web');
   }
+
+  @override
+  Future<List<DataReaderItemInfo>> getItemInfo(
+      Iterable<DataReaderItemHandle> handles) {
+    // TODO: implement getItemInfo
+    throw UnimplementedError();
+  }
 }

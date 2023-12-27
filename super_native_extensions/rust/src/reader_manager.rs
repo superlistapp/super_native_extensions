@@ -287,6 +287,41 @@ impl DataReaderManager {
         PlatformDataReader::get_format_for_file_uri(uri).await
     }
 
+    async fn get_item_info(
+        &self,
+        request: ItemInfoRequest,
+    ) -> NativeExtensionsResult<ItemInfoResponse> {
+        let mut res = Vec::with_capacity(request.item_handles.len());
+        let reader = self.get_reader(request.reader_handle)?;
+        for item_handle in request.item_handles {
+            let formats = reader.get_formats_for_item(item_handle).await?;
+            let mut synthesized_formats = Vec::new();
+            let mut virtual_file_formats = Vec::new();
+            for format in &formats {
+                if reader.item_format_is_synthesized(item_handle, format)? {
+                    synthesized_formats.push(format.clone());
+                }
+                if reader
+                    .can_read_virtual_file_for_item(item_handle, format)
+                    .await?
+                {
+                    virtual_file_formats.push(format.clone());
+                }
+            }
+            let suggested_name = reader.get_suggested_name_for_item(item_handle).await?;
+            let file_uri_format = reader.get_item_format_for_uri(item_handle).await?;
+            res.push(ItemInfo {
+                handle: item_handle,
+                formats,
+                synthesized_formats,
+                virtual_file_formats,
+                suggested_name,
+                file_uri_format,
+            });
+        }
+        Ok(ItemInfoResponse { items: res })
+    }
+
     async fn get_item_data(
         &self,
         isolate_id: IsolateId,
@@ -485,6 +520,37 @@ struct VirtualFileSupportedRequest {
     format: String,
 }
 
+#[derive(TryFromValue)]
+#[irondash(rename_all = "camelCase")]
+struct ItemInfoRequest {
+    reader_handle: DataReaderId,
+    item_handles: Vec<i64>,
+}
+
+#[derive(IntoValue)]
+#[irondash(rename_all = "camelCase")]
+struct ItemInfo {
+    handle: i64,
+    /// All formats for this item.
+    formats: Vec<String>,
+    /// Formats that are synthesized from other formats.
+    synthesized_formats: Vec<String>,
+    /// Formats that need to be read through virtual file reader.
+    virtual_file_formats: Vec<String>,
+    /// Suggested file name. This might be less reliable than getting the name
+    /// from virtual file reader.
+    suggested_name: Option<String>,
+    /// If this item contains file URI, this is the best guess for the format
+    /// of the file.
+    file_uri_format: Option<String>,
+}
+
+#[derive(IntoValue)]
+#[irondash(rename_all = "camelCase")]
+struct ItemInfoResponse {
+    items: Vec<ItemInfo>,
+}
+
 #[async_trait(?Send)]
 pub trait VirtualFileReader {
     async fn read_next(&self) -> NativeExtensionsResult<Vec<u8>>;
@@ -565,6 +631,10 @@ impl AsyncMethodHandler for DataReaderManager {
                 .into_platform_result(),
             "canReadVirtualFile" => self
                 .can_read_virtual_file(call.args.try_into()?)
+                .await
+                .into_platform_result(),
+            "getItemInfo" => self
+                .get_item_info(call.args.try_into()?)
                 .await
                 .into_platform_result(),
             "virtualFileReaderCreate" => self

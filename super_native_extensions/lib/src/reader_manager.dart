@@ -30,6 +30,9 @@ abstract class ReaderManager {
 
   Future<String?> getItemSuggestedName(DataReaderItemHandle handle);
 
+  Future<List<DataReaderItemInfo>> getItemInfo(
+      Iterable<DataReaderItemHandle> handles);
+
   Future<bool> canGetVirtualFile(
     DataReaderItemHandle handle, {
     required String format,
