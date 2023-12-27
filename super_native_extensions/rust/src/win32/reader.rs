@@ -653,6 +653,20 @@ impl PlatformDataReader {
         }
     }
 
+    pub async fn get_item_format_for_uri(
+        &self,
+        item: i64,
+    ) -> NativeExtensionsResult<Option<String>> {
+        let hdrop = self.hdrop_for_item(item)?;
+        if let Some(hdrop) = hdrop {
+            let format = mime_from_name(&hdrop);
+            let format = mime_to_windows(format);
+            Ok(Some(format))
+        } else {
+            Ok(None)
+        }
+    }
+
     pub async fn copy_virtual_file_for_item(
         &self,
         item: i64,
