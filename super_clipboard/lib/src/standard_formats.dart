@@ -237,7 +237,7 @@ class Formats {
   );
 
   static const gif = SimpleFileFormat(
-    uniformTypeIdentifiers: ['public.gif'],
+    uniformTypeIdentifiers: ['com.compuserve.gif'],
     windowsFormats: ['GIF'],
     mimeTypes: ['image/gif'],
   );
