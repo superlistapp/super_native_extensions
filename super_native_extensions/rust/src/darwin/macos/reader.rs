@@ -64,6 +64,19 @@ impl PlatformDataReader {
     pub async fn get_items(&self) -> NativeExtensionsResult<Vec<i64>> {
         self.get_items_sync()
     }
+    pub async fn get_item_format_for_uri(
+        &self,
+        item: i64,
+    ) -> NativeExtensionsResult<Option<String>> {
+        let data = self
+            .get_data_for_item(item, "public.file-url".to_owned(), None)
+            .await?;
+        if let Value::String(file_uri) = data {
+            Self::get_format_for_file_uri(file_uri).await
+        } else {
+            Ok(None)
+        }
+    }
 
     fn promise_receiver_types_for_item(&self, item: i64) -> NativeExtensionsResult<Vec<String>> {
         let items = unsafe { self.pasteboard.pasteboardItems() };
