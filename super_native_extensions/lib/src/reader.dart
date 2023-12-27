@@ -46,6 +46,25 @@ abstract class ReadProgress {
   void cancel();
 }
 
+class DataReaderItemInfo {
+  DataReaderItemInfo(
+    this._handle, {
+    required this.formats,
+    required this.synthesizedFormats,
+    required this.virtualReceivers,
+    required this.suggestedName,
+    required this.synthesizedFromURIFormat,
+  });
+
+  DataReaderItem get item => DataReaderItem(handle: _handle);
+  final List<String> formats;
+  final List<String> synthesizedFormats;
+  final List<VirtualFileReceiver> virtualReceivers;
+  final String? suggestedName;
+  final String? synthesizedFromURIFormat;
+  final DataReaderItemHandle _handle;
+}
+
 class DataReaderItem {
   Future<List<String>> getAvailableFormats() {
     return _mutex.protect(() async {
@@ -59,6 +78,11 @@ class DataReaderItem {
     String format,
   ) {
     return ReaderManager.instance.getItemData(_handle, format: format);
+  }
+
+  static Future<List<DataReaderItemInfo>> getItemInfo(
+      Iterable<DataReaderItem> items) {
+    return ReaderManager.instance.getItemInfo(items.map((e) => e._handle));
   }
 
   Future<bool> isSynthesized(String format) {
@@ -86,6 +110,14 @@ class DataReaderItem {
       format: format,
     );
   }
+
+  @override
+  bool operator ==(Object other) {
+    return other is DataReaderItem && other._handle == _handle;
+  }
+
+  @override
+  int get hashCode => _handle.hashCode;
 
   DataReaderItem({
     required DataReaderItemHandle handle,

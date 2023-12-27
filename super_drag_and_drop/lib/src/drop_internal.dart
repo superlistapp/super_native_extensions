@@ -6,6 +6,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
 import 'package:super_clipboard/super_clipboard.dart';
 import 'package:super_native_extensions/raw_drag_drop.dart' as raw;
+import 'package:super_native_extensions/raw_clipboard.dart' as raw;
 
 // ignore: implementation_imports, // Needed for FormatExtensions
 import 'package:super_clipboard/src/reader_internal.dart';
@@ -79,9 +80,23 @@ class _DropSession extends DropSession {
       }
     }
 
-    await Future.wait(_items.map(
-      (e) => e._maybeInitReader(),
-    ));
+    final itemsNeedingReaders = _items
+        .where((element) =>
+            element._item.readerItem != null && element._reader == null)
+        .toList(growable: false);
+
+    final sw = Stopwatch()..start();
+    final itemInfo = await raw.DataReaderItem.getItemInfo(
+        itemsNeedingReaders.map((e) => e._item.readerItem!));
+    print('>>> ${sw.elapsed}');
+
+    for (final (index, info) in itemInfo.indexed) {
+      assert(itemsNeedingReaders[index]._item.readerItem == info.item);
+      itemsNeedingReaders[index]._reader = DataReader.forItemInfo(info);
+    }
+    // await Future.wait(_items.map(
+    //   (e) => e._maybeInitReader(),
+    // ));
   }
 
   Future<raw.DropOperation> update({

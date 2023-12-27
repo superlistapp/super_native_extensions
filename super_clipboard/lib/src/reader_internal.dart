@@ -62,6 +62,16 @@ class ItemDataReader extends ClipboardDataReader {
     required this.synthesizedFromURIFormat,
   });
 
+  static ClipboardDataReader fromItemInfo(raw.DataReaderItemInfo info) {
+    return ItemDataReader._(
+      item: info.item,
+      formats: info.formats,
+      synthesizedFormats: info.synthesizedFormats,
+      virtualReceivers: info.virtualReceivers,
+      synthesizedFromURIFormat: info.synthesizedFromURIFormat,
+    );
+  }
+
   static Future<ClipboardDataReader> fromItem(raw.DataReaderItem item) async {
     final allFormats = await item.getAvailableFormats();
     final isSynthesized =
