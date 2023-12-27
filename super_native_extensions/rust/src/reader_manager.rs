@@ -309,7 +309,11 @@ impl DataReaderManager {
                 }
             }
             let suggested_name = reader.get_suggested_name_for_item(item_handle).await?;
-            let file_uri_format = reader.get_item_format_for_uri(item_handle).await?;
+            let file_uri_format = if virtual_file_formats.is_empty() {
+                reader.get_item_format_for_uri(item_handle).await?
+            } else {
+                None
+            };
             res.push(ItemInfo {
                 handle: item_handle,
                 formats,
