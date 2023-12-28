@@ -81,34 +81,43 @@ class DataReaderItem {
   }
 
   static Future<List<DataReaderItemInfo>> getItemInfo(
-      Iterable<DataReaderItem> items) {
-    return ReaderManager.instance.getItemInfo(items.map((e) => e._handle));
+    Iterable<DataReaderItem> items, {
+    Duration? timeout,
+  }) {
+    return ReaderManager.instance.getItemInfo(
+      items.map(
+        (e) => e._handle,
+      ),
+      timeout: timeout,
+    );
   }
 
-  Future<bool> isSynthesized(String format) {
-    return ReaderManager.instance
-        .itemFormatIsSynthesized(_handle, format: format);
+  DataReaderItemInfo? __itemInfo;
+
+  Future<DataReaderItemInfo> _getItemInfo() async {
+    if (__itemInfo == null) {
+      final info = await ReaderManager.instance.getItemInfo([_handle]);
+      __itemInfo = info[0];
+    }
+    return __itemInfo!;
+  }
+
+  Future<bool> isSynthesized(String format) async {
+    return (await _getItemInfo()).synthesizedFormats.contains(format);
   }
 
   /// When `true` the content can be received through [getVirtualFileReceiver].
   /// On macOS and Windows if [isVirtual] is `true` the content can only be
   /// received through [getVirtualFileReceiver] - [getDataForFormat] will return
   /// `null`.
-  Future<bool> isVirtual(String format) {
-    return ReaderManager.instance.canGetVirtualFile(_handle, format: format);
+  Future<bool> isVirtual(String format) async {
+    return (await _getItemInfo())
+        .virtualReceivers
+        .any((element) => element.format == format);
   }
 
-  Future<String?> getSuggestedName() {
-    return ReaderManager.instance.getItemSuggestedName(_handle);
-  }
-
-  Future<VirtualFileReceiver?> getVirtualFileReceiver({
-    required String format,
-  }) async {
-    return ReaderManager.instance.createVirtualFileReceiver(
-      _handle,
-      format: format,
-    );
+  Future<String?> getSuggestedName() async {
+    return (await _getItemInfo()).suggestedName;
   }
 
   @override

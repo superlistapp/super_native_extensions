@@ -1,16 +1,21 @@
 use std::{
     cell::RefCell,
+    collections::HashMap,
     fs,
     path::PathBuf,
     ptr::NonNull,
     rc::{Rc, Weak},
     sync::Arc,
     thread,
+    time::Instant,
 };
 
 use icrate::{
     block2::ConcreteBlock,
-    AppKit::{NSBitmapImageFileTypePNG, NSBitmapImageRep, NSFilePromiseReceiver, NSPasteboard},
+    AppKit::{
+        NSBitmapImageFileTypePNG, NSBitmapImageRep, NSFilePromiseReceiver, NSPasteboard,
+        NSPasteboardItem,
+    },
     Foundation::{
         ns_string, NSArray, NSData, NSDictionary, NSError, NSOperationQueue, NSString, NSURL,
     },
@@ -36,9 +41,18 @@ use crate::{
 
 use super::PlatformDataProvider;
 
+#[derive(Hash, Eq, PartialEq)]
+struct ValueCacheKey {
+    item: i64,
+    format: String,
+}
+
 pub struct PlatformDataReader {
     pasteboard: Id<NSPasteboard>,
+    pasteboard_items: RefCell<Option<Id<NSArray<NSPasteboardItem>>>>,
     promise_receivers: RefCell<Vec<Option<Id<NSFilePromiseReceiver>>>>,
+    cached_formats: RefCell<HashMap<i64, Vec<String>>>,
+    value_cache: RefCell<HashMap<ValueCacheKey, Value>>,
 }
 
 impl PlatformDataReader {
@@ -53,17 +67,26 @@ impl PlatformDataReader {
         Ok(res)
     }
 
+    fn get_pasteboard_items(&self) -> NativeExtensionsResult<Id<NSArray<NSPasteboardItem>>> {
+        let items = self.pasteboard_items.clone().take();
+        if let Some(items) = items {
+            Ok(items)
+        } else {
+            let items = unsafe { self.pasteboard.pasteboardItems() }.unwrap_or_default();
+            self.pasteboard_items.replace(Some(items.clone()));
+            Ok(items)
+        }
+    }
+
     pub fn get_items_sync(&self) -> NativeExtensionsResult<Vec<i64>> {
-        let count = unsafe {
-            let items = self.pasteboard.pasteboardItems();
-            items.map(|items| items.count()).unwrap_or(0)
-        };
+        let count = self.get_pasteboard_items()?.count();
         Ok((0..count as i64).collect())
     }
 
     pub async fn get_items(&self) -> NativeExtensionsResult<Vec<i64>> {
         self.get_items_sync()
     }
+
     pub async fn get_item_format_for_uri(
         &self,
         item: i64,
@@ -79,8 +102,7 @@ impl PlatformDataReader {
     }
 
     fn promise_receiver_types_for_item(&self, item: i64) -> NativeExtensionsResult<Vec<String>> {
-        let items = unsafe { self.pasteboard.pasteboardItems() };
-        let items = items.unwrap_or_default();
+        let items = self.get_pasteboard_items()?;
         if item < items.count() as i64 {
             let pasteboard_item = unsafe { items.objectAtIndex(item as usize) };
             let mut res = Vec::new();
@@ -115,7 +137,17 @@ impl PlatformDataReader {
     }
 
     pub fn get_formats_for_item_sync(&self, item: i64) -> NativeExtensionsResult<Vec<String>> {
-        let items = unsafe { self.pasteboard.pasteboardItems() }.unwrap_or_default();
+        let mut cached_formats = self.cached_formats.borrow_mut();
+        if let Some(formats) = cached_formats.get(&item).cloned() {
+            return Ok(formats);
+        }
+        let formats = self._get_formats_for_item_sync(item)?;
+        cached_formats.insert(item, formats.clone());
+        Ok(formats)
+    }
+
+    pub fn _get_formats_for_item_sync(&self, item: i64) -> NativeExtensionsResult<Vec<String>> {
+        let items = self.get_pasteboard_items()?;
         if item < items.count() as i64 {
             let pasteboard_item = unsafe { items.objectAtIndex(item as usize) };
             let mut res = Vec::new();
@@ -147,7 +179,9 @@ impl PlatformDataReader {
     }
 
     fn needs_to_synthesize_png(&self, item: i64) -> bool {
-        let items = unsafe { self.pasteboard.pasteboardItems() }.unwrap_or_default();
+        let Ok(items) = self.get_pasteboard_items() else {
+            return false;
+        };
         let mut has_tiff = false;
         let mut has_png = false;
         if item < items.count() as i64 {
@@ -171,7 +205,9 @@ impl PlatformDataReader {
     }
 
     fn item_has_virtual_file(&self, item: i64) -> bool {
-        let items = unsafe { self.pasteboard.pasteboardItems() }.unwrap_or_default();
+        let Ok(items) = self.get_pasteboard_items() else {
+            return false;
+        };
         if item < items.count() as i64 {
             let item = unsafe { items.objectAtIndex(item as usize) };
             let types = unsafe { item.types() };
@@ -192,6 +228,8 @@ impl PlatformDataReader {
         item: i64,
     ) -> NativeExtensionsResult<Option<Id<NSFilePromiseReceiver>>> {
         if self.promise_receivers.borrow().is_empty() {
+            let start = Instant::now();
+
             let class =
                 unsafe { Id::retain(NSFilePromiseReceiver::class() as *const _ as *mut AnyObject) }
                     .unwrap();
@@ -212,6 +250,7 @@ impl PlatformDataReader {
                     self.promise_receivers.borrow_mut().push(None);
                 }
             }
+            println!(">> PR ELAPSED {:?}", start.elapsed());
         }
         let res = self
             .promise_receivers
@@ -250,7 +289,7 @@ impl PlatformDataReader {
             }
         }
 
-        for ty in ["public.file-url", "public.url"] {
+        for ty in ["public.file-url"] {
             let data = self.do_get_data_for_item(item, ty.to_owned()).await?;
             if let Some(url) = Self::value_to_string(data) {
                 let url = unsafe { NSURL::URLWithString(&NSString::from_str(&url)) };
@@ -310,7 +349,7 @@ impl PlatformDataReader {
 
     fn schedule_do_get_data_for_item(
         item: i64,
-        pasteboard: Id<NSPasteboard>,
+        pasteboard_item: Id<NSPasteboardItem>,
         data_type: String,
         completer: FutureCompleter<Value>,
     ) {
@@ -322,46 +361,51 @@ impl PlatformDataReader {
                     // deadlock.
                     Self::schedule_do_get_data_for_item(
                         item,
-                        pasteboard.clone(),
+                        pasteboard_item.clone(),
                         data_type,
                         completer,
                     );
                     return;
                 }
                 let data = autoreleasepool(|_| unsafe {
-                    let items = pasteboard.pasteboardItems().unwrap_or_default();
-                    if item < items.count() as i64 {
-                        let item = items.objectAtIndex(item as usize);
-                        let is_file_url = data_type == "public.file-url";
-                        let is_text = uti_conforms_to(&data_type, "public.text");
-                        let data_type = NSString::from_str(&data_type);
-                        // Try to get property list first, otherwise fallback to Data
-                        let mut data: Option<Id<NSObject>> = if is_text {
-                            item.stringForType(&data_type).map(|i| Id::cast(i))
-                        } else {
-                            item.propertyListForType(&data_type).map(|i| Id::cast(i))
-                        };
-                        if data.is_none() {
-                            // Ask for data here. It's better for Appkit to convert String to data,
-                            // then trying to convert data to String.
-                            data = item.dataForType(&data_type).map(|i| Id::cast(i));
-                        }
-                        let res = Value::from_objc(data).ok_log().unwrap_or_default();
-                        // Convert file:///.file/id=??? URLs to path URL
-                        if is_file_url {
-                            if let Value::String(url) = &res {
-                                let url = NSURL::URLWithString(&NSString::from_str(url));
-                                let url = url.and_then(|url| url.filePathURL());
-                                if let Some(url) = url {
-                                    let string = url.absoluteString().unwrap();
-                                    return Value::String(string.to_string());
-                                }
-                            }
-                        }
+                    // let items = pasteboard.pasteboardItems().unwrap_or_default();
+                    let _item = item;
+                    // if item < items.count() as i64 {
+                    // let item = items.objectAtIndex(item as usize);
+                    let item = pasteboard_item;
+                    let is_file_url = data_type == "public.file-url";
+                    let is_text = uti_conforms_to(&data_type, "public.text");
+                    let data_type = NSString::from_str(&data_type);
+                    // Try to get property list first, otherwise fallback to Data
+                    let mut data: Option<Id<NSObject>> = if is_text || is_file_url {
+                        // let start = Instant::now();
+                        let res = item.stringForType(&data_type).map(|i| Id::cast(i));
+                        // println!("Get string {:?} {} {:?}", data_type, _item, start.elapsed());
                         res
                     } else {
-                        Value::Null
+                        item.propertyListForType(&data_type).map(|i| Id::cast(i))
+                    };
+                    if data.is_none() {
+                        // Ask for data here. It's better for Appkit to convert String to data,
+                        // then trying to convert data to String.
+                        data = item.dataForType(&data_type).map(|i| Id::cast(i));
                     }
+                    let res = Value::from_objc(data).ok_log().unwrap_or_default();
+                    // Convert file:///.file/id=??? URLs to path URL
+                    if is_file_url {
+                        if let Value::String(url) = &res {
+                            let url = NSURL::URLWithString(&NSString::from_str(url));
+                            let url = url.and_then(|url| url.filePathURL());
+                            if let Some(url) = url {
+                                let string = url.absoluteString().unwrap();
+                                return Value::String(string.to_string());
+                            }
+                        }
+                    }
+                    res
+                    // } else {
+                    //     Value::Null
+                    // }
                 });
                 completer.complete(data)
             })
@@ -373,13 +417,30 @@ impl PlatformDataReader {
         item: i64,
         data_type: String,
     ) -> NativeExtensionsResult<Value> {
+        let cache_key = ValueCacheKey {
+            item,
+            format: data_type.clone(),
+        };
+        {
+            let value_cache = self.value_cache.borrow();
+            if let Some(value) = value_cache.get(&cache_key).cloned() {
+                return Ok(value);
+            }
+        }
+
         let (future, completer) = FutureCompleter::new();
-        let pasteboard = self.pasteboard.clone();
         // Retrieving data may require call back to Flutter and nested run loop so don't
         // block current dispatch
-        Self::schedule_do_get_data_for_item(item, pasteboard.clone(), data_type, completer);
+        let pasteboard_item = unsafe { self.get_pasteboard_items()?.objectAtIndex(item as usize) };
+        Self::schedule_do_get_data_for_item(item, pasteboard_item, data_type, completer);
 
-        Ok(future.await)
+        let res = future.await;
+        {
+            let mut value_cache = self.value_cache.borrow_mut();
+            value_cache.insert(cache_key, res.clone());
+        }
+
+        Ok(res)
     }
 
     pub fn new_clipboard_reader() -> NativeExtensionsResult<Rc<Self>> {
@@ -391,7 +452,10 @@ impl PlatformDataReader {
     pub fn from_pasteboard(pasteboard: Id<NSPasteboard>) -> Rc<Self> {
         let res = Rc::new(Self {
             pasteboard,
+            pasteboard_items: RefCell::new(None),
             promise_receivers: RefCell::new(Vec::new()),
+            cached_formats: RefCell::new(HashMap::new()),
+            value_cache: RefCell::new(HashMap::new()),
         });
         res.assign_weak_self(Rc::downgrade(&res));
         res

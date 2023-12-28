@@ -72,52 +72,51 @@ class ItemDataReader extends ClipboardDataReader {
     );
   }
 
-  static Future<ClipboardDataReader> fromItem(raw.DataReaderItem item) async {
-    final allFormats = await item.getAvailableFormats();
-    final isSynthesized =
-        await Future.wait(allFormats.map((f) => item.isSynthesized(f)));
+  // static Future<ClipboardDataReader> fromItem(raw.DataReaderItem item) async {
+  //   final allFormats = await item.getAvailableFormats();
+  //   final isSynthesized =
+  //       await Future.wait(allFormats.map((f) => item.isSynthesized(f)));
 
-    final virtualReceivers = (await Future.wait(
-            allFormats.map((f) => item.getVirtualFileReceiver(format: f))))
-        .whereNotNull()
-        .toList(growable: false);
+  //   final virtualReceivers = (await Future.wait(
+  //           allFormats.map((f) => item.getVirtualFileReceiver(format: f))))
+  //       .whereNotNull()
+  //       .toList(growable: false);
 
-    final synthesizedFormats = allFormats
-        .whereIndexed((index, _) => isSynthesized[index])
-        .toList(growable: false);
+  //   final synthesizedFormats = allFormats
+  //       .whereIndexed((index, _) => isSynthesized[index])
+  //       .toList(growable: false);
 
-    String? synthesizedFromURIFormat;
+  //   String? synthesizedFromURIFormat;
 
-    /// If there are no virtual receivers but there is File URI, we'll
-    /// try to synthesize a format from it.
-    if (virtualReceivers.isEmpty) {
-      for (final format in allFormats) {
-        if (Formats.fileUri.canDecode(format)) {
-          final uri = await Formats.fileUri.decode(
-            format,
-            _PlatformDataProvider(
-              allFormats,
-              (f) => item.getDataForFormat(f).$1,
-            ),
-          );
-          if (uri != null) {
-            final format = await raw.DataReader.formatForFileUri(uri);
-            if (format != null && !allFormats.contains(format)) {
-              synthesizedFromURIFormat = format;
-            }
-          }
-        }
-      }
-    }
-
-    return ItemDataReader._(
-      item: item,
-      formats: allFormats,
-      synthesizedFormats: synthesizedFormats,
-      virtualReceivers: virtualReceivers,
-      synthesizedFromURIFormat: synthesizedFromURIFormat,
-    );
-  }
+  //   /// If there are no virtual receivers but there is File URI, we'll
+  //   /// try to synthesize a format from it.
+  //   if (virtualReceivers.isEmpty) {
+  //     for (final format in allFormats) {
+  //       if (Formats.fileUri.canDecode(format)) {
+  //         final uri = await Formats.fileUri.decode(
+  //           format,
+  //           _PlatformDataProvider(
+  //             allFormats,
+  //             (f) => item.getDataForFormat(f).$1,
+  //           ),
+  //         );
+  //         if (uri != null) {
+  //           final format = await raw.DataReader.formatForFileUri(uri);
+  //           if (format != null && !allFormats.contains(format)) {
+  //             synthesizedFromURIFormat = format;
+  //           }
+  //         }
+  //       }
+  //     }
+  //   }
+  // return ItemDataReader._(
+  //   item: item,
+  //   formats: allFormats,
+  //   synthesizedFormats: synthesizedFormats,
+  //   virtualReceivers: virtualReceivers,
+  //   synthesizedFromURIFormat: synthesizedFromURIFormat,
+  // );
+  // }
 
   @override
   List<DataFormat> getFormats(List<DataFormat> allFormats) {
@@ -321,7 +320,8 @@ class ItemDataReader extends ClipboardDataReader {
   }) async {
     final formats = format?.receiverFormats ?? await item.getAvailableFormats();
     for (final format in formats) {
-      final receiver = await item.getVirtualFileReceiver(format: format);
+      final receiver = virtualReceivers
+          .firstWhereOrNull((element) => element.format == format);
       if (receiver != null) {
         return receiver;
       }

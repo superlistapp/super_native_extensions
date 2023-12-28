@@ -23,24 +23,9 @@ abstract class ReaderManager {
     required String format,
   });
 
-  Future<bool> itemFormatIsSynthesized(
-    DataReaderItemHandle handle, {
-    required String format,
-  });
-
-  Future<String?> getItemSuggestedName(DataReaderItemHandle handle);
-
   Future<List<DataReaderItemInfo>> getItemInfo(
-      Iterable<DataReaderItemHandle> handles);
-
-  Future<bool> canGetVirtualFile(
-    DataReaderItemHandle handle, {
-    required String format,
-  });
-
-  Future<VirtualFileReceiver?> createVirtualFileReceiver(
-    DataReaderItemHandle handle, {
-    required String format,
+    Iterable<DataReaderItemHandle> handles, {
+    Duration? timeout,
   });
 
   Future<String?> formatForFileUri(Uri uri);

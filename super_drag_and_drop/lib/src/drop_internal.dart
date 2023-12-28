@@ -40,12 +40,6 @@ class _DropItem extends DropItem {
   List<PlatformFormat> get platformFormats =>
       _reader?.platformFormats ?? _item.formats;
 
-  Future<void> _maybeInitReader() async {
-    if (_reader == null && _item.readerItem != null) {
-      _reader = await DataReader.forItem(_item.readerItem!);
-    }
-  }
-
   raw.DropItem _item;
   DataReader? _reader;
 }
@@ -60,7 +54,10 @@ class _DropSession extends DropSession {
   @override
   Set<raw.DropOperation> get allowedOperations => _allowedOperations;
 
-  Future<void> updateItems(List<raw.DropItem> items) async {
+  Future<void> updateItems(
+    List<raw.DropItem> items, {
+    required bool isDrop,
+  }) async {
     final current = List<_DropItem>.from(_items);
     _items.clear();
 
@@ -85,18 +82,19 @@ class _DropSession extends DropSession {
             element._item.readerItem != null && element._reader == null)
         .toList(growable: false);
 
-    final sw = Stopwatch()..start();
+    if (itemsNeedingReaders.isEmpty) {
+      return;
+    }
+
     final itemInfo = await raw.DataReaderItem.getItemInfo(
-        itemsNeedingReaders.map((e) => e._item.readerItem!));
-    print('>>> ${sw.elapsed}');
+      itemsNeedingReaders.map((e) => e._item.readerItem!),
+      timeout: isDrop ? null : const Duration(milliseconds: 10),
+    );
 
     for (final (index, info) in itemInfo.indexed) {
       assert(itemsNeedingReaders[index]._item.readerItem == info.item);
       itemsNeedingReaders[index]._reader = DataReader.forItemInfo(info);
     }
-    // await Future.wait(_items.map(
-    //   (e) => e._maybeInitReader(),
-    // ));
   }
 
   Future<raw.DropOperation> update({
@@ -276,7 +274,10 @@ class _DropContextDelegate extends raw.DropContextDelegate {
   Future<raw.DropOperation> onDropUpdate(raw.DropEvent event) async {
     final session =
         _sessions.putIfAbsent(event.sessionId, () => _DropSession());
-    await session.updateItems(event.items);
+    await session.updateItems(
+      event.items,
+      isDrop: false,
+    );
     return session.update(
       position: event.locationInView,
       allowedOperations: Set.from(event.allowedOperations),
@@ -293,7 +294,7 @@ class _DropContextDelegate extends raw.DropContextDelegate {
   @override
   Future<void> onPerformDrop(raw.DropEvent event) async {
     final session = _sessions[event.sessionId];
-    await session?.updateItems(event.items);
+    await session?.updateItems(event.items, isDrop: true);
     await session?.performDrop(
       location: event.locationInView,
       acceptedOperation: event.acceptedOperation!,
