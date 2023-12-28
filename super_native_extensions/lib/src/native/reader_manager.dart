@@ -151,11 +151,6 @@ class ReaderManagerImpl extends ReaderManager {
     return (completer.future, progress);
   }
 
-  @override
-  Future<String?> formatForFileUri(Uri uri) {
-    return _channel.invokeMethod('getFormatForFileUri', uri.toString());
-  }
-
   Future<Uint8List?> virtualFileRead({
     required int handle,
   }) {

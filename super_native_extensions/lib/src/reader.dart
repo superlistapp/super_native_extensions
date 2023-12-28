@@ -15,9 +15,6 @@ class DataReader {
     });
   }
 
-  static Future<String?> formatForFileUri(Uri uri) =>
-      ReaderManager.instance.formatForFileUri(uri);
-
   DataReader({
     required DataReaderHandle handle,
   }) : _handle = handle;

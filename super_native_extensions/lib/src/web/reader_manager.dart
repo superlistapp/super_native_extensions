@@ -74,59 +74,49 @@ class ReaderManagerImpl extends ReaderManager {
   }
 
   @override
-  Future<String?> getItemSuggestedName(DataReaderItemHandle handle) {
-    final impl = handle as $DataReaderItemHandle;
-    return impl.suggestedName();
-  }
-
-  @override
-  Future<bool> itemFormatIsSynthesized(
-    DataReaderItemHandle handle, {
-    required String format,
-  }) async {
-    return false;
-  }
-
-  @override
   Future<List<DataReaderItemHandle>> getItems(DataReaderHandle reader) async {
     final handle = reader as $DataReaderHandle;
     return handle.items.map((e) => e as DataReaderItemHandle).toList();
   }
 
   @override
-  Future<bool> canGetVirtualFile(
-    DataReaderItemHandle handle, {
-    required String format,
-  }) {
-    final impl = handle as $DataReaderItemHandle;
-    return impl.canGetVirtualFile(format);
-  }
-
-  @override
-  Future<VirtualFileReceiver?> createVirtualFileReceiver(
-    DataReaderItemHandle handle, {
-    required String format,
+  Future<List<DataReaderItemInfo>> getItemInfo(
+    Iterable<DataReaderItemHandle> handles, {
+    Duration? timeout,
   }) async {
-    final impl = handle as $DataReaderItemHandle;
-    return impl.createVirtualFileReceiver(handle, format: format);
-  }
-
-  @override
-  Future<String?> formatForFileUri(Uri uri) async {
-    return null;
+    final res = <DataReaderItemInfo>[];
+    final stopwatch = Stopwatch()..start();
+    for (final handle in handles) {
+      final impl = handle as $DataReaderItemHandle;
+      final formats = await impl.getFormats();
+      final receivers = <VirtualFileReceiver>[];
+      for (final format in formats) {
+        if (await impl.canGetVirtualFile(format)) {
+          final receiver =
+              await impl.createVirtualFileReceiver(handle, format: format);
+          if (receiver != null) {
+            receivers.add(receiver);
+          }
+        }
+      }
+      final info = DataReaderItemInfo(
+        handle,
+        formats: formats,
+        synthesizedFormats: [],
+        virtualReceivers: receivers,
+        suggestedName: await impl.suggestedName(),
+        synthesizedFromURIFormat: null,
+      );
+      res.add(info);
+      if (timeout != null && stopwatch.elapsed > timeout) {
+        break;
+      }
+    }
+    return res;
   }
 
   @override
   VirtualFile createVirtualFileFromUri(Uri uri) {
     throw UnsupportedError('createVirtualFileFromUri is not supported on web');
-  }
-
-  @override
-  Future<List<DataReaderItemInfo>> getItemInfo(
-    Iterable<DataReaderItemHandle> handles, {
-    Duration? timeout,
-  }) {
-    // TODO: implement getItemInfo
-    throw UnimplementedError();
   }
 }

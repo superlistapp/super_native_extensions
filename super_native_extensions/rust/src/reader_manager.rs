@@ -266,10 +266,6 @@ impl DataReaderManager {
             .await
     }
 
-    async fn get_format_for_file_uri(&self, uri: String) -> NativeExtensionsResult<Option<String>> {
-        PlatformDataReader::get_format_for_file_uri(uri).await
-    }
-
     async fn get_item_info(
         &self,
         request: ItemInfoRequest,
@@ -484,14 +480,6 @@ struct VirtualFileCopyRequest {
 
 #[derive(TryFromValue)]
 #[irondash(rename_all = "camelCase")]
-struct VirtualFileSupportedRequest {
-    item_handle: i64,
-    reader_handle: DataReaderId,
-    format: String,
-}
-
-#[derive(TryFromValue)]
-#[irondash(rename_all = "camelCase")]
 struct ItemInfoRequest {
     reader_handle: DataReaderId,
     item_handles: Vec<i64>,
@@ -580,10 +568,6 @@ impl AsyncMethodHandler for DataReaderManager {
                 .into_platform_result(),
             "getItemData" => self
                 .get_item_data(call.isolate, call.args.try_into()?)
-                .await
-                .into_platform_result(),
-            "getFormatForFileUri" => self
-                .get_format_for_file_uri(call.args.try_into()?)
                 .await
                 .into_platform_result(),
             "cancelProgress" => self

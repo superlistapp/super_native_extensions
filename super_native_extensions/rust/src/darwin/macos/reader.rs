@@ -56,17 +56,6 @@ pub struct PlatformDataReader {
 }
 
 impl PlatformDataReader {
-    pub async fn get_format_for_file_uri(
-        file_uri: String,
-    ) -> NativeExtensionsResult<Option<String>> {
-        let res = unsafe {
-            let string = NSString::from_str(&file_uri);
-            let url = NSURL::URLWithString(&string);
-            url.and_then(|url| format_from_url(&url))
-        };
-        Ok(res)
-    }
-
     fn get_pasteboard_items(&self) -> NativeExtensionsResult<Id<NSArray<NSPasteboardItem>>> {
         let items = self.pasteboard_items.clone().take();
         if let Some(items) = items {
@@ -95,7 +84,9 @@ impl PlatformDataReader {
             .get_data_for_item(item, "public.file-url".to_owned(), None)
             .await?;
         if let Value::String(file_uri) = data {
-            Self::get_format_for_file_uri(file_uri).await
+            let string = NSString::from_str(&file_uri);
+            let url = unsafe { NSURL::URLWithString(&string) };
+            Ok(url.and_then(|url| unsafe { format_from_url(&url) }))
         } else {
             Ok(None)
         }
@@ -378,10 +369,7 @@ impl PlatformDataReader {
                     let data_type = NSString::from_str(&data_type);
                     // Try to get property list first, otherwise fallback to Data
                     let mut data: Option<Id<NSObject>> = if is_text || is_file_url {
-                        // let start = Instant::now();
-                        let res = item.stringForType(&data_type).map(|i| Id::cast(i));
-                        // println!("Get string {:?} {} {:?}", data_type, _item, start.elapsed());
-                        res
+                        item.stringForType(&data_type).map(|i| Id::cast(i))
                     } else {
                         item.propertyListForType(&data_type).map(|i| Id::cast(i))
                     };

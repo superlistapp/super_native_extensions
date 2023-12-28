@@ -28,7 +28,5 @@ abstract class ReaderManager {
     Duration? timeout,
   });
 
-  Future<String?> formatForFileUri(Uri uri);
-
   VirtualFile createVirtualFileFromUri(Uri uri);
 }
