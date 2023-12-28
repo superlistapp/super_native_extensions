@@ -135,8 +135,8 @@ abstract class DataReader {
   /// If this reader is backed by raw DataReaderItem returns it.
   raw.DataReaderItem? get rawReader => null;
 
-  static Future<DataReader> forItem(raw.DataReaderItem item) async =>
-      ItemDataReader.fromItem(item);
+  // static Future<DataReader> forItem(raw.DataReaderItem item) async =>
+  //     ItemDataReader.fromItem(item);
 
   static DataReader forItemInfo(raw.DataReaderItemInfo info) =>
       ItemDataReader.fromItemInfo(info);
@@ -149,8 +149,8 @@ abstract class ClipboardDataReader extends DataReader {
   /// is not available or the data is virtual (macOS and Windows).
   Future<T?> readValue<T extends Object>(ValueFormat<T> format);
 
-  static Future<ClipboardDataReader> forItem(raw.DataReaderItem item) async =>
-      ItemDataReader.fromItem(item);
+  static ClipboardDataReader forItemInfo(raw.DataReaderItemInfo item) =>
+      ItemDataReader.fromItemInfo(item);
 }
 
 /// Clipboard reader exposes contents of the clipboard.

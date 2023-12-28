@@ -123,7 +123,9 @@ class ReaderManagerImpl extends ReaderManager {
 
   @override
   Future<List<DataReaderItemInfo>> getItemInfo(
-      Iterable<DataReaderItemHandle> handles) {
+    Iterable<DataReaderItemHandle> handles, {
+    Duration? timeout,
+  }) {
     // TODO: implement getItemInfo
     throw UnimplementedError();
   }

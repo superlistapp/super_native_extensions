@@ -266,23 +266,6 @@ impl DataReaderManager {
             .await
     }
 
-    async fn item_format_is_synthesized(
-        &self,
-        request: ItemFormatIsSynthesizedRequest,
-    ) -> NativeExtensionsResult<bool> {
-        self.get_reader(request.reader_handle)?
-            .item_format_is_synthesized(request.item_handle, &request.format)
-    }
-
-    async fn get_item_suggested_name(
-        &self,
-        request: ItemSuggestedNameRequest,
-    ) -> NativeExtensionsResult<Option<String>> {
-        self.get_reader(request.reader_handle)?
-            .get_suggested_name_for_item(request.item_handle)
-            .await
-    }
-
     async fn get_format_for_file_uri(&self, uri: String) -> NativeExtensionsResult<Option<String>> {
         PlatformDataReader::get_format_for_file_uri(uri).await
     }
@@ -293,10 +276,12 @@ impl DataReaderManager {
     ) -> NativeExtensionsResult<ItemInfoResponse> {
         let mut res = Vec::with_capacity(request.item_handles.len());
         let reader = self.get_reader(request.reader_handle)?;
+        let start = std::time::Instant::now();
         for item_handle in request.item_handles {
             let formats = reader.get_formats_for_item(item_handle).await?;
             let mut synthesized_formats = Vec::new();
-            let mut virtual_file_formats = Vec::new();
+            let mut read_virtual_file_formats = Vec::new();
+            let mut copy_virtual_file_formats = Vec::new();
             for format in &formats {
                 if reader.item_format_is_synthesized(item_handle, format)? {
                     synthesized_formats.push(format.clone());
@@ -305,24 +290,38 @@ impl DataReaderManager {
                     .can_read_virtual_file_for_item(item_handle, format)
                     .await?
                 {
-                    virtual_file_formats.push(format.clone());
+                    read_virtual_file_formats.push(format.clone());
+                }
+                if reader
+                    .can_copy_virtual_file_for_item(item_handle, format)
+                    .await?
+                {
+                    copy_virtual_file_formats.push(format.clone());
                 }
             }
             let suggested_name = reader.get_suggested_name_for_item(item_handle).await?;
-            let file_uri_format = if virtual_file_formats.is_empty() {
-                reader.get_item_format_for_uri(item_handle).await?
-            } else {
-                None
-            };
+            let file_uri_format =
+                if copy_virtual_file_formats.is_empty() && read_virtual_file_formats.is_empty() {
+                    reader.get_item_format_for_uri(item_handle).await?
+                } else {
+                    None
+                };
             res.push(ItemInfo {
                 handle: item_handle,
                 formats,
                 synthesized_formats,
-                virtual_file_formats,
+                copy_virtual_file_formats,
+                read_virtual_file_formats,
                 suggested_name,
                 file_uri_format,
             });
+            if let Some(timeout) = request.timeout_millis {
+                if start.elapsed().as_millis() > timeout as u128 {
+                    break;
+                }
+            }
         }
+        println!("Got {} items in one go ({:?})", res.len(), start.elapsed());
         Ok(ItemInfoResponse { items: res })
     }
 
@@ -351,24 +350,6 @@ impl DataReaderManager {
             progress.cancel();
         }
         Ok(())
-    }
-
-    async fn can_copy_virtual_file(
-        &self,
-        request: VirtualFileSupportedRequest,
-    ) -> NativeExtensionsResult<bool> {
-        self.get_reader(request.reader_handle)?
-            .can_copy_virtual_file_for_item(request.item_handle, &request.format)
-            .await
-    }
-
-    async fn can_read_virtual_file(
-        &self,
-        request: VirtualFileSupportedRequest,
-    ) -> NativeExtensionsResult<bool> {
-        self.get_reader(request.reader_handle)?
-            .can_read_virtual_file_for_item(request.item_handle, &request.format)
-            .await
     }
 
     async fn virtual_file_reader_create(
@@ -467,21 +448,6 @@ struct ItemFormatsRequest {
 
 #[derive(TryFromValue)]
 #[irondash(rename_all = "camelCase")]
-struct ItemFormatIsSynthesizedRequest {
-    item_handle: i64,
-    reader_handle: DataReaderId,
-    format: String,
-}
-
-#[derive(TryFromValue)]
-#[irondash(rename_all = "camelCase")]
-struct ItemSuggestedNameRequest {
-    item_handle: i64,
-    reader_handle: DataReaderId,
-}
-
-#[derive(TryFromValue)]
-#[irondash(rename_all = "camelCase")]
 struct ItemDataRequest {
     item_handle: i64,
     reader_handle: DataReaderId,
@@ -529,6 +495,7 @@ struct VirtualFileSupportedRequest {
 struct ItemInfoRequest {
     reader_handle: DataReaderId,
     item_handles: Vec<i64>,
+    timeout_millis: Option<i64>,
 }
 
 #[derive(IntoValue)]
@@ -540,7 +507,8 @@ struct ItemInfo {
     /// Formats that are synthesized from other formats.
     synthesized_formats: Vec<String>,
     /// Formats that need to be read through virtual file reader.
-    virtual_file_formats: Vec<String>,
+    read_virtual_file_formats: Vec<String>,
+    copy_virtual_file_formats: Vec<String>,
     /// Suggested file name. This might be less reliable than getting the name
     /// from virtual file reader.
     suggested_name: Option<String>,
@@ -610,14 +578,6 @@ impl AsyncMethodHandler for DataReaderManager {
                 .get_item_formats(call.args.try_into()?)
                 .await
                 .into_platform_result(),
-            "itemFormatIsSynthesized" => self
-                .item_format_is_synthesized(call.args.try_into()?)
-                .await
-                .into_platform_result(),
-            "getItemSuggestedName" => self
-                .get_item_suggested_name(call.args.try_into()?)
-                .await
-                .into_platform_result(),
             "getItemData" => self
                 .get_item_data(call.isolate, call.args.try_into()?)
                 .await
@@ -628,14 +588,6 @@ impl AsyncMethodHandler for DataReaderManager {
                 .into_platform_result(),
             "cancelProgress" => self
                 .cancel_progress(call.isolate, call.args.try_into()?)
-                .into_platform_result(),
-            "canCopyVirtualFile" => self
-                .can_copy_virtual_file(call.args.try_into()?)
-                .await
-                .into_platform_result(),
-            "canReadVirtualFile" => self
-                .can_read_virtual_file(call.args.try_into()?)
-                .await
                 .into_platform_result(),
             "getItemInfo" => self
                 .get_item_info(call.args.try_into()?)
