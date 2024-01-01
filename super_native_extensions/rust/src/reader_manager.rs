@@ -317,7 +317,6 @@ impl DataReaderManager {
                 }
             }
         }
-        println!("Got {} items in one go ({:?})", res.len(), start.elapsed());
         Ok(ItemInfoResponse { items: res })
     }
 
