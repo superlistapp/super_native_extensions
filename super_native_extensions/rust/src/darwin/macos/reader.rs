@@ -339,8 +339,7 @@ impl PlatformDataReader {
     }
 
     fn schedule_do_get_data_for_item(
-        item: i64,
-        pasteboard_item: Id<NSPasteboardItem>,
+        item: Id<NSPasteboardItem>,
         data_type: String,
         completer: FutureCompleter<Value>,
     ) {
@@ -350,33 +349,28 @@ impl PlatformDataReader {
                     // We're currently running nested run loop in which pasteboard is waiting
                     // for data. Trying to get data from pasteboard at this stage may lead to
                     // deadlock.
-                    Self::schedule_do_get_data_for_item(
-                        item,
-                        pasteboard_item.clone(),
-                        data_type,
-                        completer,
-                    );
+                    Self::schedule_do_get_data_for_item(item.clone(), data_type, completer);
                     return;
                 }
                 let data = autoreleasepool(|_| unsafe {
-                    // let items = pasteboard.pasteboardItems().unwrap_or_default();
-                    let _item = item;
-                    // if item < items.count() as i64 {
-                    // let item = items.objectAtIndex(item as usize);
-                    let item = pasteboard_item;
+                    let pasteboard_item = item;
                     let is_file_url = data_type == "public.file-url";
                     let is_text = uti_conforms_to(&data_type, "public.text");
                     let data_type = NSString::from_str(&data_type);
                     // Try to get property list first, otherwise fallback to Data
                     let mut data: Option<Id<NSObject>> = if is_text || is_file_url {
-                        item.stringForType(&data_type).map(|i| Id::cast(i))
+                        pasteboard_item
+                            .stringForType(&data_type)
+                            .map(|i| Id::cast(i))
                     } else {
-                        item.propertyListForType(&data_type).map(|i| Id::cast(i))
+                        pasteboard_item
+                            .propertyListForType(&data_type)
+                            .map(|i| Id::cast(i))
                     };
                     if data.is_none() {
                         // Ask for data here. It's better for Appkit to convert String to data,
                         // then trying to convert data to String.
-                        data = item.dataForType(&data_type).map(|i| Id::cast(i));
+                        data = pasteboard_item.dataForType(&data_type).map(|i| Id::cast(i));
                     }
                     let res = Value::from_objc(data).ok_log().unwrap_or_default();
                     // Convert file:///.file/id=??? URLs to path URL
@@ -391,9 +385,6 @@ impl PlatformDataReader {
                         }
                     }
                     res
-                    // } else {
-                    //     Value::Null
-                    // }
                 });
                 completer.complete(data)
             })
@@ -420,14 +411,11 @@ impl PlatformDataReader {
         // Retrieving data may require call back to Flutter and nested run loop so don't
         // block current dispatch
         let pasteboard_item = unsafe { self.get_pasteboard_items()?.objectAtIndex(item as usize) };
-        Self::schedule_do_get_data_for_item(item, pasteboard_item, data_type, completer);
+        Self::schedule_do_get_data_for_item(pasteboard_item, data_type, completer);
 
         let res = future.await;
-        {
-            let mut value_cache = self.value_cache.borrow_mut();
-            value_cache.insert(cache_key, res.clone());
-        }
-
+        let mut value_cache = self.value_cache.borrow_mut();
+        value_cache.insert(cache_key, res.clone());
         Ok(res)
     }
 
