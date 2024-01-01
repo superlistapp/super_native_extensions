@@ -296,6 +296,14 @@ packages:
       relative: true
     source: path
     version: "0.8.1"
+  super_sliver_list:
+    dependency: "direct main"
+    description:
+      name: super_sliver_list
+      sha256: "6729ea1f44c678978e9f3121de4f2cbf2feaaa49d1fb8a0a69c05c4db2cdeb86"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.0.8"
   term_glyph:
     dependency: transitive
     description:
