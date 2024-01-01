@@ -280,7 +280,7 @@ impl PlatformDataReader {
             }
         }
 
-        for ty in ["public.file-url"] {
+        for ty in ["public.file-url", "public.url"] {
             let data = self.do_get_data_for_item(item, ty.to_owned()).await?;
             if let Some(url) = Self::value_to_string(data) {
                 let url = unsafe { NSURL::URLWithString(&NSString::from_str(&url)) };
