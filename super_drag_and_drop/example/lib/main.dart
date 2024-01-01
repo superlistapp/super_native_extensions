@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:super_drag_and_drop/super_drag_and_drop.dart';
 import 'package:super_clipboard_example/widget_for_reader.dart';
+import 'package:super_sliver_list/super_sliver_list.dart';
 
 void main() async {
   runApp(const MyApp());
@@ -413,11 +414,18 @@ class _DropZoneState extends State<_DropZone> {
 
     buildWidgetsForReaders(context, readers, (value) {
       setState(() {
-        _content = ListView(
-          padding: const EdgeInsets.all(10),
-          children: value
-              .intersperse(const SizedBox(height: 10))
-              .toList(growable: false),
+        // Use super_sliver_list to get around bad sliver list performance
+        // with large amount if items.
+        final delegate = SliverChildListDelegate(value
+            .intersperse(const SizedBox(height: 10))
+            .toList(growable: false));
+        _content = CustomScrollView(
+          slivers: [
+            SliverPadding(
+              padding: const EdgeInsets.all(10),
+              sliver: SuperSliverList(delegate: delegate),
+            )
+          ],
         );
       });
     });
