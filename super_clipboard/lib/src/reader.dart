@@ -135,9 +135,7 @@ abstract class DataReader {
   /// If this reader is backed by raw DataReaderItem returns it.
   raw.DataReaderItem? get rawReader => null;
 
-  // static Future<DataReader> forItem(raw.DataReaderItem item) async =>
-  //     ItemDataReader.fromItem(item);
-
+  /// Creates data reader from provided item info.
   static DataReader forItemInfo(raw.DataReaderItemInfo info) =>
       ItemDataReader.fromItemInfo(info);
 }

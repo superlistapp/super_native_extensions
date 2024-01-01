@@ -23,6 +23,7 @@ abstract class ReaderManager {
     required String format,
   });
 
+  /// Loads as many item infos as possible within the given timeout.
   Future<List<DataReaderItemInfo>> getItemInfo(
     Iterable<DataReaderItemHandle> handles, {
     Duration? timeout,
