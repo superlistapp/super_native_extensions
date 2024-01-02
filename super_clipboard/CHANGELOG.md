@@ -1,3 +1,5 @@
+## 0.8.2+1
+
 ## 0.8.2
 
  - **FIX**: correct GIF uniform type identifier (#276).

@@ -1,3 +1,5 @@
+## 0.8.2+1
+
 ## 0.8.2
 
  - **FEAT**: improve performance with large number of items (#283).

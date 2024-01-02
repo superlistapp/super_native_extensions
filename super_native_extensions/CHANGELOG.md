@@ -1,3 +1,7 @@
+## 0.8.2+1
+
+ - **FIX**: remove leftover logging (#284).
+
 ## 0.8.2
 
  - **FIX**: [android] possible deadlock when reading from clipboard (#282).
