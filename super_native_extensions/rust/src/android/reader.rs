@@ -32,8 +32,9 @@ pub struct PlatformDataReader {
 }
 
 impl PlatformDataReader {
-    pub async fn get_format_for_file_uri(
-        _file_uri: String,
+    pub async fn get_item_format_for_uri(
+        &self,
+        _item: i64,
     ) -> NativeExtensionsResult<Option<String>> {
         Ok(None)
     }

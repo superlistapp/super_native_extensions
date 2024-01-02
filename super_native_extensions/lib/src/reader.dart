@@ -15,9 +15,6 @@ class DataReader {
     });
   }
 
-  static Future<String?> formatForFileUri(Uri uri) =>
-      ReaderManager.instance.formatForFileUri(uri);
-
   DataReader({
     required DataReaderHandle handle,
   }) : _handle = handle;
@@ -46,6 +43,25 @@ abstract class ReadProgress {
   void cancel();
 }
 
+class DataReaderItemInfo {
+  DataReaderItemInfo(
+    this._handle, {
+    required this.formats,
+    required this.synthesizedFormats,
+    required this.virtualReceivers,
+    required this.suggestedName,
+    required this.synthesizedFromURIFormat,
+  });
+
+  DataReaderItem get item => DataReaderItem(handle: _handle);
+  final List<String> formats;
+  final List<String> synthesizedFormats;
+  final List<VirtualFileReceiver> virtualReceivers;
+  final String? suggestedName;
+  final String? synthesizedFromURIFormat;
+  final DataReaderItemHandle _handle;
+}
+
 class DataReaderItem {
   Future<List<String>> getAvailableFormats() {
     return _mutex.protect(() async {
@@ -61,31 +77,53 @@ class DataReaderItem {
     return ReaderManager.instance.getItemData(_handle, format: format);
   }
 
-  Future<bool> isSynthesized(String format) {
-    return ReaderManager.instance
-        .itemFormatIsSynthesized(_handle, format: format);
+  static Future<List<DataReaderItemInfo>> getItemInfo(
+    Iterable<DataReaderItem> items, {
+    Duration? timeout,
+  }) {
+    return ReaderManager.instance.getItemInfo(
+      items.map(
+        (e) => e._handle,
+      ),
+      timeout: timeout,
+    );
+  }
+
+  DataReaderItemInfo? __itemInfo;
+
+  Future<DataReaderItemInfo> _getItemInfo() async {
+    if (__itemInfo == null) {
+      final info = await ReaderManager.instance.getItemInfo([_handle]);
+      __itemInfo = info[0];
+    }
+    return __itemInfo!;
+  }
+
+  Future<bool> isSynthesized(String format) async {
+    return (await _getItemInfo()).synthesizedFormats.contains(format);
   }
 
   /// When `true` the content can be received through [getVirtualFileReceiver].
   /// On macOS and Windows if [isVirtual] is `true` the content can only be
   /// received through [getVirtualFileReceiver] - [getDataForFormat] will return
   /// `null`.
-  Future<bool> isVirtual(String format) {
-    return ReaderManager.instance.canGetVirtualFile(_handle, format: format);
+  Future<bool> isVirtual(String format) async {
+    return (await _getItemInfo())
+        .virtualReceivers
+        .any((element) => element.format == format);
   }
 
-  Future<String?> getSuggestedName() {
-    return ReaderManager.instance.getItemSuggestedName(_handle);
+  Future<String?> getSuggestedName() async {
+    return (await _getItemInfo()).suggestedName;
   }
 
-  Future<VirtualFileReceiver?> getVirtualFileReceiver({
-    required String format,
-  }) async {
-    return ReaderManager.instance.createVirtualFileReceiver(
-      _handle,
-      format: format,
-    );
+  @override
+  bool operator ==(Object other) {
+    return other is DataReaderItem && other._handle == _handle;
   }
+
+  @override
+  int get hashCode => _handle.hashCode;
 
   DataReaderItem({
     required DataReaderItemHandle handle,

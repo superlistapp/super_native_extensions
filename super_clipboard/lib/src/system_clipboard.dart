@@ -35,9 +35,10 @@ class SystemClipboard implements ClipboardWriter {
   Future<ClipboardReader> read() async {
     final reader = await raw.ClipboardReader.instance.newClipboardReader();
     final readerItems = await reader.getItems();
+    final itemInfo = await raw.DataReaderItem.getItemInfo(readerItems);
     final items = <ClipboardDataReader>[];
-    for (final item in readerItems) {
-      items.add(await ClipboardDataReader.forItem(item));
+    for (final item in itemInfo) {
+      items.add(ClipboardDataReader.forItemInfo(item));
     }
     return ClipboardReader(items);
   }
