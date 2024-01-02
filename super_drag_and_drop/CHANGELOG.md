@@ -1,3 +1,9 @@
+## 0.8.2
+
+ - **FEAT**: improve performance with large number of items (#283).
+ - **FEAT**: use super_sliver_list in example (#281).
+ - **FEAT**: improve performance with large number of items (#274).
+
 ## 0.8.1
 
 ## 0.8.0

@@ -1,3 +1,8 @@
+## 0.8.2
+
+ - **FIX**: correct GIF uniform type identifier (#276).
+ - **FEAT**: improve performance with large number of items (#283).
+
 ## 0.8.1
 
 ## 0.8.0

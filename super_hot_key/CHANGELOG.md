@@ -1,3 +1,7 @@
+## 0.8.2
+
+ - Bump "super_hot_key" to `0.8.2`.
+
 ## 0.8.1
 
  - Bump "super_hot_key" to `0.8.1`.

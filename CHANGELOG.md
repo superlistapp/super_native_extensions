@@ -3,6 +3,53 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## 2024-01-02
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - There are no breaking changes in this release.
+
+Packages with other changes:
+
+ - [`super_clipboard` - `v0.8.2`](#super_clipboard---v082)
+ - [`super_drag_and_drop` - `v0.8.2`](#super_drag_and_drop---v082)
+ - [`super_context_menu` - `v0.8.2`](#super_context_menu---v082)
+ - [`super_native_extensions` - `v0.8.2`](#super_native_extensions---v082)
+ - [`super_hot_key` - `v0.8.2`](#super_hot_key---v082)
+ - [`super_keyboard_layout` - `v0.8.2`](#super_keyboard_layout---v082)
+
+---
+
+#### `super_clipboard` - `v0.8.2`
+
+ - **FIX**: correct GIF uniform type identifier (#276).
+ - **FEAT**: improve performance with large number of items (#283).
+
+#### `super_drag_and_drop` - `v0.8.2`
+
+ - **FEAT**: improve performance with large number of items (#283).
+ - **FEAT**: use super_sliver_list in example (#281).
+ - **FEAT**: improve performance with large number of items (#274).
+
+#### `super_context_menu` - `v0.8.2`
+
+#### `super_native_extensions` - `v0.8.2`
+
+ - **FIX**: [android] possible deadlock when reading from clipboard (#282).
+ - **FEAT**: improve performance with large number of items (#283).
+ - **FEAT**: improve performance with large number of items (#274).
+
+#### `super_hot_key` - `v0.8.2`
+
+ - Bump "super_hot_key" to `0.8.2`.
+
+#### `super_keyboard_layout` - `v0.8.2`
+
+
 ## 2023-12-26
 
 ### Changes

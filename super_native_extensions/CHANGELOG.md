@@ -1,3 +1,9 @@
+## 0.8.2
+
+ - **FIX**: [android] possible deadlock when reading from clipboard (#282).
+ - **FEAT**: improve performance with large number of items (#283).
+ - **FEAT**: improve performance with large number of items (#274).
+
 ## 0.8.1
 
  - **FIX**: [ios] store user interaction properly (#272).
