@@ -7,7 +7,6 @@ use std::{
     rc::{Rc, Weak},
     sync::Arc,
     thread,
-    time::Instant,
 };
 
 use icrate::{
@@ -219,8 +218,6 @@ impl PlatformDataReader {
         item: i64,
     ) -> NativeExtensionsResult<Option<Id<NSFilePromiseReceiver>>> {
         if self.promise_receivers.borrow().is_empty() {
-            let start = Instant::now();
-
             let class =
                 unsafe { Id::retain(NSFilePromiseReceiver::class() as *const _ as *mut AnyObject) }
                     .unwrap();
@@ -241,7 +238,6 @@ impl PlatformDataReader {
                     self.promise_receivers.borrow_mut().push(None);
                 }
             }
-            println!(">> PR ELAPSED {:?}", start.elapsed());
         }
         let res = self
             .promise_receivers
