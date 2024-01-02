@@ -4,7 +4,6 @@ use std::{
     os::raw::c_uint,
     path::{Path, PathBuf},
     rc::Rc,
-    str::FromStr,
     sync::Arc,
 };
 
@@ -77,21 +76,6 @@ pub struct ReaderInfo {
 }
 
 impl PlatformDataReader {
-    pub async fn get_format_for_file_uri(
-        file_uri: String,
-    ) -> NativeExtensionsResult<Option<String>> {
-        let url = Url::from_str(&file_uri)
-            .map_err(|_| NativeExtensionsError::OtherError("Couldn't parse file URL".into()))?;
-        let name = url.path_segments().and_then(|s| s.last());
-        match name {
-            Some(name) => {
-                let format = mime_from_name(name);
-                Ok(Some(format))
-            }
-            None => Ok(None),
-        }
-    }
-
     async fn init(&self) {
         if !self.inner.is_set() && !self.initializing.get() {
             self.initializing.set(true);
@@ -165,6 +149,26 @@ impl PlatformDataReader {
             }
         }
         Ok(None)
+    }
+
+    pub async fn get_item_format_for_uri(
+        &self,
+        item: i64,
+    ) -> NativeExtensionsResult<Option<String>> {
+        let item = item as usize;
+        let uri = self.inner.uris.get(item).and_then(|u| Url::parse(u).ok());
+        if let Some(uri) = uri {
+            let name: Option<&str> = uri.path_segments().and_then(|s| s.last());
+            match name {
+                Some(name) => {
+                    let format = mime_from_name(name);
+                    Ok(Some(format))
+                }
+                None => Ok(None),
+            }
+        } else {
+            Ok(None)
+        }
     }
 
     pub async fn get_data_for_item(

@@ -397,7 +397,7 @@ Future<_RepresentationWidget?> _widgetForFormat(
       if (contents == null) {
         return null;
       } else {
-        final text = utf8.decode(contents);
+        final text = utf8.decode(contents, allowMalformed: true);
         return _RepresentationWidget(
           format: format,
           name: 'Plain Text (utf8 file)',

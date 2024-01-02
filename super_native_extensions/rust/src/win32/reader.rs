@@ -1,19 +1,3 @@
-use std::{
-    cell::{Cell, RefCell},
-    ffi::CStr,
-    fs::{self, File},
-    io::Write,
-    path::{Path, PathBuf},
-    rc::{Rc, Weak},
-    slice,
-    str::FromStr,
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc, Mutex,
-    },
-    thread,
-};
-
 use async_trait::async_trait;
 use byte_slice_cast::AsSliceOf;
 use irondash_message_channel::Value;
@@ -22,8 +6,21 @@ use irondash_run_loop::{
     RunLoop, RunLoopSender,
 };
 use rand::{distributions::Alphanumeric, Rng};
+use std::{
+    cell::{Cell, RefCell},
+    ffi::CStr,
+    fs::{self, File},
+    io::Write,
+    path::{Path, PathBuf},
+    rc::{Rc, Weak},
+    slice,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex,
+    },
+    thread,
+};
 use threadpool::ThreadPool;
-use url::Url;
 use windows::{
     core::{w, HSTRING},
     Win32::{
@@ -86,22 +83,6 @@ struct FileDescriptor {
 }
 
 impl PlatformDataReader {
-    pub async fn get_format_for_file_uri(
-        file_uri: String,
-    ) -> NativeExtensionsResult<Option<String>> {
-        let url = Url::from_str(&file_uri)
-            .map_err(|_| NativeExtensionsError::OtherError("Couldn't parse file URL".into()))?;
-        let name = url.path_segments().and_then(|s| s.last());
-        match name {
-            Some(name) => {
-                let format = mime_from_name(name);
-                let format = mime_to_windows(format);
-                Ok(Some(format))
-            }
-            None => Ok(None),
-        }
-    }
-
     pub fn get_items_sync(&self) -> NativeExtensionsResult<Vec<i64>> {
         Ok((0..self.item_count()? as i64).collect())
     }
@@ -650,6 +631,20 @@ impl PlatformDataReader {
             Err(NativeExtensionsError::VirtualFileReceiveError(
                 "item not found".into(),
             ))
+        }
+    }
+
+    pub async fn get_item_format_for_uri(
+        &self,
+        item: i64,
+    ) -> NativeExtensionsResult<Option<String>> {
+        let hdrop = self.hdrop_for_item(item)?;
+        if let Some(hdrop) = hdrop {
+            let format = mime_from_name(&hdrop);
+            let format = mime_to_windows(format);
+            Ok(Some(format))
+        } else {
+            Ok(None)
         }
     }
 

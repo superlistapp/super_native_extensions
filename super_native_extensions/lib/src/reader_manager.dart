@@ -23,24 +23,11 @@ abstract class ReaderManager {
     required String format,
   });
 
-  Future<bool> itemFormatIsSynthesized(
-    DataReaderItemHandle handle, {
-    required String format,
+  /// Loads as many item infos as possible within the given timeout.
+  Future<List<DataReaderItemInfo>> getItemInfo(
+    Iterable<DataReaderItemHandle> handles, {
+    Duration? timeout,
   });
-
-  Future<String?> getItemSuggestedName(DataReaderItemHandle handle);
-
-  Future<bool> canGetVirtualFile(
-    DataReaderItemHandle handle, {
-    required String format,
-  });
-
-  Future<VirtualFileReceiver?> createVirtualFileReceiver(
-    DataReaderItemHandle handle, {
-    required String format,
-  });
-
-  Future<String?> formatForFileUri(Uri uri);
 
   VirtualFile createVirtualFileFromUri(Uri uri);
 }

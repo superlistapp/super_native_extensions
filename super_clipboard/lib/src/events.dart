@@ -15,11 +15,12 @@ class ClipboardReadEvent {
   /// such as inserting text into input or content editable elements.
   Future<ClipboardReader> getClipboardReader() async {
     final readerItems = await _event.getReader().getItems();
-    final items = await Future.wait(
-      readerItems.map(
-        (e) => ClipboardDataReader.forItem(e),
-      ),
-    );
+    final itemInfo = await raw.DataReaderItem.getItemInfo(readerItems);
+    final items = itemInfo
+        .map(
+          (e) => ClipboardDataReader.forItemInfo(e),
+        )
+        .toList(growable: false);
     return ClipboardReader(items);
   }
 

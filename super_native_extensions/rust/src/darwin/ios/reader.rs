@@ -35,7 +35,7 @@ use crate::{
     error::{NativeExtensionsError, NativeExtensionsResult},
     log::OkLog,
     platform_impl::platform::{
-        common::{format_from_url, path_from_url, uti_conforms_to, NSURLSecurtyScopeAccess},
+        common::{path_from_url, uti_conforms_to, NSURLSecurtyScopeAccess},
         progress_bridge::bridge_progress,
     },
     reader_manager::{ReadProgress, VirtualFileReader},
@@ -55,16 +55,6 @@ enum ReaderSource {
 }
 
 impl PlatformDataReader {
-    pub async fn get_format_for_file_uri(
-        file_uri: String,
-    ) -> NativeExtensionsResult<Option<String>> {
-        let res = unsafe {
-            let url = NSURL::URLWithString(&NSString::from_str(&file_uri));
-            url.and_then(|url| format_from_url(&url))
-        };
-        Ok(res)
-    }
-
     fn get_items_providers(&self) -> Vec<Id<NSItemProvider>> {
         match &self.source {
             ReaderSource::Pasteboard(pasteboard) => {
@@ -233,6 +223,13 @@ impl PlatformDataReader {
         }
         let formats = self.get_formats_for_item_sync(item)?;
         Ok(formats.iter().any(|f| f == format))
+    }
+
+    pub async fn get_item_format_for_uri(
+        &self,
+        _item: i64,
+    ) -> NativeExtensionsResult<Option<String>> {
+        Ok(None)
     }
 
     pub async fn can_read_virtual_file_for_item(
