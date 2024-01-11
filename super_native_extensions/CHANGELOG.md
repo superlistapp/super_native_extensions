@@ -1,3 +1,5 @@
+## 0.8.3
+
 ## 0.8.2+1
 
  - **FIX**: remove leftover logging (#284).

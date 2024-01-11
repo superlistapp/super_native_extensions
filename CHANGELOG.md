@@ -3,6 +3,50 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## 2024-01-11
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - There are no breaking changes in this release.
+
+Packages with other changes:
+
+ - [`super_clipboard` - `v0.8.3`](#super_clipboard---v083)
+ - [`super_drag_and_drop` - `v0.8.3`](#super_drag_and_drop---v083)
+ - [`super_context_menu` - `v0.8.3`](#super_context_menu---v083)
+ - [`super_native_extensions` - `v0.8.3`](#super_native_extensions---v083)
+ - [`super_hot_key` - `v0.8.3`](#super_hot_key---v083)
+ - [`super_keyboard_layout` - `v0.8.3`](#super_keyboard_layout---v083)
+
+---
+
+#### `super_clipboard` - `v0.8.3`
+
+ - updated cargokit
+
+#### `super_drag_and_drop` - `v0.8.3`
+
+ - updated cargokit
+
+#### `super_context_menu` - `v0.8.3`
+
+ - updated cargokit
+
+#### `super_native_extensions` - `v0.8.3`
+
+#### `super_hot_key` - `v0.8.3`
+
+ - updated cargokit
+
+#### `super_keyboard_layout` - `v0.8.3`
+
+ - updated cargokit
+
+
 ## 2024-01-02
 
 ### Changes
