@@ -1,3 +1,7 @@
+## 0.8.4
+
+ - Bump "super_hot_key" to `0.8.4`.
+
 ## 0.8.3
 
  - updated cargokit
