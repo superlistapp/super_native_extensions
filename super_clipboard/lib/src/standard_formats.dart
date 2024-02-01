@@ -347,6 +347,11 @@ class Formats {
     mimeTypes: ['audio/mpeg'],
   );
 
+  static const m4a = SimpleFileFormat(
+    uniformTypeIdentifiers: ['public.mpeg-4-audio'],
+    mimeTypes: ['audio/mp4'],
+  );
+
   static const oga = SimpleFileFormat(
     uniformTypeIdentifiers: ['org.xiph.ogg.vorbis'],
     mimeTypes: ['audio/ogg'],
