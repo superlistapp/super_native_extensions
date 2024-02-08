@@ -25,7 +25,7 @@ rand = "0.8.5"
 url = "2.2.2"
 irondash_engine_context = "0.5.0"
 irondash_run_loop = "0.5.0"
-irondash_message_channel = { version = "0.5.0", features = ["derive"] }
+irondash_message_channel = { version = "0.6.0", features = ["derive"] }
 
 [build-dependencies]
 serde = { version = "1.0.119", features = ["derive"] }

@@ -726,9 +726,9 @@ dependencies = [
 
 [[package]]
 name = "irondash_message_channel"
-version = "0.5.0"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "84dc27bd77f133f6feca82a3e56de8b796879b8d506f03d68ff4edc063c4f882"
+checksum = "9c1b29c2a0cf44ae1098ade855f4fcf8c21c3eaca98b14c5fb6c60030fdbf4ab"
 dependencies = [
  "async-trait",
  "core-foundation",
@@ -736,6 +736,7 @@ dependencies = [
  "irondash_dart_ffi",
  "irondash_message_channel_derive",
  "irondash_run_loop",
+ "log",
  "objc2",
  "once_cell",
 ]
