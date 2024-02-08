@@ -3,6 +3,44 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## 2024-02-08
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - There are no breaking changes in this release.
+
+Packages with other changes:
+
+ - [`super_clipboard` - `v0.8.5`](#super_clipboard---v085)
+ - [`super_drag_and_drop` - `v0.8.5`](#super_drag_and_drop---v085)
+ - [`super_context_menu` - `v0.8.5`](#super_context_menu---v085)
+ - [`super_native_extensions` - `v0.8.5`](#super_native_extensions---v085)
+ - [`super_hot_key` - `v0.8.5`](#super_hot_key---v085)
+ - [`super_keyboard_layout` - `v0.8.5`](#super_keyboard_layout---v085)
+
+---
+
+#### `super_clipboard` - `v0.8.5`
+
+ - **FEAT**: add m4a format definition (#306).
+
+#### `super_drag_and_drop` - `v0.8.5`
+
+#### `super_context_menu` - `v0.8.5`
+
+#### `super_native_extensions` - `v0.8.5`
+
+#### `super_hot_key` - `v0.8.5`
+
+ - Bump "super_hot_key" to `0.8.5`.
+
+#### `super_keyboard_layout` - `v0.8.5`
+
+
 ## 2024-01-16
 
 ### Changes
