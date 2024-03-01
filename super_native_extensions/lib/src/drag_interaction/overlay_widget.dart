@@ -7,6 +7,7 @@ import 'package:pixel_snap/pixel_snap.dart';
 
 import '../gesture/multi_touch_detector.dart';
 import '../menu.dart';
+import '../repaint_boundary.dart';
 import '../util.dart';
 import '../widget_snapshot/widget_snapshot.dart';
 import '../widget_snapshot/widget_snapshotter.dart';
@@ -107,7 +108,7 @@ class OverlayWidgetState extends State<OverlayWidget>
         height: size.height);
 
     if (WidgetSnapshotter.snapshotToImageSupported()) {
-      final image = boundary.toImageSync(rect, pixelRatio: pixelRatio)
+      final image = boundary.toImageSync(bounds: rect, pixelRatio: pixelRatio)
         ..devicePixelRatio = pixelRatio;
       return WidgetSnapshot.image(image);
     } else {
