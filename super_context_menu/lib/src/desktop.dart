@@ -46,7 +46,7 @@ class _ContextMenuDetectorState extends State<_ContextMenuDetector> {
   static final _mutex = Mutex();
 
   bool _acceptPrimaryButton() {
-    final keys = RawKeyboard.instance.keysPressed;
+    final keys = HardwareKeyboard.instance.logicalKeysPressed;
     return defaultTargetPlatform == TargetPlatform.macOS &&
         keys.length == 1 &&
         keys.contains(LogicalKeyboardKey.controlLeft);
