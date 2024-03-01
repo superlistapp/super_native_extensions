@@ -1,4 +1,3 @@
-import 'dart:ui' as ui;
 import 'dart:math' as math;
 
 import 'package:flutter/rendering.dart';
@@ -36,39 +35,6 @@ class SimpleAnimation {
   }
 
   late Ticker _ticker;
-}
-
-/// Fork for [RepaintBoundary] that allows toImageSync with custom bounds.
-class BetterRepaintBoundary extends SingleChildRenderObjectWidget {
-  /// Creates a widget that isolates repaints.
-  const BetterRepaintBoundary({super.key, super.child});
-
-  @override
-  RenderBetterRepaintBoundary createRenderObject(BuildContext context) =>
-      RenderBetterRepaintBoundary();
-}
-
-class RenderBetterRepaintBoundary extends RenderProxyBox {
-  @override
-  bool get isRepaintBoundary => true;
-
-  ui.Image toImageSync(
-    Rect bounds, {
-    required double pixelRatio,
-  }) {
-    assert(!debugNeedsPaint);
-    final OffsetLayer offsetLayer = layer! as OffsetLayer;
-    return offsetLayer.toImageSync(bounds, pixelRatio: pixelRatio);
-  }
-
-  Future<ui.Image> toImage(
-    Rect bounds, {
-    required double pixelRatio,
-  }) {
-    assert(!debugNeedsPaint);
-    final OffsetLayer offsetLayer = layer! as OffsetLayer;
-    return offsetLayer.toImage(bounds, pixelRatio: pixelRatio);
-  }
 }
 
 extension SizeExt on Size {

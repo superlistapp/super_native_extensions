@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
+import '../repaint_boundary.dart';
 import 'widget_snapshot.dart';
 import 'widget_snapshotter.dart';
 
@@ -139,7 +140,7 @@ class WidgetSnapshotterStateImpl extends WidgetSnapshotterState {
     setState(() {});
   }
 
-  RenderRepaintBoundary? _getRenderObject(Object key) {
+  RenderBetterRepaintBoundary? _getRenderObject(Object key) {
     final registeredWidget = _registeredWidgets[key];
     if (registeredWidget == null) {
       return null;
@@ -148,7 +149,7 @@ class WidgetSnapshotterStateImpl extends WidgetSnapshotterState {
         ? _childSnapshotKey.currentContext?.findRenderObject()
         : registeredWidget.repaintBoundaryKey.currentContext
             ?.findRenderObject();
-    return object is RenderRepaintBoundary ? object : null;
+    return object is RenderBetterRepaintBoundary ? object : null;
   }
 
   final _childKey = GlobalKey();
@@ -168,7 +169,7 @@ class WidgetSnapshotterStateImpl extends WidgetSnapshotterState {
           _registeredWidgets.values.any((a) => a.widget == null);
       return _SnapshotLayout(children: [
         if (needRepaintBoundaryForDefaultChild)
-          RepaintBoundary(
+          BetterRepaintBoundary(
             key: _childSnapshotKey,
             child: KeyedSubtree(
               key: _childKey,
@@ -234,7 +235,7 @@ class _PendingSnapshot {
 
 Future<TargetedWidgetSnapshot> _getSnapshot(
     BuildContext context,
-    RenderRepaintBoundary renderObject,
+    RenderBetterRepaintBoundary renderObject,
     Offset location,
     Offset Function(Rect rect, Offset offset)? translation) async {
   final devicePixelRatio = MediaQuery.of(context).devicePixelRatio;
