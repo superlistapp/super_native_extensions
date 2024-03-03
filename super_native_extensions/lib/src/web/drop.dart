@@ -1,8 +1,6 @@
 import 'dart:async';
 import 'dart:js_interop';
 
-import 'dart:js_util' as js_util;
-
 import 'package:collection/collection.dart';
 import 'package:flutter/widgets.dart';
 import 'package:web/web.dart' as web;
@@ -186,9 +184,10 @@ class DropContextImpl extends DropContext {
         _lastDragEnter = event.target;
         event.preventDefault();
         if (!inProgress) {
-          final dataTransfer =
-              js_util.getProperty(event, 'dataTransfer') as web.DataTransfer;
-          _onDragEnter(dataTransfer, event as web.MouseEvent);
+          final dataTransfer = event.dataTransfer;
+          if (dataTransfer != null) {
+            _onDragEnter(dataTransfer, event as web.MouseEvent);
+          }
         }
       }.toJS,
     );
@@ -196,9 +195,10 @@ class DropContextImpl extends DropContext {
       'dragover',
       (web.DragEvent event) {
         event.preventDefault();
-        final dataTransfer =
-            js_util.getProperty(event, 'dataTransfer') as web.DataTransfer;
-        _onDragOver(dataTransfer, event as web.MouseEvent);
+        final dataTransfer = event.dataTransfer;
+        if (dataTransfer != null) {
+          _onDragOver(dataTransfer, event as web.MouseEvent);
+        }
       }.toJS,
     );
     web.document.addEventListener(
@@ -206,9 +206,10 @@ class DropContextImpl extends DropContext {
       (web.DragEvent event) {
         event.preventDefault();
         _lastDragEnter = null;
-        final dataTransfer =
-            js_util.getProperty(event, 'dataTransfer') as web.DataTransfer;
-        _onDrop(dataTransfer, event as web.MouseEvent);
+        final dataTransfer = event.dataTransfer;
+        if (dataTransfer != null) {
+          _onDrop(dataTransfer, event as web.MouseEvent);
+        }
       }.toJS,
     );
     web.document.addEventListener(
