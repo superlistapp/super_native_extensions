@@ -1,4 +1,6 @@
-import 'dart:html' as html;
+import 'dart:js_interop';
+
+import 'package:web/web.dart' as web;
 
 import '../clipboard_events.dart';
 import '../data_provider.dart';
@@ -15,7 +17,7 @@ class _PasteEvent extends ClipboardReadEvent {
   });
 
   final DataReader reader;
-  final html.Event event;
+  final web.Event event;
 
   bool _defaultPrevented = false;
 
@@ -58,21 +60,21 @@ class _WriteEvent extends ClipboardWriteEvent {
     }
   }
 
-  final html.ClipboardEvent event;
+  final web.ClipboardEvent event;
 }
 
 class ClipboardEventsImpl extends ClipboardEvents {
   ClipboardEventsImpl() {
-    html.window.addEventListener('paste', _onPaste);
-    html.window.addEventListener('copy', _onCopy);
-    html.window.addEventListener('cut', _onCut);
+    web.window.addEventListener('paste', _onPaste.toJS);
+    web.window.addEventListener('copy', _onCopy.toJS);
+    web.window.addEventListener('cut', _onCut.toJS);
   }
 
   @override
   bool get supported => true;
 
-  void _onPaste(html.Event event) {
-    final clipboardEvent = event as html.ClipboardEvent;
+  void _onPaste(web.Event event) {
+    final clipboardEvent = event as web.ClipboardEvent;
     final itemList = clipboardEvent.clipboardData?.items;
     if (itemList == null) {
       return;
@@ -93,16 +95,16 @@ class ClipboardEventsImpl extends ClipboardEvents {
     }
   }
 
-  void _onCopy(html.Event event) {
-    final clipboardEvent = event as html.ClipboardEvent;
+  void _onCopy(web.Event event) {
+    final clipboardEvent = event as web.ClipboardEvent;
     final writeEvent = _WriteEvent(event: clipboardEvent);
     for (final listener in _copyEventListeners) {
       listener(writeEvent);
     }
   }
 
-  void _onCut(html.Event event) {
-    final clipboardEvent = event as html.ClipboardEvent;
+  void _onCut(web.Event event) {
+    final clipboardEvent = event as web.ClipboardEvent;
     final writeEvent = _WriteEvent(event: clipboardEvent);
     for (final listener in _cutEventListeners) {
       listener(writeEvent);

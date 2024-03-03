@@ -1,28 +1,18 @@
-import 'package:flutter/foundation.dart';
-import 'package:js/js.dart';
-import 'dart:js_util' as js_util;
-import 'dart:html' as html;
+import 'dart:js_interop';
+import 'dart:js_interop_unsafe';
 
-@JS()
-class Promise<T> {
-  external Promise(
-      void Function(void Function(T result) resolve, Function reject) executor);
-  external Promise then(void Function(T result) onFulfilled,
-      [Function onRejected]);
+import 'package:web/web.dart' as web;
+
+extension DataTransferItemListExt on web.DataTransferItemList {
+  external web.DataTransferItem operator [](int index);
 }
 
-Promise<T> futureToPromise<T>(Future<T> future) {
-  return Promise<T>(allowInterop((resolve, reject) {
-    future.then(resolve, onError: reject);
-  }));
-}
-
-extension DataTransferItemExt on html.DataTransferItem {
+extension DataTransferItemExt on web.DataTransferItem {
   bool get isString => kind == 'string';
   bool get isFile => kind == 'file';
 
   String get format {
-    final type = this.type ?? '';
+    final type = this.type;
     if (type.isNotEmpty) {
       return type;
     } else if (isString) {
@@ -31,79 +21,8 @@ extension DataTransferItemExt on html.DataTransferItem {
       return 'application/octet-stream';
     }
   }
-
-  html.Entry? getAsEntryNullabble() {
-    dynamic entry = js_util.callMethod(this, 'webkitGetAsEntry', []);
-    // Workaround for `LegacyJavaScriptObject` in dart2 js when casting dynamic (FileEntry) to Entry. :-/
-    if (entry is html.FileEntry) {
-      return entry;
-    } else if (entry is html.DirectoryEntry) {
-      return entry;
-    } else {
-      return null;
-    }
-  }
-
-  void getAsString(ValueChanged<String> callback) {
-    js_util.callMethod(this, 'getAsString', [allowInterop(callback)]);
-  }
-}
-
-extension BlobExt on html.Blob {
-  ReadableStream stream() => js_util.callMethod(this, 'stream', []);
-}
-
-@JS()
-@staticInterop
-class ReadableStream {
-  external factory ReadableStream();
-}
-
-extension ReadableStreamMethods on ReadableStream {
-  ReadableStreamDefaultReader getReader() =>
-      js_util.callMethod(this, 'getReader', []);
-}
-
-@JS()
-@staticInterop
-class ReadableStreamDefaultReader implements ReadableStreamGenericReader {
-  external factory ReadableStreamDefaultReader(ReadableStream stream);
-}
-
-extension ReadableStreamDefaultReaderExt on ReadableStreamDefaultReader {
-  Future<ReadableStreamReadResult> read() =>
-      js_util.promiseToFuture(js_util.callMethod(this, 'read', []));
-
-  Future<void> cancel([dynamic reason]) =>
-      js_util.promiseToFuture(js_util.callMethod(this, 'cancel', [reason]));
-}
-
-@anonymous
-@JS()
-@staticInterop
-class ReadableStreamReadResult {
-  external factory ReadableStreamReadResult(
-      {dynamic value, required bool done});
-}
-
-extension PropsReadableStreamReadResult on ReadableStreamReadResult {
-  dynamic get value => js_util.getProperty(this, 'value');
-  set value(dynamic newValue) {
-    js_util.setProperty(this, 'value', newValue);
-  }
-
-  bool get done => js_util.getProperty(this, 'done');
-  set done(bool newValue) {
-    js_util.setProperty(this, 'done', newValue);
-  }
-}
-
-@JS()
-@staticInterop
-class ReadableStreamGenericReader {
-  external factory ReadableStreamGenericReader();
 }
 
 bool get clipboardItemAvailable {
-  return js_util.getProperty(html.window, 'ClipboardItem') != null;
+  return web.window.getProperty('ClipboardItem'.toJS) != null;
 }

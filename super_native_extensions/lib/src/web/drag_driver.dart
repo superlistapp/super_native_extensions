@@ -1,7 +1,8 @@
-import 'dart:html' as html;
+import 'dart:js_interop';
 import 'dart:ui' as ui;
 
 import 'package:flutter/gestures.dart';
+import 'package:web/web.dart' as web;
 
 abstract class DragDriverDelegate {
   void cancel();
@@ -15,7 +16,11 @@ class DragDriver {
     required this.delegate,
     required this.devicePixelRatio,
   }) {
-    html.document.addEventListener('keydown', _keyDown = _onKeyDown, true);
+    web.document.addEventListener(
+      'keydown',
+      _keyDown = _onKeyDown.toJS,
+      true.toJS,
+    );
     // During drag all pointer events to Flutter need to be postponed
     // in order to be consistent with how drag&drop works on desktop platforms.
     // Flutter web registers mouse move listener on dom window. Since
@@ -29,17 +34,17 @@ class DragDriver {
   final double devicePixelRatio;
   final int pointer;
   late ui.PointerDataPacketCallback? _previousPointerDataPacketCallback;
-  late html.EventListener _keyDown;
+  late web.EventListener _keyDown;
 
   dynamic _onKeyDown(Object event) {
-    final keyEvent = event as html.KeyboardEvent;
-    if (keyEvent.key?.toLowerCase() == 'escape') {
+    final keyEvent = event as web.KeyboardEvent;
+    if (keyEvent.key.toLowerCase() == 'escape') {
       cancel();
     }
   }
 
   void _cleanup() {
-    html.document.removeEventListener('keydown', _keyDown, true);
+    web.document.removeEventListener('keydown', _keyDown, true.toJS);
     ui.PlatformDispatcher.instance.onPointerDataPacket =
         _previousPointerDataPacketCallback;
   }

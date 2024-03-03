@@ -1,7 +1,10 @@
+import 'dart:js_interop';
+
+import 'package:web/web.dart';
+
 import '../clipboard_reader.dart';
 import '../reader.dart';
 import '../reader_manager.dart';
-import 'clipboard_api.dart';
 
 import 'js_interop.dart';
 import 'reader.dart';
@@ -10,9 +13,9 @@ import 'reader_manager.dart';
 class ClipboardReaderImpl extends ClipboardReader {
   @override
   Future<DataReader> newClipboardReader() async {
-    final items = await getClipboard().read();
+    final items = await window.navigator.clipboard.read().toDart;
     final handle = $DataReaderHandle(
-      items
+      items.toDart
           .map(
             (e) => ClipboardItemHandle(e),
           )

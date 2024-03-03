@@ -1,30 +1,55 @@
-import 'dart:html';
-import 'dart:js_util';
+import 'dart:js_interop';
+import 'dart:js_interop_unsafe';
+
+import 'package:flutter/foundation.dart';
+import 'package:web/web.dart' as web;
 
 import '../clipboard_writer.dart';
 import '../data_provider.dart';
-import 'clipboard_api.dart';
-import 'js_interop.dart';
 
 class ClipboardWriterImpl extends ClipboardWriter {
   List<DataProviderHandle> _currentPayload = [];
 
-  ClipboardItem translateProvider(DataProvider provider) {
-    final representations = <String, Promise<Blob>>{};
+  JSAny _toJS(Object? object) {
+    if (object is String) {
+      return object.toJS;
+    } else if (object is Uint8List) {
+      return object.toJS;
+    } else {
+      throw UnsupportedError('Unsupported data type: $object');
+    }
+  }
+
+  web.ClipboardItem translateProvider(DataProvider provider) {
+    final representations = JSObject();
     for (final repr in provider.representations) {
       if (repr.format == 'text/uri-list') {
         // Writing URI list to clipboard on web is not supported
         continue;
       }
       if (repr is DataRepresentationSimple) {
-        representations[repr.format] =
-            futureToPromise((() async => Blob([repr.data], repr.format))());
+        final value = web.Blob(
+          [_toJS(repr.data)].toJS,
+          web.BlobPropertyBag(
+            type: repr.format,
+          ),
+        );
+        representations.setProperty(repr.format.toJS, value);
       } else if (repr is DataRepresentationLazy) {
-        representations[repr.format] = futureToPromise(
-            (() async => Blob([await repr.dataProvider()], repr.format))());
+        Future<web.Blob> fn() async {
+          final data = await repr.dataProvider();
+          return web.Blob(
+            [_toJS(data)].toJS,
+            web.BlobPropertyBag(
+              type: repr.format,
+            ),
+          );
+        }
+
+        representations.setProperty(repr.format.toJS, fn().toJS);
       }
     }
-    return ClipboardItem(jsify(representations));
+    return web.ClipboardItem(representations);
   }
 
   @override
@@ -33,8 +58,8 @@ class ClipboardWriterImpl extends ClipboardWriter {
       await handle.dispose();
     }
     _currentPayload = providers;
-    final clipboard = getClipboard();
+    final clipboard = web.window.navigator.clipboard;
     final items = providers.map((e) => translateProvider(e.provider));
-    await clipboard.write(items);
+    await clipboard.write(items.toList(growable: false).toJS).toDart;
   }
 }

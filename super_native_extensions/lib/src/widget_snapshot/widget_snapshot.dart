@@ -101,8 +101,8 @@ class WidgetSnapshot {
   Size get pointSize {
     if (isImage) {
       return Size(
-        _image!.width / (_image!.devicePixelRatio ?? 1.0),
-        _image!.height / (_image!.devicePixelRatio ?? 1.0),
+        _image!.width / (_image.devicePixelRatio ?? 1.0),
+        _image.height / (_image.devicePixelRatio ?? 1.0),
       );
     } else {
       return _renderObjectBounds!.size;

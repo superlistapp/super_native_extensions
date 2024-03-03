@@ -4,7 +4,7 @@ version: 0.8.5
 homepage: https://github.com/superlistapp/super_native_extensions
 
 environment:
-  sdk: ">=3.0.0 <4.0.0"
+  sdk: ">=3.3.0 <4.0.0"
   flutter: ">=3.0.0"
 
 dependencies:
@@ -15,13 +15,13 @@ dependencies:
   meta: ^1.7.0
   ffi: ^2.0.1
   collection: ^1.16.0
-  js: ^0.6.4
   path: ^1.8.2
   uuid: ^4.1.0
   irondash_engine_context: ^0.5.2
   irondash_message_channel: ^0.6.0
   device_info_plus: ^9.0.2
   pixel_snap: ^0.1.2
+  web: 0.5.0
 
 dev_dependencies:
   flutter_test:

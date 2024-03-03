@@ -1,10 +1,9 @@
 import 'dart:async';
-import 'dart:html' as html;
-
-import 'dart:js_util' as js_util;
+import 'dart:js_interop';
 
 import 'package:collection/collection.dart';
 import 'package:flutter/widgets.dart';
+import 'package:web/web.dart' as web;
 
 import '../mutex.dart';
 import '../data_provider.dart';
@@ -17,7 +16,7 @@ import 'reader.dart';
 import 'reader_manager.dart';
 
 List<DropItem> _translateDataTransfer(
-  html.DataTransfer dataTransfer, {
+  web.DataTransfer dataTransfer, {
   required bool allowReader,
 }) {
   return translateDataTransfer(dataTransfer, allowReader: allowReader)
@@ -33,21 +32,21 @@ List<DropItem> _translateDataTransfer(
 
 Iterable<(List<String> formats, $DataReaderItemHandle? readerHandle)>
     translateDataTransfer(
-  html.DataTransfer dataTransfer, {
+  web.DataTransfer dataTransfer, {
   required bool allowReader,
 }) {
   final itemList = dataTransfer.items;
-  final hasFiles = dataTransfer.types?.contains("Files") ?? false;
+  final hasFiles = dataTransfer.types.toDart.contains("Files");
 
   final res = <DataTransferItemHandle>[];
-  var items = <html.DataTransferItem>[];
+  var items = <web.DataTransferItem>[];
 
-  for (int i = 0; i < (itemList?.length ?? 0); ++i) {
-    final item = itemList![i];
+  for (int i = 0; i < itemList.length; ++i) {
+    final item = itemList[i];
     if ((item.isString && items.any((element) => element.type == item.type)) ||
         (item.isFile && items.any((element) => element.isFile))) {
       res.add(DataTransferItemHandle(items, canRead: allowReader));
-      items = <html.DataTransferItem>[];
+      items = <web.DataTransferItem>[];
     }
     items.add(item);
   }
@@ -110,19 +109,19 @@ class DropContextImpl extends DropContext {
   int? _sessionId;
   var lastOperation = DropOperation.none;
 
-  void _onDragEnter(html.DataTransfer transfer, html.MouseEvent event) {
+  void _onDragEnter(web.DataTransfer transfer, web.MouseEvent event) {
     _sessionId = _nextSessionId++;
     _onDragOver(transfer, event);
   }
 
-  void _onDragOver(html.DataTransfer transfer, html.MouseEvent event) async {
+  void _onDragOver(web.DataTransfer transfer, web.MouseEvent event) async {
     if (_sessionId == null) {
       return;
     }
 
     final dropEvent = DropEvent(
       sessionId: _sessionId!,
-      locationInView: Offset(event.page.x.toDouble(), event.page.y.toDouble()),
+      locationInView: Offset(event.pageX.toDouble(), event.pageY.toDouble()),
       allowedOperations: _translateAllowedEffect(transfer.effectAllowed),
       items: _translateDataTransfer(
         transfer,
@@ -153,10 +152,10 @@ class DropContextImpl extends DropContext {
     }
   }
 
-  void _onDrop(html.DataTransfer transfer, html.MouseEvent event) async {
+  void _onDrop(web.DataTransfer transfer, web.MouseEvent event) async {
     final dropEvent = DropEvent(
       sessionId: _sessionId!,
-      locationInView: Offset(event.page.x.toDouble(), event.page.y.toDouble()),
+      locationInView: Offset(event.pageX.toDouble(), event.pageY.toDouble()),
       allowedOperations: _translateAllowedEffect(transfer.effectAllowed),
       items: _translateDataTransfer(
         transfer,
@@ -174,42 +173,57 @@ class DropContextImpl extends DropContext {
   /// from other elements because when using platform view the drag events
   /// are not propagated to parent elements.
   /// https://github.com/superlistapp/super_native_extensions/issues/98
-  html.EventTarget? _lastDragEnter;
+  web.EventTarget? _lastDragEnter;
 
   @override
   Future<void> initialize() async {
-    html.document.addEventListener('dragenter', (event) {
-      final inProgress = _lastDragEnter != null;
-      _lastDragEnter = event.target;
-      event.preventDefault();
-      if (!inProgress) {
-        final dataTransfer =
-            js_util.getProperty(event, 'dataTransfer') as html.DataTransfer;
-        _onDragEnter(dataTransfer, event as html.MouseEvent);
-      }
-    });
-    html.document.addEventListener('dragover', (event) {
-      event.preventDefault();
-      final dataTransfer =
-          js_util.getProperty(event, 'dataTransfer') as html.DataTransfer;
-      _onDragOver(dataTransfer, event as html.MouseEvent);
-    });
-    html.document.addEventListener('drop', (event) async {
-      event.preventDefault();
-      _lastDragEnter = null;
-      final dataTransfer =
-          js_util.getProperty(event, 'dataTransfer') as html.DataTransfer;
-      _onDrop(dataTransfer, event as html.MouseEvent);
-    });
-    html.document.addEventListener('dragleave', (event) {
-      if (_lastDragEnter != event.target) {
-        return;
-      } else {
+    web.document.addEventListener(
+      'dragenter',
+      (web.DragEvent event) {
+        final inProgress = _lastDragEnter != null;
+        _lastDragEnter = event.target;
+        event.preventDefault();
+        if (!inProgress) {
+          final dataTransfer = event.dataTransfer;
+          if (dataTransfer != null) {
+            _onDragEnter(dataTransfer, event as web.MouseEvent);
+          }
+        }
+      }.toJS,
+    );
+    web.document.addEventListener(
+      'dragover',
+      (web.DragEvent event) {
+        event.preventDefault();
+        final dataTransfer = event.dataTransfer;
+        if (dataTransfer != null) {
+          _onDragOver(dataTransfer, event as web.MouseEvent);
+        }
+      }.toJS,
+    );
+    web.document.addEventListener(
+      'drop',
+      (web.DragEvent event) {
+        event.preventDefault();
         _lastDragEnter = null;
-      }
-      event.preventDefault();
-      _onDragLeave();
-    });
+        final dataTransfer = event.dataTransfer;
+        if (dataTransfer != null) {
+          _onDrop(dataTransfer, event as web.MouseEvent);
+        }
+      }.toJS,
+    );
+    web.document.addEventListener(
+      'dragleave',
+      (web.DragEvent event) {
+        if (_lastDragEnter != event.target) {
+          return;
+        } else {
+          _lastDragEnter = null;
+        }
+        event.preventDefault();
+        _onDragLeave();
+      }.toJS,
+    );
   }
 
   @override
