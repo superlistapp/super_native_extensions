@@ -1,13 +1,13 @@
 import 'dart:async';
-import 'dart:html' as html;
+import 'dart:js_interop';
 import 'dart:typed_data';
 
 import '../data_provider.dart';
 import '../reader.dart';
 import '../reader_manager.dart';
-import 'clipboard_api.dart';
 import 'js_interop.dart';
 import 'reader_manager.dart';
+import 'package:web/web.dart' as web;
 
 /// Item handle that simply returns the data from the DataProvider.
 /// This is used when dropping within same browser tab.
@@ -58,25 +58,25 @@ class DataProviderItemHandle extends $DataReaderItemHandle {
   }
 }
 
-/// Item handle backed by [ClipboardItem]. Used when interfacing with the
+/// Item handle backed by [web.ClipboardItem]. Used when interfacing with the
 /// clipboard.
 class ClipboardItemHandle extends $DataReaderItemHandle {
   ClipboardItemHandle(this.item);
 
-  final ClipboardItem item;
+  final web.ClipboardItem item;
 
   @override
   Future<List<String>> getFormats() async {
-    return item.types.toList(growable: false);
+    return item.types.toDart.cast<String>();
   }
 
   @override
   Future<Object?> getDataForFormat(String format) async {
-    final data = await item.getType(format);
+    final data = await item.getType(format).toDart;
     if (format.startsWith('text/')) {
-      return data.text();
+      return data.text().toDart;
     } else {
-      return (await data.arrayBuffer())?.asUint8List();
+      return (await data.arrayBuffer().toDart).toDart.asUint8List();
     }
   }
 
@@ -101,7 +101,7 @@ class ClipboardItemHandle extends $DataReaderItemHandle {
   }
 }
 
-/// ItemHandle backed by a list of [html.DataTransferItem]s.
+/// ItemHandle backed by a list of [web.DataTransferItem]s.
 class DataTransferItemHandle implements $DataReaderItemHandle {
   DataTransferItemHandle(this.items, {required bool canRead})
       : file = canRead ? _getFile(items) : null,
@@ -109,7 +109,7 @@ class DataTransferItemHandle implements $DataReaderItemHandle {
         // reading strings multiple times fails in Chrome so we cache them
         strings = canRead ? _getStrings(items) : {};
 
-  static html.File? _getFile(List<html.DataTransferItem> items) {
+  static web.File? _getFile(List<web.DataTransferItem> items) {
     for (final item in items) {
       if (item.isFile) {
         return item.getAsFile();
@@ -118,22 +118,26 @@ class DataTransferItemHandle implements $DataReaderItemHandle {
     return null;
   }
 
-  static html.Entry? _getEntry(List<html.DataTransferItem> items) {
+  static web.FileSystemEntry? _getEntry(List<web.DataTransferItem> items) {
     for (final item in items) {
       if (item.isFile) {
-        return item.getAsEntryNullabble();
+        return item.webkitGetAsEntry();
       }
     }
     return null;
   }
 
   static Map<String, Future<String>> _getStrings(
-      List<html.DataTransferItem> items) {
+      List<web.DataTransferItem> items) {
     final res = <String, Future<String>>{};
     for (final item in items) {
       if (item.isString) {
         final completer = Completer<String>();
-        item.getAsString(completer.complete);
+        void complete(JSString string) {
+          completer.complete(string.toDart);
+        }
+
+        item.getAsString(complete.toJS);
         res[item.format] = completer.future;
       }
     }
@@ -157,8 +161,8 @@ class DataTransferItemHandle implements $DataReaderItemHandle {
         final file = this.file;
         if (file != null) {
           final slice = file.slice();
-          final buffer = await slice.arrayBuffer();
-          return buffer?.asUint8List();
+          final buffer = await slice.arrayBuffer().toDart;
+          return buffer.toDart.asUint8List();
         }
       }
     }
@@ -167,7 +171,7 @@ class DataTransferItemHandle implements $DataReaderItemHandle {
 
   List<String> getFormatsSync() {
     final formats = items.map((e) => e.format).toList(growable: true);
-    // meta formats for file (html.File) and entry (html.Entry)
+    // meta formats for file (web.File) and entry (web.Entry)
     if (file != null) {
       formats.add('web:file');
     }
@@ -189,10 +193,10 @@ class DataTransferItemHandle implements $DataReaderItemHandle {
     return file?.name;
   }
 
-  final html.File? file;
-  final html.Entry? entry;
+  final web.File? file;
+  final web.FileSystemEntry? entry;
   final Map<String, Future<String>> strings;
-  final List<html.DataTransferItem> items;
+  final List<web.DataTransferItem> items;
 
   @override
   Future<bool> canGetVirtualFile(String format) async {
@@ -217,7 +221,7 @@ class _VirtualFileReceiver extends VirtualFileReceiver {
 
   @override
   final String format;
-  final html.File file;
+  final web.File file;
 
   @override
   (Future<String>, ReadProgress) copyVirtualFile(
@@ -236,9 +240,9 @@ class _VirtualFileReceiver extends VirtualFileReceiver {
 class _VirtualFile extends VirtualFile {
   _VirtualFile(this.file);
 
-  final html.File file;
+  final web.File file;
 
-  ReadableStreamDefaultReader? _reader;
+  web.ReadableStreamDefaultReader? _reader;
 
   @override
   void close() {
@@ -255,10 +259,10 @@ class _VirtualFile extends VirtualFile {
   Future<Uint8List> readNext() async {
     if (_reader == null) {
       final stream = file.stream();
-      _reader = stream.getReader();
+      _reader = web.ReadableStreamDefaultReader(stream);
     }
 
-    final next = await _reader!.read();
+    final next = await _reader!.read().toDart;
     if (next.done) {
       return Uint8List(0);
     } else {
