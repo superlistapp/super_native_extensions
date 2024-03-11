@@ -283,14 +283,14 @@ packages:
       path: ".."
       relative: true
     source: path
-    version: "0.8.7"
+    version: "0.8.8"
   super_native_extensions:
     dependency: "direct overridden"
     description:
       path: "../../super_native_extensions"
       relative: true
     source: path
-    version: "0.8.7"
+    version: "0.8.8"
   term_glyph:
     dependency: transitive
     description:
