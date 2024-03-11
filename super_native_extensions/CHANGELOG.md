@@ -1,3 +1,5 @@
+## 0.8.7
+
 ## 0.8.6
 
  - **FIX**: various exceptions when getting snapshots (#327).
