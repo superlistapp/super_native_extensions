@@ -187,7 +187,7 @@ class WidgetSnapshotterStateImpl extends WidgetSnapshotterState {
             debugSnapshotKey: w.key,
             child: ClipRect(
               clipper: const _ZeroClipper(),
-              child: RepaintBoundary(
+              child: BetterRepaintBoundary(
                 key: w.value.repaintBoundaryKey,
                 child: w.value.widget,
               ),
