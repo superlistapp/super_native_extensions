@@ -1,3 +1,5 @@
+## 0.8.6
+
 ## 0.8.5
 
  - **FEAT**: add m4a format definition (#306).

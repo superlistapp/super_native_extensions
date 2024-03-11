@@ -1,3 +1,9 @@
+## 0.8.6
+
+ - **FIX**: various exceptions when getting snapshots (#327).
+ - **FIX**: fit menu position to bounds after inflating (#322).
+ - **FIX**: assertion when taking snapshot of material widget (#320).
+
 ## 0.8.5
 
 ## 0.8.4

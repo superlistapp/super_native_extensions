@@ -3,6 +3,48 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## 2024-03-11
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - There are no breaking changes in this release.
+
+Packages with other changes:
+
+ - [`super_clipboard` - `v0.8.6`](#super_clipboard---v086)
+ - [`super_drag_and_drop` - `v0.8.6`](#super_drag_and_drop---v086)
+ - [`super_context_menu` - `v0.8.6`](#super_context_menu---v086)
+ - [`super_native_extensions` - `v0.8.6`](#super_native_extensions---v086)
+ - [`super_hot_key` - `v0.8.6`](#super_hot_key---v086)
+ - [`super_keyboard_layout` - `v0.8.6`](#super_keyboard_layout---v086)
+
+---
+
+#### `super_clipboard` - `v0.8.6`
+
+#### `super_drag_and_drop` - `v0.8.6`
+
+ - **FIX**: various exceptions when getting snapshots (#327).
+
+#### `super_context_menu` - `v0.8.6`
+
+#### `super_native_extensions` - `v0.8.6`
+
+ - **FIX**: various exceptions when getting snapshots (#327).
+ - **FIX**: fit menu position to bounds after inflating (#322).
+ - **FIX**: assertion when taking snapshot of material widget (#320).
+
+#### `super_hot_key` - `v0.8.6`
+
+ - Bump "super_hot_key" to `0.8.6`.
+
+#### `super_keyboard_layout` - `v0.8.6`
+
+
 ## 2024-02-08
 
 ### Changes
