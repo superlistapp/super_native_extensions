@@ -367,6 +367,16 @@ class Formats {
     mimeTypes: ['audio/wav'],
   );
 
+  static const opus = SimpleFileFormat(
+    uniformTypeIdentifiers: ['org.xiph.opus'],
+    mimeTypes: ['audio/ogg'],
+  );
+
+  static const flac = SimpleFileFormat(
+    uniformTypeIdentifiers: ['org.xiph.flac'],
+    mimeTypes: ['audio/flac'],
+  );
+
   //
   // Document
   //
