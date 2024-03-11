@@ -121,7 +121,7 @@ class WidgetSnapshotterStateImpl extends WidgetSnapshotterState {
           translation = parentData.translation;
         }
       }
-      if (renderObject != null) {
+      if (renderObject != null && renderObject.canGetSnapshot) {
         final snapshot = _getSnapshot(
           context,
           renderObject,

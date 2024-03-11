@@ -16,6 +16,8 @@ class RenderBetterRepaintBoundary extends RenderProxyBox {
   @override
   bool get isRepaintBoundary => true;
 
+  bool get canGetSnapshot => layer != null;
+
   ui.Image toImageSync({
     Rect? bounds,
     required double pixelRatio,
