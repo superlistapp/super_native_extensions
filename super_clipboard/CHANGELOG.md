@@ -1,3 +1,7 @@
+## 0.8.8
+
+ - **FEAT**: add flac and ogg format definitions (#331).
+
 ## 0.8.7
 
 ## 0.8.6

@@ -15,6 +15,46 @@ Packages with breaking changes:
 
 Packages with other changes:
 
+ - [`super_clipboard` - `v0.8.8`](#super_clipboard---v088)
+ - [`super_drag_and_drop` - `v0.8.8`](#super_drag_and_drop---v088)
+ - [`super_context_menu` - `v0.8.8`](#super_context_menu---v088)
+ - [`super_native_extensions` - `v0.8.8`](#super_native_extensions---v088)
+ - [`super_hot_key` - `v0.8.8`](#super_hot_key---v088)
+ - [`super_keyboard_layout` - `v0.8.8`](#super_keyboard_layout---v088)
+
+---
+
+#### `super_clipboard` - `v0.8.8`
+
+ - **FEAT**: add flac and ogg format definitions (#331).
+
+#### `super_drag_and_drop` - `v0.8.8`
+
+#### `super_context_menu` - `v0.8.8`
+
+#### `super_native_extensions` - `v0.8.8`
+
+ - **FIX**: regression with custom snapshot (#330).
+
+#### `super_hot_key` - `v0.8.8`
+
+ - Bump "super_hot_key" to `0.8.8`.
+
+#### `super_keyboard_layout` - `v0.8.8`
+
+
+## 2024-03-11
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - There are no breaking changes in this release.
+
+Packages with other changes:
+
  - [`super_clipboard` - `v0.8.7`](#super_clipboard---v087)
  - [`super_drag_and_drop` - `v0.8.7`](#super_drag_and_drop---v087)
  - [`super_context_menu` - `v0.8.7`](#super_context_menu---v087)
