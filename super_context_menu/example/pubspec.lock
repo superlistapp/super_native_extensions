@@ -259,28 +259,28 @@ packages:
       path: "../../super_clipboard"
       relative: true
     source: path
-    version: "0.8.5"
+    version: "0.8.6"
   super_context_menu:
     dependency: "direct main"
     description:
       path: ".."
       relative: true
     source: path
-    version: "0.8.5"
+    version: "0.8.6"
   super_drag_and_drop:
     dependency: "direct main"
     description:
       path: "../../super_drag_and_drop"
       relative: true
     source: path
-    version: "0.8.5"
+    version: "0.8.6"
   super_native_extensions:
     dependency: "direct overridden"
     description:
       path: "../../super_native_extensions"
       relative: true
     source: path
-    version: "0.8.5"
+    version: "0.8.6"
   term_glyph:
     dependency: transitive
     description:
