@@ -143,6 +143,9 @@ class _DropSession extends DropSession {
     }
 
     for (final monitor in RenderDropMonitor.activeMonitors) {
+      if (!monitor.attached || !monitor.hasGeometry) {
+        continue;
+      }
       final inside = monitorsInHitTest.contains(monitor);
       final dropPosition = DropPosition.forRenderObject(position, monitor);
       monitor.onDropOver?.call(
@@ -486,6 +489,8 @@ mixin RenderDropMonitor on RenderObject {
     this.onDropEnded = onDropEnded;
     activeMonitors.add(this);
   }
+
+  bool get hasGeometry;
 }
 
 class RenderDropMonitorBox extends RenderProxyBoxWithHitTestBehavior
@@ -504,6 +509,9 @@ class RenderDropMonitorBox extends RenderProxyBoxWithHitTestBehavior
       onDropEnded: onDropEnded,
     );
   }
+
+  @override
+  bool get hasGeometry => hasSize;
 }
 
 class RenderDropMonitorSliver extends RenderProxySliver with RenderDropMonitor {
@@ -520,4 +528,7 @@ class RenderDropMonitorSliver extends RenderProxySliver with RenderDropMonitor {
       onDropEnded: onDropEnded,
     );
   }
+
+  @override
+  bool get hasGeometry => geometry != null;
 }
