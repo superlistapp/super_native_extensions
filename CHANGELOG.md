@@ -3,6 +3,44 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## 2024-03-13
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - There are no breaking changes in this release.
+
+Packages with other changes:
+
+ - [`super_clipboard` - `v0.8.9`](#super_clipboard---v089)
+ - [`super_drag_and_drop` - `v0.8.9`](#super_drag_and_drop---v089)
+ - [`super_context_menu` - `v0.8.9`](#super_context_menu---v089)
+ - [`super_native_extensions` - `v0.8.9`](#super_native_extensions---v089)
+ - [`super_hot_key` - `v0.8.9`](#super_hot_key---v089)
+ - [`super_keyboard_layout` - `v0.8.9`](#super_keyboard_layout---v089)
+
+---
+
+#### `super_clipboard` - `v0.8.9`
+
+#### `super_drag_and_drop` - `v0.8.9`
+
+#### `super_context_menu` - `v0.8.9`
+
+#### `super_native_extensions` - `v0.8.9`
+
+ - **FIX**: delay menu fade-out on iOS (#333).
+
+#### `super_hot_key` - `v0.8.9`
+
+ - Bump "super_hot_key" to `0.8.9`.
+
+#### `super_keyboard_layout` - `v0.8.9`
+
+
 ## 2024-03-11
 
 ### Changes

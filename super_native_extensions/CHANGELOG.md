@@ -1,3 +1,7 @@
+## 0.8.9
+
+ - **FIX**: delay menu fade-out on iOS (#333).
+
 ## 0.8.8
 
  - **FIX**: regression with custom snapshot (#330).
