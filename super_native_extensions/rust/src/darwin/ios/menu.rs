@@ -46,7 +46,7 @@ use super::{
         UIMenuElementAttributes, UIMenuElementAttributesDestructive,
         UIMenuElementAttributesDisabled, UIMenuElementState, UIMenuElementStateMixed,
         UIMenuElementStateOff, UIMenuElementStateOn, UIPreviewParameters, UIPreviewTarget,
-        UITargetedPreview, UIView, UIViewController,
+        UITargetedPreview, UIView, UIViewAnimationOptionNone, UIViewController,
     },
     util::image_from_image_data,
 };
@@ -586,7 +586,7 @@ impl PlatformMenuContext {
         &self,
         _interaction: &UIContextMenuInteraction,
         configuration: &UIContextMenuConfiguration,
-        animator: Option<&ProtocolObject<dyn UIContextMenuInteractionAnimating>>,
+        _animator: Option<&ProtocolObject<dyn UIContextMenuInteractionAnimating>>,
     ) {
         let session = self
             .sessions
@@ -599,19 +599,22 @@ impl PlatformMenuContext {
                     container.setAlpha(0.0);
                 });
                 let animation = animation.copy();
-                if let Some(animator) = animator {
-                    animator.addAnimations(&animation);
-                }
 
-                let completion = ConcreteBlock::new(move || {
+                let completion = ConcreteBlock::new(move |_| {
                     session.view_container.removeFromSuperview();
                 });
                 let completion = completion.copy();
-                if let Some(animator) = animator {
-                    animator.addCompletion(&completion);
-                } else {
-                    completion.call(())
-                }
+
+                // Immediately fading out looks glitchy because it happens during menu -> lift
+                // transition, but waiting until provided animator complete is called is too late.
+                // So instead of using the provided animator, use custom animation block with delay.
+                UIView::animateWithDuration_delay_options_animations_completion(
+                    0.25,
+                    0.25,
+                    UIViewAnimationOptionNone,
+                    &animation,
+                    Some(&completion),
+                );
             }
             if let Some(delegate) = self.delegate.upgrade() {
                 let item_selected = session
