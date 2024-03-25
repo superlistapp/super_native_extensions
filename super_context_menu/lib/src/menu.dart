@@ -65,7 +65,7 @@ class ContextMenuWidget extends StatelessWidget {
   })  : assert(previewBuilder == null || deferredPreviewBuilder == null,
             'Cannot use both previewBuilder and deferredPreviewBuilder'),
         mobileMenuWidgetBuilder =
-            mobileMenuWidgetBuilder ?? DefaultMobileMenuWidgetBuilder(),
+            mobileMenuWidgetBuilder ?? DefaultMobileMenuWidgetBuilder.instance,
         desktopMenuWidgetBuilder =
             desktopMenuWidgetBuilder ?? DefaultDesktopMenuWidgetBuilder();
 
