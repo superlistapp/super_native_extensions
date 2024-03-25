@@ -41,6 +41,7 @@ impl VirtualSessionHandle {
 }
 
 /// Keeps the data provider alive
+#[allow(unused)] // DropNotifier is not read but needs to be retained.
 pub struct DataProviderHandle(DropNotifier);
 
 impl From<DropNotifier> for DataProviderHandle {
