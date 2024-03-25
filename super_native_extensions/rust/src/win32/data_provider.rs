@@ -24,7 +24,7 @@ static STREAM_ENTRIES: Lazy<Mutex<HashMap<i32, SegmentedQueueWriter>>> =
 pub(super) fn add_stream_entry(writer: SegmentedQueueWriter) -> i32 {
     fn next_stream_entry_handle() -> i32 {
         thread_local! {
-            static NEXT_STREAM_ENTRY_HANDLE : Cell<i32>  = Cell::new(0)
+            static NEXT_STREAM_ENTRY_HANDLE : Cell<i32> = const { Cell::new(0) }
         }
         NEXT_STREAM_ENTRY_HANDLE.with(|handle| {
             let res = handle.get();

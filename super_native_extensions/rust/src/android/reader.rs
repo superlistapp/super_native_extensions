@@ -121,7 +121,7 @@ impl PlatformDataReader {
     }
 
     thread_local! {
-        static NEXT_HANDLE: Cell<i64> = Cell::new(1);
+        static NEXT_HANDLE: Cell<i64> = const { Cell::new(1) };
         static PENDING:
             RefCell<HashMap<i64,irondash_run_loop::util::FutureCompleter<NativeExtensionsResult<Value>>>> = RefCell::new(HashMap::new());
     }

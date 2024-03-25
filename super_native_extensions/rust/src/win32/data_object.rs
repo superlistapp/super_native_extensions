@@ -450,7 +450,7 @@ impl DataObject {
 }
 
 thread_local! {
-    static IS_LOCAL_REQUEST: Cell<bool> = Cell::new(false);
+    static IS_LOCAL_REQUEST: Cell<bool> = const { Cell::new(false) };
 }
 
 impl DataObject {
