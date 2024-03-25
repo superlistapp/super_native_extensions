@@ -113,8 +113,8 @@ impl Context {
 }
 
 thread_local! {
-    static CURRENT_CONTEXT: RefCell<Option<Context>> = RefCell::new(None);
-    static CURRENT_CONTEXT_FALLBACK: RefCell<Option<Context>> = RefCell::new(None);
+    static CURRENT_CONTEXT: RefCell<Option<Context>> = const { RefCell::new(None) };
+    static CURRENT_CONTEXT_FALLBACK: RefCell<Option<Context>> = const { RefCell::new(None) };
 }
 
 impl Drop for Context {

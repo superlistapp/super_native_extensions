@@ -69,7 +69,7 @@ pub struct PlatformDataProvider {
 }
 
 thread_local! {
-    static WAITING_FOR_PASTEBOARD_DATA: Cell<bool> = Cell::new(false);
+    static WAITING_FOR_PASTEBOARD_DATA: Cell<bool> = const { Cell::new(false) };
 }
 
 impl PlatformDataProvider {

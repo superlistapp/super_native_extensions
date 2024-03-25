@@ -373,7 +373,7 @@ impl DataProviderSession {
     fn new_stream_handle_for_storage(storage: VirtualFileStorage) -> Option<i32> {
         fn next_stream_entry_handle() -> i32 {
             thread_local! {
-                static NEXT_STREAM_ENTRY_HANDLE : Cell<i32>  = Cell::new(0)
+                static NEXT_STREAM_ENTRY_HANDLE : Cell<i32> = const { Cell::new(0) }
             }
             NEXT_STREAM_ENTRY_HANDLE.with(|handle| {
                 let res = handle.get();
