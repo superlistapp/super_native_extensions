@@ -197,9 +197,8 @@ class DefaultMobileMenuWidgetBuilder extends MobileMenuWidgetBuilder {
     }
   }
 
-  static DefaultMobileMenuWidgetBuilder? _instance;
-  static DefaultMobileMenuWidgetBuilder get instance =>
-      _instance ??= DefaultMobileMenuWidgetBuilder();
+  static final DefaultMobileMenuWidgetBuilder instance =
+      DefaultMobileMenuWidgetBuilder();
 
   /// Allows overriding brightness for the menu UI.
   final Brightness? _brightness;
