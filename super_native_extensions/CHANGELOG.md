@@ -1,3 +1,5 @@
+## 0.8.10
+
 ## 0.8.9
 
  - **FIX**: delay menu fade-out on iOS (#333).
