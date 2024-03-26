@@ -21,7 +21,7 @@ dependencies:
   irondash_message_channel: ^0.6.0
   device_info_plus: ^10.0.1
   pixel_snap: ^0.1.2
-  web: 0.5.0
+  web: ^0.5.1
 
 dev_dependencies:
   flutter_test:
