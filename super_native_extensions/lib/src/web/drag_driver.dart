@@ -59,7 +59,9 @@ class DragDriver {
 
   void _onPointerDataPacketInner(ui.PointerDataPacket packet) {
     // If this is not our packet pass it through.
-    if (packet.data.any((element) => element.pointerIdentifier != pointer)) {
+    if (packet.data.any((element) =>
+        element.pointerIdentifier != pointer ||
+        element.signalKind == ui.PointerSignalKind.scroll)) {
       _previousPointerDataPacketCallback?.call(packet);
       return;
     }
