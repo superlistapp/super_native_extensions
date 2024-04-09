@@ -14,7 +14,11 @@ class PointerDeviceKindDetector {
   }
 
   void _handleGlobalPointerEvent(PointerEvent event) {
-    _current.value = event.kind;
+    if (event.kind == PointerDeviceKind.unknown) {
+      // Happens on Android during drag & drop.
+    } else {
+      _current.value = event.kind;
+    }
   }
 
   static PointerDeviceKind _defaultDeviceKind() {
