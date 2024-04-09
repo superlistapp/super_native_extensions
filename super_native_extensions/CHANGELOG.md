@@ -1,3 +1,8 @@
+## 0.8.11
+
+ - **FIX**: ignore scroll event in web drag driver.
+ - **FIX**: ignore unknown pointer device kind (#344).
+
 ## 0.8.10
 
 ## 0.8.9

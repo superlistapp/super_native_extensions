@@ -3,6 +3,45 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## 2024-04-09
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - There are no breaking changes in this release.
+
+Packages with other changes:
+
+ - [`super_clipboard` - `v0.8.11`](#super_clipboard---v0811)
+ - [`super_drag_and_drop` - `v0.8.11`](#super_drag_and_drop---v0811)
+ - [`super_context_menu` - `v0.8.11`](#super_context_menu---v0811)
+ - [`super_native_extensions` - `v0.8.11`](#super_native_extensions---v0811)
+ - [`super_hot_key` - `v0.8.11`](#super_hot_key---v0811)
+ - [`super_keyboard_layout` - `v0.8.11`](#super_keyboard_layout---v0811)
+
+---
+
+#### `super_clipboard` - `v0.8.11`
+
+#### `super_drag_and_drop` - `v0.8.11`
+
+#### `super_context_menu` - `v0.8.11`
+
+#### `super_native_extensions` - `v0.8.11`
+
+ - **FIX**: ignore scroll event in web drag driver.
+ - **FIX**: ignore unknown pointer device kind (#344).
+
+#### `super_hot_key` - `v0.8.11`
+
+ - Bump "super_hot_key" to `0.8.11`.
+
+#### `super_keyboard_layout` - `v0.8.11`
+
+
 ## 2024-03-26
 
 ### Changes
