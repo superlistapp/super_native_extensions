@@ -1,3 +1,7 @@
+## 0.8.12
+
+ - Bump "super_native_extensions" to `0.8.12`.
+
 ## 0.8.11
 
  - **FIX**: ignore scroll event in web drag driver.
