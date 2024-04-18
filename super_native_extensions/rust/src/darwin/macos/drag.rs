@@ -28,9 +28,9 @@ use core_graphics::event::{CGEventField, CGEventType};
 use icrate::{
     AppKit::{
         NSApplication, NSDragOperation, NSDragOperationNone, NSDraggingContext, NSDraggingItem,
-        NSDraggingSession, NSEvent, NSEventPhaseCancelled, NSEventPhaseEnded, NSEventPhaseNone,
-        NSEventTypeKeyDown, NSEventTypeLeftMouseDown, NSEventTypeMouseMoved,
-        NSEventTypeRightMouseDown, NSView,
+        NSDraggingSession, NSEvent, NSEventPhaseBegan, NSEventPhaseCancelled, NSEventPhaseChanged,
+        NSEventPhaseEnded, NSEventPhaseNone, NSEventTypeKeyDown, NSEventTypeLeftMouseDown,
+        NSEventTypeMouseMoved, NSEventTypeRightMouseDown, NSView,
     },
     Foundation::{MainThreadMarker, NSArray, NSPoint, NSProcessInfo, NSRect},
 };
@@ -251,8 +251,57 @@ impl PlatformDragContext {
         self.last_mouse_up_event.replace(Some(event));
     }
 
-    fn on_momentum_event(&self, event: Id<NSEvent>) {
+    /// Returns false if the event should be discarded.
+    fn on_momentum_event(&self, event: Id<NSEvent>) -> bool {
+        let last_event = self.last_momentum_event.borrow().clone();
+        if let Some(last_event) = last_event {
+            // println!(">> event {:?}", event);
+            // println!(">> last_event {:?}", last_event);
+            // For unknown reasons after closing context menu cocoa sometimes sends events in past.
+            if unsafe { event.timestamp() } < unsafe { last_event.timestamp() } {
+                return false;
+            }
+            // Flutter engine is very particular about the order of events. Anything deviating from
+            // the expected order will trigger an assertion. The issue here is that with context menu
+            // or drag & drop sometimes events are missing which leads to a crash on assertion on next
+            // event. In order to prevent that the event flow needs to be sanitized.
+            let last_event_phase = unsafe { last_event.phase() };
+            let event_phase = unsafe { event.phase() };
+            if (event_phase == NSEventPhaseEnded || event_phase == NSEventPhaseCancelled)
+                && (last_event_phase == NSEventPhaseEnded
+                    || last_event_phase == NSEventPhaseCancelled
+                    || last_event_phase == NSEventPhaseNone)
+            {
+                // End or cancelled event should only follow phase may begin, began or changed.
+                return false;
+            }
+            if event_phase == NSEventPhaseChanged
+                && (last_event_phase == NSEventPhaseEnded
+                    || last_event_phase == NSEventPhaseNone
+                    || last_event_phase == NSEventPhaseCancelled)
+            {
+                // Missing event began. Instead of throwing it away synthesize event with phase began
+                // so that tne engine can process it.
+                unsafe {
+                    let event = event.CGEvent();
+                    let event = CGEventCreateCopy(event);
+                    CGEventSetIntegerValueField(
+                        event, //
+                        99,    // kCGScrollWheelEventScrollPhase
+                        NSEventPhaseBegan as i64,
+                    );
+                    let synthesized = NSEvent::withCGEvent(event);
+                    CFRelease(event as *mut _);
+
+                    let window = self.view.window();
+                    if let Some(window) = window {
+                        window.sendEvent(&synthesized);
+                    }
+                }
+            }
+        }
         self.last_momentum_event.replace(Some(event));
+        true
     }
 
     fn synthesize_mouse_move_if_needed(&self) {
@@ -547,14 +596,26 @@ extern "C" fn right_mouse_up(this: &NSView, _sel: Sel, event: &NSEvent) {
 }
 
 extern "C" fn scroll_wheel(this: &NSView, _sel: Sel, event: &NSEvent) {
-    with_state(this, |state| state.on_momentum_event(event.retain()), || ());
+    if !with_state(
+        this,
+        |state| state.on_momentum_event(event.retain()),
+        || true,
+    ) {
+        return;
+    }
     unsafe {
         let _: () = msg_send![super(this, class!(NSView)), scrollWheel: event];
     }
 }
 
 extern "C" fn magnify_with_event(this: &NSView, _sel: Sel, event: &NSEvent) {
-    with_state(this, |state| state.on_momentum_event(event.retain()), || ());
+    if !with_state(
+        this,
+        |state| state.on_momentum_event(event.retain()),
+        || true,
+    ) {
+        return;
+    }
 
     unsafe {
         let _: () = msg_send![super(this, class!(NSView)), magnifyWithEvent: event];
@@ -562,7 +623,13 @@ extern "C" fn magnify_with_event(this: &NSView, _sel: Sel, event: &NSEvent) {
 }
 
 extern "C" fn rotate_with_event(this: &NSView, _sel: Sel, event: &NSEvent) {
-    with_state(this, |state| state.on_momentum_event(event.retain()), || ());
+    if !with_state(
+        this,
+        |state| state.on_momentum_event(event.retain()),
+        || true,
+    ) {
+        return;
+    }
 
     unsafe {
         let _: () = msg_send![super(this, class!(NSView)), rotateWithEvent: event];
