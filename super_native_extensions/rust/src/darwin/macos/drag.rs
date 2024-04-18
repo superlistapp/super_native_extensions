@@ -254,52 +254,59 @@ impl PlatformDragContext {
     /// Returns false if the event should be discarded.
     fn on_momentum_event(&self, event: Id<NSEvent>) -> bool {
         let last_event = self.last_momentum_event.borrow().clone();
-        if let Some(last_event) = last_event {
-            // println!(">> event {:?}", event);
-            // println!(">> last_event {:?}", last_event);
+
+        // println!(">> event {:?}", event);
+        // println!(">> last_event {:?}", last_event);
+
+        if let Some(last_event) = last_event.as_ref() {
             // For unknown reasons after closing context menu cocoa sometimes sends events in past.
             if unsafe { event.timestamp() } < unsafe { last_event.timestamp() } {
                 return false;
             }
-            // Flutter engine is very particular about the order of events. Anything deviating from
-            // the expected order will trigger an assertion. The issue here is that with context menu
-            // or drag & drop sometimes events are missing which leads to a crash on assertion on next
-            // event. In order to prevent that the event flow needs to be sanitized.
-            let last_event_phase = unsafe { last_event.phase() };
-            let event_phase = unsafe { event.phase() };
-            if (event_phase == NSEventPhaseEnded || event_phase == NSEventPhaseCancelled)
-                && (last_event_phase == NSEventPhaseEnded
-                    || last_event_phase == NSEventPhaseCancelled
-                    || last_event_phase == NSEventPhaseNone)
-            {
-                // End or cancelled event should only follow phase may begin, began or changed.
-                return false;
-            }
-            if event_phase == NSEventPhaseChanged
-                && (last_event_phase == NSEventPhaseEnded
-                    || last_event_phase == NSEventPhaseNone
-                    || last_event_phase == NSEventPhaseCancelled)
-            {
-                // Missing event began. Instead of throwing it away synthesize event with phase began
-                // so that tne engine can process it.
-                unsafe {
-                    let event = event.CGEvent();
-                    let event = CGEventCreateCopy(event);
-                    CGEventSetIntegerValueField(
-                        event, //
-                        99,    // kCGScrollWheelEventScrollPhase
-                        NSEventPhaseBegan as i64,
-                    );
-                    let synthesized = NSEvent::withCGEvent(event);
-                    CFRelease(event as *mut _);
+        }
 
-                    let window = self.view.window();
-                    if let Some(window) = window {
-                        window.sendEvent(&synthesized);
-                    }
+        let event_phase = unsafe { event.phase() };
+        let last_event_phase = last_event
+            .map(|e| unsafe { e.phase() })
+            .unwrap_or(NSEventPhaseNone);
+
+        // Flutter engine is very particular about the order of events. Anything deviating from
+        // the expected order will trigger an assertion. The issue here is that with context menu
+        // or drag & drop sometimes events are missing which leads to a crash on assertion on next
+        // event. In order to prevent that the event flow needs to be sanitized.
+        if (event_phase == NSEventPhaseEnded || event_phase == NSEventPhaseCancelled)
+            && (last_event_phase == NSEventPhaseEnded
+                || last_event_phase == NSEventPhaseCancelled
+                || last_event_phase == NSEventPhaseNone)
+        {
+            // End or cancelled event should only follow phase may begin, began or changed.
+            return false;
+        }
+        if event_phase == NSEventPhaseChanged
+            && (last_event_phase == NSEventPhaseEnded
+                || last_event_phase == NSEventPhaseNone
+                || last_event_phase == NSEventPhaseCancelled)
+        {
+            // Missing event began. Instead of throwing it away synthesize event with phase began
+            // so that tne engine can process it.
+            unsafe {
+                let event = event.CGEvent();
+                let event = CGEventCreateCopy(event);
+                CGEventSetIntegerValueField(
+                    event, //
+                    99,    // kCGScrollWheelEventScrollPhase
+                    NSEventPhaseBegan as i64,
+                );
+                let synthesized = NSEvent::withCGEvent(event);
+                CFRelease(event as *mut _);
+
+                let window = self.view.window();
+                if let Some(window) = window {
+                    window.sendEvent(&synthesized);
                 }
             }
         }
+
         self.last_momentum_event.replace(Some(event));
         true
     }
