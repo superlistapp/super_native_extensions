@@ -3,7 +3,10 @@
 #![allow(clippy::single_match)]
 #![allow(clippy::type_complexity)]
 #![allow(unknown_lints)]
-#![allow(clippy::arc_with_non_send_sync)] // https://github.com/rust-lang/rust-clippy/issues/11076
+// https://github.com/rust-lang/rust-clippy/issues/11076
+#![allow(clippy::arc_with_non_send_sync)]
+// TODO(knopp): Fine grained way to prevent dead code warnings in code that is not used on all platforms.
+#![allow(dead_code)]
 
 use std::ffi::c_void;
 
