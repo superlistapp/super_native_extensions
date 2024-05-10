@@ -726,9 +726,9 @@ dependencies = [
 
 [[package]]
 name = "irondash_message_channel"
-version = "0.6.0"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9c1b29c2a0cf44ae1098ade855f4fcf8c21c3eaca98b14c5fb6c60030fdbf4ab"
+checksum = "335cbcc1e4d341bf132b7b26823a03c9520fa0007a83d27f7cfbd535e616b91b"
 dependencies = [
  "async-trait",
  "core-foundation",

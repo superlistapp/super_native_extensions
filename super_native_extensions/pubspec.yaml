@@ -17,8 +17,8 @@ dependencies:
   collection: ^1.16.0
   path: ^1.8.2
   uuid: ^4.1.0
-  irondash_engine_context: ^0.5.2
-  irondash_message_channel: ^0.6.0
+  irondash_engine_context: ^0.5.3
+  irondash_message_channel: ^0.7.0
   device_info_plus: ^10.0.1
   pixel_snap: ^0.1.2
   web: ^0.5.1
