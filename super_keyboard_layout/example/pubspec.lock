@@ -124,18 +124,18 @@ packages:
     dependency: transitive
     description:
       name: irondash_engine_context
-      sha256: "4f5e2629296430cce08cdff42e47cef07b8f74a64fdbdfb0525d147bc1a969a2"
+      sha256: e8398cca5e28dc280c87b8c35a6ff4e15be844eabec51e713631f83903563681
       url: "https://pub.dev"
     source: hosted
-    version: "0.5.2"
+    version: "0.5.3"
   irondash_message_channel:
     dependency: transitive
     description:
       name: irondash_message_channel
-      sha256: dd581214215dca054bd9873209d690ec3609288c28774cb509dbd86b21180cf8
+      sha256: b4101669776509c76133b8917ab8cfc704d3ad92a8c450b92934dd8884a2f060
       url: "https://pub.dev"
     source: hosted
-    version: "0.6.0"
+    version: "0.7.0"
   leak_tracker:
     dependency: transitive
     description:
