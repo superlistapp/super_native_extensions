@@ -69,7 +69,7 @@ pub struct PlatformDragContext {
     pub view: Id<NSView>,
     last_mouse_down_event: RefCell<Option<Id<NSEvent>>>,
     last_mouse_up_event: RefCell<Option<Id<NSEvent>>>,
-    last_momentum_event: RefCell<Option<Id<NSEvent>>>,
+    last_scroll_event: RefCell<Option<Id<NSEvent>>>,
     sessions: RefCell<HashMap<isize /* draggingSequenceNumber */, DragSession>>,
     main_thread_marker: MainThreadMarker,
 }
@@ -94,7 +94,7 @@ impl PlatformDragContext {
             view: unsafe { Id::cast(view) },
             last_mouse_down_event: RefCell::new(None),
             last_mouse_up_event: RefCell::new(None),
-            last_momentum_event: RefCell::new(None),
+            last_scroll_event: RefCell::new(None),
             sessions: RefCell::new(HashMap::new()),
             main_thread_marker: MainThreadMarker::new().unwrap(),
         })
@@ -106,8 +106,8 @@ impl PlatformDragContext {
         });
     }
 
-    unsafe fn finish_momentum_events(&self) {
-        let event = { self.last_momentum_event.borrow().as_ref().cloned() };
+    unsafe fn finish_scroll_events(&self) {
+        let event = { self.last_scroll_event.borrow().as_ref().cloned() };
         // Unfinished momentum events will cause pan gesture recognizer
         // stuck since Flutter 3.3
         if let Some(event) = event {
@@ -136,7 +136,7 @@ impl PlatformDragContext {
     }
 
     pub unsafe fn synthesize_mouse_up_event(&self) {
-        self.finish_momentum_events();
+        self.finish_scroll_events();
 
         if let Some(event) = self.last_mouse_down_event.borrow().as_ref().cloned() {
             #[allow(non_upper_case_globals)]
@@ -252,8 +252,8 @@ impl PlatformDragContext {
     }
 
     /// Returns false if the event should be discarded.
-    fn on_momentum_event(&self, event: Id<NSEvent>) -> bool {
-        let last_event = self.last_momentum_event.borrow().clone();
+    fn on_scroll_event(&self, event: Id<NSEvent>) -> bool {
+        let last_event = self.last_scroll_event.borrow().clone();
 
         // println!(">> event {:?}", event);
         // println!(">> last_event {:?}", last_event);
@@ -307,7 +307,7 @@ impl PlatformDragContext {
             }
         }
 
-        self.last_momentum_event.replace(Some(event));
+        self.last_scroll_event.replace(Some(event));
         true
     }
 
@@ -532,14 +532,6 @@ fn prepare_flutter() {
         );
         class.add_method(sel!(scrollWheel:), scroll_wheel as extern "C" fn(_, _, _));
         class.add_method(
-            sel!(magnifyWithEvent:),
-            magnify_with_event as extern "C" fn(_, _, _),
-        );
-        class.add_method(
-            sel!(rotateWithEvent:),
-            rotate_with_event as extern "C" fn(_, _, _),
-        );
-        class.add_method(
             sel!(shouldDelayWindowOrderingForEvent:),
             should_delay_window_ordering as extern "C" fn(_, _, _) -> _,
         )
@@ -603,43 +595,11 @@ extern "C" fn right_mouse_up(this: &NSView, _sel: Sel, event: &NSEvent) {
 }
 
 extern "C" fn scroll_wheel(this: &NSView, _sel: Sel, event: &NSEvent) {
-    if !with_state(
-        this,
-        |state| state.on_momentum_event(event.retain()),
-        || true,
-    ) {
+    if !with_state(this, |state| state.on_scroll_event(event.retain()), || true) {
         return;
     }
     unsafe {
         let _: () = msg_send![super(this, class!(NSView)), scrollWheel: event];
-    }
-}
-
-extern "C" fn magnify_with_event(this: &NSView, _sel: Sel, event: &NSEvent) {
-    if !with_state(
-        this,
-        |state| state.on_momentum_event(event.retain()),
-        || true,
-    ) {
-        return;
-    }
-
-    unsafe {
-        let _: () = msg_send![super(this, class!(NSView)), magnifyWithEvent: event];
-    }
-}
-
-extern "C" fn rotate_with_event(this: &NSView, _sel: Sel, event: &NSEvent) {
-    if !with_state(
-        this,
-        |state| state.on_momentum_event(event.retain()),
-        || true,
-    ) {
-        return;
-    }
-
-    unsafe {
-        let _: () = msg_send![super(this, class!(NSView)), rotateWithEvent: event];
     }
 }
 
