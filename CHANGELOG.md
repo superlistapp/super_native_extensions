@@ -15,6 +15,44 @@ Packages with breaking changes:
 
 Packages with other changes:
 
+ - [`super_clipboard` - `v0.8.15`](#super_clipboard---v0815)
+ - [`super_drag_and_drop` - `v0.8.15`](#super_drag_and_drop---v0815)
+ - [`super_context_menu` - `v0.8.15`](#super_context_menu---v0815)
+ - [`super_native_extensions` - `v0.8.15`](#super_native_extensions---v0815)
+ - [`super_hot_key` - `v0.8.15`](#super_hot_key---v0815)
+ - [`super_keyboard_layout` - `v0.8.15`](#super_keyboard_layout---v0815)
+
+---
+
+#### `super_clipboard` - `v0.8.15`
+
+#### `super_drag_and_drop` - `v0.8.15`
+
+#### `super_context_menu` - `v0.8.15`
+
+#### `super_native_extensions` - `v0.8.15`
+
+ - **FIX**: remove obsolete code (#364).
+
+#### `super_hot_key` - `v0.8.15`
+
+ - Bump "super_hot_key" to `0.8.15`.
+
+#### `super_keyboard_layout` - `v0.8.15`
+
+
+## 2024-05-20
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - There are no breaking changes in this release.
+
+Packages with other changes:
+
  - [`super_clipboard` - `v0.8.14`](#super_clipboard---v0814)
  - [`super_drag_and_drop` - `v0.8.14`](#super_drag_and_drop---v0814)
  - [`super_context_menu` - `v0.8.14`](#super_context_menu---v0814)

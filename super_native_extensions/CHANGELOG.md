@@ -1,3 +1,7 @@
+## 0.8.15
+
+ - **FIX**: remove obsolete code (#364).
+
 ## 0.8.14
 
  - Bump "super_native_extensions" to `0.8.14`.
