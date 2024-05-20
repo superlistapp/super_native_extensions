@@ -9,16 +9,7 @@ use std::{
     thread,
 };
 
-use icrate::{
-    block2::ConcreteBlock,
-    AppKit::{
-        NSBitmapImageFileTypePNG, NSBitmapImageRep, NSFilePromiseReceiver, NSPasteboard,
-        NSPasteboardItem,
-    },
-    Foundation::{
-        ns_string, NSArray, NSData, NSDictionary, NSError, NSOperationQueue, NSString, NSURL,
-    },
-};
+use block2::RcBlock;
 use irondash_message_channel::{value_darwin::ValueObjcConversion, Value};
 use irondash_run_loop::{
     util::{Capsule, FutureCompleter},
@@ -29,6 +20,13 @@ use objc2::{
     rc::{autoreleasepool, Id},
     runtime::{AnyObject, NSObject},
     ClassType,
+};
+use objc2_app_kit::{
+    NSBitmapImageFileType, NSBitmapImageRep, NSFilePromiseReceiver, NSPasteboard, NSPasteboardItem,
+};
+
+use objc2_foundation::{
+    ns_string, NSArray, NSData, NSDictionary, NSError, NSOperationQueue, NSString, NSURL,
 };
 
 use crate::{
@@ -116,7 +114,7 @@ impl PlatformDataReader {
                 }
                 let receiver_types = unsafe { receiver.fileTypes() };
 
-                for ty in receiver_types {
+                for ty in receiver_types.iter() {
                     push(&mut res, ty.to_string());
                 }
             }
@@ -299,7 +297,7 @@ impl PlatformDataReader {
                 let data = NSData::from_vec(data);
                 let rep = NSBitmapImageRep::imageRepWithData(&data).unwrap();
                 let png = rep.representationUsingType_properties(
-                    NSBitmapImageFileTypePNG,
+                    NSBitmapImageFileType::PNG,
                     &NSDictionary::dictionary(),
                 );
 
@@ -476,30 +474,26 @@ impl PlatformDataReader {
                     let queue = unsafe { NSOperationQueue::mainQueue() };
                     let (future, completer) = FutureCompleter::new();
                     let completer = Rc::new(RefCell::new(Some(completer)));
-                    let block =
-                        ConcreteBlock::new(move |url: NonNull<NSURL>, error: *mut NSError| {
-                            let url = unsafe { Id::retain(url.as_ptr()) };
-                            let error = unsafe { Id::retain(error) };
-                            let completer = completer
-                                .borrow_mut()
-                                .take()
-                                .expect("Callback invoked more than once");
-                            if let Some(error) = error {
-                                if let Some(url) = url {
-                                    fs::remove_file(path_from_url(&url)).ok_log();
-                                }
-
-                                completer.complete(Err(
-                                    NativeExtensionsError::VirtualFileReceiveError(
-                                        error.localizedDescription().to_string(),
-                                    ),
-                                ))
-                            } else {
-                                let url = url.unwrap();
-                                completer.complete(Ok(path_from_url(&url)))
+                    let block = RcBlock::new(move |url: NonNull<NSURL>, error: *mut NSError| {
+                        let url = unsafe { Id::retain(url.as_ptr()) };
+                        let error = unsafe { Id::retain(error) };
+                        let completer = completer
+                            .borrow_mut()
+                            .take()
+                            .expect("Callback invoked more than once");
+                        if let Some(error) = error {
+                            if let Some(url) = url {
+                                fs::remove_file(path_from_url(&url)).ok_log();
                             }
-                        });
-                    let block = block.copy();
+
+                            completer.complete(Err(NativeExtensionsError::VirtualFileReceiveError(
+                                error.localizedDescription().to_string(),
+                            )))
+                        } else {
+                            let url = url.unwrap();
+                            completer.complete(Ok(path_from_url(&url)))
+                        }
+                    });
                     unsafe {
                         receiver.receivePromisedFilesAtDestination_options_operationQueue_reader(
                             &url,

@@ -9,16 +9,14 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use icrate::{
-    block2::ConcreteBlock,
-    Foundation::{
-        NSArray, NSData, NSError, NSItemProvider, NSProcessInfo, NSProgress, NSString, NSURL,
-    },
-};
+use block2::RcBlock;
 use irondash_message_channel::{IsolateId, Late};
 use irondash_run_loop::{spawn, util::Capsule, RunLoop, RunLoopSender};
 use objc2::{
     extern_class, extern_methods, mutability::InteriorMutable, rc::Id, runtime::NSObject, ClassType,
+};
+use objc2_foundation::{
+    NSArray, NSData, NSError, NSItemProvider, NSProcessInfo, NSProgress, NSString, NSURL,
 };
 use once_cell::sync::Lazy;
 
@@ -486,12 +484,12 @@ impl DataProviderSession {
                     .unwrap()
                     .push(notifier.clone());
                 let notifier = Arc::downgrade(&notifier);
-                let cancellation_handler = ConcreteBlock::new(move || {
+                let cancellation_handler = RcBlock::new(move || {
                     if let Some(notifier) = notifier.upgrade() {
                         notifier.dispose();
                     }
                 });
-                let cancellation_handler = cancellation_handler.copy();
+
                 unsafe { progress.setCancellationHandler(Some(&cancellation_handler)) };
             }
             None => {

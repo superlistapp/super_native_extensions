@@ -5,10 +5,7 @@ use std::{
     rc::{Rc, Weak},
 };
 
-use icrate::{
-    block2::ConcreteBlock,
-    Foundation::{CGPoint, CGRect},
-};
+use block2::RcBlock;
 use irondash_engine_context::EngineContext;
 use irondash_message_channel::{Late, Value};
 use irondash_run_loop::{platform::PollSession, RunLoop};
@@ -18,6 +15,7 @@ use objc2::{
     runtime::{NSObject, NSObjectProtocol, ProtocolObject},
     ClassType, DeclaredClass,
 };
+use objc2_foundation::{CGPoint, CGRect};
 
 use crate::{
     api_model::{DropOperation, Size},
@@ -277,10 +275,9 @@ impl Session {
             self.context_view.addSubview(&container);
 
             let container_clone = container.clone();
-            let animation_block = ConcreteBlock::new(move || {
+            let animation_block = RcBlock::new(move || {
                 container_clone.setAlpha(0.0);
             });
-            let animation_block = animation_block.copy();
 
             UIView::animateWithDuration_delay_options_animations_completion(
                 response

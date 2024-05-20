@@ -5,14 +5,7 @@ use std::{
     rc::{Rc, Weak},
 };
 
-use icrate::{
-    block2::ConcreteBlock,
-    AppKit::{
-        NSDragOperation, NSDragOperationNone, NSDraggingInfo, NSDraggingItem,
-        NSFilePromiseReceiver, NSPasteboardItem, NSView,
-    },
-    Foundation::{ns_string, NSArray, NSDictionary, NSMutableArray, NSRect, NSString},
-};
+use block2::RcBlock;
 use irondash_engine_context::EngineContext;
 use irondash_message_channel::{Late, Value};
 use irondash_run_loop::{platform::PollSession, RunLoop};
@@ -22,6 +15,11 @@ use objc2::{
     runtime::{AnyObject, Bool, ProtocolObject, Sel},
     sel, ClassType,
 };
+use objc2_app_kit::{
+    NSDragOperation, NSDraggingInfo, NSDraggingItem, NSDraggingItemEnumerationOptions,
+    NSFilePromiseReceiver, NSPasteboardItem, NSView,
+};
+use objc2_foundation::{ns_string, NSArray, NSDictionary, NSMutableArray, NSRect, NSString};
 
 use crate::{
     api_model::DropOperation,
@@ -144,16 +142,16 @@ impl Session {
 
     fn enumerate_items<F>(&self, dragging_info: &ProtocolObject<dyn NSDraggingInfo>, f: F)
     where
-        F: Fn(NonNull<NSDraggingItem>, NSInteger, NonNull<Bool>),
+        F: Fn(NonNull<NSDraggingItem>, NSInteger, NonNull<Bool>) + 'static,
     {
-        let block = ConcreteBlock::new(f);
+        let block = RcBlock::new(f);
         unsafe {
             let class =
                 Id::retain(NSPasteboardItem::class() as *const _ as *mut AnyObject).unwrap();
 
             dragging_info
                 .enumerateDraggingItemsWithOptions_forView_classes_searchOptions_usingBlock(
-                    0,
+                    NSDraggingItemEnumerationOptions(0),
                     Some(&self.context_view),
                     &NSArray::from_vec(vec![class]),
                     &NSDictionary::dictionary(),
@@ -163,21 +161,24 @@ impl Session {
     }
 
     fn prepare_for_drag_operation(
-        &self,
+        self: &Rc<Self>,
         dragging_info: &ProtocolObject<dyn NSDraggingInfo>,
     ) -> NativeExtensionsResult<bool> {
         let delegate = self.context_delegate()?;
         let event = self.event_from_dragging_info(dragging_info, None)?;
-        let animates = Cell::new(Bool::NO);
-        self.enumerate_items(dragging_info, |dragging_item, index, _| {
+        let animates = Rc::new(Cell::new(Bool::NO));
+
+        let self_cloned = self.clone();
+        let animates_cloned = animates.clone();
+        self.enumerate_items(dragging_info, move |dragging_item, index, _| {
             let dragging_item = unsafe { Id::retain(dragging_item.as_ptr()) }.unwrap();
             let item = &event.items.get(index as usize);
             if let Some(item) = item {
                 let dragging_frame = unsafe { dragging_item.draggingFrame() };
                 let preview_promise = delegate.get_preview_for_item(
-                    self.context_id,
+                    self_cloned.context_id,
                     ItemPreviewRequest {
-                        session_id: self.id,
+                        session_id: self_cloned.id,
                         item_id: item.item_id,
                         size: dragging_frame.size.into(),
                         fade_out_delay: 0.330,  // 20 frames at 60fps
@@ -197,9 +198,9 @@ impl Session {
                         .poll_once(&mut poll_session);
                 };
                 if let Some(preview) = preview {
-                    animates.set(Bool::YES);
+                    animates_cloned.set(Bool::YES);
                     let mut rect: NSRect = preview.destination_rect.into();
-                    flip_rect(&self.context_view, &mut rect);
+                    flip_rect(&self_cloned.context_view, &mut rect);
                     match preview.destination_image {
                         Some(image) => {
                             let snapshot = ns_image_from_image_data(vec![image]);
@@ -455,9 +456,9 @@ extern "C" fn dragging_updated(
             state
                 .dragging_updated(dragging_info)
                 .ok_log()
-                .unwrap_or(NSDragOperationNone)
+                .unwrap_or(NSDragOperation::None)
         },
-        || NSDragOperationNone,
+        || NSDragOperation::None,
     )
 }
 

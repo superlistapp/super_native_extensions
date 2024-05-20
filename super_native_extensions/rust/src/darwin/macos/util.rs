@@ -1,9 +1,7 @@
 use std::{ffi::CString, mem::ManuallyDrop};
 
-use icrate::{
-    AppKit::{NSBitmapImageRep, NSEvent, NSImage, NSView},
-    Foundation::{NSPoint, NSRect, NSSize},
-};
+use objc2_app_kit::{NSBitmapImageRep, NSEvent, NSImage, NSView};
+use objc2_foundation::{NSPoint, NSRect, NSSize};
 
 use objc2::{
     class, declare::ClassBuilder, ffi::objc_getClass, msg_send, msg_send_id, rc::Id,
@@ -60,14 +58,14 @@ impl From<NSSize> for Size {
 }
 
 pub(super) fn flip_rect(view: &NSView, rect: &mut NSRect) {
-    let flipped: bool = unsafe { view.isFlipped() };
+    let flipped: bool = view.isFlipped();
     if !flipped {
         rect.origin.y = view.bounds().size.height - rect.size.height - rect.origin.y;
     }
 }
 
 pub(super) fn flip_position(view: &NSView, position: &mut NSPoint) {
-    let flipped: bool = unsafe { view.isFlipped() };
+    let flipped: bool = view.isFlipped();
     if !flipped {
         position.y = view.bounds().size.height - position.y;
     }

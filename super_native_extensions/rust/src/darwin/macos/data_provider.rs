@@ -10,17 +10,9 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use icrate::{
-    block2::{Block, ConcreteBlock, RcBlock},
-    AppKit::{
-        NSFilePromiseProvider, NSFilePromiseProviderDelegate, NSPasteboard, NSPasteboardType,
-        NSPasteboardWriting, NSPasteboardWritingOptions, NSPasteboardWritingPromised,
-    },
-    Foundation::{NSArray, NSError, NSProgress, NSProgressKindFile, NSString, NSURL},
-};
+use block2::{Block, RcBlock};
 use irondash_message_channel::{value_darwin::ValueObjcConversion, IsolateId, Late};
 use irondash_run_loop::{platform::PollSession, RunLoop};
-
 use objc2::{
     declare_class, extern_class, extern_methods, msg_send_id,
     mutability::{self, InteriorMutable},
@@ -28,6 +20,11 @@ use objc2::{
     runtime::{AnyObject, NSObject, NSObjectProtocol, ProtocolObject},
     ClassType, DeclaredClass,
 };
+use objc2_app_kit::{
+    NSFilePromiseProvider, NSFilePromiseProviderDelegate, NSPasteboard, NSPasteboardType,
+    NSPasteboardWriting, NSPasteboardWritingOptions,
+};
+use objc2_foundation::{NSArray, NSError, NSProgress, NSProgressKindFile, NSString, NSURL};
 use once_cell::sync::Lazy;
 
 use crate::{
@@ -344,12 +341,11 @@ impl ItemState {
         );
         self.virtual_files.borrow_mut().push(notifier.clone());
         let notifier = Arc::downgrade(&notifier);
-        let cancellation_handler = ConcreteBlock::new(move || {
+        let cancellation_handler = RcBlock::new(move || {
             if let Some(notifier) = notifier.upgrade() {
                 notifier.dispose();
             }
         });
-        let cancellation_handler = cancellation_handler.copy();
         unsafe {
             progress.setCancellationHandler(Some(&cancellation_handler));
         }
@@ -420,7 +416,7 @@ declare_class!(
             r#_type: &NSPasteboardType,
             _pasteboard: &NSPasteboard,
         ) -> NSPasteboardWritingOptions {
-            NSPasteboardWritingPromised
+            NSPasteboardWritingOptions::NSPasteboardWritingPromised
         }
 
         #[method_id(pasteboardPropertyListForType:)]
@@ -450,16 +446,16 @@ declare_class!(
             &self,
             _file_promise_provider: &NSFilePromiseProvider,
             url: &NSURL,
-            completion_handler: &Block<(*mut NSError,), ()>,
+            completion_handler: &Block<dyn Fn(*mut NSError)>,
         ) {
             let completion_handler =
-                RcBlock::<(*mut NSError,), ()>::copy(completion_handler as *const _ as *mut _);
+                RcBlock::<dyn Fn(*mut NSError)>::copy(completion_handler as *const _ as *mut _).unwrap();
             let completion_fn = move |error: Option<Id<NSError>>| {
                 let error = match error {
                     Some(error) => Id::as_ptr(&error),
                     None => std::ptr::null_mut(),
                 };
-                unsafe { completion_handler.call((error as *mut _,)) };
+                completion_handler.call((error as *mut _,));
             };
             self.ivars().item_state
                 .file_promise_write_to_url(url, Box::new(completion_fn));

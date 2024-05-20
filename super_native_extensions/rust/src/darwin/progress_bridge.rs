@@ -1,8 +1,5 @@
 use std::{ffi::c_void, sync::Arc};
 
-use icrate::Foundation::{
-    ns_string, NSKeyValueObservingOptionInitial, NSKeyValueObservingOptions, NSProgress, NSString,
-};
 use objc2::{
     declare_class, extern_methods,
     ffi::{objc_setAssociatedObject, OBJC_ASSOCIATION_RETAIN},
@@ -11,6 +8,7 @@ use objc2::{
     runtime::NSObject,
     ClassType, DeclaredClass,
 };
+use objc2_foundation::{ns_string, NSKeyValueObservingOptions, NSProgress, NSString};
 
 use crate::{reader_manager::ReadProgress, util::Movable};
 
@@ -101,7 +99,7 @@ impl SNEProgressBridge {
                 progress.addObserver_forKeyPath_options_context(
                     &this,
                     ns_string!("fractionCompleted"),
-                    NSKeyValueObservingOptionInitial,
+                    NSKeyValueObservingOptions::NSKeyValueObservingOptionInitial,
                     std::ptr::null_mut(),
                 );
             }
@@ -162,8 +160,10 @@ extern_methods!(
 mod tests {
     use std::{cell::Cell, sync::Arc};
 
+    use block2::RcBlock;
+    use objc2_foundation::NSProgress;
+
     use crate::{reader_manager::ReadProgress, util::DropNotifier, value_promise::Promise};
-    use icrate::{block2::ConcreteBlock, Foundation::NSProgress};
 
     #[test]
     fn test_cancellation() {
@@ -182,10 +182,9 @@ mod tests {
         ));
 
         let cancelled_clone = cancelled.clone();
-        let handler = ConcreteBlock::new(move || {
+        let handler = RcBlock::new(move || {
             cancelled_clone.set(true);
         });
-        let handler = handler.copy();
         unsafe { ns_progress.setCancellationHandler(Some(&handler)) };
 
         assert!(!cancellable.get());

@@ -7,13 +7,11 @@ use std::{
     time::Duration,
 };
 
-use icrate::{
-    block2::{ConcreteBlock, RcBlock},
-    Foundation::{CGPoint, CGRect, CGSize, NSArray, NSString},
-};
+use block2::RcBlock;
 use irondash_engine_context::EngineContext;
 use irondash_message_channel::{IsolateId, Late};
 use irondash_run_loop::{platform::PollSession, spawn, RunLoop};
+use objc2_foundation::{CGPoint, CGRect, CGSize, NSArray, NSString};
 
 use objc2::{
     declare_class, msg_send_id, mutability,
@@ -177,13 +175,12 @@ impl PlatformMenu {
             MenuElement::Action(action) => {
                 let unique_id = action.unique_id;
                 let delegate = delegate.clone();
-                let handler = ConcreteBlock::new(move |_| {
+                let handler = RcBlock::new(move |_| {
                     item_selected.set(true);
                     if let Some(delegate) = delegate.upgrade() {
                         delegate.on_action(isolate_id, unique_id);
                     }
                 });
-                let handler = handler.copy();
                 let res = UIAction::actionWithTitle_image_identifier_handler(
                     &Self::convert_string(&action.title).unwrap_or_default(),
                     Self::convert_image(&action.image).as_deref(),
@@ -226,11 +223,12 @@ impl PlatformMenu {
             }
             MenuElement::Deferred(deferred) => {
                 let delegate = delegate.clone();
-                let provider = ConcreteBlock::new(
+                let provider = RcBlock::new(
                     move |completion_block: NonNull<UIDeferredMenuElementCompletionBlock>| {
                         let delegate = delegate.clone();
                         let item_selected = item_selected.clone();
-                        let completion_block = unsafe { RcBlock::copy(completion_block.as_ptr()) };
+                        let completion_block =
+                            unsafe { RcBlock::copy(completion_block.as_ptr()).unwrap() };
                         spawn(async move {
                             if let Some(delegate) = delegate.upgrade() {
                                 let menu = delegate
@@ -260,7 +258,7 @@ impl PlatformMenu {
                         });
                     },
                 );
-                let provider = provider.copy();
+
                 let res = UIDeferredMenuElement::elementWithProvider(&provider);
                 Ok(Id::into_super(res))
             }
@@ -301,15 +299,13 @@ impl MenuSession {
             preview_view.setAlpha(0.0);
 
             let prev_copy = prev_subview.clone();
-            let animation = ConcreteBlock::new(move || {
+            let animation = RcBlock::new(move || {
                 preview_view.setAlpha(1.0);
                 prev_copy.setAlpha(0.0);
             });
-            let animation = animation.copy();
-            let completion = ConcreteBlock::new(move |_| {
+            let completion = RcBlock::new(move |_| {
                 prev_subview.removeFromSuperview();
             });
-            let completion = completion.copy();
             UIView::animateWithDuration_animations_completion(0.25, &animation, Some(&completion));
         }
     }
@@ -385,8 +381,7 @@ impl PlatformMenuContext {
         let configuration = unsafe {
             let menu = Rc::new(menu); // Id is not Clone
             let action_provider =
-                ConcreteBlock::new(move |_suggested| Id::autorelease_return(menu.retain()));
-            let action_provider = action_provider.copy();
+                RcBlock::new(move |_suggested| Id::autorelease_return(menu.retain()));
 
             let preview_provider = match (
                 menu_configuration.preview_image.as_ref(),
@@ -399,18 +394,17 @@ impl PlatformMenuContext {
                         height: preview_image.point_height(),
                     };
                     let controller = view_controller.retain();
-                    let preview_provider = ConcreteBlock::new(move || {
+                    let preview_provider = RcBlock::new(move || {
                         controller.setView(Some(&preview_view));
                         controller.setPreferredContentSize(size);
                         Id::autorelease_return(controller.retain())
                     });
-                    let preview_provider = preview_provider.copy();
                     Some(preview_provider)
                 }
                 (None, Some(size)) => {
                     let controller = view_controller.retain();
                     let size: CGSize = size.clone().into();
-                    let preview_provider = ConcreteBlock::new(move || {
+                    let preview_provider = RcBlock::new(move || {
                         controller.setPreferredContentSize(size);
                         let view = controller.view();
                         if let Some(view) = view {
@@ -437,7 +431,6 @@ impl PlatformMenuContext {
                         controller.setView(Some(&view));
                         Id::autorelease_return(controller.retain())
                     });
-                    let preview_provider = preview_provider.copy();
                     Some(preview_provider)
                 }
                 _ => None,
@@ -595,15 +588,13 @@ impl PlatformMenuContext {
         if let Some(session) = session {
             unsafe {
                 let container = session.view_container.clone();
-                let animation = ConcreteBlock::new(move || {
+                let animation = RcBlock::new(move || {
                     container.setAlpha(0.0);
                 });
-                let animation = animation.copy();
 
-                let completion = ConcreteBlock::new(move |_| {
+                let completion = RcBlock::new(move |_| {
                     session.view_container.removeFromSuperview();
                 });
-                let completion = completion.copy();
 
                 // Immediately fading out looks glitchy because it happens during menu -> lift
                 // transition, but waiting until provided animator complete is called is too late.

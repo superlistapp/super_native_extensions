@@ -1,18 +1,16 @@
 use std::{collections::HashMap, ops::Deref, ptr::NonNull};
 
-use icrate::{
-    block2::{Block, ConcreteBlock, RcBlock},
-    Foundation::{
-        CGPoint, CGRect, CGSize, NSData, NSDictionary, NSError, NSItemProvider,
-        NSItemProviderFileOptionOpenInPlace, NSItemProviderRepresentationVisibilityAll, NSNumber,
-        NSProgress, NSPropertyListBinaryFormat_v1_0, NSPropertyListSerialization, NSString, NSURL,
-    },
-};
+use block2::{Block, RcBlock};
 use irondash_message_channel::{value_darwin::ValueObjcConversion, Value};
 use objc2::{
     rc::Id,
     runtime::{Bool, NSObject},
     ClassType,
+};
+use objc2_foundation::{
+    CGPoint, CGRect, CGSize, NSData, NSDictionary, NSError, NSItemProvider,
+    NSItemProviderFileOptions, NSItemProviderRepresentationVisibility, NSNumber, NSProgress,
+    NSPropertyListFormat, NSPropertyListSerialization, NSString, NSURL,
 };
 
 use crate::{
@@ -89,7 +87,7 @@ pub fn value_to_nsdata(value: &Value) -> Option<Id<NSData>> {
             let data = unsafe {
                 NSPropertyListSerialization::dataWithPropertyList_format_options_error(
                     &objc,
-                    NSPropertyListBinaryFormat_v1_0,
+                    NSPropertyListFormat::NSPropertyListBinaryFormat_v1_0,
                     0,
                 )
             };
@@ -123,23 +121,22 @@ pub fn register_data_representation<F>(
         + 'static
         + Send,
 {
-    let block = ConcreteBlock::new(move |completion_block: NonNull<Block<(*mut NSData, *mut NSError), ()>>| -> *mut NSProgress {
-        let completion_block = unsafe { RcBlock::copy(completion_block.as_ptr())};
+    let block = RcBlock::new(move |completion_block: NonNull<Block<dyn Fn(*mut NSData, *mut NSError)>>| -> *mut NSProgress {
+        let completion_block = unsafe { RcBlock::copy(completion_block.as_ptr()).unwrap()};
         let completion_block = unsafe { Movable::new(completion_block) };
         let completion_fn = move |data: Option<&NSData>, err: Option<&NSError>| {
             let completion_block = completion_block.clone();
             let data = data.map(|d| d as * const _ as * mut _).unwrap_or(std::ptr::null_mut());
             let err = err.map(|e| e as *const _ as * mut _).unwrap_or(std::ptr::null_mut());
-            unsafe { completion_block.call((data, err)) };
+            completion_block.call((data, err));
         };
         let res = handler(Box::new(completion_fn));
         res.map(Id::autorelease_return).unwrap_or(std::ptr::null_mut())
     });
-    let block = block.copy();
     unsafe {
         item_provider.registerDataRepresentationForTypeIdentifier_visibility_loadHandler(
             &NSString::from_str(type_identifier),
-            NSItemProviderRepresentationVisibilityAll,
+            NSItemProviderRepresentationVisibility::All,
             &block,
         )
     }
@@ -157,29 +154,28 @@ pub fn register_file_representation<F>(
         + 'static
         + Send,
 {
-    let block = ConcreteBlock::new(move |completion_block: NonNull<Block<(*mut NSURL, Bool, *mut NSError), ()>>| -> *mut NSProgress {
-        let completion_block = unsafe { RcBlock::copy(completion_block.as_ptr())};
+    let block = RcBlock::new(move |completion_block: NonNull<Block<dyn Fn(*mut NSURL, Bool, *mut NSError)>>| -> *mut NSProgress {
+        let completion_block = unsafe { RcBlock::copy(completion_block.as_ptr()).unwrap() };
         let completion_block = unsafe { Movable::new(completion_block) };
         let completion_fn = move |data: Option<&NSURL>, coordinated: bool, err: Option<&NSError>| {
             let completion_block = completion_block.clone();
             let data = data.map(|d| d as * const _ as * mut _).unwrap_or(std::ptr::null_mut());
             let err = err.map(|e| e as *const _ as * mut _).unwrap_or(std::ptr::null_mut());
-            unsafe { completion_block.call((data, coordinated.into(), err)) };
+            completion_block.call((data, coordinated.into(), err));
         };
         let res = handler(Box::new(completion_fn));
         res.map(Id::autorelease_return).unwrap_or(std::ptr::null_mut())
     });
-    let block = block.copy();
     unsafe {
         item_provider
             .registerFileRepresentationForTypeIdentifier_fileOptions_visibility_loadHandler(
                 &NSString::from_str(type_identifier),
                 if open_in_place {
-                    NSItemProviderFileOptionOpenInPlace
+                    NSItemProviderFileOptions::NSItemProviderFileOptionOpenInPlace
                 } else {
-                    0
+                    NSItemProviderFileOptions(0)
                 },
-                NSItemProviderRepresentationVisibilityAll,
+                NSItemProviderRepresentationVisibility::All,
                 &block,
             )
     }
