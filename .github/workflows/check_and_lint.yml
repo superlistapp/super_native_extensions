@@ -43,12 +43,15 @@ jobs:
           - ubuntu-latest
           - macOS-latest
           - windows-latest
+        rust:
+          - stable
+          - nightly
     steps:
       - name: Install GTK
         if: (matrix.os == 'ubuntu-latest')
         run: sudo apt-get update && sudo apt-get install libgtk-3-dev
       - uses: actions/checkout@ee0669bd1cc54295c223e0bb666b733df41de1c5 #v2.7.0
-      - run: rustup default stable
+      - run: rustup default ${{ matrix.rust }}
       - run: rustup update
       - name: Install clippy
         run: rustup component add clippy

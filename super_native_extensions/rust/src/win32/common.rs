@@ -186,10 +186,12 @@ impl DpiFunctions {
             let user_32 = LoadLibraryA(s!("user32")).unwrap();
             let shlib = LoadLibraryA(s!("Shcore.dll")).unwrap();
             Self {
+                #[allow(clippy::missing_transmute_annotations)]
                 get_dpi_for_window: std::mem::transmute(GetProcAddress(
                     user_32,
                     s!("GetDpiForWindow"),
                 )),
+                #[allow(clippy::missing_transmute_annotations)]
                 get_dpi_for_monitor: std::mem::transmute(GetProcAddress(
                     shlib,
                     s!("GetDpiForMonitor"),
