@@ -1,8 +1,5 @@
 use std::{ffi::c_void, sync::Arc};
 
-use icrate::Foundation::{
-    ns_string, NSKeyValueObservingOptionInitial, NSKeyValueObservingOptions, NSProgress, NSString,
-};
 use objc2::{
     declare_class, extern_methods,
     ffi::{objc_setAssociatedObject, OBJC_ASSOCIATION_RETAIN},
@@ -11,6 +8,7 @@ use objc2::{
     runtime::NSObject,
     ClassType, DeclaredClass,
 };
+use objc2_foundation::{ns_string, NSKeyValueObservingOptions, NSProgress, NSString};
 
 use crate::{reader_manager::ReadProgress, util::Movable};
 
@@ -101,7 +99,7 @@ impl SNEProgressBridge {
                 progress.addObserver_forKeyPath_options_context(
                     &this,
                     ns_string!("fractionCompleted"),
-                    NSKeyValueObservingOptionInitial,
+                    NSKeyValueObservingOptions::NSKeyValueObservingOptionInitial,
                     std::ptr::null_mut(),
                 );
             }

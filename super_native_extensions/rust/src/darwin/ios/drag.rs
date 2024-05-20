@@ -6,10 +6,7 @@ use std::{
     time::Duration,
 };
 
-use icrate::{
-    block2::ConcreteBlock,
-    Foundation::{ns_string, CGPoint, CGRect, NSArray, NSDictionary, NSNumber},
-};
+use block2::{RcBlock, StackBlock};
 use irondash_engine_context::EngineContext;
 use irondash_message_channel::{Late, Value};
 use irondash_run_loop::{platform::PollSession, RunLoop};
@@ -19,6 +16,7 @@ use objc2::{
     runtime::{NSObject, NSObjectProtocol, ProtocolObject},
     ClassType, DeclaredClass,
 };
+use objc2_foundation::{ns_string, CGPoint, CGRect, NSArray, NSDictionary, NSNumber};
 
 use crate::{
     api_model::{DataProviderId, DragConfiguration, DragRequest, DropOperation, Point},
@@ -223,7 +221,7 @@ impl Session {
             }
             let image = self.image_view_for_item(index, ImageType::Drag);
             let shadow_path = bezier_path_for_alpha(&drag_item.image.image_data);
-            let provider = ConcreteBlock::new(move || {
+            let provider = StackBlock::new(move || {
                 let parameters = UIDragPreviewParameters::init(UIDragPreviewParameters::alloc());
                 parameters.setBackgroundColor(Some(&UIColor::clearColor()));
                 parameters.setShadowPath(Some(&shadow_path));
@@ -234,7 +232,6 @@ impl Session {
                 );
                 Id::autorelease_return(preview)
             });
-            let provider = provider.copy();
             item.setPreviewProvider(Some(&provider));
         }
     }
@@ -376,10 +373,9 @@ impl Session {
         // visible for way too long after cancellation, which is obvious
         // during scrolling. Ideally we would want updated position here
         // but for now it seems like a bit of an overkill.
-        let animation_block = ConcreteBlock::new(move || {
+        let animation_block = RcBlock::new(move || {
             unsafe { view_container.setAlpha(0.0) };
         });
-        let animation_block = animation_block.copy();
 
         unsafe {
             UIView::animateWithDuration_delay_options_animations_completion(
@@ -421,16 +417,14 @@ impl Drop for Session {
         }
 
         let view_container = self.view_container.clone();
-        let animation_block = ConcreteBlock::new(move || {
+        let animation_block = RcBlock::new(move || {
             unsafe { view_container.setAlpha(0.0) };
         });
-        let animation_block = animation_block.copy();
 
         let view_container = self.view_container.clone();
-        let completion_block = ConcreteBlock::new(move |_| {
+        let completion_block: RcBlock<dyn Fn(_)> = RcBlock::new(move |_| {
             unsafe { view_container.removeFromSuperview() };
         });
-        let completion_block = completion_block.copy();
 
         unsafe {
             UIView::animateWithDuration_delay_options_animations_completion(

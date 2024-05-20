@@ -1,11 +1,6 @@
 use std::ptr::NonNull;
 
-use icrate::{
-    block2::Block,
-    Foundation::{
-        CGFloat, CGPoint, CGRect, CGSize, NSArray, NSItemProvider, NSString, NSTimeInterval,
-    },
-};
+use block2::Block;
 use objc2::{
     extern_class, extern_methods, extern_protocol,
     ffi::{NSInteger, NSUInteger},
@@ -13,6 +8,9 @@ use objc2::{
     rc::{Allocated, Id},
     runtime::{Bool, NSObject, NSObjectProtocol, ProtocolObject},
     ClassType, ProtocolType, RefEncode,
+};
+use objc2_foundation::{
+    CGFloat, CGPoint, CGRect, CGSize, NSArray, NSItemProvider, NSString, NSTimeInterval,
 };
 
 use crate::platform_impl::platform::common::CGAffineTransform;
@@ -141,15 +139,15 @@ extern_methods!(
             duration: NSTimeInterval,
             delay: NSTimeInterval,
             options: UIViewAnimationOptions,
-            animations: &Block<(), ()>,
-            completion: Option<&Block<(Bool,), ()>>,
+            animations: &Block<dyn Fn()>,
+            completion: Option<&Block<dyn Fn(Bool)>>,
         );
 
         #[method(animateWithDuration:animations:completion:)]
         pub unsafe fn animateWithDuration_animations_completion(
             duration: f64,
-            animations: &Block<(), ()>,
-            completion: Option<&Block<(Bool,), ()>>,
+            animations: &Block<dyn Fn()>,
+            completion: Option<&Block<dyn Fn(Bool)>>,
         );
     }
 );
@@ -320,10 +318,13 @@ extern_methods!(
         pub unsafe fn localObject(&self) -> Option<Id<NSObject>>;
 
         #[method(setPreviewProvider:)]
-        pub unsafe fn setPreviewProvider(&self, provider: Option<&Block<(), *mut UIDragPreview>>);
+        pub unsafe fn setPreviewProvider(
+            &self,
+            provider: Option<&Block<dyn Fn() -> *mut UIDragPreview>>,
+        );
 
         #[method(previewProvider)]
-        pub unsafe fn previewProvider(&self) -> Option<&Block<(), *mut UIDragPreview>>;
+        pub unsafe fn previewProvider(&self) -> Option<&Block<dyn Fn() -> *mut UIDragPreview>>;
     }
 );
 
@@ -595,10 +596,10 @@ extern_protocol!(
 extern_protocol!(
     pub unsafe trait UIContextMenuInteractionAnimating: NSObjectProtocol {
         #[method(addAnimations:)]
-        unsafe fn addAnimations(&self, animations: &Block<(), ()>);
+        unsafe fn addAnimations(&self, animations: &Block<dyn Fn()>);
 
         #[method(addCompletion:)]
-        unsafe fn addCompletion(&self, completion: &Block<(), ()>);
+        unsafe fn addCompletion(&self, completion: &Block<dyn Fn()>);
     }
 
     unsafe impl ProtocolType for dyn UIContextMenuInteractionAnimating {}
@@ -971,7 +972,7 @@ extern_methods!(
             title: &NSString,
             image: Option<&UIImage>,
             identifier: Option<&NSString>,
-            handler: &Block<(&UIAction,), ()>,
+            handler: &Block<dyn Fn(NonNull<UIAction>)>,
         ) -> Id<Self>;
 
         #[method(setAttributes:)]
@@ -1027,13 +1028,13 @@ extern_class!(
     }
 );
 
-pub type UIDeferredMenuElementCompletionBlock = Block<(NonNull<NSArray<UIMenuElement>>,), ()>;
+pub type UIDeferredMenuElementCompletionBlock = Block<dyn Fn(NonNull<NSArray<UIMenuElement>>)>;
 
 extern_methods!(
     unsafe impl UIDeferredMenuElement {
         #[method_id(@__retain_semantics Other elementWithProvider:)]
         pub unsafe fn elementWithProvider(
-            provider: &Block<(NonNull<UIDeferredMenuElementCompletionBlock>,), ()>,
+            provider: &Block<dyn Fn(NonNull<UIDeferredMenuElementCompletionBlock>)>,
         ) -> Id<Self>;
     }
 );
@@ -1048,8 +1049,9 @@ extern_class!(
     }
 );
 
-pub type UIContextMenuPreviewProvider = Block<(), *mut UIViewController>;
-pub type UIContextMenuActionProvider = Block<(NonNull<NSArray<UIMenuElement>>,), *mut UIMenu>;
+pub type UIContextMenuPreviewProvider = Block<dyn Fn() -> *mut UIViewController>;
+pub type UIContextMenuActionProvider =
+    Block<dyn Fn(NonNull<NSArray<UIMenuElement>>) -> *mut UIMenu>;
 
 extern_methods!(
     unsafe impl UIContextMenuConfiguration {

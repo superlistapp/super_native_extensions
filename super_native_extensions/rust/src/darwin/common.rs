@@ -15,7 +15,7 @@ use core_graphics::{
     data_provider::CGDataProvider,
     image::CGImage,
 };
-use icrate::Foundation::{
+use objc2_foundation::{
     ns_string, NSDictionary, NSError, NSString, NSURLTypeIdentifierKey, NSURL,
 };
 use objc2::{ffi::NSInteger, rc::Id, runtime::AnyObject, ClassType, Encode, Encoding, RefEncode};

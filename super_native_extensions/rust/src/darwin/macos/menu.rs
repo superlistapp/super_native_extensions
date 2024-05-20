@@ -1,14 +1,6 @@
 use std::rc::{Rc, Weak};
 
-use icrate::{
-    block2::{Block, ConcreteBlock},
-    AppKit::{
-        NSEvent, NSEventModifierFlagCommand, NSEventModifierFlagControl, NSEventModifierFlagOption,
-        NSEventModifierFlagShift, NSEventModifierFlags, NSEventTypeFlagsChanged, NSMenu,
-        NSMenuItem, NSView,
-    },
-    Foundation::{ns_string, MainThreadMarker, NSPoint, NSString},
-};
+use block2::{Block, RcBlock};
 use irondash_engine_context::EngineContext;
 use irondash_message_channel::IsolateId;
 use irondash_run_loop::{spawn, util::FutureCompleter, RunLoop};
@@ -18,6 +10,8 @@ use objc2::{
     rc::{Allocated, Id},
     ClassType,
 };
+use objc2_app_kit::{NSEvent, NSEventModifierFlags, NSEventType, NSMenu, NSMenuItem, NSView};
+use objc2_foundation::{ns_string, MainThreadMarker, NSPoint, NSString, NSUInteger};
 
 use crate::{
     api_model::{
@@ -87,21 +81,21 @@ impl PlatformMenu {
     }
 
     fn accelerator_label_to_modifier_flags(activator: &Activator) -> NSEventModifierFlags {
-        let mut res: NSEventModifierFlags = 0;
+        let mut res: NSUInteger = 0;
         if activator.alt {
-            res |= NSEventModifierFlagOption;
+            res |= NSEventModifierFlags::NSEventModifierFlagOption.0;
         }
         if activator.meta {
-            res |= NSEventModifierFlagCommand;
+            res |= NSEventModifierFlags::NSEventModifierFlagCommand.0;
         }
         if activator.control {
-            res |= NSEventModifierFlagControl;
+            res |= NSEventModifierFlags::NSEventModifierFlagControl.0;
         }
         if activator.shift {
-            res |= NSEventModifierFlagShift;
+            res |= NSEventModifierFlags::NSEventModifierFlagShift.0;
         }
 
-        res
+        NSEventModifierFlags(res)
     }
 
     unsafe fn translate_menu(
@@ -170,13 +164,12 @@ impl PlatformMenu {
                     )
                 } else {
                     let action = menu_action.unique_id;
-                    let action = move |_item: &NSMenuItem| {
+                    let action = move |_item: *mut NSMenuItem| {
                         if let Some(delegate) = delegate.upgrade() {
                             delegate.on_action(isolate, action);
                         }
                     };
-                    let action = ConcreteBlock::new(action);
-                    let action = action.copy();
+                    let action = RcBlock::new(action);
                     SNEBlockMenuItem::initWithTitle(
                         main_thread_marker.alloc::<SNEBlockMenuItem>(),
                         &NSString::from_str(title),
@@ -231,7 +224,8 @@ impl PlatformMenu {
             }
             MenuElement::Deferred(item) => {
                 let item_id = item.unique_id;
-                let action = move |item: &NSMenuItem| {
+                let action = move |item: *mut NSMenuItem| {
+                    let item = unsafe { &*item };
                     let delegate = delegate.clone();
                     let item = item.retain();
                     spawn(async move {
@@ -245,8 +239,7 @@ impl PlatformMenu {
                         .await;
                     });
                 };
-                let action = ConcreteBlock::new(action);
-                let action = action.copy();
+                let action = RcBlock::new(action);
 
                 let item = SNEDeferredMenuItem::initWithBlock(
                     main_thread_marker.alloc::<SNEDeferredMenuItem>(),
@@ -332,11 +325,12 @@ impl PlatformMenuContext {
             unsafe {
                 let modifier_flags = NSEvent::modifierFlags_class();
 
-                if (flags_before & NSEventModifierFlagControl == NSEventModifierFlagControl)
-                    && (modifier_flags & NSEventModifierFlagControl == 0)
+                if (flags_before.0 & NSEventModifierFlags::NSEventModifierFlagControl.0
+                    == NSEventModifierFlags::NSEventModifierFlagControl.0)
+                    && (modifier_flags.0 & NSEventModifierFlags::NSEventModifierFlagControl.0 == 0)
                 {
                     let event = NSEvent::keyEventWithType_location_modifierFlags_timestamp_windowNumber_context_characters_charactersIgnoringModifiers_isARepeat_keyCode
-                    (NSEventTypeFlagsChanged, NSPoint::ZERO, 0, 0.0, 0, None, ns_string!(""), ns_string!(""), false, 0).unwrap();
+                    (NSEventType::FlagsChanged, NSPoint::ZERO, NSEventModifierFlags(0), 0.0, 0, None, ns_string!(""), ns_string!(""), false, 0).unwrap();
                     let window = view.window();
                     if let Some(window) = window {
                         window.sendEvent(&event);
@@ -399,7 +393,7 @@ extern_methods!(
             this: Allocated<Self>,
             title: &NSString,
             keyEquivalent: &NSString,
-            block: Option<&Block<(&NSMenuItem,), ()>>,
+            block: Option<&Block<dyn Fn(*mut NSMenuItem)>>,
         ) -> Id<Self>;
     }
 
@@ -408,7 +402,7 @@ extern_methods!(
         #[method_id(@__retain_semantics Init initWithBlock:)]
         pub unsafe fn initWithBlock(
             this: Allocated<Self>,
-            block: &Block<(&NSMenuItem,), ()>,
+            block: &Block<dyn Fn(*mut NSMenuItem)>,
         ) -> Id<Self>;
     }
 );

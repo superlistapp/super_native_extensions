@@ -11,18 +11,15 @@ use std::{
 
 use async_trait::async_trait;
 
-use icrate::{
-    block2::ConcreteBlock,
-    Foundation::{
-        NSArray, NSCopying, NSData, NSError, NSFileCoordinator,
-        NSFileCoordinatorReadingWithoutChanges, NSItemProvider, NSPropertyListSerialization,
-        NSString, NSURL,
-    },
-};
+use block2::RcBlock;
 use irondash_message_channel::{value_darwin::ValueObjcConversion, Value};
 use irondash_run_loop::{
     util::{Capsule, FutureCompleter},
     RunLoop,
+};
+use objc2_foundation::{
+    NSArray, NSCopying, NSData, NSError, NSFileCoordinator, NSFileCoordinatorReadingOptions,
+    NSItemProvider, NSPropertyListReadOptions, NSPropertyListSerialization, NSString, NSURL,
 };
 
 use objc2::{
@@ -117,7 +114,7 @@ impl PlatformDataReader {
         if data_slice.starts_with(magic) {
             let list = NSPropertyListSerialization::propertyListWithData_options_format_error(
                 data,
-                0,
+                NSPropertyListReadOptions::NSPropertyListImmutable,
                 std::ptr::null_mut(),
             );
             if let Ok(list) = list {
@@ -144,7 +141,7 @@ impl PlatformDataReader {
                 let completer = Arc::new(Mutex::new(Capsule::new(completer)));
                 let provider = &providers[item as usize];
                 let sender = RunLoop::current().new_sender();
-                let block = ConcreteBlock::new(move |data: *mut NSData, _err: *mut NSError| {
+                let block = RcBlock::new(move |data: *mut NSData, _err: *mut NSError| {
                     let data = Id::retain(data);
                     let data = data.map(|d| Self::maybe_decode_bplist(&d));
                     let data = Movable::new(data);
@@ -160,7 +157,6 @@ impl PlatformDataReader {
                         completer.complete(Ok(Value::from_objc(data).ok_log().unwrap_or_default()))
                     });
                 });
-                let block = block.copy();
                 let ns_progress = provider
                     .loadDataRepresentationForTypeIdentifier_completionHandler(
                         &NSString::from_str(&format),
@@ -256,7 +252,7 @@ impl PlatformDataReader {
         let completer = Arc::new(Mutex::new(Capsule::new(completer)));
         let provider = &providers[item as usize];
         let sender = RunLoop::current().new_sender();
-        let block = ConcreteBlock::new(
+        let block = RcBlock::new(
             move |url: *mut NSURL, _is_in_place: Bool, error: *mut NSError| {
                 let url = unsafe { Id::retain(url) };
                 let error = unsafe { Id::retain(error) };
@@ -282,7 +278,6 @@ impl PlatformDataReader {
                 });
             },
         );
-        let block = block.copy();
         let ns_progress = unsafe {
             provider.loadInPlaceFileRepresentationForTypeIdentifier_completionHandler(
                 &NSString::from_str(format),
@@ -309,8 +304,8 @@ impl PlatformDataReader {
         // travels between threads, must be refcounted because block is Fn
         let completer = Arc::new(Mutex::new(Capsule::new(completer)));
         let provider = &providers[item as usize];
-        let sender = RunLoop::current().new_sender();
-        let block = ConcreteBlock::new(move |url: *mut NSURL, error: *mut NSError| {
+        let sender: irondash_run_loop::RunLoopSender = RunLoop::current().new_sender();
+        let block = RcBlock::new(move |url: *mut NSURL, error: *mut NSError| {
             let url = unsafe { Id::retain(url) };
             let error = unsafe { Id::retain(error) };
             let res = match (url, error) {
@@ -345,7 +340,6 @@ impl PlatformDataReader {
                 completer.complete(res);
             });
         });
-        let block = block.copy();
         let ns_progress = unsafe {
             provider.loadFileRepresentationForTypeIdentifier_completionHandler(
                 &NSString::from_str(format),
@@ -377,7 +371,7 @@ impl FileWithBackgroundCoordinator {
         let promise_clone = promise.clone();
         let promise_clone2 = promise.clone();
         thread::spawn(move || {
-            let block = ConcreteBlock::new(move |new_url: NonNull<NSURL>| {
+            let block = RcBlock::new(move |new_url: NonNull<NSURL>| {
                 let new_url = unsafe { Id::retain(new_url.as_ptr()).unwrap() };
                 let _access = NSURLSecurtyScopeAccess::new(&new_url);
                 let path = path_from_url(&new_url);
@@ -398,7 +392,6 @@ impl FileWithBackgroundCoordinator {
                     }
                 }
             });
-            let block = block.copy();
             let mut error: Option<Id<NSError>> = None;
             autoreleasepool(|_| unsafe {
                 url.startAccessingSecurityScopedResource();
@@ -406,7 +399,7 @@ impl FileWithBackgroundCoordinator {
                     NSFileCoordinator::initWithFilePresenter(NSFileCoordinator::alloc(), None);
                 coordinator.coordinateReadingItemAtURL_options_error_byAccessor(
                     &url,
-                    NSFileCoordinatorReadingWithoutChanges,
+                    NSFileCoordinatorReadingOptions::NSFileCoordinatorReadingWithoutChanges,
                     Some(&mut error),
                     &block,
                 );

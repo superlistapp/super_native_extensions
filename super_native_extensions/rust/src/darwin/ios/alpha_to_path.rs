@@ -1,5 +1,5 @@
-use icrate::Foundation::{CGPoint, CGRect, CGSize};
 use objc2::rc::Id;
+use objc2_foundation::{CGPoint, CGRect, CGSize};
 
 use crate::api_model::ImageData;
 
