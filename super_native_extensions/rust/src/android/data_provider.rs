@@ -424,7 +424,9 @@ fn get_data_for_uri<'a>(
         let data = value.coerce_to_data(StringFormat::Utf8).unwrap_or_default();
         let res = env.new_byte_array(data.len() as i32).unwrap();
         let data: &[u8] = &data;
-        env.set_byte_array_region(&res, 0, unsafe { std::mem::transmute(data) })?;
+        env.set_byte_array_region(&res, 0, unsafe {
+            std::mem::transmute::<&[u8], &[i8]>(data)
+        })?;
         Ok(res.into())
     }
 

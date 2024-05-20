@@ -81,7 +81,7 @@ pub(super) fn class_builder_from_name(name: &str) -> ManuallyDrop<ClassBuilder> 
     let res = MyClassBuilder { _cls: class };
     // bit dirty, unfortunately ClassBuilder doesn't let us create instance with custom
     // class, and it's now worth replicating the entire functionality here
-    ManuallyDrop::new(unsafe { std::mem::transmute(res) })
+    ManuallyDrop::new(unsafe { std::mem::transmute::<MyClassBuilder, ClassBuilder>(res) })
 }
 
 enum _CGImage {}
