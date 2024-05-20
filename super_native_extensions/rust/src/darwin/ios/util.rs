@@ -133,7 +133,6 @@ pub fn register_data_representation<F>(
         let res = handler(Box::new(completion_fn));
         res.map(Id::autorelease_return).unwrap_or(std::ptr::null_mut())
     });
-    let block = block.copy();
     unsafe {
         item_provider.registerDataRepresentationForTypeIdentifier_visibility_loadHandler(
             &NSString::from_str(type_identifier),
@@ -167,7 +166,6 @@ pub fn register_file_representation<F>(
         let res = handler(Box::new(completion_fn));
         res.map(Id::autorelease_return).unwrap_or(std::ptr::null_mut())
     });
-    let block = block.copy();
     unsafe {
         item_provider
             .registerFileRepresentationForTypeIdentifier_fileOptions_visibility_loadHandler(

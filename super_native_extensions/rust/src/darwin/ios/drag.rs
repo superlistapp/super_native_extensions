@@ -6,7 +6,7 @@ use std::{
     time::Duration,
 };
 
-use block2::{RcBlock, StackBlock};
+use block2::RcBlock;
 use irondash_engine_context::EngineContext;
 use irondash_message_channel::{Late, Value};
 use irondash_run_loop::{platform::PollSession, RunLoop};
@@ -221,7 +221,7 @@ impl Session {
             }
             let image = self.image_view_for_item(index, ImageType::Drag);
             let shadow_path = bezier_path_for_alpha(&drag_item.image.image_data);
-            let provider = StackBlock::new(move || {
+            let provider = RcBlock::new(move || {
                 let parameters = UIDragPreviewParameters::init(UIDragPreviewParameters::alloc());
                 parameters.setBackgroundColor(Some(&UIColor::clearColor()));
                 parameters.setShadowPath(Some(&shadow_path));

@@ -160,8 +160,10 @@ extern_methods!(
 mod tests {
     use std::{cell::Cell, sync::Arc};
 
+    use block2::RcBlock;
+    use objc2_foundation::NSProgress;
+
     use crate::{reader_manager::ReadProgress, util::DropNotifier, value_promise::Promise};
-    use icrate::{block2::ConcreteBlock, Foundation::NSProgress};
 
     #[test]
     fn test_cancellation() {
@@ -180,10 +182,9 @@ mod tests {
         ));
 
         let cancelled_clone = cancelled.clone();
-        let handler = ConcreteBlock::new(move || {
+        let handler = RcBlock::new(move || {
             cancelled_clone.set(true);
         });
-        let handler = handler.copy();
         unsafe { ns_progress.setCancellationHandler(Some(&handler)) };
 
         assert!(!cancellable.get());

@@ -9,7 +9,7 @@ use std::{
     thread,
 };
 
-use block2::StackBlock;
+use block2::RcBlock;
 use irondash_message_channel::{value_darwin::ValueObjcConversion, Value};
 use irondash_run_loop::{
     util::{Capsule, FutureCompleter},
@@ -474,30 +474,26 @@ impl PlatformDataReader {
                     let queue = unsafe { NSOperationQueue::mainQueue() };
                     let (future, completer) = FutureCompleter::new();
                     let completer = Rc::new(RefCell::new(Some(completer)));
-                    let block =
-                        StackBlock::new(move |url: NonNull<NSURL>, error: *mut NSError| {
-                            let url = unsafe { Id::retain(url.as_ptr()) };
-                            let error = unsafe { Id::retain(error) };
-                            let completer = completer
-                                .borrow_mut()
-                                .take()
-                                .expect("Callback invoked more than once");
-                            if let Some(error) = error {
-                                if let Some(url) = url {
-                                    fs::remove_file(path_from_url(&url)).ok_log();
-                                }
-
-                                completer.complete(Err(
-                                    NativeExtensionsError::VirtualFileReceiveError(
-                                        error.localizedDescription().to_string(),
-                                    ),
-                                ))
-                            } else {
-                                let url = url.unwrap();
-                                completer.complete(Ok(path_from_url(&url)))
+                    let block = RcBlock::new(move |url: NonNull<NSURL>, error: *mut NSError| {
+                        let url = unsafe { Id::retain(url.as_ptr()) };
+                        let error = unsafe { Id::retain(error) };
+                        let completer = completer
+                            .borrow_mut()
+                            .take()
+                            .expect("Callback invoked more than once");
+                        if let Some(error) = error {
+                            if let Some(url) = url {
+                                fs::remove_file(path_from_url(&url)).ok_log();
                             }
-                        });
-                    let block = block.copy();
+
+                            completer.complete(Err(NativeExtensionsError::VirtualFileReceiveError(
+                                error.localizedDescription().to_string(),
+                            )))
+                        } else {
+                            let url = url.unwrap();
+                            completer.complete(Ok(path_from_url(&url)))
+                        }
+                    });
                     unsafe {
                         receiver.receivePromisedFilesAtDestination_options_operationQueue_reader(
                             &url,

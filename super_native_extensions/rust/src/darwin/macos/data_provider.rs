@@ -10,7 +10,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use block2::{Block, RcBlock, StackBlock};
+use block2::{Block, RcBlock};
 use irondash_message_channel::{value_darwin::ValueObjcConversion, IsolateId, Late};
 use irondash_run_loop::{platform::PollSession, RunLoop};
 use objc2::{
@@ -341,12 +341,11 @@ impl ItemState {
         );
         self.virtual_files.borrow_mut().push(notifier.clone());
         let notifier = Arc::downgrade(&notifier);
-        let cancellation_handler = StackBlock::new(move || {
+        let cancellation_handler = RcBlock::new(move || {
             if let Some(notifier) = notifier.upgrade() {
                 notifier.dispose();
             }
         });
-        let cancellation_handler = cancellation_handler.copy();
         unsafe {
             progress.setCancellationHandler(Some(&cancellation_handler));
         }
