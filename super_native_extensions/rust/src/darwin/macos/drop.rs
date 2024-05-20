@@ -151,7 +151,7 @@ impl Session {
 
             dragging_info
                 .enumerateDraggingItemsWithOptions_forView_classes_searchOptions_usingBlock(
-                    NSDraggingItemEnumerationOptions::NSDraggingItemEnumerationConcurrent,
+                    NSDraggingItemEnumerationOptions(0),
                     Some(&self.context_view),
                     &NSArray::from_vec(vec![class]),
                     &NSDictionary::dictionary(),
