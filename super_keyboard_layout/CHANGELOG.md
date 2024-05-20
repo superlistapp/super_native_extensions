@@ -1,3 +1,7 @@
+## 0.8.14
+
+ - Bump "super_keyboard_layout" to `0.8.14`.
+
 ## 0.8.13
 
 ## 0.8.12
