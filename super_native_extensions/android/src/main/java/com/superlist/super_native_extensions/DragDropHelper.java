@@ -9,6 +9,7 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Point;
+import android.os.Build;
 import android.os.SystemClock;
 import android.util.Log;
 import android.view.DragEvent;
@@ -67,7 +68,7 @@ public class DragDropHelper {
             while (parent.getParent() != null) {
                 parent = parent.getParent();
             }
-            int viewLocation[] = new int[2];
+            int[] viewLocation = new int[2];
             view.getLocationOnScreen(viewLocation);
             MotionEvent event = MotionEvent.obtain(SystemClock.uptimeMillis(), SystemClock.uptimeMillis(),
                                                    MotionEvent.ACTION_MOVE,
@@ -78,10 +79,17 @@ public class DragDropHelper {
             // Simulate touch event before starting drag which will be the return position
             // on failed drop
             updateLastTouchPoint(parent, event);
-            view.startDrag(clipData,
-                    new DragShadowBuilder(bitmap, new Point(touchPointX, touchPointY)), new SessionId(dragSessionId),
-                    flags
-            );
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                view.startDragAndDrop(clipData,
+                        new DragShadowBuilder(bitmap, new Point(touchPointX, touchPointY)), new SessionId(dragSessionId),
+                        flags
+                );
+            } else {
+                view.startDrag(clipData,
+                        new DragShadowBuilder(bitmap, new Point(touchPointX, touchPointY)), new SessionId(dragSessionId),
+                        flags
+                );
+            }
         }
     }
 
