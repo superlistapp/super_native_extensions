@@ -259,7 +259,7 @@ impl PlatformDataProvider {
         let mut clip_data = JObject::null();
 
         for item in items {
-            if env.is_same_object(&clip_data, &JObject::null())? {
+            if env.is_same_object(&clip_data, JObject::null())? {
                 clip_data = env.new_object(
                     "android/content/ClipData",
                     "(Landroid/content/ClipDescription;Landroid/content/ClipData$Item;)V",
