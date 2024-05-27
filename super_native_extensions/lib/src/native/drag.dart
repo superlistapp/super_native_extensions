@@ -70,6 +70,12 @@ class DragSessionImpl extends DragSession {
     }
   }
 
+  void dispose() {
+    _dragging.dispose();
+    _dragCompleted.dispose();
+    _lastScreenLocation.dispose();
+  }
+
   final _dragging = ValueNotifier<bool>(false);
   final _dragCompleted = ValueNotifier<DropOperation?>(null);
   final _lastScreenLocation = ValueNotifier<ui.Offset?>(null);
@@ -182,9 +188,7 @@ class DragContextImpl extends DragContext {
         if (session != null) {
           session._dragging.value = false;
           session._dragCompleted.value = dropOperation;
-          session._dragging.dispose();
-          session._dragCompleted.dispose();
-          session._lastScreenLocation.dispose();
+          session.dispose();
         }
       }, () => null);
     } else {
@@ -197,6 +201,15 @@ class DragContextImpl extends DragContext {
     int? pointer,
   }) {
     return DragSessionImpl(dragContext: this);
+  }
+
+  @override
+  void cancelSession(DragSession session) {
+    final sessionImpl = session as DragSessionImpl;
+    assert(sessionImpl.dragCompleted.value == null);
+    assert(sessionImpl.dragging.value == false);
+    sessionImpl._dragCompleted.value = DropOperation.userCancelled;
+    session.dispose();
   }
 
   Future<List<Object?>?> getLocalData(int sessionId) async {
