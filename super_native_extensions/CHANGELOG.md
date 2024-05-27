@@ -1,3 +1,8 @@
+## 0.8.16
+
+ - **FIX**: detect drag cancelled on desktop while waiting for data (#377).
+ - **FIX**: use startDragAndDrop instead of startDrag on Android sdk24 and above (#372).
+
 ## 0.8.15
 
  - **FIX**: remove obsolete code (#364).

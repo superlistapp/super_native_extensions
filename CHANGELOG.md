@@ -3,6 +3,47 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## 2024-05-27
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - There are no breaking changes in this release.
+
+Packages with other changes:
+
+ - [`super_clipboard` - `v0.8.16`](#super_clipboard---v0816)
+ - [`super_drag_and_drop` - `v0.8.16`](#super_drag_and_drop---v0816)
+ - [`super_context_menu` - `v0.8.16`](#super_context_menu---v0816)
+ - [`super_native_extensions` - `v0.8.16`](#super_native_extensions---v0816)
+ - [`super_hot_key` - `v0.8.16`](#super_hot_key---v0816)
+ - [`super_keyboard_layout` - `v0.8.16`](#super_keyboard_layout---v0816)
+
+---
+
+#### `super_clipboard` - `v0.8.16`
+
+#### `super_drag_and_drop` - `v0.8.16`
+
+ - **FIX**: detect drag cancelled on desktop while waiting for data (#377).
+
+#### `super_context_menu` - `v0.8.16`
+
+#### `super_native_extensions` - `v0.8.16`
+
+ - **FIX**: detect drag cancelled on desktop while waiting for data (#377).
+ - **FIX**: use startDragAndDrop instead of startDrag on Android sdk24 and above (#372).
+
+#### `super_hot_key` - `v0.8.16`
+
+ - Bump "super_hot_key" to `0.8.16`.
+
+#### `super_keyboard_layout` - `v0.8.16`
+
+
 ## 2024-05-20
 
 ### Changes

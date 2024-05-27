@@ -9,8 +9,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  super_context_menu: ^0.8.15
-  super_drag_and_drop: ^0.8.15
+  super_context_menu: ^0.8.16
+  super_drag_and_drop: ^0.8.16
 
 dev_dependencies:
   flutter_test:
