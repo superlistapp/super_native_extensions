@@ -146,6 +146,7 @@ abstract class DragContext {
   }
 
   DragSession newSession({int? pointer});
+  void cancelSession(DragSession session);
 
   Future<void> startDrag({
     required BuildContext buildContext,

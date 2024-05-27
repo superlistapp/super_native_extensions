@@ -89,9 +89,7 @@ class DragSessionImpl extends DragSession implements DragDriverDelegate {
       _dragging.value = false;
       _state = null;
       Future.microtask(() {
-        _dragCompleted.dispose();
-        _dragging.dispose();
-        _lastScreenLocation.dispose();
+        dispose();
         for (final item in configuration.items) {
           item.dataProvider.dispose();
         }
@@ -100,6 +98,12 @@ class DragSessionImpl extends DragSession implements DragDriverDelegate {
     if (_ended) {
       _state?.cancel();
     }
+  }
+
+  void dispose() {
+    _dragCompleted.dispose();
+    _dragging.dispose();
+    _lastScreenLocation.dispose();
   }
 
   _SessionState? _state;
@@ -263,6 +267,15 @@ class DragContextImpl extends DragContext {
   @override
   DragSession newSession({int? pointer}) =>
       DragSessionImpl(pointer: pointer ?? -1);
+
+  @override
+  void cancelSession(DragSession session) {
+    final sessionImpl = session as DragSessionImpl;
+    assert(sessionImpl.dragCompleted.value == null);
+    assert(sessionImpl.dragging.value == false);
+    sessionImpl._dragCompleted.value = DropOperation.userCancelled;
+    session.dispose();
+  }
 
   @override
   Future<void> startDrag({

@@ -123,6 +123,23 @@ class _DragContextDelegate implements raw.DragContextDelegate {
   }
 }
 
+class _Drag implements Drag {
+  bool _ended = false;
+
+  @override
+  void cancel() {
+    _ended = true;
+  }
+
+  @override
+  void end(DragEndDetails details) {
+    _ended = true;
+  }
+
+  @override
+  void update(DragUpdateDetails details) {}
+}
+
 abstract class _DragDetector extends StatelessWidget {
   final Widget child;
   final DragConfigurationProvider dragConfiguration;
@@ -158,14 +175,16 @@ abstract class _DragDetector extends StatelessWidget {
           }
         });
       }
+      final drag = _Drag();
       _maybeStartDragWithSession(
         dragContext,
         buildContext,
         position,
         session,
         devicePixelRatio,
+        drag,
       );
-      return null;
+      return drag;
     } else {
       return null;
     }
@@ -177,8 +196,14 @@ abstract class _DragDetector extends StatelessWidget {
     Offset position,
     raw.DragSession session,
     double devicePixelRatio,
+    _Drag drag,
   ) async {
     final dragConfiguration = await this.dragConfiguration(position, session);
+    // User ended the drag gesture before the data is available.
+    if (drag._ended) {
+      _dragContext!.cancelSession(session);
+      return;
+    }
     if (dragConfiguration != null) {
       final rawConfiguration =
           await dragConfiguration.intoRaw(devicePixelRatio);
