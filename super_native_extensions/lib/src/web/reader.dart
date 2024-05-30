@@ -266,7 +266,7 @@ class _VirtualFile extends VirtualFile {
     if (next.done) {
       return Uint8List(0);
     } else {
-      return next.value as Uint8List;
+      return (next.value as JSUint8Array).toDart;
     }
   }
 }
