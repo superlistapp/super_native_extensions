@@ -6,3 +6,4 @@ include: package:flutter_lints/flutter.yaml
 linter:
   rules:
     prefer_relative_imports: true
+    invalid_runtime_check_with_js_interop_types: true
