@@ -1,3 +1,9 @@
+## 0.8.17
+
+ - **FIX**: hide menu drag preview immediately when pan gesture detected (#385).
+ - **FIX**: invalid javascript object cast (#380).
+ - **FIX**: context menu on iPad with universal control (#378).
+
 ## 0.8.16
 
  - **FIX**: detect drag cancelled on desktop while waiting for data (#377).

@@ -3,6 +3,46 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## 2024-06-13
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - There are no breaking changes in this release.
+
+Packages with other changes:
+
+ - [`super_clipboard` - `v0.8.17`](#super_clipboard---v0817)
+ - [`super_drag_and_drop` - `v0.8.17`](#super_drag_and_drop---v0817)
+ - [`super_context_menu` - `v0.8.17`](#super_context_menu---v0817)
+ - [`super_native_extensions` - `v0.8.17`](#super_native_extensions---v0817)
+ - [`super_hot_key` - `v0.8.17`](#super_hot_key---v0817)
+ - [`super_keyboard_layout` - `v0.8.17`](#super_keyboard_layout---v0817)
+
+---
+
+#### `super_clipboard` - `v0.8.17`
+
+#### `super_drag_and_drop` - `v0.8.17`
+
+#### `super_context_menu` - `v0.8.17`
+
+#### `super_native_extensions` - `v0.8.17`
+
+ - **FIX**: hide menu drag preview immediately when pan gesture detected (#385).
+ - **FIX**: invalid javascript object cast (#380).
+ - **FIX**: context menu on iPad with universal control (#378).
+
+#### `super_hot_key` - `v0.8.17`
+
+ - Bump "super_hot_key" to `0.8.17`.
+
+#### `super_keyboard_layout` - `v0.8.17`
+
+
 ## 2024-05-27
 
 ### Changes

@@ -1,3 +1,5 @@
+## 0.8.17
+
 ## 0.8.16
 
  - **FIX**: detect drag cancelled on desktop while waiting for data (#377).
