@@ -18,14 +18,15 @@ use objc2::{
     declare_class, msg_send_id, mutability,
     rc::{Id, Retained},
     runtime::{NSObject, NSObjectProtocol, ProtocolObject},
-    ClassType, DeclaredClass,
+    sel, ClassType, DeclaredClass,
 };
 use objc2_ui_kit::{
     UIAction, UIActivityIndicatorView, UIActivityIndicatorViewStyle, UIColor,
     UIContextMenuConfiguration, UIContextMenuInteraction, UIContextMenuInteractionAnimating,
-    UIContextMenuInteractionDelegate, UIDeferredMenuElement, UIImage, UIImageView, UIMenu,
-    UIMenuElement, UIMenuElementAttributes, UIMenuElementState, UIMenuOptions, UIPreviewParameters,
-    UIPreviewTarget, UITargetedPreview, UIView, UIViewAnimationOptions, UIViewController,
+    UIContextMenuInteractionDelegate, UIDeferredMenuElement, UIGestureRecognizerState, UIImage,
+    UIImageView, UIMenu, UIMenuElement, UIMenuElementAttributes, UIMenuElementState, UIMenuOptions,
+    UIPanGestureRecognizer, UIPreviewParameters, UIPreviewTarget, UITargetedPreview, UIView,
+    UIViewAnimationOptions, UIViewController,
 };
 
 use crate::{
@@ -49,6 +50,7 @@ pub struct PlatformMenuContext {
     interaction: Late<Id<UIContextMenuInteraction>>,
     interaction_delegate: Late<Id<SNEMenuContext>>,
     sessions: RefCell<HashMap<usize, MenuSession>>,
+    fading_containers: RefCell<Vec<Retained<UIView>>>,
     mtm: MainThreadMarker,
 }
 
@@ -354,6 +356,7 @@ impl PlatformMenuContext {
             interaction: Late::new(),
             interaction_delegate: Late::new(),
             sessions: RefCell::new(HashMap::new()),
+            fading_containers: RefCell::new(Vec::new()),
             mtm,
         })
     }
@@ -365,7 +368,7 @@ impl PlatformMenuContext {
         let interaction = unsafe {
             UIContextMenuInteraction::initWithDelegate(
                 self.mtm.alloc::<UIContextMenuInteraction>(),
-                &Id::cast(delegate),
+                &Id::cast(delegate.clone()),
             )
         };
         unsafe {
@@ -373,6 +376,18 @@ impl PlatformMenuContext {
                 .addInteraction(&Retained::cast(interaction.clone()))
         };
         self.interaction.set(interaction);
+
+        unsafe {
+            let recognizer = UIPanGestureRecognizer::initWithTarget_action(
+                self.mtm.alloc::<UIPanGestureRecognizer>(),
+                Some(&Id::cast(delegate.clone())),
+                Some(sel!(onGesture:)),
+            );
+            recognizer.setDelaysTouchesBegan(false);
+            recognizer.setDelaysTouchesEnded(false);
+            recognizer.setCancelsTouchesInView(false);
+            self.view.addGestureRecognizer(&recognizer);
+        }
     }
 
     pub fn menu_active(&self) -> bool {
@@ -501,6 +516,13 @@ impl PlatformMenuContext {
         configuration
     }
 
+    fn on_pan_recognized(&self) {
+        let containers = self.fading_containers.borrow();
+        for container in containers.iter() {
+            container.setHidden(true);
+        }
+    }
+
     fn configuration_for_menu_at_location(
         &self,
         interaction: &UIContextMenuInteraction,
@@ -615,24 +637,29 @@ impl PlatformMenuContext {
     }
 
     fn interaction_will_end_for_configuration(
-        &self,
+        self: &Rc<Self>,
         _interaction: &UIContextMenuInteraction,
         configuration: &UIContextMenuConfiguration,
         _animator: Option<&ProtocolObject<dyn UIContextMenuInteractionAnimating>>,
     ) {
-        let session = self
-            .sessions
-            .borrow_mut()
-            .remove(&MenuSession::get_id(configuration));
+        let session_id = MenuSession::get_id(configuration);
+        let session = self.sessions.borrow_mut().remove(&session_id);
         if let Some(session) = session {
             unsafe {
                 let container = session.view_container.clone();
+                self.fading_containers.borrow_mut().push(container.clone());
+                let container_clone = container.clone();
                 let animation = RcBlock::new(move || {
-                    container.setAlpha(0.0);
+                    container_clone.setAlpha(0.0);
                 });
 
+                let self_clone = self.clone();
                 let completion = RcBlock::new(move |_| {
                     session.view_container.removeFromSuperview();
+                    self_clone
+                        .fading_containers
+                        .borrow_mut()
+                        .retain(|c| c != &container);
                 });
 
                 // Immediately fading out looks glitchy because it happens during menu -> lift
@@ -704,6 +731,19 @@ declare_class!(
     }
 
     unsafe impl NSObjectProtocol for SNEMenuContext {}
+
+    #[allow(non_snake_case)]
+    unsafe impl SNEMenuContext {
+        #[method(onGesture:)]
+        fn onGesture(&self, detector: &UIPanGestureRecognizer) {
+            if detector.state() == UIGestureRecognizerState::Began {
+                self.ivars().with_state(
+                    |state| state.on_pan_recognized(),
+                    || {},
+                );
+            }
+        }
+    }
 
     #[allow(non_snake_case)]
     unsafe impl UIContextMenuInteractionDelegate for SNEMenuContext {
