@@ -124,10 +124,10 @@ packages:
     dependency: transitive
     description:
       name: irondash_engine_context
-      sha256: e8398cca5e28dc280c87b8c35a6ff4e15be844eabec51e713631f83903563681
+      sha256: cd7b769db11a2b5243b037c8a9b1ecaef02e1ae27a2d909ffa78c1dad747bb10
       url: "https://pub.dev"
     source: hosted
-    version: "0.5.3"
+    version: "0.5.4"
   irondash_message_channel:
     dependency: transitive
     description:
