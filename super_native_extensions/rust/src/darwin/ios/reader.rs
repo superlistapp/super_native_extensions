@@ -27,6 +27,7 @@ use objc2::{
     runtime::{Bool, NSObject},
     ClassType,
 };
+use objc2_ui_kit::{UIDragItem, UIPasteboard};
 
 use crate::{
     error::{NativeExtensionsError, NativeExtensionsResult},
@@ -39,8 +40,6 @@ use crate::{
     util::{get_target_path, Movable},
     value_promise::Promise,
 };
-
-use super::uikit::{UIDragItem, UIPasteboard};
 
 pub struct PlatformDataReader {
     source: ReaderSource,

@@ -10,12 +10,12 @@ use core_foundation::{
     string::{CFString, CFStringRef},
 };
 use core_graphics::{
-    base::{kCGBitmapByteOrderDefault, kCGImageAlphaLast, kCGRenderingIntentDefault, CGFloat},
+    base::{kCGBitmapByteOrderDefault, kCGImageAlphaLast, kCGRenderingIntentDefault},
     color_space::{kCGColorSpaceSRGB, CGColorSpace},
     data_provider::CGDataProvider,
     image::CGImage,
 };
-use objc2::{ffi::NSInteger, rc::Id, runtime::AnyObject, ClassType, Encode, Encoding, RefEncode};
+use objc2::{ffi::NSInteger, rc::Id, runtime::AnyObject, ClassType};
 use objc2_foundation::{ns_string, NSDictionary, NSError, NSString, NSURLTypeIdentifierKey, NSURL};
 
 use crate::api_model::ImageData;
@@ -90,44 +90,6 @@ pub fn cg_image_from_image_data(image: ImageData) -> CGImage {
         true,
         kCGRenderingIntentDefault,
     )
-}
-
-#[repr(C)]
-#[derive(Clone, Copy, Debug, Default)]
-pub struct CGAffineTransform {
-    pub a: CGFloat,
-    pub b: CGFloat,
-    pub c: CGFloat,
-    pub d: CGFloat,
-    pub tx: CGFloat,
-    pub ty: CGFloat,
-}
-
-mod names {
-    pub const AFFINE_TRANSFORM: &str = "CGAffineTransform";
-}
-
-unsafe impl Encode for CGAffineTransform {
-    const ENCODING: Encoding = Encoding::Struct(
-        names::AFFINE_TRANSFORM,
-        &[
-            CGFloat::ENCODING,
-            CGFloat::ENCODING,
-            CGFloat::ENCODING,
-            CGFloat::ENCODING,
-            CGFloat::ENCODING,
-            CGFloat::ENCODING,
-        ],
-    );
-}
-
-unsafe impl RefEncode for CGAffineTransform {
-    const ENCODING_REF: Encoding = Encoding::Pointer(&Self::ENCODING);
-}
-
-#[link(name = "CoreGraphics", kind = "framework")]
-extern "C" {
-    pub fn CGAffineTransformMakeScale(sx: CGFloat, sy: CGFloat) -> CGAffineTransform;
 }
 
 #[link(name = "CoreServices", kind = "framework")]

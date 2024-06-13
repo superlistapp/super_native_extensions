@@ -15,7 +15,12 @@ use objc2::{
     runtime::{NSObject, NSObjectProtocol, ProtocolObject},
     ClassType, DeclaredClass,
 };
-use objc2_foundation::{CGPoint, CGRect};
+use objc2_foundation::{CGPoint, CGRect, MainThreadMarker};
+use objc2_ui_kit::{
+    UIDragDropSession, UIDragItem, UIDragPreviewParameters, UIDragPreviewTarget, UIDropInteraction,
+    UIDropInteractionDelegate, UIDropOperation, UIDropProposal, UIDropSession,
+    UIDropSessionProgressIndicatorStyle, UITargetedDragPreview, UIView, UIViewAnimationOptions,
+};
 
 use crate::{
     api_model::{DropOperation, Size},
@@ -25,19 +30,12 @@ use crate::{
     },
     error::{NativeExtensionsError, NativeExtensionsResult},
     log::OkLog,
-    platform_impl::platform::common::CGAffineTransformMakeScale,
     value_promise::PromiseResult,
 };
 
 use super::{
     drag_common::DropOperationExt,
-    uikit::{
-        UIDragDropSession, UIDragItem, UIDragPreviewParameters, UIDragPreviewTarget,
-        UIDropInteraction, UIDropInteractionDelegate, UIDropOperation, UIDropOperationCancel,
-        UIDropProposal, UIDropSession, UIDropSessionProgressIndicatorStyleNone,
-        UITargetedDragPreview, UIView, UIViewAnimationOptionNone,
-    },
-    util::{image_view_from_data, IgnoreInteractionEvents},
+    util::{image_view_from_data, CGAffineTransformMakeScale, IgnoreInteractionEvents},
     PlatformDataReader,
 };
 
@@ -49,6 +47,7 @@ pub struct PlatformDropContext {
     interaction: Late<Id<UIDropInteraction>>,
     interaction_delegate: Late<Id<SNEDropContext>>,
     sessions: RefCell<HashMap<DropSessionId, Rc<Session>>>,
+    mtm: MainThreadMarker,
 }
 
 struct Session {
@@ -58,6 +57,7 @@ struct Session {
     platform_session: Id<ProtocolObject<dyn UIDropSession>>,
     last_operation: Cell<DropOperation>,
     view_containers: RefCell<Vec<Id<UIView>>>,
+    mtm: MainThreadMarker,
 }
 
 impl Drop for Session {
@@ -185,8 +185,9 @@ impl Session {
 
         let operation: UIDropOperation = self.last_operation.get().to_platform();
 
-        let proposal =
-            unsafe { UIDropProposal::initWithDropOperation(UIDropProposal::alloc(), operation) };
+        let proposal = unsafe {
+            UIDropProposal::initWithDropOperation(self.mtm.alloc::<UIDropProposal>(), operation)
+        };
         Ok(proposal)
     }
 
@@ -198,7 +199,7 @@ impl Session {
         // TODO(knopp): Let user override default progress indicator
         unsafe {
             self.platform_session
-                .setProgressIndicatorStyle(UIDropSessionProgressIndicatorStyleNone)
+                .setProgressIndicatorStyle(UIDropSessionProgressIndicatorStyle::None)
         };
         delegate.send_perform_drop(
             self.context_id,
@@ -270,7 +271,7 @@ impl Session {
 
         let view_container = unsafe {
             let bounds = self.context_view.bounds();
-            let container = UIView::initWithFrame(UIView::alloc(), bounds);
+            let container = UIView::initWithFrame(self.mtm.alloc::<UIView>(), bounds);
             container.setUserInteractionEnabled(false);
             self.context_view.addSubview(&container);
 
@@ -286,9 +287,10 @@ impl Session {
                 response
                     .fade_out_delay
                     .unwrap_or(Self::DEFAULT_FADE_OUT_DELAY),
-                UIViewAnimationOptionNone,
+                UIViewAnimationOptions::empty(),
                 &animation_block,
                 None,
+                self.mtm,
             );
             container
         };
@@ -298,7 +300,7 @@ impl Session {
 
         let target = unsafe {
             UIDragPreviewTarget::initWithContainer_center_transform(
-                UIDragPreviewTarget::alloc(),
+                self.mtm.alloc::<UIDragPreviewTarget>(),
                 &view_container,
                 center,
                 transform,
@@ -307,7 +309,7 @@ impl Session {
 
         match response.destination_image {
             Some(image) => unsafe {
-                let image_view = image_view_from_data(image);
+                let image_view = image_view_from_data(image, self.mtm);
                 view_container.addSubview(&image_view);
                 let frame: CGRect = response
                     .destination_rect
@@ -315,9 +317,10 @@ impl Session {
                     .into();
                 image_view.setFrame(frame);
 
-                let parameters = UIDragPreviewParameters::init(UIDragPreviewParameters::alloc());
+                let parameters =
+                    UIDragPreviewParameters::init(self.mtm.alloc::<UIDragPreviewParameters>());
                 UITargetedDragPreview::initWithView_parameters_target(
-                    UITargetedDragPreview::alloc(),
+                    self.mtm.alloc::<UITargetedDragPreview>(),
                     &image_view,
                     &parameters,
                     &target,
@@ -334,7 +337,7 @@ impl Session {
     ) -> NativeExtensionsResult<Option<Id<UITargetedDragPreview>>> {
         let delegate = self.context_delegate()?;
         let view = unsafe { default.view() };
-        let frame = unsafe { view.frame() };
+        let frame = view.frame();
         let original_size: Size = frame.size.into();
         let preview_promise = delegate.get_preview_for_item(
             self.context_id,
@@ -373,6 +376,7 @@ impl PlatformDropContext {
         engine_handle: i64,
         delegate: Weak<dyn PlatformDropContextDelegate>,
     ) -> NativeExtensionsResult<Self> {
+        let mtm = MainThreadMarker::new().unwrap();
         let view = EngineContext::get()?.get_flutter_view(engine_handle)?;
         Ok(Self {
             id,
@@ -382,6 +386,7 @@ impl PlatformDropContext {
             interaction: Late::new(),
             interaction_delegate: Late::new(),
             sessions: RefCell::new(HashMap::new()),
+            mtm,
         })
     }
 
@@ -391,18 +396,22 @@ impl PlatformDropContext {
 
     pub fn assign_weak_self(&self, weak_self: Weak<Self>) {
         self.weak_self.set(weak_self.clone());
-        let delegate = SNEDropContext::new(weak_self);
+        let delegate = SNEDropContext::new(weak_self, self.mtm);
         self.interaction_delegate.set(delegate.retain());
         let interaction = unsafe {
-            UIDropInteraction::initWithDelegate(UIDropInteraction::alloc(), &Id::cast(delegate))
+            UIDropInteraction::initWithDelegate(
+                self.mtm.alloc::<UIDropInteraction>(),
+                &Id::cast(delegate),
+            )
         };
-        unsafe { self.view.addInteraction(&interaction) };
+        unsafe { self.view.addInteraction(&Id::cast(interaction.clone())) };
         self.interaction.set(interaction);
     }
 
     fn get_session(&self, session: &ProtocolObject<dyn UIDropSession>) -> Rc<Session> {
         let session = unsafe { Id::retain(session as *const _ as *mut _) }.unwrap();
         let session_id = Session::session_id_(&session);
+        let mtm = self.mtm;
         self.sessions
             .borrow_mut()
             .entry(session_id)
@@ -414,6 +423,7 @@ impl PlatformDropContext {
                     platform_session: session,
                     last_operation: Cell::new(DropOperation::None),
                     view_containers: RefCell::new(Vec::new()),
+                    mtm,
                 })
             })
             .clone()
@@ -478,7 +488,10 @@ impl PlatformDropContext {
 
 impl Drop for PlatformDropContext {
     fn drop(&mut self) {
-        unsafe { self.view.removeInteraction(&self.interaction) };
+        unsafe {
+            self.view
+                .removeInteraction(&Id::cast(self.interaction.clone()))
+        };
     }
 }
 
@@ -505,7 +518,7 @@ declare_class!(
 
     unsafe impl ClassType for SNEDropContext {
         type Super = NSObject;
-        type Mutability = mutability::InteriorMutable;
+        type Mutability = mutability::MainThreadOnly;
         const NAME: &'static str = "SNEDropContext";
     }
 
@@ -533,9 +546,10 @@ declare_class!(
             session: &ProtocolObject<dyn UIDropSession>,
         ) -> Id<UIDropProposal> {
             let fallback = || unsafe {
+                let mtm = MainThreadMarker::new().unwrap();
                 UIDropProposal::initWithDropOperation(
-                    UIDropProposal::alloc(),
-                    UIDropOperationCancel,
+                    mtm.alloc::<UIDropProposal>(),
+                    UIDropOperation::Cancel,
                 )
             };
             self.ivars().with_state(
@@ -606,8 +620,8 @@ declare_class!(
 );
 
 impl SNEDropContext {
-    fn new(context: Weak<PlatformDropContext>) -> Id<Self> {
-        let this = Self::alloc();
+    fn new(context: Weak<PlatformDropContext>, mtm: MainThreadMarker) -> Id<Self> {
+        let this = mtm.alloc::<Self>();
         let this = this.set_ivars(Inner { context });
         unsafe { msg_send_id![super(this), init] }
     }

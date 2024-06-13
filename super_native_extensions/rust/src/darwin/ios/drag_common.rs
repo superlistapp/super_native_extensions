@@ -1,9 +1,6 @@
-use crate::api_model::DropOperation;
+use objc2_ui_kit::UIDropOperation;
 
-use super::uikit::{
-    UIDropOperation, UIDropOperationCancel, UIDropOperationCopy, UIDropOperationForbidden,
-    UIDropOperationMove,
-};
+use crate::api_model::DropOperation;
 
 pub trait DropOperationExt {
     fn to_platform(&self) -> UIDropOperation;
@@ -13,22 +10,22 @@ pub trait DropOperationExt {
 impl DropOperationExt for DropOperation {
     fn to_platform(&self) -> UIDropOperation {
         match self {
-            DropOperation::None => UIDropOperationCancel,
-            DropOperation::UserCancelled => UIDropOperationCancel,
-            DropOperation::Forbidden => UIDropOperationForbidden,
-            DropOperation::Copy => UIDropOperationCopy,
-            DropOperation::Move => UIDropOperationMove,
-            DropOperation::Link => UIDropOperationCancel,
+            DropOperation::None => UIDropOperation::Cancel,
+            DropOperation::UserCancelled => UIDropOperation::Cancel,
+            DropOperation::Forbidden => UIDropOperation::Forbidden,
+            DropOperation::Copy => UIDropOperation::Copy,
+            DropOperation::Move => UIDropOperation::Move,
+            DropOperation::Link => UIDropOperation::Cancel,
         }
     }
 
     fn from_platform(operation: UIDropOperation) -> DropOperation {
         #[allow(non_upper_case_globals)]
         match operation {
-            UIDropOperationCancel => DropOperation::None,
-            UIDropOperationForbidden => DropOperation::Forbidden,
-            UIDropOperationCopy => DropOperation::Copy,
-            UIDropOperationMove => DropOperation::Move,
+            UIDropOperation::Cancel => DropOperation::None,
+            UIDropOperation::Forbidden => DropOperation::Forbidden,
+            UIDropOperation::Copy => DropOperation::Copy,
+            UIDropOperation::Move => DropOperation::Move,
             _ => DropOperation::None,
         }
     }

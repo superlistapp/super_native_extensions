@@ -12,11 +12,18 @@ use irondash_message_channel::{Late, Value};
 use irondash_run_loop::{platform::PollSession, RunLoop};
 use objc2::{
     declare_class, msg_send_id, mutability,
-    rc::Id,
+    rc::{Id, Retained},
     runtime::{NSObject, NSObjectProtocol, ProtocolObject},
     ClassType, DeclaredClass,
 };
-use objc2_foundation::{ns_string, CGPoint, CGRect, NSArray, NSDictionary, NSNumber};
+use objc2_foundation::{
+    ns_string, CGPoint, CGRect, MainThreadMarker, NSArray, NSDictionary, NSNumber,
+};
+use objc2_ui_kit::{
+    UIColor, UIDragDropSession, UIDragInteraction, UIDragInteractionDelegate, UIDragItem,
+    UIDragPreview, UIDragPreviewParameters, UIDragSession, UIDropOperation, UIImageView,
+    UIPreviewTarget, UITargetedDragPreview, UIView, UIViewAnimationOptions,
+};
 
 use crate::{
     api_model::{DataProviderId, DragConfiguration, DragRequest, DropOperation, Point},
@@ -34,11 +41,6 @@ use crate::{
 use super::{
     alpha_to_path::bezier_path_for_alpha,
     drag_common::DropOperationExt,
-    uikit::{
-        UIColor, UIDragDropSession, UIDragInteraction, UIDragInteractionDelegate, UIDragItem,
-        UIDragPreview, UIDragPreviewParameters, UIDragSession, UIDropOperation, UIImageView,
-        UIPreviewTarget, UITargetedDragPreview, UIView, UIViewAnimationOptionNone,
-    },
     util::{image_view_from_data, IntoObjc},
     DataProviderSessionDelegate, PlatformDataProvider,
 };
@@ -51,6 +53,7 @@ pub struct PlatformDragContext {
     interaction: Late<Id<UIDragInteraction>>,
     interaction_delegate: Late<Id<SNEDragContext>>,
     sessions: RefCell<HashMap<DragSessionId, Rc<Session>>>,
+    mtm: MainThreadMarker,
 }
 
 #[derive(Hash, PartialEq, Eq, Clone, Copy)]
@@ -70,6 +73,7 @@ struct Session {
     configuration: RefCell<DragConfiguration>,
     data_providers: RefCell<Vec<Arc<DataProviderHandle>>>,
     views: RefCell<HashMap<(usize, ImageType), Id<UIImageView>>>, // index -> view
+    mtm: MainThreadMarker,
 }
 
 impl Session {
@@ -79,10 +83,11 @@ impl Session {
         platform_drag_context_id: PlatformDragContextId,
         session_id: DragSessionId,
         configuration: DragConfiguration,
+        mtm: MainThreadMarker,
     ) -> Self {
         let view_container = unsafe {
             let bounds = context_view.bounds();
-            let container = UIView::initWithFrame(UIView::alloc(), bounds);
+            let container = UIView::initWithFrame(mtm.alloc::<UIView>(), bounds);
             container.setUserInteractionEnabled(false);
             context_view.addSubview(&container);
             container
@@ -98,6 +103,7 @@ impl Session {
             configuration: RefCell::new(configuration),
             data_providers: RefCell::new(Vec::new()),
             views: RefCell::new(HashMap::new()),
+            mtm,
         }
     }
 
@@ -127,7 +133,8 @@ impl Session {
         // PlatformDataProviderState.
         let item_provider = provider.create_ns_item_provider(None, Some(self.weak_self.clone()));
         unsafe {
-            let drag_item = UIDragItem::initWithItemProvider(UIDragItem::alloc(), &item_provider);
+            let drag_item =
+                UIDragItem::initWithItemProvider(self.mtm.alloc::<UIDragItem>(), &item_provider);
             drag_item.setLocalObject(Some(&local_object.into_objc()));
 
             // Setting preview provider here leaks entire session if drag is cancelled before
@@ -210,7 +217,7 @@ impl Session {
         let preview_provider = item.previewProvider();
         // If lift image is specified now create preview provider for dragging.
         // If this is done when creating items the whole session leaks...
-        if preview_provider.is_none() {
+        if preview_provider.is_null() {
             let Some((index, _)) = PlatformDragContext::item_info(item) else {
                 return;
             };
@@ -221,12 +228,14 @@ impl Session {
             }
             let image = self.image_view_for_item(index, ImageType::Drag);
             let shadow_path = bezier_path_for_alpha(&drag_item.image.image_data);
+            let mtm = self.mtm;
             let provider = RcBlock::new(move || {
-                let parameters = UIDragPreviewParameters::init(UIDragPreviewParameters::alloc());
+                let parameters =
+                    UIDragPreviewParameters::init(mtm.alloc::<UIDragPreviewParameters>());
                 parameters.setBackgroundColor(Some(&UIColor::clearColor()));
                 parameters.setShadowPath(Some(&shadow_path));
                 let preview = UIDragPreview::initWithView_parameters(
-                    UIDragPreview::alloc(),
+                    mtm.alloc::<UIDragPreview>(),
                     &image,
                     &parameters,
                 );
@@ -285,7 +294,7 @@ impl Session {
                     item.lift_image.as_ref().unwrap_or(&item.image)
                 };
 
-                let image_view = image_view_from_data(drag_image.image_data.clone());
+                let image_view = image_view_from_data(drag_image.image_data.clone(), self.mtm);
 
                 let frame: CGRect = drag_image
                     .rect
@@ -323,20 +332,21 @@ impl Session {
         };
         let image_view = self.image_view_for_item(index, ty);
         unsafe {
-            let parameters = UIDragPreviewParameters::init(UIDragPreviewParameters::alloc());
+            let parameters =
+                UIDragPreviewParameters::init(self.mtm.alloc::<UIDragPreviewParameters>());
             parameters.setBackgroundColor(Some(&UIColor::clearColor()));
             let shadow_path = bezier_path_for_alpha(&drag_image.image_data);
             parameters.setShadowPath(Some(&shadow_path));
 
             let center: CGPoint = drag_image.rect.center().into();
             let target = UIPreviewTarget::initWithContainer_center(
-                UIPreviewTarget::alloc(),
+                self.mtm.alloc::<UIPreviewTarget>(),
                 &self.view_container,
                 center,
             );
 
             UITargetedDragPreview::initWithView_parameters_target(
-                UITargetedDragPreview::alloc(),
+                self.mtm.alloc::<UITargetedDragPreview>(),
                 &image_view,
                 &parameters,
                 &target,
@@ -381,9 +391,10 @@ impl Session {
             UIView::animateWithDuration_delay_options_animations_completion(
                 0.3,
                 0.2,
-                UIViewAnimationOptionNone,
+                UIViewAnimationOptions::empty(),
                 &animation_block,
                 None,
+                self.mtm,
             );
         };
 
@@ -430,9 +441,10 @@ impl Drop for Session {
             UIView::animateWithDuration_delay_options_animations_completion(
                 0.5,
                 0.0,
-                UIViewAnimationOptionNone,
+                UIViewAnimationOptions::empty(),
                 &animation_block,
                 Some(&completion_block),
+                self.mtm,
             );
         };
     }
@@ -460,18 +472,22 @@ impl PlatformDragContext {
             interaction: Late::new(),
             interaction_delegate: Late::new(),
             sessions: RefCell::new(HashMap::new()),
+            mtm: MainThreadMarker::new().unwrap(),
         })
     }
 
     pub fn assign_weak_self(&self, weak_self: Weak<Self>) {
         self.weak_self.set(weak_self.clone());
 
-        let delegate = SNEDragContext::new(weak_self);
+        let delegate = SNEDragContext::new(weak_self, self.mtm);
         self.interaction_delegate.set(delegate.retain());
         let interaction = unsafe {
-            UIDragInteraction::initWithDelegate(UIDragInteraction::alloc(), &Id::cast(delegate))
+            UIDragInteraction::initWithDelegate(
+                self.mtm.alloc::<UIDragInteraction>(),
+                &Id::cast(delegate),
+            )
         };
-        unsafe { self.view.addInteraction(&interaction) };
+        unsafe { self.view.addInteraction(&Id::cast(interaction.clone())) };
         self.interaction.set(interaction);
     }
 
@@ -500,6 +516,7 @@ impl PlatformDragContext {
             self.id,
             data.session_id,
             data.configuration,
+            self.mtm,
         ));
         let session_id = data.session_id;
         session.assign_weak_self(Rc::downgrade(&session));
@@ -579,6 +596,7 @@ impl PlatformDragContext {
     fn get_session_id(session: &ProtocolObject<dyn UIDragSession>) -> Option<DragSessionId> {
         unsafe {
             let context = session.localContext()?;
+            let context: Retained<NSObject> = Id::cast(context);
             if context.is_kind_of::<NSDictionary>() {
                 let context = Id::cast::<NSDictionary<NSObject, NSObject>>(context);
                 let session_id = context.objectForKey(ns_string!("sessionId"))?;
@@ -692,6 +710,7 @@ impl PlatformDragContext {
     fn item_info(item: &UIDragItem) -> Option<(usize, DragSessionId)> {
         unsafe {
             let local_object = item.localObject()?;
+            let local_object: Retained<NSObject> = Id::cast(local_object);
             if !local_object.is_kind_of::<NSDictionary>() {
                 return None;
             }
@@ -735,7 +754,8 @@ impl PlatformDragContext {
 impl Drop for PlatformDragContext {
     fn drop(&mut self) {
         unsafe {
-            self.view.removeInteraction(&self.interaction);
+            self.view
+                .removeInteraction(&Id::cast(self.interaction.clone()));
         }
     }
 }
@@ -763,7 +783,7 @@ declare_class!(
 
     unsafe impl ClassType for SNEDragContext {
         type Super = NSObject;
-        type Mutability = mutability::InteriorMutable;
+        type Mutability = mutability::MainThreadOnly;
         const NAME: &'static str = "SNEDragContext";
     }
 
@@ -896,8 +916,8 @@ declare_class!(
 );
 
 impl SNEDragContext {
-    fn new(context: Weak<PlatformDragContext>) -> Id<Self> {
-        let this = Self::alloc();
+    fn new(context: Weak<PlatformDragContext>, mtm: MainThreadMarker) -> Id<Self> {
+        let this = mtm.alloc::<Self>();
         let this = this.set_ivars(Inner { context });
         unsafe { msg_send_id![super(this), init] }
     }

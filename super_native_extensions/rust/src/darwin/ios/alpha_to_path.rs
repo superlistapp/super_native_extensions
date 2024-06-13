@@ -1,9 +1,8 @@
 use objc2::rc::Id;
 use objc2_foundation::{CGPoint, CGRect, CGSize};
+use objc2_ui_kit::UIBezierPath;
 
 use crate::api_model::ImageData;
-
-use super::uikit::UIBezierPath;
 
 struct AlphaUtil<'a> {
     image_data: &'a ImageData,

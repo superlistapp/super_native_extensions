@@ -18,6 +18,7 @@ use objc2::{
 use objc2_foundation::{
     NSArray, NSData, NSError, NSItemProvider, NSProcessInfo, NSProgress, NSString, NSURL,
 };
+use objc2_ui_kit::UIPasteboard;
 use once_cell::sync::Lazy;
 
 use crate::{
@@ -32,12 +33,9 @@ use crate::{
     value_promise::ValuePromiseResult,
 };
 
-use super::{
-    uikit::UIPasteboard,
-    util::{
-        register_data_representation, register_file_representation, value_promise_res_to_nsdata,
-        value_to_nsdata,
-    },
+use super::util::{
+    register_data_representation, register_file_representation, value_promise_res_to_nsdata,
+    value_to_nsdata,
 };
 
 /// DataSource state that may be accessed from multiple threads
