@@ -39,9 +39,9 @@ velcro = "0.5"
 core-foundation = "0.9"
 once_cell = "1.8.0"
 core-graphics = "0.22.3"
-objc2 = "0.5.0"
-block2 = "0.5.0"
-objc2-foundation = { version = "0.2.0", features = [
+objc2 = "0.5.2"
+block2 = "0.5.1"
+objc2-foundation = { version = "0.2.2", features = [
     "block2",
     "dispatch",
     "NSArray",
@@ -66,7 +66,7 @@ objc2-foundation = { version = "0.2.0", features = [
 ] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
-objc2-app-kit = { version = "0.2.0", features = [
+objc2-app-kit = { version = "0.2.2", features = [
     "block2",
     "NSApplication",
     "NSBitmapImageRep",
@@ -94,6 +94,36 @@ objc2-app-kit = { version = "0.2.0", features = [
 
 [target.'cfg(target_os = "ios")'.dependencies]
 oslog = "0.2.0"
+objc2-ui-kit = { version = "0.2.2", features = [
+    "block2",
+    "UIAction",
+    "UIActivityIndicatorView",
+    "UIApplication",
+    "UIBezierPath",
+    "UIColor",
+    "UIContextMenuConfiguration",
+    "UIContextMenuInteraction",
+    "UIDeferredMenuElement",
+    "UIDragInteraction",
+    "UIDragItem",
+    "UIDragPreview",
+    "UIDragPreviewParameters",
+    "UIDragSession",
+    "UIDropInteraction",
+    "UIImage",
+    "UIImageView",
+    "UIInteraction",
+    "UIMenu",
+    "UIMenuElement",
+    "UIPasteboard",
+    "UIPreviewParameters",
+    "UIResponder",
+    "UITargetedDragPreview",
+    "UITargetedPreview",
+    "UIView",
+    "UIViewController",
+] }
+
 
 [target.'cfg(target_os = "android")'.dependencies]
 jni = "0.21.1"

@@ -3,15 +3,16 @@ use std::{collections::HashMap, ops::Deref, ptr::NonNull};
 use block2::{Block, RcBlock};
 use irondash_message_channel::{value_darwin::ValueObjcConversion, Value};
 use objc2::{
-    rc::Id,
+    rc::{Id, Retained},
     runtime::{Bool, NSObject},
-    ClassType,
+    RefEncode,
 };
 use objc2_foundation::{
-    CGPoint, CGRect, CGSize, NSData, NSDictionary, NSError, NSItemProvider,
-    NSItemProviderFileOptions, NSItemProviderRepresentationVisibility, NSNumber, NSProgress,
-    NSPropertyListFormat, NSPropertyListSerialization, NSString, NSURL,
+    CGFloat, CGPoint, CGRect, CGSize, MainThreadMarker, NSData, NSDictionary, NSError,
+    NSItemProvider, NSItemProviderFileOptions, NSItemProviderRepresentationVisibility, NSNumber,
+    NSProgress, NSPropertyListFormat, NSPropertyListSerialization, NSString, NSURL,
 };
+use objc2_ui_kit::{CGAffineTransform, UIApplication, UIImage, UIImageOrientation, UIImageView};
 
 use crate::{
     api_model::{ImageData, Point, Rect, Size},
@@ -22,7 +23,12 @@ use crate::{
     value_promise::ValuePromiseResult,
 };
 
-use super::uikit::{UIApplication, UIImage, UIImageOrientationUp, UIImageView, _CGImage};
+pub enum _CGImage {}
+
+unsafe impl RefEncode for _CGImage {
+    const ENCODING_REF: objc2::Encoding =
+        objc2::Encoding::Pointer(&objc2::Encoding::Struct("CGImage", &[]));
+}
 
 impl From<CGPoint> for Point {
     fn from(p: CGPoint) -> Self {
@@ -217,22 +223,53 @@ impl IntoObjc for DragSessionId {
     }
 }
 
-pub fn image_from_image_data(image_data: ImageData) -> Id<UIImage> {
+mod img_priv {
+    use objc2::{extern_class, extern_methods, mutability, rc::Retained, ClassType};
+    use objc2_foundation::{CGFloat, NSObject};
+    use objc2_ui_kit::UIImageOrientation;
+
+    use super::_CGImage;
+
+    extern_class!(
+        #[derive(Debug, PartialEq, Eq, Hash)]
+        pub(crate) struct UIImage;
+
+        unsafe impl ClassType for UIImage {
+            type Super = NSObject;
+            type Mutability = mutability::InteriorMutable;
+        }
+    );
+
+    extern_methods!(
+        unsafe impl UIImage {
+            #[allow(non_snake_case)]
+            #[method_id(@__retain_semantics Other imageWithCGImage:scale:orientation:)]
+            pub unsafe fn imageWithCGImage_scale_orientation(
+                cg_image: *const _CGImage,
+                scale: CGFloat,
+                orientation: UIImageOrientation,
+            ) -> Retained<UIImage>;
+        }
+    );
+}
+
+pub fn image_from_image_data(image_data: ImageData) -> Retained<UIImage> {
     let pixel_ratio = image_data.device_pixel_ratio;
     let image = cg_image_from_image_data(image_data);
     let image = &*image as *const _ as *const _CGImage;
     unsafe {
-        UIImage::imageWithCGImage_scale_orientation(
+        let res = img_priv::UIImage::imageWithCGImage_scale_orientation(
             image,
             pixel_ratio.unwrap_or(1.0),
-            UIImageOrientationUp,
-        )
+            UIImageOrientation::Up,
+        );
+        Retained::cast(res)
     }
 }
 
-pub fn image_view_from_data(image_data: ImageData) -> Id<UIImageView> {
+pub fn image_view_from_data(image_data: ImageData, mtm: MainThreadMarker) -> Id<UIImageView> {
     let image = image_from_image_data(image_data);
-    unsafe { UIImageView::initWithImage(UIImageView::alloc(), &image) }
+    unsafe { UIImageView::initWithImage(mtm.alloc::<UIImageView>(), Some(&image)) }
 }
 
 /// Ignores the notifications event while in scope.
@@ -244,7 +281,9 @@ impl IgnoreInteractionEvents {
             // beginIgnoringInteractionEvents is a big stick but we need one
             // to prevent active drag gesture recognizer from getting events while
             // waiting for drag data.
-            let application = UIApplication::sharedApplication();
+            let mtm = MainThreadMarker::new().unwrap();
+            let application = UIApplication::sharedApplication(mtm);
+            #[allow(deprecated)]
             application.beginIgnoringInteractionEvents();
         }
         Self {}
@@ -254,8 +293,15 @@ impl IgnoreInteractionEvents {
 impl Drop for IgnoreInteractionEvents {
     fn drop(&mut self) {
         unsafe {
-            let application = UIApplication::sharedApplication();
+            let mtm = MainThreadMarker::new().unwrap();
+            let application = UIApplication::sharedApplication(mtm);
+            #[allow(deprecated)]
             application.endIgnoringInteractionEvents();
         }
     }
+}
+
+#[link(name = "CoreGraphics", kind = "framework")]
+extern "C" {
+    pub fn CGAffineTransformMakeScale(sx: CGFloat, sy: CGFloat) -> CGAffineTransform;
 }
