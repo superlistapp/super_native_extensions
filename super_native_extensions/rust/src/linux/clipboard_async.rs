@@ -84,16 +84,20 @@ extern "C" fn on_targets(
     n_targets: c_int,
     completer: gpointer,
 ) {
-    let has_text = unsafe { gtk_targets_include_text(targets, n_targets) } != GFALSE;
-    let targets = unsafe { slice::from_raw_parts(targets, n_targets as usize) };
     let completer = completer as *mut FutureCompleter<Vec<String>>;
     let completer = unsafe { Box::from_raw(completer) };
-    let mut targets: Vec<_> = targets.iter().map(|t| t.to_string()).collect();
-    // Ensure we report our TEXT_TYPE
-    if has_text && !targets.iter().any(|a| a == TYPE_TEXT) {
-        targets.push(TYPE_TEXT.to_owned());
+    if n_targets > 0 {
+        let has_text = unsafe { gtk_targets_include_text(targets, n_targets) } != GFALSE;
+        let targets = unsafe { slice::from_raw_parts(targets, n_targets as usize) };
+        let mut targets: Vec<_> = targets.iter().map(|t| t.to_string()).collect();
+        // Ensure we report our TEXT_TYPE
+        if has_text && !targets.iter().any(|a| a == TYPE_TEXT) {
+            targets.push(TYPE_TEXT.to_owned());
+        }
+        completer.complete(targets);
+    } else {
+        completer.complete(vec![]);
     }
-    completer.complete(targets);
 }
 
 extern "C" fn on_text(_: *mut GtkClipboard, text: *const c_char, completer: gpointer) {
