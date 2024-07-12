@@ -11,6 +11,7 @@ use gtk::{TargetEntry, TargetList};
 use gtk_sys::{gtk_target_table_new_from_list, gtk_targets_include_text};
 
 use crate::api_model::ImageData;
+use crate::error::{NativeExtensionsError::OtherError, NativeExtensionsResult};
 
 // Use gtk function to set/retrieve text (there are multiple possible format,
 // we don't want to mess with that)
@@ -100,13 +101,19 @@ pub fn surface_from_image_data(image: ImageData, opacity: f64) -> ImageSurface {
     res
 }
 
-pub(super) fn synthesize_button_up(event: &Event) -> Event {
-    if event.event_type() != EventType::ButtonPress {
-        panic!("Invalid event type");
+pub(super) fn synthesize_button_up(event: &Event) -> NativeExtensionsResult<Event> {
+    if event.event_type() != EventType::ButtonPress
+        && event.event_type() != EventType::DoubleButtonPress
+        && event.event_type() != EventType::TripleButtonPress
+    {
+        return Err(OtherError(format!(
+            "invalid button event: {}",
+            event.event_type()
+        )));
     }
     let mut event = event.clone();
     let e: *mut gdk_sys::GdkEvent = event.to_glib_none_mut().0;
     let e = unsafe { &mut *e };
     e.type_ = gdk_sys::GDK_BUTTON_RELEASE;
-    event
+    Ok(event)
 }
