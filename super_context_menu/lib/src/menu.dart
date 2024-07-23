@@ -59,6 +59,9 @@ class ContextMenuWidget extends StatelessWidget {
     this.hitTestBehavior = HitTestBehavior.deferToChild,
     required this.menuProvider,
     this.iconTheme,
+    this.onMenuShown,
+    this.onMenuHidden,
+    this.shouldReopenKeyboard = false,
     this.contextMenuIsAllowed = _defaultContextMenuIsAllowed,
     MobileMenuWidgetBuilder? mobileMenuWidgetBuilder,
     DesktopMenuWidgetBuilder? desktopMenuWidgetBuilder,
@@ -80,6 +83,11 @@ class ContextMenuWidget extends StatelessWidget {
   final Widget child;
   final MobileMenuWidgetBuilder mobileMenuWidgetBuilder;
   final DesktopMenuWidgetBuilder desktopMenuWidgetBuilder;
+  final VoidCallback? onMenuShown;
+  final VoidCallback? onMenuHidden;
+
+  ///Works only on Android, default is false.
+  final bool shouldReopenKeyboard;
 
   /// Base icon theme for menu icons. The size will be overridden depending
   /// on platform.
@@ -102,6 +110,9 @@ class ContextMenuWidget extends StatelessWidget {
             iconTheme: iconTheme,
             contextMenuIsAllowed: contextMenuIsAllowed,
             menuWidgetBuilder: mobileMenuWidgetBuilder,
+            onMenuShown: onMenuShown,
+            onMenuHidden: onMenuHidden,
+            shouldReopenKeyboard: shouldReopenKeyboard,
             child: child!,
           );
         } else {

@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:super_native_extensions/raw_menu.dart' as raw;
 import 'package:super_native_extensions/widget_snapshot.dart';
@@ -26,6 +28,9 @@ class MobileContextMenuWidget extends StatefulWidget {
     required this.menuProvider,
     this.iconTheme,
     this.destructiveIconTheme,
+    this.onMenuShown,
+    this.onMenuHidden,
+    this.shouldReopenKeyboard = false,
     required this.contextMenuIsAllowed,
     required this.menuWidgetBuilder,
   }) : assert(previewBuilder == null || deferredPreviewBuilder == null,
@@ -41,6 +46,12 @@ class MobileContextMenuWidget extends StatefulWidget {
   final ContextMenuIsAllowed contextMenuIsAllowed;
   final Widget child;
   final MobileMenuWidgetBuilder menuWidgetBuilder;
+  final VoidCallback? onMenuShown;
+  final VoidCallback? onMenuHidden;
+
+  ///Works only for Android
+  ///Default is false
+  final bool shouldReopenKeyboard;
 
   /// Base icon theme for menu icons. The size will be overridden depending
   /// on platform.
@@ -132,9 +143,14 @@ class _ContextMenuWidgetState extends State<MobileContextMenuWidget> {
       serializationOptions,
     );
 
+    FocusNode? _keyboardFocusNode;
     MenuContextDelegate.instance.registerOnHideCallback(
       request.configurationId,
       (response) {
+        if (widget.shouldReopenKeyboard && Platform.isAndroid) {
+          _keyboardFocusNode?.requestFocus();
+        }
+        widget.onMenuHidden?.call();
         onHideMenu.value = response;
         handle.dispose();
         disposeNotifiers();
@@ -143,7 +159,13 @@ class _ContextMenuWidgetState extends State<MobileContextMenuWidget> {
 
     MenuContextDelegate.instance.registerOnShowCallback(
       request.configurationId,
-      onShowMenu.notify,
+      () {
+        if (Platform.isAndroid) {
+          _keyboardFocusNode = FocusManager.instance.primaryFocus?..unfocus();
+        }
+        widget.onMenuShown?.call();
+        onShowMenu.notify();
+      }
     );
 
     MenuContextDelegate.instance.registerPreviewActionCallback(
