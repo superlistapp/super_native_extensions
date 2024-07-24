@@ -222,11 +222,24 @@ class _SessionState implements DragDriverDelegate {
       } else {
         movementDuration = 400;
       }
-      dragOverlayKey.currentState?.animateHome(
-          Duration(
-            milliseconds: movementDuration,
-          ),
-          completion);
+
+      void animateHome() {
+        dragOverlayKey.currentState?.animateHome(
+            Duration(
+              milliseconds: movementDuration,
+            ),
+            completion);
+      }
+
+      // It is possible that the cancellation came even before Flutter was unable to update
+      // the key registry entry.
+      if (dragOverlayKey.currentState != null) {
+        animateHome();
+      } else {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          animateHome();
+        });
+      }
     } else {
       completion();
     }
