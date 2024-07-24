@@ -3,6 +3,45 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## 2024-07-24
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - There are no breaking changes in this release.
+
+Packages with other changes:
+
+ - [`super_clipboard` - `v0.8.18`](#super_clipboard---v0818)
+ - [`super_drag_and_drop` - `v0.8.18`](#super_drag_and_drop---v0818)
+ - [`super_context_menu` - `v0.8.18`](#super_context_menu---v0818)
+ - [`super_native_extensions` - `v0.8.18`](#super_native_extensions---v0818)
+ - [`super_hot_key` - `v0.8.18`](#super_hot_key---v0818)
+ - [`super_keyboard_layout` - `v0.8.18`](#super_keyboard_layout---v0818)
+
+---
+
+#### `super_clipboard` - `v0.8.18`
+
+#### `super_drag_and_drop` - `v0.8.18`
+
+#### `super_context_menu` - `v0.8.18`
+
+#### `super_native_extensions` - `v0.8.18`
+
+ - **FIX**: dragging stuck on web when cancelled too quickly (#398).
+ - **FIX**: paste caused crash when clipboard is empty on linux  (#393).
+
+#### `super_hot_key` - `v0.8.18`
+
+ - Bump "super_hot_key" to `0.8.18`.
+
+#### `super_keyboard_layout` - `v0.8.18`
+
+
 ## 2024-06-13
 
 ### Changes
