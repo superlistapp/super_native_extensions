@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
+import 'package:flutter_keyboard_visibility/flutter_keyboard_visibility.dart';
 import 'package:super_native_extensions/raw_menu.dart' as raw;
 
 import 'default_builder/desktop_menu_widget_builder.dart';
@@ -101,7 +102,8 @@ class ContextMenuWidget extends StatelessWidget {
       child: child,
       builder: (context, child) {
         if (kind.value == PointerDeviceKind.touch) {
-          return MobileContextMenuWidget(
+          return KeyboardVisibilityProvider(
+            child: MobileContextMenuWidget(
             hitTestBehavior: hitTestBehavior,
             menuProvider: menuProvider,
             liftBuilder: liftBuilder,
@@ -113,7 +115,7 @@ class ContextMenuWidget extends StatelessWidget {
             onMenuShown: onMenuShown,
             onMenuHidden: onMenuHidden,
             shouldReopenKeyboard: shouldReopenKeyboard,
-            child: child!,
+            child: child!,),
           );
         } else {
           return DesktopContextMenuWidget(

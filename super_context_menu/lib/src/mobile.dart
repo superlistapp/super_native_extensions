@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
+import 'package:flutter_keyboard_visibility/flutter_keyboard_visibility.dart';
 import 'package:super_native_extensions/raw_menu.dart' as raw;
 import 'package:super_native_extensions/widget_snapshot.dart';
 
@@ -143,12 +144,13 @@ class _ContextMenuWidgetState extends State<MobileContextMenuWidget> {
       serializationOptions,
     );
 
-    FocusNode? _keyboardFocusNode;
+    bool _keyboardWasOpened = false;
     MenuContextDelegate.instance.registerOnHideCallback(
       request.configurationId,
-      (response) {
-        if (widget.shouldReopenKeyboard && Platform.isAndroid) {
-          _keyboardFocusNode?.requestFocus();
+          (response) {
+            if (widget.shouldReopenKeyboard && Platform.isAndroid && _keyboardWasOpened){
+              _keyboardWasOpened = false;
+              SystemChannels.textInput.invokeMethod('TextInput.show');
         }
         widget.onMenuHidden?.call();
         onHideMenu.value = response;
@@ -157,16 +159,14 @@ class _ContextMenuWidgetState extends State<MobileContextMenuWidget> {
       },
     );
 
-    MenuContextDelegate.instance.registerOnShowCallback(
-      request.configurationId,
-      () {
-        if (Platform.isAndroid) {
-          _keyboardFocusNode = FocusManager.instance.primaryFocus?..unfocus();
-        }
-        widget.onMenuShown?.call();
-        onShowMenu.notify();
+    MenuContextDelegate.instance.registerOnShowCallback(request.configurationId, () async {
+      if (Platform.isAndroid) {
+        _keyboardWasOpened = KeyboardVisibilityProvider.isKeyboardVisible(context);
+        if(_keyboardWasOpened) SystemChannels.textInput.invokeMethod('TextInput.hide');
       }
-    );
+      widget.onMenuShown?.call();
+      onShowMenu.notify();
+    });
 
     MenuContextDelegate.instance.registerPreviewActionCallback(
       request.configurationId,
