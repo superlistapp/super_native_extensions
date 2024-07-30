@@ -1,3 +1,8 @@
+## 0.8.18
+
+ - **FIX**: dragging stuck on web when cancelled too quickly (#398).
+ - **FIX**: paste caused crash when clipboard is empty on linux  (#393).
+
 ## 0.8.17
 
  - **FIX**: hide menu drag preview immediately when pan gesture detected (#385).
