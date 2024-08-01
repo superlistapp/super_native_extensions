@@ -1005,7 +1005,7 @@ mod tests {
                 std::mem::size_of::<DropFiles>(),
             )
         };
-        let files = PlatformDataReader::extract_drop_files(&slice).unwrap();
+        let files = PlatformDataReader::extract_drop_files(slice).unwrap();
         assert_eq!(files, vec!["A", "B"]);
     }
 
@@ -1032,7 +1032,7 @@ mod tests {
                 std::mem::size_of::<DropFiles>(),
             )
         };
-        let files = PlatformDataReader::extract_drop_files(&slice).unwrap();
+        let files = PlatformDataReader::extract_drop_files(slice).unwrap();
         assert_eq!(files, vec!["A", "B"]);
     }
 }
