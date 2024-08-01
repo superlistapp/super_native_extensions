@@ -220,7 +220,7 @@ impl PlatformDragContext {
             .ok_or_else(|| NativeExtensionsError::OtherError("Missing mouse event".into()))?;
 
         // release event will get eaten
-        let mut release = synthesize_button_up(&event);
+        let mut release = synthesize_button_up(&event)?;
         gtk::main_do_event(&mut release);
 
         let view = self.view()?;

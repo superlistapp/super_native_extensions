@@ -396,7 +396,7 @@ impl PlatformMenuContext {
             .last_event()
             .ok_or(NativeExtensionsError::MouseEventNotFound)?;
 
-        let mut release = synthesize_button_up(&event);
+        let mut release = synthesize_button_up(&event)?;
         gtk::main_do_event(&mut release);
 
         let view = self.view.upgrade().unwrap();
