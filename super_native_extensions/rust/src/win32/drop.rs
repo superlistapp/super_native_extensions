@@ -485,7 +485,8 @@ impl IDropTarget_Impl for DropTarget {
                         pt as *const POINTL as *const _,
                         *pdweffect,
                     )
-                    .ok_log();
+                    .ok(); // Logging the error here is pretty useless since we have
+                           // no control over either the data object or drop target helper.
             }
         }
         if let Some(context) = self.platform_context.upgrade() {
@@ -506,7 +507,7 @@ impl IDropTarget_Impl for DropTarget {
             unsafe {
                 drop_target_helper
                     .DragOver(pt as *const POINTL as *const _, *pdweffect)
-                    .ok_log();
+                    .ok();
             }
         }
         if let Some(context) = self.platform_context.upgrade() {
@@ -518,7 +519,7 @@ impl IDropTarget_Impl for DropTarget {
     fn DragLeave(&self) -> windows::core::Result<()> {
         if let Some(drop_target_helper) = &self.drop_target_helper {
             unsafe {
-                drop_target_helper.DragLeave().ok_log();
+                drop_target_helper.DragLeave().ok();
             }
         }
         if let Some(context) = self.platform_context.upgrade() {
@@ -542,7 +543,7 @@ impl IDropTarget_Impl for DropTarget {
                         pt as *const POINTL as *const _,
                         *pdweffect,
                     )
-                    .ok_log();
+                    .ok();
             }
         }
         if let Some(context) = self.platform_context.upgrade() {
