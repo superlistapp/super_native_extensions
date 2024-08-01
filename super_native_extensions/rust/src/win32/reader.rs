@@ -330,7 +330,7 @@ impl PlatformDataReader {
         if self.hdrop.borrow().is_none() {
             let files = if self.data_object.has_data(CF_HDROP.0 as u32) {
                 let data = self.data_object.get_data(CF_HDROP.0 as u32)?;
-                let files = Self::extract_drop_files(data)?;
+                let files = Self::extract_drop_files(&data)?;
 
                 Some(files)
             } else {
@@ -430,7 +430,7 @@ impl PlatformDataReader {
         Ok(res)
     }
 
-    fn extract_drop_files(buffer: Vec<u8>) -> NativeExtensionsResult<Vec<String>> {
+    fn extract_drop_files(buffer: &[u8]) -> NativeExtensionsResult<Vec<String>> {
         if buffer.len() < std::mem::size_of::<DROPFILES>() {
             return Err(NativeExtensionsError::InvalidData);
         }
@@ -439,7 +439,6 @@ impl PlatformDataReader {
         let mut res = Vec::new();
         if { files.fWide }.as_bool() {
             let data = buffer
-                .as_slice()
                 .get(files.pFiles as usize..)
                 .ok_or(NativeExtensionsError::InvalidData)?
                 .as_slice_of::<u16>()
@@ -464,22 +463,22 @@ impl PlatformDataReader {
             }
         } else {
             let data = &buffer
-                .as_slice()
                 .get(files.pFiles as usize..)
                 .ok_or(NativeExtensionsError::InvalidData)?;
             let mut offset = 0;
             loop {
-                let str = CStr::from_bytes_with_nul(
+                let str = CStr::from_bytes_until_nul(
                     data.get(offset..)
                         .ok_or(NativeExtensionsError::InvalidData)?,
                 )
                 .unwrap();
-                let bytes = str.to_bytes();
-                if bytes.is_empty() {
+                let length = str.count_bytes();
+                if length == 0 {
                     break;
                 }
                 res.push(str.to_string_lossy().into());
-                offset += bytes.len();
+                offset += length;
+                offset += 1;
             }
         }
         Ok(res)
@@ -975,4 +974,65 @@ fn mime_from_name(name: &str) -> String {
                 ext.unwrap_or_default().to_string_lossy()
             )
         })
+}
+
+#[cfg(test)]
+mod tests {
+    use windows::Win32::{Foundation::POINT, UI::Shell::DROPFILES};
+
+    use crate::platform::PlatformDataReader;
+
+    #[test]
+    fn test_extract_drop_files() {
+        #[repr(C)]
+        struct DropFiles {
+            f: DROPFILES,
+            padding: [u8; 5],
+        }
+        let mut df = DropFiles {
+            f: DROPFILES {
+                pFiles: std::mem::size_of::<DROPFILES>() as u32,
+                pt: POINT { x: 0, y: 0 },
+                fNC: false.into(),
+                fWide: false.into(),
+            },
+            padding: [0; 5],
+        };
+        df.padding.copy_from_slice(b"A\0B\0\0");
+        let slice = unsafe {
+            std::slice::from_raw_parts(
+                &df as *const DropFiles as *const u8,
+                std::mem::size_of::<DropFiles>(),
+            )
+        };
+        let files = PlatformDataReader::extract_drop_files(&slice).unwrap();
+        assert_eq!(files, vec!["A", "B"]);
+    }
+
+    #[test]
+    fn test_extract_drop_files_wide() {
+        #[repr(C)]
+        struct DropFiles {
+            f: DROPFILES,
+            padding: [u16; 5],
+        }
+        let mut df = DropFiles {
+            f: DROPFILES {
+                pFiles: std::mem::size_of::<DROPFILES>() as u32,
+                pt: POINT { x: 0, y: 0 },
+                fNC: false.into(),
+                fWide: true.into(),
+            },
+            padding: [0; 5],
+        };
+        df.padding.copy_from_slice([65, 0, 66, 0, 0].as_ref());
+        let slice = unsafe {
+            std::slice::from_raw_parts(
+                &df as *const DropFiles as *const u8,
+                std::mem::size_of::<DropFiles>(),
+            )
+        };
+        let files = PlatformDataReader::extract_drop_files(&slice).unwrap();
+        assert_eq!(files, vec!["A", "B"]);
+    }
 }
