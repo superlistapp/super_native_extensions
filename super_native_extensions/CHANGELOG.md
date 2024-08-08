@@ -1,3 +1,9 @@
+## 0.8.19
+
+ - **FIX**: do not build release binary with nightly (#412).
+ - **FIX**: panic in ANSI branch of extract_drop_files (#404).
+ - **FIX**: synthesize_button_up might cause crash on Linux (#394).
+
 ## 0.8.18
 
  - **FIX**: dragging stuck on web when cancelled too quickly (#398).

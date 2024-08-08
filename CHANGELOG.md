@@ -3,6 +3,46 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## 2024-08-08
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - There are no breaking changes in this release.
+
+Packages with other changes:
+
+ - [`super_clipboard` - `v0.8.19`](#super_clipboard---v0819)
+ - [`super_drag_and_drop` - `v0.8.19`](#super_drag_and_drop---v0819)
+ - [`super_context_menu` - `v0.8.19`](#super_context_menu---v0819)
+ - [`super_native_extensions` - `v0.8.19`](#super_native_extensions---v0819)
+ - [`super_hot_key` - `v0.8.19`](#super_hot_key---v0819)
+ - [`super_keyboard_layout` - `v0.8.19`](#super_keyboard_layout---v0819)
+
+---
+
+#### `super_clipboard` - `v0.8.19`
+
+#### `super_drag_and_drop` - `v0.8.19`
+
+#### `super_context_menu` - `v0.8.19`
+
+#### `super_native_extensions` - `v0.8.19`
+
+ - **FIX**: do not build release binary with nightly (#412).
+ - **FIX**: panic in ANSI branch of extract_drop_files (#404).
+ - **FIX**: synthesize_button_up might cause crash on Linux (#394).
+
+#### `super_hot_key` - `v0.8.19`
+
+ - Bump "super_hot_key" to `0.8.19`.
+
+#### `super_keyboard_layout` - `v0.8.19`
+
+
 ## 2024-07-24
 
 ### Changes
