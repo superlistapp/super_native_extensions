@@ -1,10 +1,12 @@
-cargo:
-  # For smaller binaries rebuilt the standard library with panic=abort
-  release:
-    toolchain: nightly
-    extra_flags:
-      - -Z
-      - build-std=panic_abort,std
+# The rust-src component in latest nightly (1.82.0-nightly (94977cb1f 2024-08-06) is broken
+# https://github.com/superlistapp/super_native_extensions/issues/411
+#cargo:
+# For smaller binaries rebuilt the standard library with panic=abort
+#  release:
+#    toolchain: nightly
+#    extra_flags:
+#      - -Z
+#      - build-std=panic_abort,std
 
 precompiled_binaries:
   # Uri prefix used when downloading prebuilt binaries.
