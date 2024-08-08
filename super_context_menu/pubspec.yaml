@@ -14,6 +14,7 @@ dependencies:
   collection: ^1.16.0
   device_info_plus: ^10.0.1
   pixel_snap: ^0.1.1
+  flutter_keyboard_visibility: ^6.0.0
 
 dev_dependencies:
   flutter_test:

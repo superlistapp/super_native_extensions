@@ -1,6 +1,9 @@
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
+import 'package:flutter_keyboard_visibility/flutter_keyboard_visibility.dart';
 import 'package:super_native_extensions/raw_menu.dart' as raw;
 import 'package:super_native_extensions/widget_snapshot.dart';
 
@@ -26,6 +29,9 @@ class MobileContextMenuWidget extends StatefulWidget {
     required this.menuProvider,
     this.iconTheme,
     this.destructiveIconTheme,
+    this.onMenuShown,
+    this.onMenuHidden,
+    this.shouldReopenKeyboard = false,
     required this.contextMenuIsAllowed,
     required this.menuWidgetBuilder,
   }) : assert(previewBuilder == null || deferredPreviewBuilder == null,
@@ -41,6 +47,12 @@ class MobileContextMenuWidget extends StatefulWidget {
   final ContextMenuIsAllowed contextMenuIsAllowed;
   final Widget child;
   final MobileMenuWidgetBuilder menuWidgetBuilder;
+  final VoidCallback? onMenuShown;
+  final VoidCallback? onMenuHidden;
+
+  ///Works only for Android
+  ///Default is false
+  final bool shouldReopenKeyboard;
 
   /// Base icon theme for menu icons. The size will be overridden depending
   /// on platform.
@@ -132,19 +144,29 @@ class _ContextMenuWidgetState extends State<MobileContextMenuWidget> {
       serializationOptions,
     );
 
+    bool _keyboardWasOpened = false;
     MenuContextDelegate.instance.registerOnHideCallback(
       request.configurationId,
-      (response) {
+          (response) {
+            if (widget.shouldReopenKeyboard && Platform.isAndroid && _keyboardWasOpened){
+              _keyboardWasOpened = false;
+              SystemChannels.textInput.invokeMethod('TextInput.show');
+        }
+        widget.onMenuHidden?.call();
         onHideMenu.value = response;
         handle.dispose();
         disposeNotifiers();
       },
     );
 
-    MenuContextDelegate.instance.registerOnShowCallback(
-      request.configurationId,
-      onShowMenu.notify,
-    );
+    MenuContextDelegate.instance.registerOnShowCallback(request.configurationId, () async {
+      if (Platform.isAndroid) {
+        _keyboardWasOpened = KeyboardVisibilityProvider.isKeyboardVisible(context);
+        if(_keyboardWasOpened) SystemChannels.textInput.invokeMethod('TextInput.hide');
+      }
+      widget.onMenuShown?.call();
+      onShowMenu.notify();
+    });
 
     MenuContextDelegate.instance.registerPreviewActionCallback(
       request.configurationId,
