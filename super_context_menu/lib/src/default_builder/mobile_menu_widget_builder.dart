@@ -354,12 +354,9 @@ class DefaultMobileMenuWidgetBuilder extends MobileMenuWidgetBuilder {
     final decoration = theme.menuPreviewDecorationOutside;
     return Container(
       decoration: decoration,
-      child: ClipRRect(
-        borderRadius: decoration.borderRadius ?? BorderRadius.circular(0),
-        child: Container(
-          decoration: theme.menuPreviewDecorationInside,
-          child: child,
-        ),
+      child: Container(
+        decoration: theme.menuPreviewDecorationInside,
+        child: child,
       ),
     );
   }
