@@ -353,11 +353,8 @@ class DefaultMobileMenuWidgetBuilder extends MobileMenuWidgetBuilder {
     final theme = _getTheme(context);
     final decoration = theme.menuPreviewDecorationOutside;
     return Container(
-      decoration: decoration,
-      child: Container(
         decoration: theme.menuPreviewDecorationInside,
         child: child,
-      ),
     );
   }
 }
