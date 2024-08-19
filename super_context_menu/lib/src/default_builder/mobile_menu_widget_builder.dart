@@ -286,7 +286,7 @@ class DefaultMobileMenuWidgetBuilder extends MobileMenuWidgetBuilder {
     MobileMenuInfo menuInfo,
     Widget child,
   ) {
-    return Scrollbar(child: child);
+    return child;
   }
 
   @override
@@ -353,8 +353,14 @@ class DefaultMobileMenuWidgetBuilder extends MobileMenuWidgetBuilder {
     final theme = _getTheme(context);
     final decoration = theme.menuPreviewDecorationOutside;
     return Container(
-        decoration: theme.menuPreviewDecorationInside,
-        child: child,
+      decoration: decoration,
+      child: ClipRRect(
+        borderRadius: decoration.borderRadius ?? BorderRadius.circular(0),
+        child: Container(
+          decoration: theme.menuPreviewDecorationInside,
+          child: child,
+        ),
+      ),
     );
   }
 }
