@@ -1,6 +1,6 @@
 name: super_native_extensions
 description: Low level interface various native APIs such as clipboard and Drag and Drop. Not meant to be used directly.
-version: 0.8.19
+version: 0.8.20
 homepage: https://github.com/superlistapp/super_native_extensions
 
 environment:
