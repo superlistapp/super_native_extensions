@@ -1,14 +1,15 @@
 import 'dart:async';
 import 'dart:js_interop';
+import 'dart:js_interop_unsafe';
 
 import 'package:collection/collection.dart';
 import 'package:flutter/widgets.dart';
 import 'package:web/web.dart' as web;
 
-import '../mutex.dart';
 import '../data_provider.dart';
 import '../drag.dart';
 import '../drop.dart';
+import '../mutex.dart';
 import '../reader.dart';
 import '../reader_manager.dart';
 import 'js_interop.dart';
@@ -96,6 +97,16 @@ extension ToWeb on DropOperation {
   }
 }
 
+extension type JSListener._(JSObject _) implements JSObject {
+  external JSListener({
+    required String type,
+    required JSFunction? callback,
+  });
+
+  external String get type;
+  external JSFunction? get callback;
+}
+
 class DropContextImpl extends DropContext {
   static DropContextImpl? instance;
 
@@ -175,55 +186,75 @@ class DropContextImpl extends DropContext {
   /// https://github.com/superlistapp/super_native_extensions/issues/98
   web.EventTarget? _lastDragEnter;
 
+  @visibleForTesting
+  static const listenersProperty = 'super_native_extensions_listeners';
+
   @override
   Future<void> initialize() async {
-    web.document.addEventListener(
-      'dragenter',
-      (web.DragEvent event) {
-        final inProgress = _lastDragEnter != null;
-        _lastDragEnter = event.target;
-        event.preventDefault();
-        if (!inProgress) {
+    {
+      final listeners = web.document.getProperty(listenersProperty.toJS)
+          as JSArray<JSListener>?;
+      if (listeners != null) {
+        for (final listener in listeners.toDart) {
+          web.document.removeEventListener(listener.type, listener.callback);
+        }
+      }
+    }
+
+    final listeners = [
+      JSListener(
+        type: 'dragenter',
+        callback: (web.DragEvent event) {
+          final inProgress = _lastDragEnter != null;
+          _lastDragEnter = event.target;
+          event.preventDefault();
+          if (!inProgress) {
+            final dataTransfer = event.dataTransfer;
+            if (dataTransfer != null) {
+              _onDragEnter(dataTransfer, event as web.MouseEvent);
+            }
+          }
+        }.toJS,
+      ),
+      JSListener(
+        type: 'dragover',
+        callback: (web.DragEvent event) {
+          event.preventDefault();
           final dataTransfer = event.dataTransfer;
           if (dataTransfer != null) {
-            _onDragEnter(dataTransfer, event as web.MouseEvent);
+            _onDragOver(dataTransfer, event as web.MouseEvent);
           }
-        }
-      }.toJS,
-    );
-    web.document.addEventListener(
-      'dragover',
-      (web.DragEvent event) {
-        event.preventDefault();
-        final dataTransfer = event.dataTransfer;
-        if (dataTransfer != null) {
-          _onDragOver(dataTransfer, event as web.MouseEvent);
-        }
-      }.toJS,
-    );
-    web.document.addEventListener(
-      'drop',
-      (web.DragEvent event) {
-        event.preventDefault();
-        _lastDragEnter = null;
-        final dataTransfer = event.dataTransfer;
-        if (dataTransfer != null) {
-          _onDrop(dataTransfer, event as web.MouseEvent);
-        }
-      }.toJS,
-    );
-    web.document.addEventListener(
-      'dragleave',
-      (web.DragEvent event) {
-        if (_lastDragEnter != event.target) {
-          return;
-        } else {
+        }.toJS,
+      ),
+      JSListener(
+        type: 'drop',
+        callback: (web.DragEvent event) {
+          event.preventDefault();
           _lastDragEnter = null;
-        }
-        event.preventDefault();
-        _onDragLeave();
-      }.toJS,
-    );
+          final dataTransfer = event.dataTransfer;
+          if (dataTransfer != null) {
+            _onDrop(dataTransfer, event as web.MouseEvent);
+          }
+        }.toJS,
+      ),
+      JSListener(
+        type: 'dragleave',
+        callback: (web.DragEvent event) {
+          if (_lastDragEnter != event.target) {
+            return;
+          } else {
+            _lastDragEnter = null;
+          }
+          event.preventDefault();
+          _onDragLeave();
+        }.toJS,
+      ),
+    ];
+
+    for (final listener in listeners) {
+      web.document.addEventListener(listener.type, listener.callback);
+    }
+    web.document.setProperty(listenersProperty.toJS, listeners.toJS);
   }
 
   @override
