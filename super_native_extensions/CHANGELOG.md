@@ -1,3 +1,8 @@
+## 0.8.21
+
+ - **FIX**: Avoid adding duplicate listeners for drag-n-drop on the web (#422).
+ - **FIX**: compilation error on web with latest Flutter main (#425).
+
 ## 0.8.20
 
  - **FIX**: do not build release binary with nightly (#412).
