@@ -36,7 +36,7 @@ class DragDriver {
   late ui.PointerDataPacketCallback? _previousPointerDataPacketCallback;
   late web.EventListener _keyDown;
 
-  dynamic _onKeyDown(Object event) {
+  void _onKeyDown(JSObject event) {
     final keyEvent = event as web.KeyboardEvent;
     if (keyEvent.key.toLowerCase() == 'escape') {
       cancel();
