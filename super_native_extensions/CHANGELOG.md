@@ -1,3 +1,8 @@
+## 0.8.20
+
+ - **FIX**: do not build release binary with nightly (#412).
+ - **FIX**: do not build release binary with nightly (#412).
+
 ## 0.8.19
 
  - **FIX**: do not build release binary with nightly (#412).
