@@ -445,7 +445,9 @@ impl Drop for PlatformDropContext {
         unsafe {
             let hook = *self.hook;
             UnhookWinEvent(hook);
-            HOOK_TO_HWND.with(|a| a.borrow_mut().remove(&hook.0));
+            HOOK_TO_HWND
+                .try_with(|a| a.borrow_mut().remove(&hook.0))
+                .ok();
         }
     }
 }

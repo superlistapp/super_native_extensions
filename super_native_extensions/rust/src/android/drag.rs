@@ -288,6 +288,6 @@ impl DragSession {
 
 impl Drop for PlatformDragContext {
     fn drop(&mut self) {
-        CONTEXTS.with(|c| c.borrow_mut().remove(&self.id));
+        CONTEXTS.try_with(|c| c.borrow_mut().remove(&self.id)).ok();
     }
 }

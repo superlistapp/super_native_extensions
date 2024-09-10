@@ -409,7 +409,7 @@ impl PlatformDropContext {
 
 impl Drop for PlatformDropContext {
     fn drop(&mut self) {
-        CONTEXTS.with(|c| c.borrow_mut().remove(&self.id));
+        CONTEXTS.try_with(|c| c.borrow_mut().remove(&self.id)).ok();
     }
 }
 
