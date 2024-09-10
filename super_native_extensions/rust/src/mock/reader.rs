@@ -45,9 +45,11 @@ impl PlatformClipboardReader {
 
 impl Drop for PlatformClipboardReader {
     fn drop(&mut self) {
-        READERS.with(|f| {
-            f.borrow_mut()
-                .retain(|a| a.as_ptr() != self.weak_self.as_ptr());
-        });
+        READERS
+            .try_with(|f| {
+                f.borrow_mut()
+                    .retain(|a| a.as_ptr() != self.weak_self.as_ptr());
+            })
+            .ok();
     }
 }
