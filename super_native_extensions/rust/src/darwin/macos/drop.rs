@@ -382,9 +382,11 @@ impl PlatformDropContext {
 
 impl Drop for PlatformDropContext {
     fn drop(&mut self) {
-        VIEW_TO_CONTEXT.try_with(|v| {
-            v.borrow_mut().remove(&*self.view);
-        }).ok();
+        VIEW_TO_CONTEXT
+            .try_with(|v| {
+                v.borrow_mut().remove(&*self.view);
+            })
+            .ok();
     }
 }
 
