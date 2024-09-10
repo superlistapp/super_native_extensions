@@ -3,6 +3,45 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## 2024-09-09
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - There are no breaking changes in this release.
+
+Packages with other changes:
+
+ - [`super_clipboard` - `v0.8.21`](#super_clipboard---v0821)
+ - [`super_drag_and_drop` - `v0.8.21`](#super_drag_and_drop---v0821)
+ - [`super_context_menu` - `v0.8.21`](#super_context_menu---v0821)
+ - [`super_native_extensions` - `v0.8.21`](#super_native_extensions---v0821)
+ - [`super_hot_key` - `v0.8.21`](#super_hot_key---v0821)
+ - [`super_keyboard_layout` - `v0.8.21`](#super_keyboard_layout---v0821)
+
+---
+
+#### `super_clipboard` - `v0.8.21`
+
+#### `super_drag_and_drop` - `v0.8.21`
+
+#### `super_context_menu` - `v0.8.21`
+
+#### `super_native_extensions` - `v0.8.21`
+
+ - **FIX**: Avoid adding duplicate listeners for drag-n-drop on the web (#422).
+ - **FIX**: compilation error on web with latest Flutter main (#425).
+
+#### `super_hot_key` - `v0.8.21`
+
+ - Bump "super_hot_key" to `0.8.21`.
+
+#### `super_keyboard_layout` - `v0.8.21`
+
+
 ## 2024-08-26
 
 ### Changes
