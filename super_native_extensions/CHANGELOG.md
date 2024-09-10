@@ -1,3 +1,7 @@
+## 0.8.22
+
+ - **FIX**: don't panic with thread local AccessError when shutting down (#426).
+
 ## 0.8.21
 
  - **FIX**: Avoid adding duplicate listeners for drag-n-drop on the web (#422).

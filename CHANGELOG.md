@@ -3,6 +3,46 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## 2024-09-10
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - There are no breaking changes in this release.
+
+Packages with other changes:
+
+ - [`super_clipboard` - `v0.8.22`](#super_clipboard---v0822)
+ - [`super_drag_and_drop` - `v0.8.22`](#super_drag_and_drop---v0822)
+ - [`super_context_menu` - `v0.8.22`](#super_context_menu---v0822)
+ - [`super_native_extensions` - `v0.8.22`](#super_native_extensions---v0822)
+ - [`super_hot_key` - `v0.8.22`](#super_hot_key---v0822)
+ - [`super_keyboard_layout` - `v0.8.22`](#super_keyboard_layout---v0822)
+
+---
+
+#### `super_clipboard` - `v0.8.22`
+
+#### `super_drag_and_drop` - `v0.8.22`
+
+#### `super_context_menu` - `v0.8.22`
+
+ - **FEAT**: export default builder to make it enable for use single brightness (#416).
+
+#### `super_native_extensions` - `v0.8.22`
+
+ - **FIX**: don't panic with thread local AccessError when shutting down (#426).
+
+#### `super_hot_key` - `v0.8.22`
+
+ - Bump "super_hot_key" to `0.8.22`.
+
+#### `super_keyboard_layout` - `v0.8.22`
+
+
 ## 2024-09-09
 
 ### Changes

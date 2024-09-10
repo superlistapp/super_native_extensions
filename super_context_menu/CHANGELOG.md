@@ -1,3 +1,7 @@
+## 0.8.22
+
+ - **FEAT**: export default builder to make it enable for use single brightness (#416).
+
 ## 0.8.21
 
 ## 0.8.20
