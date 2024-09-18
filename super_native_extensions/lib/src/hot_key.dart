@@ -1,4 +1,4 @@
-import 'native/hot_key.dart' if (dart.library.js) 'web/hot_key.dart';
+import 'native/hot_key.dart' if (dart.library.js_interop) 'web/hot_key.dart';
 
 class HotKeyDefinition {
   final int platformCode;

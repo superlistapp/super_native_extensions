@@ -6,7 +6,7 @@ import 'mutex.dart';
 import 'reader.dart';
 import 'util.dart';
 
-import 'native/drop.dart' if (dart.library.js) 'web/drop.dart';
+import 'native/drop.dart' if (dart.library.js_interop) 'web/drop.dart';
 
 /// Represents result of a drag & drop operation.
 enum DropOperation {

@@ -1,6 +1,6 @@
 import 'data_provider.dart';
 import 'native/clipboard_events.dart'
-    if (dart.library.js) 'web/clipboard_events.dart';
+    if (dart.library.js_interop) 'web/clipboard_events.dart';
 import 'reader.dart';
 
 abstract class ClipboardReadEvent {
