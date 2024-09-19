@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 import 'native/keyboard_layout.dart'
-    if (dart.library.js) 'web/keyboard_layout.dart';
+    if (dart.library.js_interop) 'web/keyboard_layout.dart';
 
 import 'keyboard_layout_model.dart' as model;
 

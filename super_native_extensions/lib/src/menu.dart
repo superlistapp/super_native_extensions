@@ -7,7 +7,7 @@ import 'package:flutter/widgets.dart';
 import 'menu_model.dart';
 import 'mutex.dart';
 
-import 'native/menu.dart' if (dart.library.js) 'web/menu.dart';
+import 'native/menu.dart' if (dart.library.js_interop) 'web/menu.dart';
 import 'menu_flutter.dart';
 import 'gesture/pointer_device_kind.dart';
 import 'widget_snapshot/widget_snapshot.dart';

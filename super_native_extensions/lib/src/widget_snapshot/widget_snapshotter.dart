@@ -6,7 +6,7 @@ import 'widget_snapshot.dart';
 import 'widget_snapshotter_internal.dart';
 
 import 'widget_snapshotter_native.dart'
-    if (dart.library.js) 'widget_snapshotter_web.dart';
+    if (dart.library.js_interop) 'widget_snapshotter_web.dart';
 
 typedef Translation = Offset Function(
   /// Snapshot rectangle in local coordinates.

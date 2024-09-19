@@ -1,7 +1,7 @@
 import 'reader.dart';
 
 import 'native/reader_manager.dart'
-    if (dart.library.js) 'web/reader_manager.dart';
+    if (dart.library.js_interop) 'web/reader_manager.dart';
 
 // There is a separate $DataReaderHandle and $DataReaderItemHandle definition for
 // web and native. The typedef with $prefix is used within the web/native section
