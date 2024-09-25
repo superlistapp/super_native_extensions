@@ -208,6 +208,9 @@ class MenuContextImpl extends MenuContext {
     final res = await _channel.invokeMethod('showContextMenu', {
       'menuHandle': (request.menu as NativeMenuHandle).handle,
       'location': request.position.serialize(),
+      if (request.writingToolsConfiguration != null)
+        'writingToolsConfiguration':
+            request.writingToolsConfiguration!.serialize(),
     }) as Map;
     return MenuResult(
       itemSelected: res['itemSelected'],
@@ -317,6 +320,9 @@ class MenuContextImpl extends MenuContext {
         }
         return {'elements': res};
       }, () => {'elements': []});
+    } else if (call.method == 'sendWritingToolsReplacement') {
+      final text = call.arguments['text'] as String;
+      writingToolsSuggestionCallback?.call(text);
     } else {
       return null;
     }

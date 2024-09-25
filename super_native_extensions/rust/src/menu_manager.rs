@@ -16,7 +16,7 @@ use log::warn;
 use crate::{
     api_model::{
         DeferredMenuResponse, ImageData, MenuConfiguration, MenuElement, Point,
-        ShowContextMenuRequest, ShowContextMenuResponse,
+        ShowContextMenuRequest, ShowContextMenuResponse, WritingToolsReplacementRequest,
     },
     context::Context,
     drag_manager::GetDragManager,
@@ -49,6 +49,12 @@ pub trait PlatformMenuContextDelegate {
         context_id: PlatformMenuContextId,
         location: Point,
     ) -> Arc<Promise<PromiseResult<MenuConfiguration>>>;
+
+    fn send_writing_tools_replacement(
+        &self,
+        context_id: PlatformMenuContextId,
+        request: WritingToolsReplacementRequest,
+    );
 }
 
 #[async_trait(?Send)]
@@ -326,6 +332,17 @@ impl PlatformMenuContextDelegate for MenuManager {
             }
         });
         res
+    }
+
+    fn send_writing_tools_replacement(
+        &self,
+        context_id: PlatformMenuContextId,
+        request: WritingToolsReplacementRequest,
+    ) {
+        self.invoker
+            .call_method_sync(context_id, "sendWritingToolsReplacement", request, |r| {
+                r.ok_log();
+            });
     }
 }
 

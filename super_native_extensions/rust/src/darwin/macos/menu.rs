@@ -1,37 +1,49 @@
-use std::rc::{Rc, Weak};
+use std::{
+    cell::{Cell, RefCell},
+    rc::{Rc, Weak},
+};
 
 use block2::{Block, RcBlock};
 use irondash_engine_context::EngineContext;
-use irondash_message_channel::IsolateId;
+use irondash_message_channel::{IsolateId, Late};
 use irondash_run_loop::{spawn, util::FutureCompleter, RunLoop};
 use objc2::{
-    extern_class, extern_methods,
-    mutability::MainThreadOnly,
+    declare_class, extern_class, extern_methods, msg_send_id,
+    mutability::{self, MainThreadOnly},
     rc::{Allocated, Id},
-    ClassType,
+    ClassType, DeclaredClass,
 };
-use objc2_app_kit::{NSEvent, NSEventModifierFlags, NSEventType, NSMenu, NSMenuItem, NSView};
-use objc2_foundation::{ns_string, MainThreadMarker, NSPoint, NSString, NSUInteger};
+use objc2_app_kit::{
+    NSEvent, NSEventModifierFlags, NSEventType, NSMenu, NSMenuItem, NSPasteboard, NSPasteboardType,
+    NSPasteboardTypeString, NSServicesMenuRequestor, NSView,
+};
+use objc2_foundation::{
+    ns_string, MainThreadMarker, NSArray, NSObjectProtocol, NSPoint, NSRect, NSString, NSUInteger,
+};
 
 use crate::{
     api_model::{
         Activator, ImageData, Menu, MenuElement, MenuImage, ShowContextMenuRequest,
-        ShowContextMenuResponse,
+        ShowContextMenuResponse, WritingToolsReplacementRequest,
     },
     error::NativeExtensionsResult,
     log::OkLog,
     menu_manager::{PlatformMenuContextDelegate, PlatformMenuContextId, PlatformMenuDelegate},
 };
 
-use super::util::{flip_position, ns_image_for_menu_item};
+use super::util::{flip_position, flip_rect, ns_image_for_menu_item};
 
 pub struct PlatformMenuContext {
     delegate: Weak<dyn PlatformMenuContextDelegate>,
+    context_id: PlatformMenuContextId,
     view: Id<NSView>,
+    context_menu_view: Late<Id<SNEContextMenuView>>,
+    writing_tool_text: RefCell<Option<String>>,
 }
 
 pub struct PlatformMenu {
     menu: Id<NSMenu>,
+    selected: Rc<Cell<bool>>,
 }
 
 impl std::fmt::Debug for PlatformMenu {
@@ -103,6 +115,7 @@ impl PlatformMenu {
         isolate: IsolateId,
         delegate: Weak<dyn PlatformMenuDelegate>,
         main_thread_marker: MainThreadMarker,
+        selected: Rc<Cell<bool>>,
     ) -> Id<NSMenu> {
         let title = menu.title.as_deref().unwrap_or_default();
         let res = SNEMenu::initWithTitle(
@@ -110,8 +123,13 @@ impl PlatformMenu {
             &NSString::from_str(title),
         );
         for child in &menu.children {
-            let child =
-                Self::translate_element(child, isolate, delegate.clone(), main_thread_marker);
+            let child = Self::translate_element(
+                child,
+                isolate,
+                delegate.clone(),
+                main_thread_marker,
+                selected.clone(),
+            );
             res.addItem(&child);
         }
         Id::into_super(res)
@@ -123,6 +141,7 @@ impl PlatformMenu {
         isolate: IsolateId,
         weak_delegate: Weak<dyn PlatformMenuDelegate>,
         main_thread_marker: MainThreadMarker,
+        selected: Rc<Cell<bool>>,
     ) {
         if let Some(delegate) = weak_delegate.upgrade() {
             let parent_menu = item.menu();
@@ -137,6 +156,7 @@ impl PlatformMenu {
                     isolate,
                     weak_delegate.clone(),
                     main_thread_marker,
+                    selected.clone(),
                 );
                 let index = parent_menu.indexOfItem(item);
                 parent_menu.insertItem_atIndex(&element, index);
@@ -150,6 +170,7 @@ impl PlatformMenu {
         isolate: IsolateId,
         delegate: Weak<dyn PlatformMenuDelegate>,
         main_thread_marker: MainThreadMarker,
+        selected: Rc<Cell<bool>>,
     ) -> Id<NSMenuItem> {
         match element {
             MenuElement::Action(menu_action) => {
@@ -165,6 +186,7 @@ impl PlatformMenu {
                 } else {
                     let action = menu_action.unique_id;
                     let action = move |_item: *mut NSMenuItem| {
+                        selected.set(true);
                         if let Some(delegate) = delegate.upgrade() {
                             delegate.on_action(isolate, action);
                         }
@@ -217,8 +239,13 @@ impl PlatformMenu {
                     let image = ns_image_for_menu_item(data.clone());
                     item.setImage(Some(&image));
                 }
-                let submenu =
-                    Self::translate_menu(menu, isolate, delegate.clone(), main_thread_marker);
+                let submenu = Self::translate_menu(
+                    menu,
+                    isolate,
+                    delegate.clone(),
+                    main_thread_marker,
+                    selected.clone(),
+                );
                 item.setSubmenu(Some(&submenu));
                 item
             }
@@ -227,6 +254,7 @@ impl PlatformMenu {
                 let action = move |item: *mut NSMenuItem| {
                     let item = unsafe { &*item };
                     let delegate = delegate.clone();
+                    let selected = selected.clone();
                     let item = item.retain();
                     spawn(async move {
                         Self::load_deferred_menu_item(
@@ -235,6 +263,7 @@ impl PlatformMenu {
                             isolate,
                             delegate.clone(),
                             main_thread_marker,
+                            selected,
                         )
                         .await;
                     });
@@ -257,21 +286,33 @@ impl PlatformMenu {
         menu: Menu,
     ) -> NativeExtensionsResult<Rc<Self>> {
         let main_thread_marker = MainThreadMarker::new().unwrap();
-        let menu = unsafe { Self::translate_menu(&menu, isolate, delegate, main_thread_marker) };
-        Ok(Rc::new(Self { menu }))
+        let selected = Rc::new(Cell::new(false));
+        let menu = unsafe {
+            Self::translate_menu(
+                &menu,
+                isolate,
+                delegate,
+                main_thread_marker,
+                selected.clone(),
+            )
+        };
+        Ok(Rc::new(Self { menu, selected }))
     }
 }
 
 impl PlatformMenuContext {
     pub fn new(
-        _id: PlatformMenuContextId,
+        id: PlatformMenuContextId,
         engine_handle: i64,
         delegate: Weak<dyn PlatformMenuContextDelegate>,
     ) -> NativeExtensionsResult<Self> {
         let view = EngineContext::get()?.get_flutter_view(engine_handle)?;
         Ok(Self {
             delegate,
+            context_id: id,
             view: unsafe { Id::cast(view) },
+            context_menu_view: Late::new(),
+            writing_tool_text: RefCell::new(None),
         })
     }
 
@@ -283,19 +324,28 @@ impl PlatformMenuContext {
         Ok(())
     }
 
-    pub fn assign_weak_self(&self, _weak_self: Weak<Self>) {}
+    pub fn assign_weak_self(&self, weak_self: Weak<Self>) {
+        let context_menu_inner = SNEContextMenuViewInner {
+            context: weak_self.clone(),
+        };
+        self.context_menu_view.set(SNEContextMenuView::new(
+            context_menu_inner,
+            MainThreadMarker::new().unwrap(),
+        ));
+    }
 
-    fn synthesize_mouse_up_event(&self) {
+    fn synthesize_mouse_up_event(&self) -> Option<Id<NSEvent>> {
         if let Some(delegate) = self.delegate.upgrade() {
             let drag_contexts = delegate.get_platform_drag_contexts();
             for context in drag_contexts {
                 if *context.view == *self.view {
                     unsafe {
-                        context.synthesize_mouse_up_event();
+                        return context.synthesize_mouse_up_event();
                     }
                 }
             }
         }
+        None
     }
 
     pub async fn show_context_menu(
@@ -307,17 +357,39 @@ impl PlatformMenuContext {
 
         let (future, completer) = FutureCompleter::new();
 
-        let menu = request.menu.unwrap().menu.clone();
+        let ns_menu = request.menu.as_ref().unwrap().menu.clone();
         let view = self.view.clone();
+
+        let context_menu_view = self.context_menu_view.clone();
+        unsafe { self.view.addSubview(&context_menu_view) };
+
+        let writing_tools_configuration = &request.writing_tools_configuration;
+        if let Some(writing_tools_configuration) = writing_tools_configuration {
+            let mut rect: NSRect = writing_tools_configuration.rect.clone().into();
+            flip_rect(&view, &mut rect);
+            unsafe { context_menu_view.setFrame(rect) };
+            self.writing_tool_text
+                .replace(Some(writing_tools_configuration.text.clone()));
+        } else {
+            self.writing_tool_text.replace(None);
+        }
 
         // remember the modifier flags before showing the popup menu
         let flags_before = unsafe { NSEvent::modifierFlags_class() };
 
-        self.synthesize_mouse_up_event();
+        let event = self.synthesize_mouse_up_event();
 
+        let selected = request.menu.as_ref().unwrap().selected.clone();
         let cb = move || {
-            let item_selected = unsafe {
-                menu.popUpMenuPositioningItem_atLocation_inView(None, position, Some(&view))
+            let first_responder = view.window().unwrap().firstResponder();
+            let window = view.window().unwrap();
+            window.makeFirstResponder(Some(&context_menu_view));
+            unsafe {
+                NSMenu::popUpContextMenu_withEvent_forView(
+                    &ns_menu,
+                    &event.unwrap(),
+                    &context_menu_view,
+                )
             };
             // If the the popup menu was shown because of control + click and the
             // control is no longe pressed after menu is closed we need to let Flutter
@@ -337,7 +409,12 @@ impl PlatformMenuContext {
                     }
                 }
             }
-            completer.complete(Ok(ShowContextMenuResponse { item_selected }));
+
+            window.makeFirstResponder(first_responder.as_deref());
+
+            completer.complete(Ok(ShowContextMenuResponse {
+                item_selected: selected.get(),
+            }));
         };
 
         // this method might possibly be invoked from dispatch_async.
@@ -406,3 +483,119 @@ extern_methods!(
         ) -> Id<Self>;
     }
 );
+
+struct SNEContextMenuViewInner {
+    context: Weak<PlatformMenuContext>,
+}
+
+impl SNEContextMenuViewInner {
+    fn is_valid_requestor(
+        &self,
+        send_type: Option<&NSPasteboardType>,
+        _return_type: Option<&NSPasteboardType>,
+    ) -> bool {
+        if let (Some(send_type), Some(context)) = (send_type, self.context.upgrade()) {
+            context.writing_tool_text.borrow().is_some()
+                && send_type == unsafe { NSPasteboardTypeString }
+        } else {
+            false
+        }
+    }
+
+    fn write_selection_to_pasteboard(
+        &self,
+        pboard: &NSPasteboard,
+        types: &NSArray<NSPasteboardType>,
+    ) -> bool {
+        if unsafe { types.containsObject(NSPasteboardTypeString) } {
+            if let Some(text) = self
+                .context
+                .upgrade()
+                .and_then(|f| f.writing_tool_text.borrow().clone())
+            {
+                let text = NSString::from_str(&text);
+                unsafe { pboard.setString_forType(&text, NSPasteboardTypeString) };
+                return true;
+            }
+        }
+        false
+    }
+
+    fn read_selection_from_pasteboard(&self, pboard: &NSPasteboard) -> bool {
+        let string = unsafe { pboard.stringForType(NSPasteboardTypeString) };
+        if let (Some(string), Some(context), Some(delegate)) = (
+            string,
+            self.context.upgrade(),
+            self.context.upgrade().and_then(|c| c.delegate.upgrade()),
+        ) {
+            delegate.send_writing_tools_replacement(
+                context.context_id,
+                WritingToolsReplacementRequest {
+                    text: string.to_string(),
+                },
+            );
+            return true;
+        }
+        false
+    }
+}
+
+declare_class!(
+    struct SNEContextMenuView;
+
+    unsafe impl ClassType for SNEContextMenuView {
+        type Super = NSView;
+        type Mutability = mutability::MainThreadOnly;
+        const NAME: &'static str = "SNEContextMenuView";
+    }
+
+    impl DeclaredClass for SNEContextMenuView {
+        type Ivars = SNEContextMenuViewInner;
+    }
+
+    unsafe impl NSObjectProtocol for SNEContextMenuView {}
+
+    #[allow(non_snake_case)]
+    unsafe impl NSServicesMenuRequestor for SNEContextMenuView {
+        #[method(writeSelectionToPasteboard:types:)]
+        unsafe fn writeSelectionToPasteboard_types(
+            &self,
+            pboard: &NSPasteboard,
+            types: &NSArray<NSPasteboardType>,
+        ) -> bool {
+            self.ivars().write_selection_to_pasteboard(pboard, types)
+        }
+
+        #[method(readSelectionFromPasteboard:)]
+        unsafe fn readSelectionFromPasteboard(&self, pboard: &NSPasteboard) -> bool {
+            self.ivars().read_selection_from_pasteboard(pboard)
+        }
+    }
+
+    #[allow(non_snake_case)]
+    unsafe impl SNEContextMenuView  {
+        #[method_id(validRequestorForSendType:returnType:)]
+        unsafe fn validRequestorForSendType_returnType(
+            &self,
+            send_type: Option<&NSPasteboardType>,
+            return_type: Option<&NSPasteboardType>,
+        ) -> Option<Id<Self>> {
+            if self.ivars().is_valid_requestor(send_type, return_type) {
+                Some(self.retain())
+            } else {
+                unsafe { msg_send_id![super(self), validRequestorForSendType:send_type returnType:return_type ] }
+            }
+        }
+    }
+);
+
+impl SNEContextMenuView {
+    fn new(inner: SNEContextMenuViewInner, mtm: MainThreadMarker) -> Id<Self> {
+        unsafe {
+            let this = mtm.alloc::<Self>();
+            let this = this.set_ivars(inner);
+            let this: Id<Self> = msg_send_id![super(this), init];
+            this
+        }
+    }
+}
