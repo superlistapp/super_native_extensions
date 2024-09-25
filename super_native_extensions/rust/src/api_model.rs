@@ -232,13 +232,28 @@ pub struct MenuConfiguration {
     pub menu: Option<Rc<PlatformMenu>>,
 }
 
+/// macOS only
+#[derive(TryFromValue)]
+#[irondash(rename_all = "camelCase")]
+pub struct WritingToolsConfiguration {
+    pub rect: Rect,
+    pub text: String,
+}
+
 #[derive(TryFromValue)]
 #[irondash(rename_all = "camelCase")]
 pub struct ShowContextMenuRequest {
     pub menu_handle: i64,
     pub location: Point,
+    pub writing_tools_configuration: Option<WritingToolsConfiguration>,
     #[irondash(skip)]
     pub menu: Option<Rc<PlatformMenu>>,
+}
+
+#[derive(IntoValue)]
+#[irondash(rename_all = "camelCase")]
+pub struct WritingToolsReplacementRequest {
+    pub text: String,
 }
 
 #[derive(IntoValue)]

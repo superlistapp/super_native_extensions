@@ -62,6 +62,7 @@ class ContextMenuWidget extends StatelessWidget {
     this.contextMenuIsAllowed = _defaultContextMenuIsAllowed,
     MobileMenuWidgetBuilder? mobileMenuWidgetBuilder,
     DesktopMenuWidgetBuilder? desktopMenuWidgetBuilder,
+    this.writingToolsConfigurationProvider,
   })  : assert(previewBuilder == null || deferredPreviewBuilder == null,
             'Cannot use both previewBuilder and deferredPreviewBuilder'),
         mobileMenuWidgetBuilder =
@@ -80,6 +81,9 @@ class ContextMenuWidget extends StatelessWidget {
   final Widget child;
   final MobileMenuWidgetBuilder mobileMenuWidgetBuilder;
   final DesktopMenuWidgetBuilder desktopMenuWidgetBuilder;
+
+  final WritingToolsConfiguration? Function()?
+      writingToolsConfigurationProvider;
 
   /// Base icon theme for menu icons. The size will be overridden depending
   /// on platform.
@@ -111,6 +115,8 @@ class ContextMenuWidget extends StatelessWidget {
             contextMenuIsAllowed: contextMenuIsAllowed,
             iconTheme: iconTheme,
             menuWidgetBuilder: desktopMenuWidgetBuilder,
+            writingToolsConfigurationProvider:
+                writingToolsConfigurationProvider,
             child: child!,
           );
         }
@@ -120,3 +126,15 @@ class ContextMenuWidget extends StatelessWidget {
 }
 
 bool _defaultContextMenuIsAllowed(Offset location) => true;
+
+class WritingToolsConfiguration {
+  WritingToolsConfiguration({
+    required this.text,
+    required this.rect,
+    required this.onSuggestion,
+  });
+
+  final String text;
+  final Rect rect;
+  final ValueChanged<String> onSuggestion;
+}

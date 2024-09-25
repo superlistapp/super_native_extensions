@@ -143,6 +143,7 @@ class DesktopContextMenuWidget extends StatelessWidget {
     required this.menuProvider,
     required this.contextMenuIsAllowed,
     required this.menuWidgetBuilder,
+    this.writingToolsConfigurationProvider,
     this.iconTheme,
   });
 
@@ -156,6 +157,8 @@ class DesktopContextMenuWidget extends StatelessWidget {
   /// on platform.
   final IconThemeData? iconTheme;
 
+  final WritingToolsConfiguration? Function()?
+      writingToolsConfigurationProvider;
   @override
   Widget build(BuildContext context) {
     return _ContextMenuDetector(
@@ -229,10 +232,20 @@ class DesktopContextMenuWidget extends StatelessWidget {
         }
         onMenuResolved(true);
         onShowMenu.notify();
+        final writingToolsConfiguration =
+            writingToolsConfigurationProvider?.call();
+        raw.writingToolsSuggestionCallback =
+            writingToolsConfiguration?.onSuggestion;
+
         final request = raw.DesktopContextMenuRequest(
             iconTheme: serializationOptions.iconTheme,
             position: globalPosition,
             menu: handle,
+            writingToolsConfiguration: switch (writingToolsConfiguration) {
+              (WritingToolsConfiguration c) =>
+                raw.WritingToolsConfiguration(rect: c.rect, text: c.text),
+              _ => null,
+            },
             fallback: () {
               final completer = Completer<MenuResult>();
               ContextMenuSession(
