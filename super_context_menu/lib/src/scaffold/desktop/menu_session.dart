@@ -13,6 +13,7 @@ class ContextMenuSession implements MenuContainerDelegate {
     required Offset position,
     required IconThemeData iconTheme,
     required this.onDone,
+    required Set<Object> tapRegionGroupIds,
   }) {
     final overlay = Overlay.of(context, rootOverlay: true);
     _entry = OverlayEntry(
@@ -24,6 +25,7 @@ class ContextMenuSession implements MenuContainerDelegate {
           menuWidgetBuilder: menuWidgetBuilder,
           iconTheme: iconTheme,
           onInitialPointerUp: onInitialPointerUp,
+          tapRegionGroupIds: tapRegionGroupIds,
         );
       },
       opaque: false,

@@ -60,6 +60,7 @@ class ContextMenuWidget extends StatelessWidget {
     required this.menuProvider,
     this.iconTheme,
     this.contextMenuIsAllowed = _defaultContextMenuIsAllowed,
+    this.tapRegionGroupIds = const <Object>{},
     MobileMenuWidgetBuilder? mobileMenuWidgetBuilder,
     DesktopMenuWidgetBuilder? desktopMenuWidgetBuilder,
     this.writingToolsConfigurationProvider,
@@ -81,9 +82,12 @@ class ContextMenuWidget extends StatelessWidget {
   final Widget child;
   final MobileMenuWidgetBuilder mobileMenuWidgetBuilder;
   final DesktopMenuWidgetBuilder desktopMenuWidgetBuilder;
-
   final WritingToolsConfiguration? Function()?
       writingToolsConfigurationProvider;
+
+  /// Tap region group ids for which this context menu will be part of.
+  /// Can be used to avoid losing input focus when user clicks on the menu.
+  final Set<Object> tapRegionGroupIds;
 
   /// Base icon theme for menu icons. The size will be overridden depending
   /// on platform.
@@ -114,6 +118,7 @@ class ContextMenuWidget extends StatelessWidget {
             menuProvider: menuProvider,
             contextMenuIsAllowed: contextMenuIsAllowed,
             iconTheme: iconTheme,
+            tapRegionGroupIds: tapRegionGroupIds,
             menuWidgetBuilder: desktopMenuWidgetBuilder,
             writingToolsConfigurationProvider:
                 writingToolsConfigurationProvider,
