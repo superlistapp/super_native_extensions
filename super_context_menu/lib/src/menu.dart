@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
+import 'package:flutter_keyboard_visibility/flutter_keyboard_visibility.dart';
 import 'package:super_native_extensions/raw_menu.dart' as raw;
 
 import 'default_builder/desktop_menu_widget_builder.dart';
@@ -59,6 +60,9 @@ class ContextMenuWidget extends StatelessWidget {
     this.hitTestBehavior = HitTestBehavior.deferToChild,
     required this.menuProvider,
     this.iconTheme,
+    this.onMenuShown,
+    this.onMenuHidden,
+    this.shouldReopenKeyboard = false,
     this.contextMenuIsAllowed = _defaultContextMenuIsAllowed,
     MobileMenuWidgetBuilder? mobileMenuWidgetBuilder,
     DesktopMenuWidgetBuilder? desktopMenuWidgetBuilder,
@@ -81,6 +85,11 @@ class ContextMenuWidget extends StatelessWidget {
   final Widget child;
   final MobileMenuWidgetBuilder mobileMenuWidgetBuilder;
   final DesktopMenuWidgetBuilder desktopMenuWidgetBuilder;
+  final VoidCallback? onMenuShown;
+  final VoidCallback? onMenuHidden;
+
+  ///Works only on Android, default is false.
+  final bool shouldReopenKeyboard;
 
   final WritingToolsConfiguration? Function()?
       writingToolsConfigurationProvider;
@@ -97,7 +106,8 @@ class ContextMenuWidget extends StatelessWidget {
       child: child,
       builder: (context, child) {
         if (kind.value == PointerDeviceKind.touch) {
-          return MobileContextMenuWidget(
+          return KeyboardVisibilityProvider(
+            child: MobileContextMenuWidget(
             hitTestBehavior: hitTestBehavior,
             menuProvider: menuProvider,
             liftBuilder: liftBuilder,
@@ -106,7 +116,10 @@ class ContextMenuWidget extends StatelessWidget {
             iconTheme: iconTheme,
             contextMenuIsAllowed: contextMenuIsAllowed,
             menuWidgetBuilder: mobileMenuWidgetBuilder,
-            child: child!,
+            onMenuShown: onMenuShown,
+            onMenuHidden: onMenuHidden,
+            shouldReopenKeyboard: shouldReopenKeyboard,
+            child: child!,),
           );
         } else {
           return DesktopContextMenuWidget(
