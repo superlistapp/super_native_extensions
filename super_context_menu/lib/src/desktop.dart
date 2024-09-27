@@ -143,6 +143,7 @@ class DesktopContextMenuWidget extends StatelessWidget {
     required this.menuProvider,
     required this.contextMenuIsAllowed,
     required this.menuWidgetBuilder,
+    required this.tapRegionGroupIds,
     this.writingToolsConfigurationProvider,
     this.iconTheme,
   });
@@ -151,6 +152,7 @@ class DesktopContextMenuWidget extends StatelessWidget {
   final MenuProvider menuProvider;
   final ContextMenuIsAllowed contextMenuIsAllowed;
   final DesktopMenuWidgetBuilder menuWidgetBuilder;
+  final Set<Object> tapRegionGroupIds;
   final Widget child;
 
   /// Base icon theme for menu icons. The size will be overridden depending
@@ -159,17 +161,19 @@ class DesktopContextMenuWidget extends StatelessWidget {
 
   final WritingToolsConfiguration? Function()?
       writingToolsConfigurationProvider;
+
   @override
   Widget build(BuildContext context) {
     return _ContextMenuDetector(
       hitTestBehavior: hitTestBehavior,
       contextMenuIsAllowed: contextMenuIsAllowed,
-      onShowContextMenu: (position, pointerUpListenable, onMenuresolved) async {
+      onShowContextMenu: (position, pointerUpListenable, onMenuResolved) async {
         await _onShowContextMenu(
           context,
           position,
           pointerUpListenable,
-          onMenuresolved,
+          onMenuResolved,
+          tapRegionGroupIds,
         );
       },
       // Used on web to determine whether to prevent browser context menu
@@ -204,6 +208,7 @@ class DesktopContextMenuWidget extends StatelessWidget {
     Offset globalPosition,
     Listenable onInitialPointerUp,
     Function(bool) onMenuResolved,
+    Set<Object> tapRegionGroupIds,
   ) async {
     final onShowMenu = SimpleNotifier();
     final onHideMenu = ValueNotifier<raw.MenuResult?>(null);
@@ -256,6 +261,7 @@ class DesktopContextMenuWidget extends StatelessWidget {
                 onDone: (value) => completer.complete(value),
                 onInitialPointerUp: onInitialPointerUp,
                 position: globalPosition,
+                tapRegionGroupIds: tapRegionGroupIds,
               );
               return completer.future;
             });

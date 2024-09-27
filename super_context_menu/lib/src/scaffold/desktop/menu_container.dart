@@ -28,6 +28,7 @@ class MenuContainer extends StatefulWidget {
     required this.menuWidgetBuilder,
     required this.delegate,
     required this.onInitialPointerUp,
+    required this.tapRegionGroupIds,
   });
 
   final Menu rootMenu;
@@ -36,6 +37,7 @@ class MenuContainer extends StatefulWidget {
   final DesktopMenuWidgetBuilder menuWidgetBuilder;
   final MenuContainerDelegate delegate;
   final Listenable onInitialPointerUp;
+  final Set<Object> tapRegionGroupIds;
 
   @override
   State<StatefulWidget> createState() => _MenuContainerState();
@@ -131,8 +133,16 @@ class _MenuContainerState extends State<MenuContainer>
 
   final _deferredMenuElementCache = DeferredMenuElementCache();
 
+  bool _hasParentFocus = false;
+  FocusNode? _parentFocus;
+
   @override
   Widget build(BuildContext context) {
+    if (!_hasParentFocus) {
+      _hasParentFocus = true;
+      _parentFocus = FocusManager.instance.primaryFocus;
+    }
+
     Widget child = MenuLayout(
       key: _menuLayoutKey,
       padding: const EdgeInsets.all(10),
@@ -155,6 +165,8 @@ class _MenuContainerState extends State<MenuContainer>
                   iconTheme: widget.iconTheme,
                   delegate: this,
                   cache: _deferredMenuElementCache,
+                  parentFocusNode: _parentFocus,
+                  tapRegionGroupIds: widget.tapRegionGroupIds,
                 ),
               ),
             ),
