@@ -3,6 +3,47 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## 2024-09-30
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - There are no breaking changes in this release.
+
+Packages with other changes:
+
+ - [`super_clipboard` - `v0.8.23-dev.1`](#super_clipboard---v0823-dev1)
+ - [`super_drag_and_drop` - `v0.8.23-dev.1`](#super_drag_and_drop---v0823-dev1)
+ - [`super_context_menu` - `v0.8.23-dev.1`](#super_context_menu---v0823-dev1)
+ - [`super_native_extensions` - `v0.8.23-dev.1`](#super_native_extensions---v0823-dev1)
+ - [`super_hot_key` - `v0.8.23-dev.1`](#super_hot_key---v0823-dev1)
+ - [`super_keyboard_layout` - `v0.8.23-dev.1`](#super_keyboard_layout---v0823-dev1)
+
+---
+
+#### `super_clipboard` - `v0.8.23-dev.1`
+
+#### `super_drag_and_drop` - `v0.8.23-dev.1`
+
+#### `super_context_menu` - `v0.8.23-dev.1`
+
+ - **FEAT**: improve focus interaction with non-native context menu (#442).
+ - **FEAT**(macOS): preliminary support for writing tools (#441).
+
+#### `super_native_extensions` - `v0.8.23-dev.1`
+
+ - **FEAT**(macOS): preliminary support for writing tools (#441).
+
+#### `super_hot_key` - `v0.8.23-dev.1`
+
+ - Bump "super_hot_key" to `0.8.23-dev.1`.
+
+#### `super_keyboard_layout` - `v0.8.23-dev.1`
+
+
 ## 2024-09-10
 
 ### Changes

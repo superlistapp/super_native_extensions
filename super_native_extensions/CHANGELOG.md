@@ -1,3 +1,7 @@
+## 0.8.23-dev.1
+
+ - **FEAT**(macOS): preliminary support for writing tools (#441).
+
 ## 0.8.22
 
  - **FIX**: don't panic with thread local AccessError when shutting down (#426).
