@@ -24,6 +24,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Objects;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -35,6 +36,8 @@ public final class ClipDataHelper {
     static final String typeTextPlain = "text/plain";
     static final String typeTextHtml = "text/html";
     static final String typeUriList = "text/uri-list";
+
+    private static final String TAG = "SuperClipboard" + ClipDataHelper.class.getSimpleName();
 
     public String[] getFormats(ClipData data, int index, Context context) {
         if (index < data.getItemCount()) {
@@ -88,8 +91,22 @@ public final class ClipDataHelper {
         if (item.getText() != null) {
             res.add(typeTextPlain);
         }
+
+        ContentResolver contentProvider = context.getContentResolver();
         if (item.getUri() != null) {
-            String[] types = context.getContentResolver().getStreamTypes(item.getUri(), "*/*");
+            try {
+                readUriOrThrow(
+                        context,
+                        item.getUri()
+                );
+            } catch (SecurityException e) {
+                Log.e(TAG, "Could not read the URI " + contentProvider.getType(item.getUri()) + " due to app lifecycle changes: " + e);
+                return res.toArray(new String[0]);
+            } catch (IOException e) {
+                Log.e(TAG, "Could not read the URI " + contentProvider.getType(item.getUri()) + " due to IO error: " + e);
+                return res.toArray(new String[0]);
+            }
+            String[] types = contentProvider.getStreamTypes(item.getUri(), "*/*");
             if (types != null) {
                 for (String type : types) {
                     if (!res.contains(type)) {
@@ -97,7 +114,7 @@ public final class ClipDataHelper {
                     }
                 }
             } else {
-                String type = context.getContentResolver().getType(item.getUri());
+                String type = contentProvider.getType(item.getUri());
                 if (type != null) {
                     res.add(type);
                 } else {
@@ -106,6 +123,20 @@ public final class ClipDataHelper {
             }
         }
         return res.toArray(new String[0]);
+    }
+
+    /**
+     * A method to see if any exceptions can occur
+     * before start using the Uri.
+     * <p>
+     * The app can lose access to the [Uri] due to lifecycle changes.
+     *
+     * @throws SecurityException When the app loses access to the [Uri] due to app lifecycle changes
+     * or app restart.
+     * @throws FileNotFoundException Could be thrown when the [Uri] is no longer on the clipboard.
+     * */
+    private void  readUriOrThrow(Context context, Uri uri) throws SecurityException, IOException {
+        Objects.requireNonNull(context.getContentResolver().openInputStream(uri)).close();;
     }
 
     CharSequence getText(ClipData.Item item, Context context) {
