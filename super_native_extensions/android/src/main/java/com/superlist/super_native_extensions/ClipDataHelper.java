@@ -92,7 +92,7 @@ public final class ClipDataHelper {
             res.add(typeTextPlain);
         }
 
-        ContentResolver contentProvider = context.getContentResolver();
+        ContentResolver contentResolver = context.getContentResolver();
         if (item.getUri() != null) {
             try {
                 readUriOrThrow(
@@ -100,13 +100,13 @@ public final class ClipDataHelper {
                         item.getUri()
                 );
             } catch (SecurityException e) {
-                Log.e(TAG, "Could not read the URI " + contentProvider.getType(item.getUri()) + " due to app lifecycle changes: " + e);
+                Log.e(TAG, "Could not read the URI " + contentResolver.getType(item.getUri()) + " due to app lifecycle changes: " + e);
                 return res.toArray(new String[0]);
             } catch (IOException e) {
-                Log.e(TAG, "Could not read the URI " + contentProvider.getType(item.getUri()) + " due to IO error: " + e);
+                Log.e(TAG, "Could not read the URI " + contentResolver.getType(item.getUri()) + " due to IO error: " + e);
                 return res.toArray(new String[0]);
             }
-            String[] types = contentProvider.getStreamTypes(item.getUri(), "*/*");
+            String[] types = contentResolver.getStreamTypes(item.getUri(), "*/*");
             if (types != null) {
                 for (String type : types) {
                     if (!res.contains(type)) {
@@ -114,7 +114,7 @@ public final class ClipDataHelper {
                     }
                 }
             } else {
-                String type = contentProvider.getType(item.getUri());
+                String type = contentResolver.getType(item.getUri());
                 if (type != null) {
                     res.add(type);
                 } else {
