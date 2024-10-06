@@ -1,6 +1,6 @@
 name: super_keyboard_layout
 description: Keyboard layout mapping for Flutter. Map between physical and logical keys according to current keyboard layout and provides notification on layout changes.
-version: 0.8.23-dev.1
+version: 0.8.23
 homepage: https://github.com/superlistapp/super_native_extensions
 
 environment:
@@ -10,7 +10,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  super_native_extensions: ^0.8.23-dev.1
+  super_native_extensions: ^0.8.23
 dev_dependencies:
   flutter_test:
     sdk: flutter

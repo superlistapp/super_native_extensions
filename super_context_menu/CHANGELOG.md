@@ -1,3 +1,7 @@
+## 0.8.23
+
+ - Bump "super_context_menu" to `0.8.23`.
+
 ## 0.8.23-dev.1
 
  - **FEAT**: improve focus interaction with non-native context menu (#442).

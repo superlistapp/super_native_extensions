@@ -1,3 +1,7 @@
+## 0.8.23
+
+ - **FIX**: workaround for deadlock on iOS 18 (#449).
+
 ## 0.8.23-dev.1
 
  - **FEAT**(macOS): preliminary support for writing tools (#441).
