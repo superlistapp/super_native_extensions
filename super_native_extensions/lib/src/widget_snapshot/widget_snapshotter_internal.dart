@@ -103,6 +103,12 @@ class WidgetSnapshotterStateImpl extends WidgetSnapshotterState {
     // We have pending snapshot for widget that we haven't built yet
     if (_pendingSnapshots.any((s) => _getRenderObject(s.key) == null)) {
       setState(() {});
+      // TODO(knopp): This is fragile and the underlying reason for the deadlock
+      // needs to be investigates.
+      // On iOS 18 next frame vsync never comes while the run loop is being
+      // polled. This is a ugly workaround to make sure that we do not
+      // deadlock.
+      WidgetsBinding.instance.scheduleWarmUpFrame();
       WidgetsBinding.instance.addPostFrameCallback((timeStamp) {
         _checkSnapshots();
       });
