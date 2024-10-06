@@ -7,6 +7,8 @@
 #![allow(clippy::arc_with_non_send_sync)]
 // TODO(knopp): Fine grained way to prevent dead code warnings in code that is not used on all platforms.
 #![allow(dead_code)]
+// TODO(knopp): Remove once supported on stable
+#![allow(clippy::needless_lifetimes)]
 
 use std::ffi::c_void;
 
