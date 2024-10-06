@@ -241,10 +241,10 @@ packages:
     dependency: transitive
     description:
       name: stack_trace
-      sha256: "73713990125a6d93122541237550ee3352a2d84baad52d375a4cad2eb9b7ce0b"
+      sha256: "9f47fd3630d76be3ab26f0ee06d213679aa425996925ff3feffdec504931c377"
       url: "https://pub.dev"
     source: hosted
-    version: "1.11.1"
+    version: "1.12.0"
   stream_channel:
     dependency: transitive
     description:
@@ -267,28 +267,28 @@ packages:
       path: "../../super_clipboard"
       relative: true
     source: path
-    version: "0.8.22"
+    version: "0.8.23"
   super_context_menu:
     dependency: "direct main"
     description:
       path: ".."
       relative: true
     source: path
-    version: "0.8.22"
+    version: "0.8.23"
   super_drag_and_drop:
     dependency: "direct main"
     description:
       path: "../../super_drag_and_drop"
       relative: true
     source: path
-    version: "0.8.22"
+    version: "0.8.23"
   super_native_extensions:
     dependency: "direct overridden"
     description:
       path: "../../super_native_extensions"
       relative: true
     source: path
-    version: "0.8.22"
+    version: "0.8.23"
   term_glyph:
     dependency: transitive
     description:
@@ -333,10 +333,10 @@ packages:
     dependency: transitive
     description:
       name: vm_service
-      sha256: "5c5f338a667b4c644744b661f309fb8080bb94b18a7e91ef1dbd343bed00ed6d"
+      sha256: f6be3ed8bd01289b34d679c2b62226f63c0e69f9fd2e50a6b3c1c729a961041b
       url: "https://pub.dev"
     source: hosted
-    version: "14.2.5"
+    version: "14.3.0"
   web:
     dependency: transitive
     description:
