@@ -56,7 +56,7 @@ public class DragDropHelper {
         }
     }
 
-    native void updateLastTouchPoint(ViewParent rootView, MotionEvent event);
+    native void updateLastTouchPoint(ViewParent rootView, int x, int y);
 
     void startDrag(View view, long dragSessionId, ClipData clipData, Bitmap bitmap,
                    int touchPointX, int touchPointY, int lastTouchEventX, int lastTouchEventY) {
@@ -70,15 +70,10 @@ public class DragDropHelper {
             }
             int[] viewLocation = new int[2];
             view.getLocationOnScreen(viewLocation);
-            MotionEvent event = MotionEvent.obtain(SystemClock.uptimeMillis(), SystemClock.uptimeMillis(),
-                                                   MotionEvent.ACTION_MOVE,
-                                                   lastTouchEventX + viewLocation[0],
-                                                   lastTouchEventY + viewLocation[1],
-                                                   0);
-            event.setSource(InputDevice.SOURCE_CLASS_POINTER);
-            // Simulate touch event before starting drag which will be the return position
+            // Override the last touch point which which will be the return position
             // on failed drop
-            updateLastTouchPoint(parent, event);
+            updateLastTouchPoint(parent, lastTouchEventX + viewLocation[0], lastTouchEventY + viewLocation[1]);
+
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                 view.startDragAndDrop(clipData,
                         new DragShadowBuilder(bitmap, new Point(touchPointX, touchPointY)), new SessionId(dragSessionId),
