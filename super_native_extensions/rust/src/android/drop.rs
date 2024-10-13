@@ -3,6 +3,7 @@ use std::{
     collections::HashMap,
     rc::{Rc, Weak},
     sync::Arc,
+    thread,
 };
 
 use irondash_engine_context::EngineContext;
@@ -10,7 +11,7 @@ use irondash_message_channel::{IsolateId, Value};
 use irondash_run_loop::RunLoop;
 use jni::{
     objects::{GlobalRef, JClass, JObject, JString, JValue},
-    sys::{jlong, jvalue},
+    sys::{jint, jlong, jvalue},
     JNIEnv,
 };
 
@@ -25,6 +26,7 @@ use crate::{
     log::OkLog,
     reader_manager::RegisteredDataReader,
     util::{DropNotifier, NextId},
+    value_promise::Promise,
 };
 
 use super::{
@@ -416,19 +418,28 @@ impl Drop for PlatformDropContext {
 fn update_last_touch_point<'a>(
     env: &mut JNIEnv<'a>,
     view_root: JObject<'a>,
-    event: &JObject<'a>,
+    x: i32,
+    y: i32,
 ) -> NativeExtensionsResult<()> {
-    env.call_method(
-        view_root,
-        "enqueueInputEvent",
-        "(Landroid/view/InputEvent;Landroid/view/InputEventReceiver;IZ)V",
-        &[
-            (&event).into(),
-            (&JObject::null()).into(),
-            1.into(),
-            true.into(),
-        ],
-    )?;
+    let view_root_global = env.new_global_ref(&view_root)?;
+    let jvm = env.get_java_vm()?;
+    let p = Arc::new(Promise::new());
+    let p2 = p.clone();
+    thread::spawn(move || {
+        let update = move || -> NativeExtensionsResult<()> {
+            let mut env = jvm.attach_current_thread()?;
+            let view_root = view_root_global.as_obj();
+            let last_touch_point = env
+                .get_field(view_root, "mLastTouchPoint", "Landroid/graphics/PointF;")?
+                .l()?;
+            env.set_field(&last_touch_point, "x", "F", (x as f32).into())?;
+            env.set_field(&last_touch_point, "y", "F", (y as f32).into())?;
+            Ok(())
+        };
+        p.set(update());
+    });
+    p2.wait()?;
+
     Ok(())
 }
 
@@ -440,9 +451,10 @@ pub extern "C" fn Java_com_superlist_super_1native_1extensions_DragDropHelper_up
     mut env: JNIEnv<'a>,
     _class: JClass,
     view_root: JObject<'a>,
-    event: JObject<'a>,
+    x: jint,
+    y: jint,
 ) {
-    update_last_touch_point(&mut env, view_root, &event).ok_log();
+    update_last_touch_point(&mut env, view_root, x, y).ok_log();
 }
 
 #[no_mangle]
