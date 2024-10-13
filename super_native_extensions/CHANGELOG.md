@@ -1,3 +1,7 @@
+## 0.8.24
+
+ - **FIX**: drag crashing on Android 15 (#453).
+
 ## 0.8.23
 
  - **FIX**: workaround for deadlock on iOS 18 (#449).

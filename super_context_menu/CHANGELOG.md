@@ -1,3 +1,5 @@
+## 0.8.24
+
 ## 0.8.23
 
  - Bump "super_context_menu" to `0.8.23`.
