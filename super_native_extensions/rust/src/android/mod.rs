@@ -1,3 +1,4 @@
+mod clipboard_events;
 mod data_provider;
 mod drag;
 mod drag_common;
@@ -8,6 +9,7 @@ mod menu;
 mod reader;
 mod util;
 
+pub use clipboard_events::*;
 pub use data_provider::*;
 pub use drag::*;
 pub use drop::*;

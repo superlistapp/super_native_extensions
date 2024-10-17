@@ -1,3 +1,4 @@
+mod clipboard_events;
 mod common;
 mod data_object;
 mod data_provider;
@@ -12,6 +13,7 @@ mod ole_initializer;
 mod reader;
 mod virtual_file_stream;
 
+pub use clipboard_events::*;
 pub use data_provider::*;
 pub use drag::*;
 pub use drop::*;
