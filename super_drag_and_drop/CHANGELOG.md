@@ -1,3 +1,7 @@
+## 0.9.0-dev.1
+
+ - Bump "super_drag_and_drop" to `0.9.0-dev.1`.
+
 ## 0.8.24
 
 ## 0.8.23

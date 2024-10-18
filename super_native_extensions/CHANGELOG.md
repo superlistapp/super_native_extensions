@@ -1,3 +1,7 @@
+## 0.9.0-dev.1
+
+ - Bump "super_native_extensions" to `0.9.0-dev.1`.
+
 ## 0.8.24
 
  - **FIX**: drag crashing on Android 15 (#453).
