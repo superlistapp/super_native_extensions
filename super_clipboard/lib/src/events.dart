@@ -4,6 +4,7 @@ import 'reader.dart';
 import 'writer.dart';
 import 'writer_data_provider.dart';
 import 'system_clipboard.dart';
+export 'package:super_native_extensions/raw_clipboard.dart' show TextEvent;
 
 /// Event dispatched during a browser paste action (only available on web).
 /// Allows reading data from clipboard.
@@ -44,9 +45,16 @@ class ClipboardWriteEvent extends ClipboardWriter {
 
   @override
   Future<void> write(Iterable<DataWriterItem> items) async {
-    items.withHandlesSync((handles) async {
-      _event.write(handles);
-    });
+    final token = _event.beginWrite();
+    if (_event.isSynchronous) {
+      items.withHandlesSync((handles) async {
+        _event.write(token, handles);
+      });
+    } else {
+      items.withHandles((handles) async {
+        _event.write(token, handles);
+      });
+    }
   }
 }
 
@@ -133,4 +141,33 @@ class ClipboardEvents {
       <void Function(ClipboardWriteEvent event)>[];
   static final _cutEventListeners =
       <void Function(ClipboardWriteEvent event)>[];
+}
+
+class TextEvents {
+  TextEvents._() {
+    raw.ClipboardEvents.instance.registerTextEventListener(_onTextEvent);
+  }
+
+  /// Returns clipboard events instance if available on current platform.
+  /// This is only supported on web, on other platforms use [SystemClipboard.instance]
+  /// to access the clipboard.
+  static TextEvents get instance => TextEvents._();
+
+  void registerTextEventListener(bool Function(raw.TextEvent) listener) {
+    _textEventListeners.add(listener);
+  }
+
+  void unregisterTextEventListener(bool Function(raw.TextEvent) listener) {
+    _textEventListeners.remove(listener);
+  }
+
+  bool _onTextEvent(raw.TextEvent event) {
+    bool handled = false;
+    for (final listener in _textEventListeners) {
+      handled |= listener(event);
+    }
+    return handled;
+  }
+
+  static final _textEventListeners = <bool Function(raw.TextEvent event)>[];
 }

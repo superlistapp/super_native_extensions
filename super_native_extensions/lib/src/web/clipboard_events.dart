@@ -34,6 +34,15 @@ class _PasteEvent extends ClipboardReadEvent {
 class _WriteEvent extends ClipboardWriteEvent {
   _WriteEvent({required this.event});
 
+  @override
+  Object beginWrite() {
+    // Not needed for synchronous events;
+    return const Object();
+  }
+
+  @override
+  bool get isSynchronous => true;
+
   void _setData(String type, Object? data) {
     if (data is! String) {
       throw UnsupportedError('HTML Clipboard event only supports String data.');
@@ -42,7 +51,7 @@ class _WriteEvent extends ClipboardWriteEvent {
   }
 
   @override
-  void write(List<DataProviderHandle> providers) {
+  void write(Object token, List<DataProviderHandle> providers) {
     event.preventDefault();
     for (final provider in providers) {
       for (final repr in provider.provider.representations) {
@@ -150,4 +159,10 @@ class ClipboardEventsImpl extends ClipboardEvents {
       void Function(ClipboardWriteEvent p1) listener) {
     _cutEventListeners.remove(listener);
   }
+
+  @override
+  void registerTextEventListener(bool Function(TextEvent) listener) {}
+
+  @override
+  void unregisterTextEventListener(bool Function(TextEvent) listener) {}
 }
