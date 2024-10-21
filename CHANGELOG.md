@@ -3,6 +3,44 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## 2024-10-21
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - There are no breaking changes in this release.
+
+Packages with other changes:
+
+ - [`super_clipboard` - `v0.9.0-dev.2`](#super_clipboard---v090-dev2)
+ - [`super_drag_and_drop` - `v0.9.0-dev.2`](#super_drag_and_drop---v090-dev2)
+ - [`super_context_menu` - `v0.9.0-dev.2`](#super_context_menu---v090-dev2)
+ - [`super_native_extensions` - `v0.9.0-dev.2`](#super_native_extensions---v090-dev2)
+ - [`super_hot_key` - `v0.9.0-dev.2`](#super_hot_key---v090-dev2)
+ - [`super_keyboard_layout` - `v0.9.0-dev.2`](#super_keyboard_layout---v090-dev2)
+
+---
+
+#### `super_clipboard` - `v0.9.0-dev.2`
+
+#### `super_drag_and_drop` - `v0.9.0-dev.2`
+
+#### `super_context_menu` - `v0.9.0-dev.2`
+
+#### `super_native_extensions` - `v0.9.0-dev.2`
+
+ - **FIX**: workaround for exception when running in test environment (#458).
+
+#### `super_hot_key` - `v0.9.0-dev.2`
+
+ - Bump "super_hot_key" to `0.9.0-dev.2`.
+
+#### `super_keyboard_layout` - `v0.9.0-dev.2`
+
+
 ## 2024-10-18
 
 ### Changes

@@ -1,3 +1,5 @@
+## 0.9.0-dev.2
+
 ## 0.9.0-dev.1
 
  - Bump "super_clipboard" to `0.9.0-dev.1`.

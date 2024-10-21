@@ -32,11 +32,11 @@ dependencies:
   flutter:
     sdk: flutter
   collection: ^1.16.0
-  super_clipboard: ^0.9.0-dev.1
-  super_drag_and_drop: ^0.9.0-dev.1
+  super_clipboard: ^0.9.0-dev.2
+  super_drag_and_drop: ^0.9.0-dev.2
   super_clipboard_example:
     path: ../../super_clipboard/example
-  super_context_menu: ^0.9.0-dev.1
+  super_context_menu: ^0.9.0-dev.2
   super_sliver_list: ^0.4.1
 
   # The following adds the Cupertino Icons font to your application.

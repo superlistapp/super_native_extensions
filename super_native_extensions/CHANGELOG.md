@@ -1,3 +1,7 @@
+## 0.9.0-dev.2
+
+ - **FIX**: workaround for exception when running in test environment (#458).
+
 ## 0.9.0-dev.1
 
  - Bump "super_native_extensions" to `0.9.0-dev.1`.
