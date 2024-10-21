@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -47,6 +48,9 @@ class _ClipboardReadEvent extends ClipboardReadEvent {
 
 class ClipboardEventsImpl extends ClipboardEvents {
   ClipboardEventsImpl() {
+    if (Platform.environment.containsKey('FLUTTER_TEST')) {
+      return;
+    }
     _channel.setMethodCallHandler(_onMethodCall);
     _channel.invokeMethod('newClipboardEventsManager');
   }
