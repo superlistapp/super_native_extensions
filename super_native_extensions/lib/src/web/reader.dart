@@ -67,14 +67,14 @@ class ClipboardItemHandle extends $DataReaderItemHandle {
 
   @override
   Future<List<String>> getFormats() async {
-    return item.types.toDart.cast<String>();
+    return item.types.toDart.map((t) => t.toDart).toList(growable: false);
   }
 
   @override
   Future<Object?> getDataForFormat(String format) async {
     final data = await item.getType(format).toDart;
     if (format.startsWith('text/')) {
-      return data.text().toDart;
+      return (await data.text().toDart).toDart;
     } else {
       return (await data.arrayBuffer().toDart).toDart.asUint8List();
     }
