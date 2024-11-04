@@ -223,6 +223,43 @@ abstract class _DragDetector extends StatelessWidget {
   }
 }
 
+/// Determine the appropriate hit slop pixels based on the [kind] of pointer.
+double _computeHitSlop(
+  PointerDeviceKind kind,
+  DeviceGestureSettings? settings,
+) {
+  switch (kind) {
+    case PointerDeviceKind.mouse:
+      // Normally this would be kPrecisePointerHitSlop (1), but for drag & drop some
+      // extra slop is helpful to prevent accidental dragging, especially when using a tablet.
+      return 4.0;
+    case PointerDeviceKind.stylus:
+    case PointerDeviceKind.invertedStylus:
+    case PointerDeviceKind.unknown:
+    case PointerDeviceKind.touch:
+    case PointerDeviceKind.trackpad:
+      return settings?.touchSlop ?? kTouchSlop;
+  }
+}
+
+class _ImmediatePointerState extends MultiDragPointerState {
+  _ImmediatePointerState(
+      super.initialPosition, super.kind, super.gestureSettings);
+
+  @override
+  void checkForResolutionAfterMove() {
+    assert(pendingDelta != null);
+    if (pendingDelta!.distance > _computeHitSlop(kind, gestureSettings)) {
+      resolve(GestureDisposition.accepted);
+    }
+  }
+
+  @override
+  void accepted(GestureMultiDragStartCallback starter) {
+    starter(initialPosition);
+  }
+}
+
 class _ImmediateMultiDragGestureRecognizer
     extends ImmediateMultiDragGestureRecognizer {
   int? lastPointer;
@@ -232,6 +269,11 @@ class _ImmediateMultiDragGestureRecognizer
   _ImmediateMultiDragGestureRecognizer({
     required this.isLocationDraggable,
   });
+
+  @override
+  MultiDragPointerState createNewPointerState(PointerDownEvent event) {
+    return _ImmediatePointerState(event.position, event.kind, gestureSettings);
+  }
 
   @override
   void acceptGesture(int pointer) {
