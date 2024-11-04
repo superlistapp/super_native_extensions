@@ -1,3 +1,7 @@
+## 0.9.0-dev.3
+
+ - Bump "super_hot_key" to `0.9.0-dev.3`.
+
 ## 0.9.0-dev.2
 
  - Bump "super_hot_key" to `0.9.0-dev.2`.

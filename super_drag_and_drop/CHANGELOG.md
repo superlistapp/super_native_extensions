@@ -1,3 +1,7 @@
+## 0.9.0-dev.3
+
+ - **FEAT**: increase hit slop required for dragging on desktop (#463).
+
 ## 0.9.0-dev.2
 
 ## 0.9.0-dev.1

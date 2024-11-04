@@ -1,3 +1,7 @@
+## 0.9.0-dev.3
+
+ - **FIX**: clipboard read error on wasm (#464).
+
 ## 0.9.0-dev.2
 
  - **FIX**: workaround for exception when running in test environment (#458).
