@@ -1,3 +1,7 @@
+## 0.9.0-dev.4
+
+ - **FIX**: widget snapshots not working properly with WASM (#469).
+
 ## 0.9.0-dev.3
 
  - **FIX**: clipboard read error on wasm (#464).
