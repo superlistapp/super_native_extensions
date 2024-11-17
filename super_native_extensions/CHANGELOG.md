@@ -1,3 +1,7 @@
+## 0.9.0-dev.5
+
+ - Bump "super_native_extensions" to `0.9.0-dev.5`.
+
 ## 0.9.0-dev.4
 
  - **FIX**: widget snapshots not working properly with WASM (#469).

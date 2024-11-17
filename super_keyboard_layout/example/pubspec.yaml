@@ -31,7 +31,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  super_keyboard_layout: ^0.9.0-dev.4
+  super_keyboard_layout: ^0.9.0-dev.5
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
