@@ -426,7 +426,7 @@ class Formats {
   );
 
   static const ppt = SimpleFileFormat(
-    uniformTypeIdentifiers: ['com.microsoft.powerpoint.​ppt'],
+    uniformTypeIdentifiers: ['com.microsoft.powerpoint.ppt'],
     mimeTypes: ['application/vnd.ms-powerpoint'],
   );
 
