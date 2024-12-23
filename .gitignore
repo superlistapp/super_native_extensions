@@ -33,3 +33,5 @@ build/
 .flutter-plugins-dependencies
 
 pubspec_overrides.yaml
+
+.cxx
