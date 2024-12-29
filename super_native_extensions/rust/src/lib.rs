@@ -9,6 +9,8 @@
 #![allow(dead_code)]
 // TODO(knopp): Remove once supported on stable
 #![allow(clippy::needless_lifetimes)]
+// TODO(knopp): False positive in 1.83.0.
+#![allow(clippy::missing_const_for_thread_local)]
 
 use std::ffi::c_void;
 
