@@ -8,7 +8,6 @@ use std::{
 
 use irondash_engine_context::EngineContext;
 use irondash_message_channel::{IsolateId, Value};
-use irondash_run_loop::RunLoop;
 use jni::{
     objects::{GlobalRef, JClass, JObject, JString, JValue},
     sys::{jint, jlong, jvalue},
@@ -373,19 +372,13 @@ impl PlatformDropContext {
                             Some(accepted_operation),
                             reader,
                         )?;
-                        let done = Rc::new(Cell::new(false));
-                        let done_clone = done.clone();
                         delegate.send_perform_drop(
                             self.id,
                             event,
                             Box::new(move |r| {
                                 r.ok_log();
-                                done_clone.set(true);
                             }),
                         );
-                        while !done.get() {
-                            RunLoop::current().platform_run_loop.poll_once();
-                        }
                         Ok(true)
                     } else {
                         Ok(false)
