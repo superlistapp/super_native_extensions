@@ -1,3 +1,7 @@
+## 0.9.0-dev.6
+
+ - **FIX**: crash on android with merged platform and UI threads (#483).
+
 ## 0.9.0-dev.5
 
  - Bump "super_native_extensions" to `0.9.0-dev.5`.

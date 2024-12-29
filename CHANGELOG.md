@@ -3,6 +3,46 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## 2024-12-29
+
+### Changes
+
+---
+
+Packages with breaking changes:
+
+ - There are no breaking changes in this release.
+
+Packages with other changes:
+
+ - [`super_clipboard` - `v0.9.0-dev.6`](#super_clipboard---v090-dev6)
+ - [`super_drag_and_drop` - `v0.9.0-dev.6`](#super_drag_and_drop---v090-dev6)
+ - [`super_context_menu` - `v0.9.0-dev.6`](#super_context_menu---v090-dev6)
+ - [`super_native_extensions` - `v0.9.0-dev.6`](#super_native_extensions---v090-dev6)
+ - [`super_hot_key` - `v0.9.0-dev.6`](#super_hot_key---v090-dev6)
+ - [`super_keyboard_layout` - `v0.9.0-dev.6`](#super_keyboard_layout---v090-dev6)
+
+---
+
+#### `super_clipboard` - `v0.9.0-dev.6`
+
+#### `super_drag_and_drop` - `v0.9.0-dev.6`
+
+ - **DOCS**: fix typo (#473).
+
+#### `super_context_menu` - `v0.9.0-dev.6`
+
+#### `super_native_extensions` - `v0.9.0-dev.6`
+
+ - **FIX**: crash on android with merged platform and UI threads (#483).
+
+#### `super_hot_key` - `v0.9.0-dev.6`
+
+ - Bump "super_hot_key" to `0.9.0-dev.6`.
+
+#### `super_keyboard_layout` - `v0.9.0-dev.6`
+
+
 ## 2024-11-17
 
 ### Changes
