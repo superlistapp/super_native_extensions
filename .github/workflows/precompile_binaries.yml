@@ -43,7 +43,7 @@ jobs:
       matrix:
         include:
           - arch: aarch64
-            distro: ubuntu22.04
+            distro: ubuntu22.04 # TODO change this to 20.04
 
     steps:
       - uses: actions/checkout@ee0669bd1cc54295c223e0bb666b733df41de1c5 #v2.7.0
@@ -74,8 +74,8 @@ jobs:
 
           run: |
             export FLUTTER_VERSION=stable
-            # export GITHUB_TOKEN=${{ secrets.RELEASE_GITHUB_TOKEN }}
-            # export PRIVATE_KEY=${{ secrets.RELEASE_PRIVATE_KEY }}
+            export GITHUB_TOKEN=${{ secrets.RELEASE_GITHUB_TOKEN }}
+            export PRIVATE_KEY=${{ secrets.RELEASE_PRIVATE_KEY }}
             git clone --depth 1 --branch ${FLUTTER_VERSION} https://github.com/flutter/flutter.git /flutter
             export PATH="$PATH:/flutter/bin"
             export PATH="$PATH":"$HOME/.pub-cache/bin"
