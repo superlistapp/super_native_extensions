@@ -67,7 +67,7 @@ jobs:
             case "${{ matrix.distro }}" in
               ubuntu*)
                 apt-get update -q -y
-                apt-get install -q -y libgtk-3-dev git curl
+                apt-get install -q -y libgtk-3-dev git curl unzip
                 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
                 ;;
             esac
