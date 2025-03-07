@@ -46,7 +46,7 @@ jobs:
             distro: ubuntu22.04
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@ee0669bd1cc54295c223e0bb666b733df41de1c5 #v2.7.0
 
       - name: Build artifact
         uses: uraimo/run-on-arch-action@v3
@@ -74,12 +74,11 @@ jobs:
 
           run: |
             export FLUTTER_VERSION=stable
+            # export GITHUB_TOKEN=${{ secrets.RELEASE_GITHUB_TOKEN }}
+            # export PRIVATE_KEY=${{ secrets.RELEASE_PRIVATE_KEY }}
             git clone --depth 1 --branch ${FLUTTER_VERSION} https://github.com/flutter/flutter.git /flutter
             export PATH="$PATH:/flutter/bin"
             export PATH="$PATH":"$HOME/.pub-cache/bin"
             flutter doctor
-            git clone https://github.com/superlistapp/super_native_extensions.git
-            cd super_native_extensions
-            git fetch --depth=1 origin ee0669bd1cc54295c223e0bb666b733df41de1c5
-            git checkout ee0669bd1cc54295c223e0bb666b733df41de1c5
+            ls -la
             cd super_native_extensions/cargokit/build_tool && dart run build_tool precompile-binaries -v --manifest-dir=../../rust --repository=superlistapp/super_native_extensions --android-sdk-location=/usr/local/lib/android/sdk --android-ndk-version=26.3.11579264 --android-min-sdk-version=23
