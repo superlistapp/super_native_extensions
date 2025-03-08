@@ -35,7 +35,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.RELEASE_GITHUB_TOKEN }}
           PRIVATE_KEY: ${{ secrets.RELEASE_PRIVATE_KEY }}
 
-  build_cross:
+  PrecompileCross:
     runs-on: ubuntu-20.04
     name: Precompile (${{ matrix.distro }} ${{ matrix.arch }})
 
@@ -53,7 +53,7 @@ jobs:
       - uses: actions/checkout@ee0669bd1cc54295c223e0bb666b733df41de1c5 #v2.7.0
       - uses: dart-lang/setup-dart@b64355ae6ca0b5d484f0106a033dd1388965d06d #1.6.0
 
-      - name: Build artifact
+      - name: Precompile
         uses: uraimo/run-on-arch-action@v3
         with:
           arch: ${{ matrix.arch }}
@@ -73,8 +73,4 @@ jobs:
           run: |
             export GITHUB_TOKEN=${{ secrets.RELEASE_GITHUB_TOKEN }}
             export PRIVATE_KEY=${{ secrets.RELEASE_PRIVATE_KEY }}
-            # git clone --depth 1 --branch stable https://github.com/flutter/flutter.git /flutter
-            # export PATH="$PATH:/flutter/bin"
-            # export PATH="$PATH":"$HOME/.pub-cache/bin"
-            flutter doctor
             cd super_native_extensions/cargokit/build_tool && dart run build_tool precompile-binaries -v --manifest-dir=../../rust --repository=chanderlud/super_native_extensions --target ${{ matrix.target }}
