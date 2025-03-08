@@ -79,4 +79,4 @@ jobs:
             export GITHUB_TOKEN=${{ secrets.RELEASE_GITHUB_TOKEN }}
             export PRIVATE_KEY=${{ secrets.RELEASE_PRIVATE_KEY }}
             export PATH="$PATH:/usr/lib/dart/bin"
-            cd super_native_extensions/cargokit/build_tool && dart run build_tool precompile-binaries -v --manifest-dir=../../rust --repository=chanderlud/super_native_extensions --target ${{ matrix.target }}
+            cd super_native_extensions/cargokit/build_tool && dart run build_tool precompile-binaries -v --manifest-dir=../../rust --repository=superlistapp/super_native_extensions --target ${{ matrix.target }}
