@@ -47,12 +47,8 @@ jobs:
             distro: ubuntu20.04
             target: aarch64-unknown-linux-gnu
             dart_arch: arm64
-          - arch: armv7
-            distro: ubuntu20.04
-            target: armv7-unknown-linux-gnueabihf
-            dart_arch: arm
           - arch: riscv64
-            distro: ubuntu20.04
+            distro: ubuntu22.04
             target: riscv64gc-unknown-linux-gnu
             dart_arch: riscv64
 
@@ -83,5 +79,4 @@ jobs:
             export GITHUB_TOKEN=${{ secrets.RELEASE_GITHUB_TOKEN }}
             export PRIVATE_KEY=${{ secrets.RELEASE_PRIVATE_KEY }}
             export PATH="$PATH:/usr/lib/dart/bin"
-            df -T ~/.cargo | awk '{print $2}' | tail -n 1
             cd super_native_extensions/cargokit/build_tool && dart run build_tool precompile-binaries -v --manifest-dir=../../rust --repository=chanderlud/super_native_extensions --target ${{ matrix.target }}
