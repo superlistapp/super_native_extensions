@@ -72,7 +72,7 @@ jobs:
                 apt-get update -q -y
                 apt-get install -q -y libgtk-3-dev git curl unzip gcc
                 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-                curl -o dartsdk-linux-arm64-release.zip https://storage.googleapis.com/dart-archive/channels/stable/release/latest/sdk/dartsdk-linux-${{ matrix.dart_arch }}-release.zip
+                curl -o dartsdk-linux-${{ matrix.dart_arch }}-release.zip https://storage.googleapis.com/dart-archive/channels/stable/release/latest/sdk/dartsdk-linux-${{ matrix.dart_arch }}-release.zip
                 unzip dartsdk-linux-${{ matrix.dart_arch }}-release.zip
                 mv dart-sdk /usr/lib/dart
                 ;;
