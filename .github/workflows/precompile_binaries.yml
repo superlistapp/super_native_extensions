@@ -66,10 +66,11 @@ jobs:
                 apt-get update -q -y
                 apt-get install -q -y libgtk-3-dev git curl unzip gcc apt-transport-https wget gnupg
                 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-                wget -qO- https://dl-ssl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/dart.gpg
-                echo 'deb [signed-by=/usr/share/keyrings/dart.gpg arch=amd64] https://storage.googleapis.com/download.dartlang.org/linux/debian stable main' | tee /etc/apt/sources.list.d/dart_stable.list
-                apt-get update -q -y
-                apt-get install -q -y dart
+                curl -fsSL https://dl-ssl.google.com/linux/linux_signing_key.pub | gpg --dearmor | tee /usr/share/keyrings/dart.gpg > /dev/null
+                ls -l /usr/share/keyrings/dart.gpg
+                echo 'deb [signed-by=/usr/share/keyrings/dart.gpg arch=amd64] https://storage.googleapis.com/download.dartlang.org/linux/debian stable main' | sudo tee /etc/apt/sources.list.d/dart_stable.list
+                sudo apt-get update -q -y
+                sudo apt-get install -q -y dart
                 ;;
             esac
 
