@@ -77,4 +77,4 @@ jobs:
             # export PATH="$PATH:/flutter/bin"
             # export PATH="$PATH":"$HOME/.pub-cache/bin"
             flutter doctor
-            cd super_native_extensions/cargokit/build_tool && dart run build_tool precompile-binaries -v --manifest-dir=../../rust --repository=superlistapp/super_native_extensions --target ${{ matrix.target }}
+            cd super_native_extensions/cargokit/build_tool && dart run build_tool precompile-binaries -v --manifest-dir=../../rust --repository=chanderlud/super_native_extensions --target ${{ matrix.target }}
