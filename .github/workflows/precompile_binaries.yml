@@ -51,7 +51,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@ee0669bd1cc54295c223e0bb666b733df41de1c5 #v2.7.0
-      - uses: dart-lang/setup-dart@b64355ae6ca0b5d484f0106a033dd1388965d06d #1.6.0
 
       - name: Precompile
         uses: uraimo/run-on-arch-action@v3
@@ -65,12 +64,17 @@ jobs:
             case "${{ matrix.distro }}" in
               ubuntu*)
                 apt-get update -q -y
-                apt-get install -q -y libgtk-3-dev git curl unzip gcc
+                apt-get install -q -y libgtk-3-dev git curl unzip gcc apt-transport-https
                 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+                wget -qO- https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo gpg --dearmor -o /usr/share/keyrings/dart.gpg
+                echo 'deb [signed-by=/usr/share/keyrings/dart.gpg arch=amd64] https://storage.googleapis.com/download.dartlang.org/linux/debian stable main' | sudo tee /etc/apt/sources.list.d/dart_stable.list
+                apt-get update -q -y
+                apt-get install -q -y dart
                 ;;
             esac
 
           run: |
             export GITHUB_TOKEN=${{ secrets.RELEASE_GITHUB_TOKEN }}
             export PRIVATE_KEY=${{ secrets.RELEASE_PRIVATE_KEY }}
+            export PATH="$PATH:/usr/lib/dart/bin"
             cd super_native_extensions/cargokit/build_tool && dart run build_tool precompile-binaries -v --manifest-dir=../../rust --repository=chanderlud/super_native_extensions --target ${{ matrix.target }}
