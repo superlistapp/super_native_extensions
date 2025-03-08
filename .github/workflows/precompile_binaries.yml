@@ -45,9 +45,9 @@ jobs:
           - arch: aarch64
             distro: ubuntu20.04
             target: aarch64-unknown-linux-gnu
-          - arch: armv7
-            distro: ubuntu20.04
-            target: armv7-unknown-linux-gnueabihf
+          # - arch: armv7
+          #   distro: ubuntu20.04
+          #   target: armv7-unknown-linux-gnueabihf
 
     steps:
       - uses: actions/checkout@ee0669bd1cc54295c223e0bb666b733df41de1c5 #v2.7.0
@@ -64,13 +64,11 @@ jobs:
             case "${{ matrix.distro }}" in
               ubuntu*)
                 apt-get update -q -y
-                apt-get install -q -y libgtk-3-dev git curl unzip gcc apt-transport-https wget gnupg
+                apt-get install -q -y libgtk-3-dev git curl unzip gcc
                 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-                curl -fsSL https://dl-ssl.google.com/linux/linux_signing_key.pub | gpg --dearmor | tee /usr/share/keyrings/dart.gpg > /dev/null
-                ls -l /usr/share/keyrings/dart.gpg
-                echo 'deb [signed-by=/usr/share/keyrings/dart.gpg arch=amd64] https://storage.googleapis.com/download.dartlang.org/linux/debian stable main' | tee /etc/apt/sources.list.d/dart_stable.list
-                apt-get update -q -y
-                apt-get install -q -y dart
+                curl -o dartsdk-linux-arm64-release.zip https://storage.googleapis.com/dart-archive/channels/stable/release/latest/sdk/dartsdk-linux-arm64-release.zip
+                unzip dartsdk-linux-arm64-release.zip
+                mv dart-sdk /usr/lib/dart
                 ;;
             esac
 
