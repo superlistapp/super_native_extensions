@@ -69,8 +69,8 @@ jobs:
                 curl -fsSL https://dl-ssl.google.com/linux/linux_signing_key.pub | gpg --dearmor | tee /usr/share/keyrings/dart.gpg > /dev/null
                 ls -l /usr/share/keyrings/dart.gpg
                 echo 'deb [signed-by=/usr/share/keyrings/dart.gpg arch=amd64] https://storage.googleapis.com/download.dartlang.org/linux/debian stable main' | tee /etc/apt/sources.list.d/dart_stable.list
-                sudo apt-get update -q -y
-                sudo apt-get install -q -y dart
+                apt-get update -q -y
+                apt-get install -q -y dart
                 ;;
             esac
 
