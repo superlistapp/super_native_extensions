@@ -158,7 +158,7 @@ impl PlatformDataReader {
         let item = item as usize;
         let uri = self.inner.uris.get(item).and_then(|u| Url::parse(u).ok());
         if let Some(uri) = uri {
-            let name: Option<&str> = uri.path_segments().and_then(|s| s.last());
+            let name: Option<&str> = uri.path_segments().and_then(|mut s| s.next_back());
             match name {
                 Some(name) => {
                     let format = mime_from_name(name);

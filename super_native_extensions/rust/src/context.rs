@@ -109,7 +109,7 @@ impl Drop for Context {
     fn drop(&mut self) {
         if self.outermost {
             // Remove attachment in reverse order in which they were inserted
-            while self.internal.attachments.borrow().len() > 0 {
+            while !self.internal.attachments.borrow().is_empty() {
                 let to_remove_index = self.internal.attachments.borrow().len() - 1;
                 let to_remove = self
                     .internal
