@@ -45,13 +45,13 @@ class Rustup {
 
   bool _didInstallZigBuild = false;
 
-  void installZigBuild() {
+  void installZigBuild(String toolchain) {
     if (_didInstallZigBuild) {
       return;
     }
 
     log.info("Installing Zig build");
-    runCommand("cargo", ['install', '--locked', 'cargo-zigbuild']);
+    runCommand("rustup", ['run', toolchain, 'cargo', 'install', '--locked', 'cargo-zigbuild']);
     _didInstallZigBuild = true;
   }
 

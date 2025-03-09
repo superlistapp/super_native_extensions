@@ -129,7 +129,7 @@ class RustBuilder {
       rustup.installTarget(target.rust, toolchain: toolchain);
     }
     if (environment.glibcVersion != null) {
-      rustup.installZigBuild();
+      rustup.installZigBuild(toolchain);
     }
   }
 
