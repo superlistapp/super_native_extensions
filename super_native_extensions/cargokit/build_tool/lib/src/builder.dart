@@ -20,6 +20,7 @@ enum BuildConfiguration {
 
 extension on BuildConfiguration {
   bool get isDebug => this == BuildConfiguration.debug;
+
   String get rustName => switch (this) {
         BuildConfiguration.debug => 'debug',
         BuildConfiguration.release => 'release',
@@ -156,7 +157,10 @@ class RustBuilder {
         environment.crateInfo.packageName,
         if (!environment.configuration.isDebug) '--release',
         '--target',
-        target.rust + (environment.glibcVersion != null ? '.${environment.glibcVersion!}' : ""),
+        target.rust +
+            (environment.glibcVersion != null
+                ? '.${environment.glibcVersion!}'
+                : ""),
         '--target-dir',
         environment.targetTempDir,
       ],

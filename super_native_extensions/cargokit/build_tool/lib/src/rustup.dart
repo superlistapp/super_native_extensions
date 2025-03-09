@@ -51,7 +51,8 @@ class Rustup {
     }
 
     log.info("Installing Zig build");
-    runCommand("rustup", ['run', toolchain, 'cargo', 'install', '--locked', 'cargo-zigbuild']);
+    runCommand("rustup",
+        ['run', toolchain, 'cargo', 'install', '--locked', 'cargo-zigbuild']);
     _didInstallZigBuild = true;
   }
 
