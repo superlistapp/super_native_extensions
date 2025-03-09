@@ -74,13 +74,11 @@ jobs:
                 mv dart-sdk /usr/lib/dart
                 curl -o zig.tar.xz https://ziglang.org/download/0.14.0/zig-linux-x86_64-0.14.0.tar.xz
                 tar -xf zig.tar.xz
-                ls -la
-                ls -la zig
                 ;;
             esac
 
           run: |
             export GITHUB_TOKEN=${{ secrets.RELEASE_GITHUB_TOKEN }}
             export PRIVATE_KEY=${{ secrets.RELEASE_PRIVATE_KEY }}
-            export PATH="$PATH:/usr/lib/dart/bin:zig"
+            export PATH="$PATH:/usr/lib/dart/bin:zig-linux-x86_64-0.14.0"
             cd super_native_extensions/cargokit/build_tool && dart run build_tool precompile-binaries -v --manifest-dir=../../rust --repository=superlistapp/super_native_extensions --target ${{ matrix.target }} --glibc-version=2.31
