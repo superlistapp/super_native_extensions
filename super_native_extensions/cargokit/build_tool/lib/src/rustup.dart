@@ -43,6 +43,18 @@ class Rustup {
     _installedTargets(toolchain)?.add(target);
   }
 
+  bool _didInstallZigBuild = false;
+
+  void installZigBuild() {
+    if (_didInstallZigBuild) {
+      return;
+    }
+
+    log.info("Installing Zig build");
+    runCommand("rustup", ['cargo', 'install', '--locked', 'cargo-zigbuild']);
+    _didInstallZigBuild = true;
+  }
+
   final List<_Toolchain> _installedToolchains;
 
   Rustup() : _installedToolchains = _getInstalledToolchains();
