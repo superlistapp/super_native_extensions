@@ -99,7 +99,7 @@ jobs:
               ;;
               "riscv64")
                 export ZIG_SYSTEM_LIB_DIR="/usr/lib/riscv64-linux-gnu"
-                export CARGO_TARGET_RISCV64_UNKNOWN_LINUX_GNU_RUSTFLAGS="-C link-args=-L$ZIG_SYSTEM_LIB_DIR"
+                export CARGO_TARGET_RISCV64GC_UNKNOWN_LINUX_GNU_RUSTFLAGS="-C link-args=-L$ZIG_SYSTEM_LIB_DIR"
               ;;
               *)
                 echo "Unsupported architecture: $ARCH"
