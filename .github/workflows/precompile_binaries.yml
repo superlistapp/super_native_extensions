@@ -34,7 +34,9 @@ jobs:
       - name: Precompile (with Android)
         if: (matrix.os == 'ubuntu-22.04')
         run: |
-          ls -la /home/runner/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib/
+          export ZIG_SYSTEM_LIB_DIR="/usr/lib/x86_64-linux-gnu"
+          export CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER="zig cc"
+          export CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS="-C link-args=-L$ZIG_SYSTEM_LIB_DIR"
           dart run build_tool precompile-binaries -v --manifest-dir=../../rust --repository=chanderlud/super_native_extensions --android-sdk-location=/usr/local/lib/android/sdk --android-ndk-version=26.3.11579264 --android-min-sdk-version=23 --glibc-version=2.31
         working-directory: super_native_extensions/cargokit/build_tool
         env:
