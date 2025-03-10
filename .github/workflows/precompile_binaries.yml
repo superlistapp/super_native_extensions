@@ -89,4 +89,22 @@ jobs:
             export GITHUB_TOKEN=${{ secrets.RELEASE_GITHUB_TOKEN }}
             export PRIVATE_KEY=${{ secrets.RELEASE_PRIVATE_KEY }}
             export PATH="$PATH:/usr/lib/dart/bin:/usr/lib/zig"
+            
+            ARCH=$(uname -m)
+            
+            case "$ARCH" in
+              "aarch64")
+                export ZIG_SYSTEM_LIB_DIR="/usr/lib/aarch64-linux-gnu"
+                export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUSTFLAGS="-C link-args=-L$ZIG_SYSTEM_LIB_DIR"
+              ;;
+              "riscv64")
+                export ZIG_SYSTEM_LIB_DIR="/usr/lib/riscv64-linux-gnu"
+                export CARGO_TARGET_RISCV64_UNKNOWN_LINUX_GNU_RUSTFLAGS="-C link-args=-L$ZIG_SYSTEM_LIB_DIR"
+              ;;
+              *)
+                echo "Unsupported architecture: $ARCH"
+                exit 1
+              ;;
+            esac
+            
             cd super_native_extensions/cargokit/build_tool && dart run build_tool precompile-binaries -v --manifest-dir=../../rust --repository=chanderlud/super_native_extensions --target ${{ matrix.target }} --glibc-version=2.31
