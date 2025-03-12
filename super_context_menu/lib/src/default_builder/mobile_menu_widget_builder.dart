@@ -455,6 +455,7 @@ class _MenuItem extends StatelessWidget {
         menuInfo: menuInfo,
         child: Text(
           element.title ?? '',
+            style: TextStyle(color: Colors.green)
         ),
       );
     }
@@ -517,7 +518,7 @@ class _MenuHeader extends StatelessWidget {
                 fontWeight:
                     menuInfo.isCollapsed ? FontWeight.normal : FontWeight.bold,
               ),
-          child: Text(menuInfo.menu.title ?? ''),
+          child: Text(menuInfo.menu.title ?? '',style: TextStyle(color: Colors.green),),
         );
       }),
     );
