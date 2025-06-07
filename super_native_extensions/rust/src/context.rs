@@ -56,7 +56,7 @@ impl Context {
         result
     }
 
-    pub fn get_attachment<T: Any, F: FnOnce() -> T>(&self, on_init: F) -> Ref<T> {
+    pub fn get_attachment<T: Any, F: FnOnce() -> T>(&self, on_init: F) -> Ref<'_, T> {
         let id = TypeId::of::<T>();
         // Do a separate check here, make sure attachments is not borrowed while
         // creating the attachment
@@ -109,7 +109,7 @@ impl Drop for Context {
     fn drop(&mut self) {
         if self.outermost {
             // Remove attachment in reverse order in which they were inserted
-            while self.internal.attachments.borrow().len() > 0 {
+            while !self.internal.attachments.borrow().is_empty() {
                 let to_remove_index = self.internal.attachments.borrow().len() - 1;
                 let to_remove = self
                     .internal

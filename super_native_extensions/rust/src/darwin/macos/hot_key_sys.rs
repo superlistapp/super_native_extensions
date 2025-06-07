@@ -6,6 +6,7 @@ pub type EventTargetRef = *mut ::std::os::raw::c_void;
 pub type EventHandlerRef = *mut ::std::os::raw::c_void;
 pub type EventHandlerCallRef = *mut ::std::os::raw::c_void;
 pub type EventRef = *mut ::std::os::raw::c_void;
+#[allow(non_snake_case)]
 pub type EventHandlerUPP = ::std::option::Option<
     unsafe extern "C" fn(
         inHandlerCallRef: EventHandlerCallRef,

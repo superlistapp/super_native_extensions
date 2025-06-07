@@ -106,8 +106,8 @@ impl PlatformDataReader {
                 .await?;
             if let Value::String(url) = uri {
                 if let Ok(url) = Url::parse(&url) {
-                    if let Some(segments) = url.path_segments() {
-                        let last: Option<&str> = segments.last().filter(|s| !s.is_empty());
+                    if let Some(mut segments) = url.path_segments() {
+                        let last: Option<&str> = segments.next_back().filter(|s| !s.is_empty());
                         return Ok(last.map(|f| f.to_owned()));
                     }
                 }
