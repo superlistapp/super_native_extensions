@@ -29,6 +29,7 @@ extern "C" {
     );
 }
 
+#[allow(non_snake_case)]
 pub type CFNotificationCallback = Option<
     extern "C" fn(
         center: CFNotificationCenterRef,
