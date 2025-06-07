@@ -11,14 +11,18 @@ jobs:
       fail-fast: false
       matrix:
         os:
-          - ubuntu-20.04
+          - ubuntu-22.04
           - macOS-latest
           - windows-latest
     steps:
       - uses: actions/checkout@ee0669bd1cc54295c223e0bb666b733df41de1c5 #v2.7.0
       - uses: dart-lang/setup-dart@b64355ae6ca0b5d484f0106a033dd1388965d06d #1.6.0
+      - uses: mlugg/setup-zig@v1
+        if: (matrix.os == 'ubuntu-22.04')
+        with:
+          version: 0.13.0
       - name: Install GTK
-        if: (matrix.os == 'ubuntu-20.04')
+        if: (matrix.os == 'ubuntu-22.04')
         run: sudo apt-get update && sudo apt-get install libgtk-3-dev
       - name: Precompile
         if: (matrix.os == 'macOS-latest') || (matrix.os == 'windows-latest')
@@ -28,9 +32,79 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.RELEASE_GITHUB_TOKEN }}
           PRIVATE_KEY: ${{ secrets.RELEASE_PRIVATE_KEY }}
       - name: Precompile (with Android)
-        if: (matrix.os == 'ubuntu-20.04')
-        run: dart run build_tool precompile-binaries -v --manifest-dir=../../rust --repository=superlistapp/super_native_extensions --android-sdk-location=/usr/local/lib/android/sdk --android-ndk-version=26.3.11579264 --android-min-sdk-version=23
+        if: (matrix.os == 'ubuntu-22.04')
+        run: |
+          export ZIG_SYSTEM_LIB_DIR="/usr/lib/x86_64-linux-gnu"
+          export CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS="-C link-args=-L$ZIG_SYSTEM_LIB_DIR"
+          dart run build_tool precompile-binaries -v --manifest-dir=../../rust --repository=superlistapp/super_native_extensions --android-sdk-location=/usr/local/lib/android/sdk --android-ndk-version=26.3.11579264 --android-min-sdk-version=23 --glibc-version=2.31
         working-directory: super_native_extensions/cargokit/build_tool
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_GITHUB_TOKEN }}
           PRIVATE_KEY: ${{ secrets.RELEASE_PRIVATE_KEY }}
+
+  PrecompileCross:
+    runs-on: ubuntu-22.04
+    name: Precompile (${{ matrix.distro }} ${{ matrix.arch }})
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: aarch64
+            distro: ubuntu22.04
+            target: aarch64-unknown-linux-gnu
+            dart_arch: arm64
+          - arch: riscv64
+            distro: ubuntu22.04
+            target: riscv64gc-unknown-linux-gnu
+            dart_arch: riscv64
+
+    steps:
+      - uses: actions/checkout@ee0669bd1cc54295c223e0bb666b733df41de1c5 #v2.7.0
+
+      - name: Precompile
+        uses: uraimo/run-on-arch-action@v3
+        with:
+          arch: ${{ matrix.arch }}
+          distro: ${{ matrix.distro }}
+          githubToken: ${{ github.token }}
+          shell: /bin/bash
+
+          install: |
+            case "${{ matrix.distro }}" in
+              ubuntu*)
+                apt-get update -q -y
+                apt-get install -q -y libgtk-3-dev git curl unzip gcc
+                curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+                curl -o dartsdk-linux-${{ matrix.dart_arch }}-release.zip https://storage.googleapis.com/dart-archive/channels/stable/release/latest/sdk/dartsdk-linux-${{ matrix.dart_arch }}-release.zip
+                unzip dartsdk-linux-${{ matrix.dart_arch }}-release.zip
+                mv dart-sdk /usr/lib/dart
+                curl -o zig.tar.xz https://ziglang.org/download/0.14.0/zig-linux-x86_64-0.14.0.tar.xz
+                tar -xf zig.tar.xz
+                mv zig-linux-x86_64-0.14.0 /usr/lib/zig
+                ;;
+            esac
+
+          run: |
+            export GITHUB_TOKEN=${{ secrets.RELEASE_GITHUB_TOKEN }}
+            export PRIVATE_KEY=${{ secrets.RELEASE_PRIVATE_KEY }}
+            export PATH="$PATH:/usr/lib/dart/bin:/usr/lib/zig"
+
+            ARCH=$(uname -m)
+
+            case "$ARCH" in
+              "aarch64")
+                export ZIG_SYSTEM_LIB_DIR="/usr/lib/aarch64-linux-gnu"
+                export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUSTFLAGS="-C link-args=-L$ZIG_SYSTEM_LIB_DIR"
+              ;;
+              "riscv64")
+                export ZIG_SYSTEM_LIB_DIR="/usr/lib/riscv64-linux-gnu"
+                export CARGO_TARGET_RISCV64GC_UNKNOWN_LINUX_GNU_RUSTFLAGS="-C link-args=-L$ZIG_SYSTEM_LIB_DIR"
+              ;;
+              *)
+                echo "Unsupported architecture: $ARCH"
+                exit 1
+              ;;
+            esac
+
+            cd super_native_extensions/cargokit/build_tool && dart run build_tool precompile-binaries -v --manifest-dir=../../rust --repository=superlistapp/super_native_extensions --target ${{ matrix.target }} --glibc-version=2.31
