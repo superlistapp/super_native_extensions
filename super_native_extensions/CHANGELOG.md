@@ -1,3 +1,7 @@
+## 0.9.0
+
+ - **FEAT**: add support for the maximum page size of 16 KB for Android (#521).
+
 ## 0.9.0-dev.6
 
  - **FIX**: crash on android with merged platform and UI threads (#483).
