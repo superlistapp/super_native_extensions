@@ -1,3 +1,5 @@
+## 0.9.1
+
 ## 0.9.0
 
  - **FEAT**: add support for the maximum page size of 16 KB for Android (#521).
