@@ -299,7 +299,7 @@ packages:
       path: "../../super_clipboard"
       relative: true
     source: path
-    version: "0.9.0"
+    version: "0.9.1"
   super_clipboard_example:
     dependency: "direct main"
     description:
@@ -313,21 +313,21 @@ packages:
       path: "../../super_context_menu"
       relative: true
     source: path
-    version: "0.9.0"
+    version: "0.9.1"
   super_drag_and_drop:
     dependency: "direct main"
     description:
       path: ".."
       relative: true
     source: path
-    version: "0.9.0"
+    version: "0.9.1"
   super_native_extensions:
     dependency: "direct overridden"
     description:
       path: "../../super_native_extensions"
       relative: true
     source: path
-    version: "0.9.0"
+    version: "0.9.1"
   super_sliver_list:
     dependency: "direct main"
     description:
