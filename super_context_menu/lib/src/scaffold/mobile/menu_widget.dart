@@ -1,8 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
+import 'package:super_native_extensions/raw_menu.dart';
 
-import '../../menu_model.dart';
 import '../common/deferred_menu_items.dart';
 import 'disableable_scroll_controller.dart';
 import 'menu_widget_builder.dart';

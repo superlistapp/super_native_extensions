@@ -3,7 +3,7 @@ export 'package:super_native_extensions/raw_menu.dart'
         Menu,
         DeferredMenuElement,
         MenuElement,
-        MenuAction,
+        // MenuAction,
         MenuActionState,
         MenuActionAttributes,
         MenuSeparator,

@@ -1,4 +1,4 @@
-name: super_native_extensions_workspace
+name: super_native_extensions
 
 environment:
   sdk: '>=3.0.0 <4.0.0'

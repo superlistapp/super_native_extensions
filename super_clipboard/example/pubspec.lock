@@ -280,16 +280,18 @@ packages:
   super_clipboard:
     dependency: "direct main"
     description:
-      path: ".."
-      relative: true
-    source: path
+      name: super_clipboard
+      sha256: cdab725bac26655ebd189f4d202d694a8cbc1c21e0f0478ccd7829c71716f09b
+      url: "https://pub.dev"
+    source: hosted
     version: "0.8.18"
   super_native_extensions:
-    dependency: "direct overridden"
+    dependency: transitive
     description:
-      path: "../../super_native_extensions"
-      relative: true
-    source: path
+      name: super_native_extensions
+      sha256: fa55d452d34b7112453afbb9fa4d13c0527ff201630d10d86546497179030544
+      url: "https://pub.dev"
+    source: hosted
     version: "0.8.18"
   term_glyph:
     dependency: transitive

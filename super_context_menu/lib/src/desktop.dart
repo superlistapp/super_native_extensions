@@ -27,8 +27,7 @@ class _ContextMenuDetector extends StatefulWidget {
   final Widget child;
   final HitTestBehavior hitTestBehavior;
   final ContextMenuIsAllowed contextMenuIsAllowed;
-  final Future<void> Function(Offset, Listenable, Function(bool))
-      onShowContextMenu;
+  final Future<void> Function(Offset, Listenable, Function(bool)) onShowContextMenu;
 
   @override
   State<StatefulWidget> createState() => _ContextMenuDetectorState();
@@ -230,22 +229,24 @@ class DesktopContextMenuWidget extends StatelessWidget {
         onMenuResolved(true);
         onShowMenu.notify();
         final request = raw.DesktopContextMenuRequest(
-            iconTheme: serializationOptions.iconTheme,
-            position: globalPosition,
-            menu: handle,
-            fallback: () {
-              final completer = Completer<MenuResult>();
-              ContextMenuSession(
-                context: context,
-                iconTheme: serializationOptions.iconTheme,
-                menu: handle!.menu,
-                menuWidgetBuilder: menuWidgetBuilder,
-                onDone: (value) => completer.complete(value),
-                onInitialPointerUp: onInitialPointerUp,
-                position: globalPosition,
-              );
-              return completer.future;
-            });
+          iconTheme: serializationOptions.iconTheme,
+          position: globalPosition,
+          menu: handle,
+          fallback: () {
+            final completer = Completer<MenuResult>();
+            ContextMenuSession(
+              context: context,
+              iconTheme: serializationOptions.iconTheme,
+              menu: handle!.menu,
+              menuWidgetBuilder: menuWidgetBuilder,
+              onDone: (value) => completer.complete(value),
+              onInitialPointerUp: onInitialPointerUp,
+              position: globalPosition,
+            );
+            return completer.future;
+          },
+          writingToolsConfiguration: null,
+        );
         final res = await menuContext.showContextMenu(request);
         onHideMenu.value = res;
       } else {

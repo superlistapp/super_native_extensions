@@ -3,9 +3,10 @@ import 'dart:ui' as ui;
 import 'package:collection/collection.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart'
-    show Colors, Icons, CircularProgressIndicator, Scrollbar;
+import 'package:flutter/material.dart' show Colors, Icons, CircularProgressIndicator, Scrollbar;
 import 'package:pixel_snap/widgets.dart';
+import 'package:super_context_menu/super_context_menu.dart';
+import 'package:super_native_extensions/raw_menu.dart';
 
 import '../menu_model.dart';
 import '../scaffold/mobile/menu_widget_builder.dart';
@@ -63,7 +64,7 @@ class DefaultMobileMenuTheme {
       case Brightness.light:
         return DefaultMobileMenuTheme(
           menuDecorationOutside: (bool collapsed) => BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withOpacity(collapsed ? 0 : 0.2),
@@ -77,7 +78,7 @@ class DefaultMobileMenuTheme {
             color: Colors.grey.shade100,
           ),
           menuPreviewDecorationOutside: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withOpacity(0.3),
@@ -157,8 +158,7 @@ class DefaultMobileMenuTheme {
               : const Color(0xFF333333).withOpacity(0.5),
           separatorColor: const Color(0xFF4C4F63),
           inactiveMenuVeilColor: (depth) =>
-              const ui.Color.fromARGB(255, 35, 36, 45)
-                  .withOpacity(((depth * 0.6).clamp(0.0, 0.8))),
+              const ui.Color.fromARGB(255, 35, 36, 45).withOpacity(((depth * 0.6).clamp(0.0, 0.8))),
           textStyleForItem: (info) => TextStyle(
             color: info.isDestructive
                 ? const ui.Color.fromARGB(255, 251, 116, 116)
@@ -169,8 +169,7 @@ class DefaultMobileMenuTheme {
             decoration: TextDecoration.none,
           ),
           decorationForItem: (info) => BoxDecoration(
-            color:
-                info.isPressed ? const Color(0xFF4C4F63) : Colors.transparent,
+            color: info.isPressed ? const Color(0xFF4C4F63) : Colors.transparent,
             border: info.isHeader && !info.isLast
                 ? const Border(
                     bottom: BorderSide(
@@ -197,8 +196,7 @@ class DefaultMobileMenuWidgetBuilder extends MobileMenuWidgetBuilder {
     }
   }
 
-  static final DefaultMobileMenuWidgetBuilder instance =
-      DefaultMobileMenuWidgetBuilder();
+  static final DefaultMobileMenuWidgetBuilder instance = DefaultMobileMenuWidgetBuilder();
 
   /// Allows overriding brightness for the menu UI.
   final Brightness? _brightness;
@@ -275,8 +273,7 @@ class DefaultMobileMenuWidgetBuilder extends MobileMenuWidgetBuilder {
   }
 
   @override
-  Widget buildMenu(
-      BuildContext context, MobileMenuInfo menuInfo, Widget child) {
+  Widget buildMenu(BuildContext context, MobileMenuInfo menuInfo, Widget child) {
     return child;
   }
 
@@ -368,8 +365,7 @@ class DefaultMobileMenuWidgetBuilder extends MobileMenuWidgetBuilder {
 extension on Menu {
   bool hasImage() {
     return children.any(
-      (element) =>
-          element.image?.asWidget(const IconThemeData.fallback()) != null,
+      (element) => element.image?.asWidget(const IconThemeData.fallback()) != null,
     );
   }
 }
@@ -437,6 +433,7 @@ class _MenuItem extends StatelessWidget {
     } else {
       final menuElementAttributes =
           element is MenuAction ? (element as MenuAction).attributes : null;
+      final suffixIcon = element is MenuActionX ? (element as MenuActionX).suffixIcon : null;
 
       return _MenuItemScaffold(
         theme: theme,
@@ -447,7 +444,7 @@ class _MenuItem extends StatelessWidget {
           isDestructive: menuElementAttributes?.destructive ?? false,
           isDisabled: menuElementAttributes?.disabled ?? false,
         ),
-        suffix: suffix,
+        suffix: suffix ?? suffixIcon,
         element: element,
         menuInfo: menuInfo,
         child: Text(
@@ -475,8 +472,7 @@ class _MenuHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     Widget? prefix;
     if (menuInfo.menu.image?.asWidget(const IconThemeData.fallback()) == null) {
-      final parentPrefixWidth =
-          (menuInfo.parentMenu?.hasImage() ?? false) ? 28.0 : 0.0;
+      final parentPrefixWidth = (menuInfo.parentMenu?.hasImage() ?? false) ? 28.0 : 0.0;
       final thisPrefixWidth = menuInfo.menu.hasImage() ? 28.0 : 0.0;
 
       prefix = AnimatedContainer(
@@ -511,8 +507,7 @@ class _MenuHeader extends StatelessWidget {
         return AnimatedDefaultTextStyle(
           duration: menuInfo.transitionDuration,
           style: DefaultTextStyle.of(context).style.copyWith(
-                fontWeight:
-                    menuInfo.isCollapsed ? FontWeight.normal : FontWeight.bold,
+                fontWeight: menuInfo.isCollapsed ? FontWeight.normal : FontWeight.bold,
               ),
           child: Text(menuInfo.menu.title ?? ''),
         );
@@ -615,8 +610,7 @@ class _MenuItemScaffold extends StatelessWidget {
               prefix,
               Expanded(
                 child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(vertical: 6, horizontal: 6),
+                  padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 6),
                   child: child,
                 ),
               ),
