@@ -53,6 +53,7 @@ class Formats {
     csv,
     xls,
     xlsx,
+    xlsm,
     ppt,
     pptx,
     rtf,
@@ -423,6 +424,11 @@ class Formats {
     mimeTypes: [
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     ],
+  );
+
+  static const xlsm = SimpleFileFormat(
+    uniformTypeIdentifiers: ['com.microsoft.excel.sheet.binary.macroenabled'],
+    mimeTypes: ['application/vnd.ms-excel.sheet.macroenabled.12'],
   );
 
   static const ppt = SimpleFileFormat(
