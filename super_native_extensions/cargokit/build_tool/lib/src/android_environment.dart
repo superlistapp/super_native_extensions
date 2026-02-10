@@ -186,7 +186,22 @@ class AndroidEnvironment {
     if (rustFlags.isNotEmpty) {
       rustFlags = '$rustFlags\x1f';
     }
-    rustFlags = '$rustFlags-L\x1f$workaroundDir';
+
+    // 16KB page size fix for Android 15+ (arm64-v8a and x86_64 only)
+    // https://github.com/superlistapp/super_native_extensions/issues/548
+    if (['arm64-v8a', 'x86_64'].contains(target.android)) {
+      rustFlags = '$rustFlags-L\x1f$workaroundDir\x1f';
+      const pageSizeArgs = [
+        '-C',
+        'link-arg=-Wl,--hash-style=both',
+        '-C',
+        'link-arg=-Wl,-z,max-page-size=16384',
+      ];
+      rustFlags = '$rustFlags${pageSizeArgs.join('\x1f')}';
+    } else {
+      rustFlags = '$rustFlags-L\x1f$workaroundDir';
+    }
+
     return rustFlags;
   }
 }
