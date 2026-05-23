@@ -26,7 +26,7 @@ android {
         namespace 'com.superlist.super_native_extensions'
     }
 
-    compileSdkVersion 31
+    compileSdkVersion 36
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
