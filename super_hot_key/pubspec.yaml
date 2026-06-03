@@ -1,21 +1,27 @@
 name: super_hot_key
 description: Allows registering global (system-wide) hot keys. Supported on macOS and Windows.
-version: 0.9.1
+version: 0.9.2
 homepage: https://github.com/superlistapp/super_native_extensions
 
 environment:
-  sdk: '>=3.0.0 <4.0.0'
+  sdk: ">=3.0.0 <4.0.0"
   flutter: ">=1.17.0"
 
 dependencies:
   flutter:
     sdk: flutter
-  super_native_extensions: ^0.9.1
-  super_keyboard_layout: ^0.9.1
+  super_native_extensions:
+    git:
+      url: https://github.com/MSOB7YY/super_native_extensions
+      path: super_native_extensions
+  super_keyboard_layout:
+    git:
+      url: https://github.com/MSOB7YY/super_native_extensions
+      path: super_keyboard_layout
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^2.0.0
+  flutter_lints: ^6.0.0
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

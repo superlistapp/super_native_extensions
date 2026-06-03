@@ -23,6 +23,25 @@ use crate::{
     hot_key_manager::{HotKeyCreateRequest, HotKeyHandle, HotKeyManagerDelegate},
 };
 
+// Virtual key codes for numpad keys (not affected by NumLock state issues)
+const NUMPAD_VK_MAP: &[(i64, u32)] = &[
+    // Numpad keys
+    (71, 0x67), // Numpad7 -> VK_NUMPAD7
+    (72, 0x68), // Numpad8 -> VK_NUMPAD8
+    (73, 0x69), // Numpad9 -> VK_NUMPAD9
+    (74, 0x6D), // NumpadSubtract -> VK_SUBTRACT
+    (75, 0x64), // Numpad4 -> VK_NUMPAD4
+    (76, 0x65), // Numpad5 -> VK_NUMPAD5
+    (77, 0x66), // Numpad6 -> VK_NUMPAD6
+    (78, 0x6B), // NumpadAdd -> VK_ADD
+    (79, 0x61), // Numpad1 -> VK_NUMPAD1
+    (80, 0x62), // Numpad2 -> VK_NUMPAD2
+    (81, 0x63), // Numpad3 -> VK_NUMPAD3
+    (82, 0x60), // Numpad0 -> VK_NUMPAD0
+    (83, 0x6E), // NumpadDecimal -> VK_DECIMAL
+    (55, 0x6A), // NumpadMultiply -> VK_MULTIPLY
+];
+
 pub struct PlatformHotKeyManager {
     delegate: Weak<dyn HotKeyManagerDelegate>,
     next_id: Cell<i32>,
@@ -51,6 +70,19 @@ impl PlatformHotKeyManager {
         HWND(RunLoop::current().platform_run_loop.hwnd())
     }
 
+    // Get virtual key code from platform code, using explicit mapping for numpad keys
+    // to avoid issues with NumLock state affecting the conversion
+    fn get_virtual_key(platform_code: i64) -> u32 {
+        // Check if this is a numpad key with a known mapping
+        for &(code, vk) in NUMPAD_VK_MAP {
+            if code == platform_code {
+                return vk;
+            }
+        }
+        // For all other keys, use the standard conversion
+        unsafe { MapVirtualKeyW(platform_code as u32, MAPVK_VSC_TO_VK) }
+    }
+
     pub fn create_hot_key(
         &self,
         handle: HotKeyHandle,
@@ -72,8 +104,8 @@ impl PlatformHotKeyManager {
         modifiers |= MOD_NOREPEAT;
         let id = self.next_id.get();
         self.next_id.replace(id + 1);
+        let vk = Self::get_virtual_key(request.platform_code);
         unsafe {
-            let vk = MapVirtualKeyW(request.platform_code as u32, MAPVK_VSC_TO_VK);
             RegisterHotKey(Self::hwnd(), id, modifiers, vk)?;
         }
         self.hot_keys.borrow_mut().insert(id, (handle, request));
@@ -100,7 +132,7 @@ impl PlatformHotKeyManager {
         handle: HotKeyHandle,
         delegate: Rc<dyn HotKeyManagerDelegate>,
     ) {
-        let vk = unsafe { MapVirtualKeyW(request.platform_code as u32, MAPVK_VSC_TO_VK) };
+        let vk = Self::get_virtual_key(request.platform_code);
         let key_state = unsafe { GetAsyncKeyState(vk as i32) };
         if key_state < 0 {
             RunLoop::current()

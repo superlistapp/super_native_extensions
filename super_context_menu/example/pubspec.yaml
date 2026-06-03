@@ -9,8 +9,14 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  super_context_menu: ^0.9.1
-  super_drag_and_drop: ^0.9.1
+  super_context_menu:
+    git:
+      url: https://github.com/MSOB7YY/super_native_extensions
+      path: super_context_menu
+  super_drag_and_drop:
+    git:
+      url: https://github.com/MSOB7YY/super_native_extensions
+      path: super_drag_and_drop
 
 dev_dependencies:
   flutter_test:

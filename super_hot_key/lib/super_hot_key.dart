@@ -13,7 +13,7 @@ class HotKeyDefinition {
     this.meta = false,
   });
 
-  final PhysicalKeyboardKey key;
+  final KeyboardKey key;
   final bool alt;
   final bool shift;
   final bool control;
