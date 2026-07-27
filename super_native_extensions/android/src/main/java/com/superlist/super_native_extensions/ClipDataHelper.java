@@ -89,7 +89,18 @@ public final class ClipDataHelper {
             res.add(typeTextPlain);
         }
         if (item.getUri() != null) {
-            String[] types = context.getContentResolver().getStreamTypes(item.getUri(), "*/*");
+            // Some content providers (e.g. Google Photos' MediaContentProvider)
+            // are not exported and grant no read access to the pasting app, so
+            // querying them throws SecurityException. As this runs on the main
+            // thread while enumerating clipboard formats, an uncaught exception
+            // here crashes the whole app on paste. Guard both resolver calls and
+            // fall back to a plain URI type instead of crashing.
+            String[] types = null;
+            try {
+                types = context.getContentResolver().getStreamTypes(item.getUri(), "*/*");
+            } catch (Exception e) {
+                Log.w("ClipDataHelper", "getStreamTypes failed for clipboard uri", e);
+            }
             if (types != null) {
                 for (String type : types) {
                     if (!res.contains(type)) {
@@ -97,7 +108,12 @@ public final class ClipDataHelper {
                     }
                 }
             } else {
-                String type = context.getContentResolver().getType(item.getUri());
+                String type = null;
+                try {
+                    type = context.getContentResolver().getType(item.getUri());
+                } catch (Exception e) {
+                    Log.w("ClipDataHelper", "getType failed for clipboard uri", e);
+                }
                 if (type != null) {
                     res.add(type);
                 } else {
