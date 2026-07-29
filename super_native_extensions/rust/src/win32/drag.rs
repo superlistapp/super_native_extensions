@@ -167,7 +167,14 @@ impl PlatformDragContext {
         request: DragRequest,
         mut providers: HashMap<DataProviderId, DataProviderEntry>,
         session_id: DragSessionId,
-    ) -> NativeExtensionsResult<()> {
+    ) -> NativeExtensionsResult<()> {        
+        use windows::Win32::System::Ole::OleInitialize;
+
+        unsafe {
+            let hr = OleInitialize(None);
+        }
+        
+        
         let providers: Vec<_> = request
             .configuration
             .items
