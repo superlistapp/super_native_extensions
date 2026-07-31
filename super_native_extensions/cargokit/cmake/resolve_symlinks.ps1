@@ -22,7 +22,7 @@ function Resolve-Symlinks {
             $realPath += '/'
         }
 
-        $item = Get-Item $realPath
+        $item = Get-Item $realPath -Force 
         if ($item.LinkTarget) {
             $realPath = $item.LinkTarget.Replace('\', '/')
         }
