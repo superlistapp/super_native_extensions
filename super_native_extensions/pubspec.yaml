@@ -4,8 +4,8 @@ version: 0.9.1
 homepage: https://github.com/superlistapp/super_native_extensions
 
 environment:
-  sdk: ">=3.3.0 <4.0.0"
-  flutter: ">=3.0.0"
+  sdk: ^3.10.0-0
+  flutter: ">=3.44.0"
 
 dependencies:
   flutter:
@@ -17,9 +17,11 @@ dependencies:
   collection: ^1.16.0
   path: ^1.8.2
   uuid: ^4.1.0
-  irondash_engine_context: ^0.5.5
-  irondash_message_channel: ^0.7.0
-  device_info_plus: ">=10.0.1 <12.0.0"
+  hooks: ^2.0.2
+  native_toolchain_rust: ^1.0.4+0
+  irondash_engine_context: ^0.6.0-dev.0
+  irondash_message_channel: ^0.8.0-dev.0
+  device_info_plus: ^13.2.0
   pixel_snap: ^0.1.2
   web: ^1.0.0
 

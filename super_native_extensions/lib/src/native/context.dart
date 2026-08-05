@@ -1,18 +1,19 @@
 import 'dart:ffi';
-import 'dart:io' show Platform;
+import 'dart:io' as io;
 
 import 'package:flutter/foundation.dart';
 import 'package:irondash_message_channel/irondash_message_channel.dart';
 
 MessageChannelContext _getNativeContext() {
-  if (Platform.environment.containsKey('FLUTTER_TEST')) {
+  if (io.Platform.environment.containsKey('FLUTTER_TEST')) {
     // FFI doesn't work in Flutter Tester
     return MockMessageChannelContext();
   } else {
     final dylib = openNativeLibrary();
-    final function =
-        dylib.lookup<NativeFunction<MessageChannelContextInitFunction>>(
-            "super_native_extensions_init_message_channel_context");
+    final function = dylib
+        .lookup<NativeFunction<MessageChannelContextInitFunction>>(
+          "super_native_extensions_init_message_channel_context",
+        );
     return MessageChannelContext.forInitFunction(function);
   }
 }
@@ -30,10 +31,15 @@ MessageChannelContext get superNativeExtensionsContext =>
     _contextOverride ?? _nativeContext;
 
 DynamicLibrary openNativeLibrary() {
-  final dylib = Platform.isAndroid
-      ? DynamicLibrary.open("libsuper_native_extensions.so")
-      : (Platform.isWindows
-          ? DynamicLibrary.open("super_native_extensions.dll")
-          : DynamicLibrary.process());
-  return dylib;
+  const libraryName = 'super_native_extensions';
+  if (io.Platform.isIOS || io.Platform.isMacOS) {
+    return DynamicLibrary.open('@rpath/$libraryName.framework/$libraryName');
+  }
+  if (io.Platform.isAndroid || io.Platform.isLinux) {
+    return DynamicLibrary.open('lib$libraryName.so');
+  }
+  if (io.Platform.isWindows) {
+    return DynamicLibrary.open('$libraryName.dll');
+  }
+  throw UnsupportedError('Unsupported platform ${io.Platform.operatingSystem}');
 }

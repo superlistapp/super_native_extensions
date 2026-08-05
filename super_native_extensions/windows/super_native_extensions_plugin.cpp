@@ -10,21 +10,48 @@
 #include <memory>
 #include <sstream>
 
-extern "C" {
-extern void super_native_extensions_init(void);
+namespace super_native_extensions {
+
+namespace {
+
+using SNEInitFunction = void (*)();
+
+void LogLastError(const char *message) {
+  std::ostringstream stream;
+  stream << message << " Error: " << GetLastError() << "\n";
+  OutputDebugStringA(stream.str().c_str());
 }
 
-namespace super_native_extensions {
+void InitializeRustLibrary() {
+  static bool initialized = false;
+  if (initialized) {
+    return;
+  }
+
+  HMODULE module = LoadLibraryW(L"super_native_extensions.dll");
+  if (module == nullptr) {
+    LogLastError("Failed to load super_native_extensions.dll.");
+    return;
+  }
+
+  auto init = reinterpret_cast<SNEInitFunction>(
+      GetProcAddress(module, "super_native_extensions_init"));
+  if (init == nullptr) {
+    LogLastError("Failed to resolve super_native_extensions_init.");
+    return;
+  }
+
+  init();
+  initialized = true;
+}
+
+} // namespace
 
 // static
 void SuperNativeExtensionsPlugin::RegisterWithRegistrar(
     flutter::PluginRegistrarWindows *registrar) {
 
-  static bool initialized = false;
-  if (!initialized) {
-    super_native_extensions_init();
-    initialized = true;
-  }
+  InitializeRustLibrary();
 
   auto plugin = std::make_unique<SuperNativeExtensionsPlugin>();
 

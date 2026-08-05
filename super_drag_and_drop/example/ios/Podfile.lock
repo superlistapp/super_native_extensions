@@ -1,34 +1,16 @@
 PODS:
-  - device_info_plus (0.0.1):
-    - Flutter
   - Flutter (1.0.0)
-  - irondash_engine_context (0.0.1):
-    - Flutter
-  - super_native_extensions (0.0.1):
-    - Flutter
 
 DEPENDENCIES:
-  - device_info_plus (from `.symlinks/plugins/device_info_plus/ios`)
   - Flutter (from `Flutter`)
-  - irondash_engine_context (from `.symlinks/plugins/irondash_engine_context/ios`)
-  - super_native_extensions (from `.symlinks/plugins/super_native_extensions/ios`)
 
 EXTERNAL SOURCES:
-  device_info_plus:
-    :path: ".symlinks/plugins/device_info_plus/ios"
   Flutter:
     :path: Flutter
-  irondash_engine_context:
-    :path: ".symlinks/plugins/irondash_engine_context/ios"
-  super_native_extensions:
-    :path: ".symlinks/plugins/super_native_extensions/ios"
 
 SPEC CHECKSUMS:
-  device_info_plus: 97af1d7e84681a90d0693e63169a5d50e0839a0d
-  Flutter: e0871f40cf51350855a761d2e70bf5af5b9b5de7
-  irondash_engine_context: 3458bf979b90d616ffb8ae03a150bafe2e860cc9
-  super_native_extensions: 4916b3c627a9c7fffdc48a23a9eca0b1ac228fa7
+  Flutter: 71a624a5bc0c04062bf19101d501e466baf2fb47
 
-PODFILE CHECKSUM: c4c93c5f6502fe2754f48404d3594bf779584011
+PODFILE CHECKSUM: a938cb79d452854fa9f13c14ded5e356e38f0fc7
 
-COCOAPODS: 1.15.2
+COCOAPODS: 1.16.2

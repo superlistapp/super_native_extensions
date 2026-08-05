@@ -29,14 +29,29 @@ static void super_native_extensions_plugin_class_init(
 }
 
 extern "C" {
-extern void super_native_extensions_init(void);
+typedef void (*SNEInitFunction)(void);
 }
 
 static void
 super_native_extensions_plugin_init(SuperNativeExtensionsPlugin *self) {
   static bool initialized = false;
   if (!initialized) {
-    super_native_extensions_init();
+    void *handle = dlopen("libsuper_native_extensions.so", RTLD_NOW | RTLD_LOCAL);
+    if (handle == nullptr) {
+      g_warning("Failed to load libsuper_native_extensions.so: %s", dlerror());
+      return;
+    }
+
+    dlerror();
+    auto init = reinterpret_cast<SNEInitFunction>(
+        dlsym(handle, "super_native_extensions_init"));
+    const char *error = dlerror();
+    if (error != nullptr) {
+      g_warning("Failed to resolve super_native_extensions_init: %s", error);
+      return;
+    }
+
+    init();
     initialized = true;
   }
 }

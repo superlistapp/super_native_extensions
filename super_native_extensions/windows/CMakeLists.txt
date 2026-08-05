@@ -44,13 +44,9 @@ target_include_directories(${PLUGIN_NAME} INTERFACE
   "${CMAKE_CURRENT_SOURCE_DIR}/include")
 target_link_libraries(${PLUGIN_NAME} PRIVATE flutter flutter_wrapper_plugin)
 
-include("../cargokit/cmake/cargokit.cmake")
-apply_cargokit(${PLUGIN_NAME} ../rust super_native_extensions super_native_extensions_init)
-
 # List of absolute paths to libraries that should be bundled with the plugin.
 # This list could contain prebuilt libraries, or libraries created by an
 # external build triggered from this build file.
 set(super_native_extensions_bundled_libraries
-  "${${PLUGIN_NAME}_cargokit_lib}"
   PARENT_SCOPE
 )

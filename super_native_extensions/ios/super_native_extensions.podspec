@@ -13,26 +13,18 @@ A new Flutter plugin project.
   s.license          = { :file => '../LICENSE' }
   s.author           = { 'Your Company' => 'email@example.com' }
   s.source           = { :path => '.' }
-  s.source_files = 'Classes/**/*'
-  s.public_header_files = 'Classes/**/*.h'
+  s.source_files = 'super_native_extensions/Sources/super_native_extensions/**/*.{h,m}'
+  s.public_header_files = 'super_native_extensions/Sources/super_native_extensions/include/**/*.h'
   s.dependency 'Flutter'
   s.platform = :ios, '9.0'
 
-  s.script_phase = {
-    :name => 'Build SuperNativeExtensions Rust library',
-    :script => 'sh "$PODS_TARGET_SRCROOT/../cargokit/build_pod.sh" ../rust super_native_extensions',
-    :execution_position=> :before_compile,
-    :input_files => ['${BUILT_PRODUCTS_DIR}/cargokit_phony'],
-    :output_files => ["${BUILT_PRODUCTS_DIR}/libsuper_native_extensions.a"],
-  }
   s.pod_target_xcconfig = {
     'DEFINES_MODULE' => 'YES',
     # Flutter.framework does not contain a i386 slice.
     'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'i386',
     # Rust can't produce armv7 and it's being removed from Flutter as well
     'EXCLUDED_ARCHS' => 'armv7',
-    # We use `-force_load` instead of `-l` since Xcode strips out unused symbols from static libraries.
-    'OTHER_LDFLAGS' => '-force_load ${BUILT_PRODUCTS_DIR}/libsuper_native_extensions.a -framework CoreServices',
+    'OTHER_LDFLAGS' => '-framework CoreServices',
   }
   s.user_target_xcconfig = {
     'EXCLUDED_ARCHS' => 'armv7',
