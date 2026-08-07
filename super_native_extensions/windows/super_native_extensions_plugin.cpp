@@ -28,9 +28,9 @@ void InitializeRustLibrary() {
     return;
   }
 
-  HMODULE module = LoadLibraryW(L"super_native_extensions.dll");
+  HMODULE module = LoadLibraryW(L"super_native_extensions_native.dll");
   if (module == nullptr) {
-    LogLastError("Failed to load super_native_extensions.dll.");
+    LogLastError("Failed to load super_native_extensions_native.dll.");
     return;
   }
 

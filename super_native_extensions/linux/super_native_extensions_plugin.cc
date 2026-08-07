@@ -36,9 +36,11 @@ static void
 super_native_extensions_plugin_init(SuperNativeExtensionsPlugin *self) {
   static bool initialized = false;
   if (!initialized) {
-    void *handle = dlopen("libsuper_native_extensions.so", RTLD_NOW | RTLD_LOCAL);
+    void *handle =
+        dlopen("libsuper_native_extensions_native.so", RTLD_NOW | RTLD_LOCAL);
     if (handle == nullptr) {
-      g_warning("Failed to load libsuper_native_extensions.so: %s", dlerror());
+      g_warning("Failed to load libsuper_native_extensions_native.so: %s",
+                dlerror());
       return;
     }
 

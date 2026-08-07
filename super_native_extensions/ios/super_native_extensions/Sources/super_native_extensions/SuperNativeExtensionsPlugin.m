@@ -13,11 +13,12 @@ static void *SNEOpenRustLibrary() {
   static void *handle = NULL;
   static dispatch_once_t onceToken;
   dispatch_once(&onceToken, ^{
-    handle = dlopen("@rpath/super_native_extensions.framework/"
-                    "super_native_extensions",
+    handle = dlopen("@rpath/super_native_extensions_native.framework/"
+                    "super_native_extensions_native",
                     RTLD_NOW | RTLD_LOCAL);
     if (handle == NULL) {
-      NSLog(@"Failed to load super_native_extensions.framework: %s", dlerror());
+      NSLog(@"Failed to load super_native_extensions_native.framework: %s",
+            dlerror());
     }
   });
   return handle;

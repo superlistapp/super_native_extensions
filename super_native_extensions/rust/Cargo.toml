@@ -7,7 +7,7 @@ opt-level = "z"
 # strip = "symbols"
 
 [package]
-name = "super_native_extensions"
+name = "super_native_extensions_native"
 version = "0.1.0"
 edition = "2021"
 resolver = "2"

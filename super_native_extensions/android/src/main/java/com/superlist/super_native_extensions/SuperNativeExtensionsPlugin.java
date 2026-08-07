@@ -38,6 +38,6 @@ public class SuperNativeExtensionsPlugin implements FlutterPlugin {
                                    DragDropHelper DragDropHelper);
 
     static {
-        System.loadLibrary("super_native_extensions");
+        System.loadLibrary("super_native_extensions_native");
     }
 }

@@ -29,10 +29,9 @@ apply_standard_settings(${PLUGIN_NAME})
 # exported should be explicitly exported with the FLUTTER_PLUGIN_EXPORT macro.
 set_target_properties(${PLUGIN_NAME} PROPERTIES
   CXX_VISIBILITY_PRESET hidden
-  # Ensure ld uses to executable RPATH when loading
-  # libsuper_native_extensions.so
-  # https://github.com/superlistapp/super_native_extensions/issues/122
+  BUILD_RPATH "$ORIGIN"
   BUILD_RPATH_USE_ORIGIN ON
+  INSTALL_RPATH "$ORIGIN"
 )
 
 target_compile_definitions(${PLUGIN_NAME} PRIVATE FLUTTER_PLUGIN_IMPL)

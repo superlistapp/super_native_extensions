@@ -31,7 +31,7 @@ MessageChannelContext get superNativeExtensionsContext =>
     _contextOverride ?? _nativeContext;
 
 DynamicLibrary openNativeLibrary() {
-  const libraryName = 'super_native_extensions';
+  const libraryName = 'super_native_extensions_native';
   if (io.Platform.isIOS || io.Platform.isMacOS) {
     return DynamicLibrary.open('@rpath/$libraryName.framework/$libraryName');
   }
