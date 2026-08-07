@@ -14,6 +14,8 @@ jobs:
       - uses: subosito/flutter-action@cc97e1648fff6ca5cc647fa67f47e70f7895510b # 2.11.0
         with:
           channel: "stable"
+      - name: Install GTK
+        run: sudo apt-get update && sudo apt-get install -y libgtk-3-dev
       - name: Install Melos
         run: flutter pub global activate melos
       - name: Melos Boostrap
@@ -49,7 +51,7 @@ jobs:
     steps:
       - name: Install GTK
         if: (matrix.os == 'ubuntu-latest')
-        run: sudo apt-get update && sudo apt-get install libgtk-3-dev
+        run: sudo apt-get update && sudo apt-get install -y libgtk-3-dev
       - uses: actions/checkout@ee0669bd1cc54295c223e0bb666b733df41de1c5 #v2.7.0
       - run: rustup default ${{ matrix.rust }}
       - run: rustup update
