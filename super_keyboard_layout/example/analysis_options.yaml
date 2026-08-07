@@ -16,6 +16,10 @@ analyzer:
     - windows/**
     - macos/**
     - linux/**
+
+formatter:
+  trailing_commas: preserve
+
 include: package:flutter_lints/flutter.yaml
 
 linter:
