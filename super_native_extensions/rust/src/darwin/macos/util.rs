@@ -106,7 +106,7 @@ pub fn ns_image_from_image_data(images: Vec<ImageData>) -> Id<NSImage> {
 }
 
 fn is_grayscale(image: &ImageData) -> bool {
-    for pixel in image.data.chunks_exact(4) {
+    for pixel in image.data.as_chunks::<4>().0 {
         if pixel[0] != pixel[1] || pixel[1] != pixel[2] {
             return false;
         }

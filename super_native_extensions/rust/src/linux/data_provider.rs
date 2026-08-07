@@ -105,28 +105,26 @@ impl DataObject {
                         return data.coerce_to_data(StringFormat::Utf8);
                     }
                 }
-                DataRepresentation::Lazy { format, id } => {
-                    if format == ty {
-                        if let Some(cached) = self.cache.borrow().get(id).cloned() {
-                            return cached;
-                        }
-                        if let Some(delegate) = item.delegate.upgrade() {
-                            let promise = delegate.get_lazy_data(item.isolate_id, *id, None);
-                            loop {
-                                if let Some(result) = promise.try_take() {
-                                    match result {
-                                        crate::value_promise::ValuePromiseResult::Ok { value } => {
-                                            let data = value.coerce_to_data(StringFormat::Utf8);
-                                            self.cache.borrow_mut().insert(*id, data.clone());
-                                            return data;
-                                        }
-                                        crate::value_promise::ValuePromiseResult::Cancelled => {
-                                            return None;
-                                        }
+                DataRepresentation::Lazy { format, id } if format == ty => {
+                    if let Some(cached) = self.cache.borrow().get(id).cloned() {
+                        return cached;
+                    }
+                    if let Some(delegate) = item.delegate.upgrade() {
+                        let promise = delegate.get_lazy_data(item.isolate_id, *id, None);
+                        loop {
+                            if let Some(result) = promise.try_take() {
+                                match result {
+                                    crate::value_promise::ValuePromiseResult::Ok { value } => {
+                                        let data = value.coerce_to_data(StringFormat::Utf8);
+                                        self.cache.borrow_mut().insert(*id, data.clone());
+                                        return data;
+                                    }
+                                    crate::value_promise::ValuePromiseResult::Cancelled => {
+                                        return None;
                                     }
                                 }
-                                RunLoop::current().platform_run_loop.poll_once();
                             }
+                            RunLoop::current().platform_run_loop.poll_once();
                         }
                     }
                 }
