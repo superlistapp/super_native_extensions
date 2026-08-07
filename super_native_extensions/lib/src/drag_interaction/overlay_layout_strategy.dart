@@ -83,8 +83,10 @@ class _MenuGeometry {
   _MenuGeometry _fitIntoHorizontal(Rect rect) {
     final res = _fitInto(rect);
     final desiredPreviewRect = previewRect.moveIntoRect(rect);
-    final correction =
-        Offset(0, res.previewRect.center.dy - desiredPreviewRect.center.dy);
+    final correction = Offset(
+      0,
+      res.previewRect.center.dy - desiredPreviewRect.center.dy,
+    );
 
     return _MenuGeometry(
       id: res.id,
@@ -129,15 +131,17 @@ _MenuGeometry _bestFitGeometry(
   String? previousLayoutId,
 ) {
   if (previousLayoutId != null) {
-    final previous =
-        geometry.firstWhereOrNull((element) => element.id == previousLayoutId);
+    final previous = geometry.firstWhereOrNull(
+      (element) => element.id == previousLayoutId,
+    );
     if (previous != null) {
       return previous.fitInto(bounds);
     }
   }
   // Try to find first element that fully fits
-  final firstThatFits =
-      geometry.firstWhereOrNull((element) => element.fitsInto(bounds));
+  final firstThatFits = geometry.firstWhereOrNull(
+    (element) => element.fitsInto(bounds),
+  );
   if (firstThatFits != null) {
     return firstThatFits;
   }
@@ -194,8 +198,9 @@ class _MenuLayout extends MenuLayoutStrategy {
   MenuLayout layout(MenuLayoutInput input) {
     final menuSize = input.layoutMenu(BoxConstraints.loose(input.bounds.size));
     final spaceForPreview = Size(
-        input.bounds.width - menuSize.width - _kMenuSpacing,
-        input.bounds.height);
+      input.bounds.width - menuSize.width - _kMenuSpacing,
+      input.bounds.height,
+    );
     final previewSize = input.menuPreviewSize.fitInto(spaceForPreview);
     final previewRect = Rect.fromCenter(
       center: input.primaryItem.center,
@@ -335,43 +340,51 @@ class _MenuLayout extends MenuLayoutStrategy {
 class _MenuLayoutMobilePortrait extends MenuLayoutStrategy {
   @override
   MenuLayout layout(MenuLayoutInput input) {
-    final menuPreviewSizeMin = input.menuPreviewSize
-        .fitInto(Size(input.bounds.width, input.bounds.height / 4));
-    final menuPreviewSizeMax = input.menuPreviewSize
-        .fitInto(Size(input.bounds.width, input.bounds.height * 3 / 4));
+    final menuPreviewSizeMin = input.menuPreviewSize.fitInto(
+      Size(input.bounds.width, input.bounds.height / 4),
+    );
+    final menuPreviewSizeMax = input.menuPreviewSize.fitInto(
+      Size(input.bounds.width, input.bounds.height * 3 / 4),
+    );
 
-    final menuSize = input.layoutMenu(BoxConstraints.loose(Size(
-      input.bounds.width,
-      input.bounds.height - menuPreviewSizeMin.height - _kMenuSpacing,
-    )));
+    final menuSize = input.layoutMenu(
+      BoxConstraints.loose(
+        Size(
+          input.bounds.width,
+          input.bounds.height - menuPreviewSizeMin.height - _kMenuSpacing,
+        ),
+      ),
+    );
 
     final menuOverflow = math.max(
-        menuPreviewSizeMax.height +
-            _kMenuSpacing +
-            menuSize.height -
-            input.bounds.height,
-        0.0);
+      menuPreviewSizeMax.height +
+          _kMenuSpacing +
+          menuSize.height -
+          input.bounds.height,
+      0.0,
+    );
 
     final verticalCorrection = -math.max(
-        input.primaryItem.center.dy -
-            input.bounds.top +
-            menuPreviewSizeMin.height / 2 +
-            _kMenuSpacing +
-            menuSize.height -
-            input.bounds.height,
-        0.0);
+      input.primaryItem.center.dy -
+          input.bounds.top +
+          menuPreviewSizeMin.height / 2 +
+          _kMenuSpacing +
+          menuSize.height -
+          input.bounds.height,
+      0.0,
+    );
 
     final menuDragOffset = input.menuDragOffset * menuOverflow;
 
     final actualMenuPreviewSize = input.menuPreviewSize.fitInto(
-        Size(input.bounds.width, menuPreviewSizeMax.height - menuDragOffset));
+      Size(input.bounds.width, menuPreviewSizeMax.height - menuDragOffset),
+    );
 
     final menuPreviewRectMax = Rect.fromCenter(
-            center: input.primaryItem.center,
-            width: menuPreviewSizeMax.width,
-            height: menuPreviewSizeMax.height)
-        .translate(0, verticalCorrection)
-        .fitIntoRect(input.bounds);
+      center: input.primaryItem.center,
+      width: menuPreviewSizeMax.width,
+      height: menuPreviewSizeMax.height,
+    ).translate(0, verticalCorrection).fitIntoRect(input.bounds);
 
     // left aligned
     final previewRect1 = menuPreviewRectMax.copyWith(
@@ -386,8 +399,9 @@ class _MenuLayoutMobilePortrait extends MenuLayoutStrategy {
 
     // Bounds adjusted to fit overflow in so that _bestFitGeomety doesn't try to move things
     // vertically
-    final adjustedBounds =
-        input.bounds.copyWith(height: input.bounds.height + menuOverflow);
+    final adjustedBounds = input.bounds.copyWith(
+      height: input.bounds.height + menuOverflow,
+    );
     final geometry = _bestFitGeometry(
       adjustedBounds,
       [

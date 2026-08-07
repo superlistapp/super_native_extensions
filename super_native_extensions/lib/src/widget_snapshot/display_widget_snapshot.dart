@@ -19,14 +19,16 @@ class DisplayWidgetSnapshot extends StatelessWidget {
         fit: BoxFit.fill,
       );
     } else {
-      return LayoutBuilder(builder: (context, constraints) {
-        return Transform.scale(
-          alignment: Alignment.topLeft,
-          scaleX: constraints.biggest.width / snapshot.pointSize.width,
-          scaleY: constraints.biggest.height / snapshot.pointSize.height,
-          child: _WidgetSnapshotWidget(snapshot),
-        );
-      });
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          return Transform.scale(
+            alignment: Alignment.topLeft,
+            scaleX: constraints.biggest.width / snapshot.pointSize.width,
+            scaleY: constraints.biggest.height / snapshot.pointSize.height,
+            child: _WidgetSnapshotWidget(snapshot),
+          );
+        },
+      );
     }
   }
 }
@@ -46,7 +48,9 @@ class _WidgetSnapshotWidget extends SingleChildRenderObjectWidget {
 
   @override
   void updateRenderObject(
-      BuildContext context, covariant RenderObject renderObject) {
+    BuildContext context,
+    covariant RenderObject renderObject,
+  ) {
     final renderObject_ = renderObject as _RenderWidgetSnapshot;
     if (renderObject_.snapshot != snapshot) {
       assert(!snapshot.debugRenderObjectRequested);

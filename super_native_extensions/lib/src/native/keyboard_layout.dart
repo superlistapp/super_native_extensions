@@ -36,7 +36,8 @@ class KeyboardLayoutManagerImpl extends KeyboardLayoutManager {
 
   Future<void> initialize() async {
     final layout = model.KeyboardLayout.deserialize(
-        await _channel.invokeMethod('getKeyboardLayout'));
+      await _channel.invokeMethod('getKeyboardLayout'),
+    );
     _update(layout);
   }
 
@@ -84,6 +85,8 @@ class KeyboardLayoutManagerImpl extends KeyboardLayoutManager {
 
   static final _mutex = Mutex();
 
-  final _channel = NativeMethodChannel('KeyboardLayoutManager',
-      context: superNativeExtensionsContext);
+  final _channel = NativeMethodChannel(
+    'KeyboardLayoutManager',
+    context: superNativeExtensionsContext,
+  );
 }

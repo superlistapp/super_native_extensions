@@ -53,7 +53,10 @@ extension SizeExt on Size {
 extension RectExt on Rect {
   Rect inflateBy(double factor) {
     return Rect.fromCenter(
-        center: center, width: width * factor, height: height * factor);
+      center: center,
+      width: width * factor,
+      height: height * factor,
+    );
   }
 
   Rect copyWith({
@@ -71,19 +74,20 @@ extension RectExt on Rect {
   }
 
   Rect fitIntoRect(Rect bounds) {
-    final scale =
-        math.min(bounds.width / width, bounds.height / height).clamp(0.0, 1.0);
+    final scale = math
+        .min(bounds.width / width, bounds.height / height)
+        .clamp(0.0, 1.0);
     final newSize = size * scale;
     final x = left < bounds.left
         ? bounds.left
         : right > bounds.right
-            ? bounds.right - newSize.width
-            : left;
+        ? bounds.right - newSize.width
+        : left;
     final y = top < bounds.top
         ? bounds.top
         : bottom > bounds.bottom
-            ? bounds.bottom - newSize.height
-            : top;
+        ? bounds.bottom - newSize.height
+        : top;
     return Rect.fromLTWH(x, y, newSize.width, newSize.height);
   }
 
@@ -92,22 +96,22 @@ extension RectExt on Rect {
     final x = left < bounds.left
         ? bounds.left
         : right > bounds.right
-            ? bounds.right - width
-            : left;
+        ? bounds.right - width
+        : left;
     final y = top < bounds.top
         ? bounds.top
         : bottom > bounds.bottom
-            ? bounds.bottom - height
-            : top;
+        ? bounds.bottom - height
+        : top;
     return Rect.fromLTWH(x, y, width, height);
   }
 }
 
 extension EdgeInsetsExt on EdgeInsets {
   EdgeInsets atLeast(EdgeInsets insets) => EdgeInsets.only(
-        left: left < insets.left ? insets.left : left,
-        top: top < insets.top ? insets.top : top,
-        right: right < insets.right ? insets.right : right,
-        bottom: bottom < insets.bottom ? insets.bottom : bottom,
-      );
+    left: left < insets.left ? insets.left : left,
+    top: top < insets.top ? insets.top : top,
+    right: right < insets.right ? insets.right : right,
+    bottom: bottom < insets.bottom ? insets.bottom : bottom,
+  );
 }

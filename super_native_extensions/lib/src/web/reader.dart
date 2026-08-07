@@ -104,10 +104,10 @@ class ClipboardItemHandle extends $DataReaderItemHandle {
 /// ItemHandle backed by a list of [web.DataTransferItem]s.
 class DataTransferItemHandle implements $DataReaderItemHandle {
   DataTransferItemHandle(this.items, {required bool canRead})
-      : file = canRead ? _getFile(items) : null,
-        entry = canRead ? _getEntry(items) : null,
-        // reading strings multiple times fails in Chrome so we cache them
-        strings = canRead ? _getStrings(items) : {};
+    : file = canRead ? _getFile(items) : null,
+      entry = canRead ? _getEntry(items) : null,
+      // reading strings multiple times fails in Chrome so we cache them
+      strings = canRead ? _getStrings(items) : {};
 
   static web.File? _getFile(List<web.DataTransferItem> items) {
     for (final item in items) {
@@ -128,7 +128,8 @@ class DataTransferItemHandle implements $DataReaderItemHandle {
   }
 
   static Map<String, Future<String>> _getStrings(
-      List<web.DataTransferItem> items) {
+    List<web.DataTransferItem> items,
+  ) {
     final res = <String, Future<String>>{};
     for (final item in items) {
       if (item.isString) {
@@ -224,8 +225,9 @@ class _VirtualFileReceiver extends VirtualFileReceiver {
   final web.File file;
 
   @override
-  (Future<String>, ReadProgress) copyVirtualFile(
-      {required String targetFolder}) {
+  (Future<String>, ReadProgress) copyVirtualFile({
+    required String targetFolder,
+  }) {
     throw UnimplementedError();
   }
 

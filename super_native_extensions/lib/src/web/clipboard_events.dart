@@ -61,7 +61,8 @@ class _WriteEvent extends ClipboardWriteEvent {
           final data = repr.dataProvider();
           if (data is Future) {
             throw UnsupportedError(
-                'HTML Clipboard event does not support asynchronous data.');
+              'HTML Clipboard event does not support asynchronous data.',
+            );
           }
           _setData(repr.format, data);
         }
@@ -79,8 +80,9 @@ class ClipboardEventsImpl extends ClipboardEvents {
   ClipboardEventsImpl() {
     // Have no access to `registerHotRestartListener` so this needs to be done manually on startup.
     {
-      final listeners = web.window.getProperty(listenersProperty.toJS)
-          as JSArray<JSListener>?;
+      final listeners =
+          web.window.getProperty(listenersProperty.toJS)
+              as JSArray<JSListener>?;
       if (listeners != null) {
         for (final listener in listeners.toDart) {
           web.window.removeEventListener(listener.type, listener.callback);
@@ -107,14 +109,18 @@ class ClipboardEventsImpl extends ClipboardEvents {
     if (itemList == null) {
       return;
     }
-    final translated =
-        translateDataTransfer(clipboardEvent.clipboardData!, allowReader: true);
+    final translated = translateDataTransfer(
+      clipboardEvent.clipboardData!,
+      allowReader: true,
+    );
     final readerHandle = $DataReaderHandle(
-      translated.map(
-        (e) {
-          return e.$2 as $DataReaderItemHandle;
-        },
-      ).toList(growable: false),
+      translated
+          .map(
+            (e) {
+              return e.$2 as $DataReaderItemHandle;
+            },
+          )
+          .toList(growable: false),
     );
     final reader = DataReader(handle: readerHandle as DataReaderHandle);
     final readEvent = _PasteEvent(reader: reader, event: event);
@@ -145,37 +151,43 @@ class ClipboardEventsImpl extends ClipboardEvents {
 
   @override
   void registerPasteEventListener(
-      void Function(ClipboardReadEvent p1) listener) {
+    void Function(ClipboardReadEvent p1) listener,
+  ) {
     _pasteEventListeners.add(listener);
   }
 
   @override
   void unregisterPasteEventListener(
-      void Function(ClipboardReadEvent p1) listener) {
+    void Function(ClipboardReadEvent p1) listener,
+  ) {
     _pasteEventListeners.remove(listener);
   }
 
   @override
   void registerCopyEventListener(
-      void Function(ClipboardWriteEvent p1) listener) {
+    void Function(ClipboardWriteEvent p1) listener,
+  ) {
     _copyEventListeners.add(listener);
   }
 
   @override
   void unregisterCopyEventListener(
-      void Function(ClipboardWriteEvent p1) listener) {
+    void Function(ClipboardWriteEvent p1) listener,
+  ) {
     _copyEventListeners.remove(listener);
   }
 
   @override
   void registerCutEventListener(
-      void Function(ClipboardWriteEvent p1) listener) {
+    void Function(ClipboardWriteEvent p1) listener,
+  ) {
     _cutEventListeners.add(listener);
   }
 
   @override
   void unregisterCutEventListener(
-      void Function(ClipboardWriteEvent p1) listener) {
+    void Function(ClipboardWriteEvent p1) listener,
+  ) {
     _cutEventListeners.remove(listener);
   }
 

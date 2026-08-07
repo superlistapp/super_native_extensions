@@ -65,8 +65,9 @@ class DataReaderItemInfo {
 class DataReaderItem {
   Future<List<String>> getAvailableFormats() {
     return _mutex.protect(() async {
-      _availableFormats ??=
-          await ReaderManager.instance.getItemFormats(_handle);
+      _availableFormats ??= await ReaderManager.instance.getItemFormats(
+        _handle,
+      );
       return _availableFormats!;
     });
   }
@@ -108,9 +109,9 @@ class DataReaderItem {
   /// received through [getVirtualFileReceiver] - [getDataForFormat] will return
   /// `null`.
   Future<bool> isVirtual(String format) async {
-    return (await _getItemInfo())
-        .virtualReceivers
-        .any((element) => element.format == format);
+    return (await _getItemInfo()).virtualReceivers.any(
+      (element) => element.format == format,
+    );
   }
 
   Future<String?> getSuggestedName() async {

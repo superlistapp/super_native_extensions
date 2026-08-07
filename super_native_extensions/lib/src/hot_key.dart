@@ -16,12 +16,12 @@ class HotKeyDefinition {
   });
 
   dynamic serialize() => {
-        'platformCode': platformCode,
-        'alt': alt,
-        'shift': shift,
-        'meta': meta,
-        'control': control,
-      };
+    'platformCode': platformCode,
+    'alt': alt,
+    'shift': shift,
+    'meta': meta,
+    'control': control,
+  };
 }
 
 abstract class HotKeyManagerDelegate {

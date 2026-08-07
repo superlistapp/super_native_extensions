@@ -27,31 +27,28 @@ sealed class DataRepresentation {
   static DataRepresentationSimple simple({
     required String format,
     required Object? data,
-  }) =>
-      DataRepresentationSimple._(
-        format: format,
-        data: data,
-      );
+  }) => DataRepresentationSimple._(
+    format: format,
+    data: data,
+  );
 
   static DataRepresentationLazy lazy({
     required String format,
     required FutureOr<Object?> Function() dataProvider,
-  }) =>
-      DataRepresentationLazy._(
-        format: format,
-        dataProvider: dataProvider,
-      );
+  }) => DataRepresentationLazy._(
+    format: format,
+    dataProvider: dataProvider,
+  );
 
   static DataRepresentationVirtualFile virtualFile({
     required String format,
     required VirtualFileProvider virtualFileProvider,
     VirtualFileStorage? storageSuggestion,
-  }) =>
-      DataRepresentationVirtualFile._(
-        format: format,
-        virtualFileProvider: virtualFileProvider,
-        storageSuggestion: storageSuggestion,
-      );
+  }) => DataRepresentationVirtualFile._(
+    format: format,
+    virtualFileProvider: virtualFileProvider,
+    storageSuggestion: storageSuggestion,
+  );
 
   String get format;
   dynamic serialize();
@@ -66,10 +63,10 @@ class DataRepresentationSimple extends DataRepresentation {
 
   @override
   dynamic serialize() => {
-        'type': 'simple',
-        'format': format,
-        'data': data,
-      };
+    'type': 'simple',
+    'format': format,
+    'data': data,
+  };
 
   /// List of platform-specific data formats.
   @override
@@ -87,10 +84,10 @@ class DataRepresentationLazy extends DataRepresentation {
 
   @override
   dynamic serialize() => {
-        'type': 'lazy',
-        'id': id,
-        'format': format,
-      };
+    'type': 'lazy',
+    'id': id,
+    'format': format,
+  };
 
   final int id;
   @override
@@ -110,12 +107,15 @@ abstract class WriteProgress {
 
 /// Returns stream sink for virtual file. File size must be provided before
 /// being able to write any content.
-typedef VirtualFileEventSinkProvider = EventSink Function(
-    {required int fileSize});
+typedef VirtualFileEventSinkProvider =
+    EventSink Function({required int fileSize});
 
 /// Callback invoked when receiver requests a virtual file.
-typedef VirtualFileProvider = void Function(
-    VirtualFileEventSinkProvider sinkProvider, WriteProgress progress);
+typedef VirtualFileProvider =
+    void Function(
+      VirtualFileEventSinkProvider sinkProvider,
+      WriteProgress progress,
+    );
 
 /// Preferred storage used when writing virtual file.
 enum VirtualFileStorage { temporaryFile, memory }
@@ -129,11 +129,11 @@ class DataRepresentationVirtualFile extends DataRepresentation {
 
   @override
   serialize() => {
-        'type': 'virtualFile',
-        'id': id,
-        'format': format,
-        'storageSuggestion': storageSuggestion?.name,
-      };
+    'type': 'virtualFile',
+    'id': id,
+    'format': format,
+    'storageSuggestion': storageSuggestion?.name,
+  };
 
   final int id;
   @override

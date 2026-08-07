@@ -59,9 +59,11 @@ class DragDriver {
 
   void _onPointerDataPacketInner(ui.PointerDataPacket packet) {
     // If this is not our packet pass it through.
-    if (packet.data.any((element) =>
-        element.pointerIdentifier != pointer ||
-        element.signalKind == ui.PointerSignalKind.scroll)) {
+    if (packet.data.any(
+      (element) =>
+          element.pointerIdentifier != pointer ||
+          element.signalKind == ui.PointerSignalKind.scroll,
+    )) {
       _previousPointerDataPacketCallback?.call(packet);
       return;
     }
@@ -81,8 +83,9 @@ class DragDriver {
           physicalY: data.physicalY,
           synthesized: true,
         );
-        _previousPointerDataPacketCallback
-            ?.call(ui.PointerDataPacket(data: [newData]));
+        _previousPointerDataPacketCallback?.call(
+          ui.PointerDataPacket(data: [newData]),
+        );
       } else if (data.change == ui.PointerChange.up) {
         // This data already is pointer up event. There was no move.
         _previousPointerDataPacketCallback?.call(packet);
@@ -90,7 +93,9 @@ class DragDriver {
       _didReleasePointer = true;
     }
     final offset = ui.Offset(
-        data.physicalX / devicePixelRatio, data.physicalY / devicePixelRatio);
+      data.physicalX / devicePixelRatio,
+      data.physicalY / devicePixelRatio,
+    );
     delegate.update(offset);
     if (data.change == ui.PointerChange.up ||
         data.change == ui.PointerChange.cancel ||
@@ -109,8 +114,9 @@ class DragDriver {
           physicalY: data.physicalY,
           synthesized: true,
         );
-        _previousPointerDataPacketCallback
-            ?.call(ui.PointerDataPacket(data: [newData]));
+        _previousPointerDataPacketCallback?.call(
+          ui.PointerDataPacket(data: [newData]),
+        );
       }
       _cleanup();
     }

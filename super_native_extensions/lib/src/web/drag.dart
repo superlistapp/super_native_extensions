@@ -139,8 +139,9 @@ class _SessionState implements DragDriverDelegate {
           return DragOverlayDesktop(
             key: dragOverlayKey,
             initialPosition: originalPosition,
-            snapshots:
-                configuration.items.map((e) => e.image).toList(growable: false),
+            snapshots: configuration.items
+                .map((e) => e.image)
+                .toList(growable: false),
           );
         }
       },
@@ -154,8 +155,11 @@ class _SessionState implements DragDriverDelegate {
     dragOverlayKey.currentState?.updatePosition(position);
     lastScreenLocation.value = position;
 
-    _lastOperation = await DropContextImpl.instance
-            ?.localSessionDidMove(configuration, position) ??
+    _lastOperation =
+        await DropContextImpl.instance?.localSessionDidMove(
+          configuration,
+          position,
+        ) ??
         DropOperation.none;
   }
 
@@ -172,22 +176,27 @@ class _SessionState implements DragDriverDelegate {
   @override
   void cancel() {
     _removeCanvas(
-        cancelled: true,
-        onCompleted: () {
-          dragCompleted.value = DropOperation.userCancelled;
-          _cleanup();
-        });
+      cancelled: true,
+      onCompleted: () {
+        dragCompleted.value = DropOperation.userCancelled;
+        _cleanup();
+      },
+    );
   }
 
   @override
   void end(Offset position) async {
     final location = lastScreenLocation.value;
     if (_lastOperation != DropOperation.none && location != null) {
-      await DropContextImpl.instance
-          ?.localSessionDrop(configuration, location, _lastOperation);
+      await DropContextImpl.instance?.localSessionDrop(
+        configuration,
+        location,
+        _lastOperation,
+      );
     }
     _removeCanvas(
-      cancelled: _lastOperation == DropOperation.none ||
+      cancelled:
+          _lastOperation == DropOperation.none ||
           _lastOperation == DropOperation.userCancelled ||
           _lastOperation == DropOperation.forbidden,
       onCompleted: () {
@@ -225,10 +234,11 @@ class _SessionState implements DragDriverDelegate {
 
       void animateHome() {
         dragOverlayKey.currentState?.animateHome(
-            Duration(
-              milliseconds: movementDuration,
-            ),
-            completion);
+          Duration(
+            milliseconds: movementDuration,
+          ),
+          completion,
+        );
       }
 
       // It is possible that the cancellation came even before Flutter was unable to update

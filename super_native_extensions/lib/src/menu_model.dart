@@ -30,9 +30,8 @@ abstract class MenuImage {
   /// Creates menu image from specified image provider function.
   factory MenuImage.withImage(
     FutureOr<ui.Image?>? Function(IconThemeData theme, int devicePixelRatio)
-        imageProvider,
-  ) =>
-      ImageProviderMenuImage(imageProvider);
+    imageProvider,
+  ) => ImageProviderMenuImage(imageProvider);
 }
 
 class MenuElement {

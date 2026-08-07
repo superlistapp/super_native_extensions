@@ -30,7 +30,7 @@ enum DropOperation {
   move,
 
   /// Supported on: macOS, Windows, Linux.
-  link
+  link,
 }
 
 class BaseDropEvent {
@@ -40,8 +40,8 @@ class BaseDropEvent {
 
   @override
   String toString() => {
-        'sessionId': sessionId,
-      }.toString();
+    'sessionId': sessionId,
+  }.toString();
 
   final int sessionId;
 }
@@ -61,10 +61,10 @@ class DropItem {
 
   @override
   String toString() => {
-        'itemId': itemId,
-        'formats': formats,
-        'localData': localData,
-      }.toString();
+    'itemId': itemId,
+    'formats': formats,
+    'localData': localData,
+  }.toString();
 }
 
 class DropEvent extends BaseDropEvent {
@@ -83,13 +83,14 @@ class DropEvent extends BaseDropEvent {
 
   @override
   String toString() => {
-        'sessionId': sessionId,
-        'locationInView': locationInView.serialize(),
-        'items': items.map((e) => e.toString()),
-        'allowedOperation':
-            allowedOperations.map((e) => e.name).toList(growable: false),
-        'acceptedOperation': acceptedOperation?.name,
-      }.toString();
+    'sessionId': sessionId,
+    'locationInView': locationInView.serialize(),
+    'items': items.map((e) => e.toString()),
+    'allowedOperation': allowedOperations
+        .map((e) => e.name)
+        .toList(growable: false),
+    'acceptedOperation': acceptedOperation?.name,
+  }.toString();
 }
 
 class ItemPreview {
@@ -134,8 +135,9 @@ class ItemPreviewRequest {
       itemId: map['itemId'] as int,
       size: SizeExt.deserialize(map['size']),
       fadeOutDelay: DurationExt.fromSeconds(map['fadeOutDelay'] as double),
-      fadeOutDuration:
-          DurationExt.fromSeconds(map['fadeOutDuration'] as double),
+      fadeOutDuration: DurationExt.fromSeconds(
+        map['fadeOutDuration'] as double,
+      ),
     );
   }
 

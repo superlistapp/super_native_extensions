@@ -19,6 +19,8 @@ class ClipboardReaderImpl extends ClipboardReader {
 
   ClipboardReaderImpl();
 
-  final _channel = NativeMethodChannel('ClipboardReader',
-      context: superNativeExtensionsContext);
+  final _channel = NativeMethodChannel(
+    'ClipboardReader',
+    context: superNativeExtensionsContext,
+  );
 }

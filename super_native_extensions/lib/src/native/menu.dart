@@ -17,16 +17,19 @@ import 'context.dart';
 import 'image_data.dart';
 
 Future<dynamic> _serializeImage(
-    MenuImage? image, MenuSerializationOptions options,
-    {required bool destructive}) async {
+  MenuImage? image,
+  MenuSerializationOptions options, {
+  required bool destructive,
+}) async {
   if (image is SystemMenuImage) {
     return {
       'type': 'system',
       'name': image.systemImageName,
     };
   } else if (image != null) {
-    final iconTheme =
-        destructive ? options.destructiveIconTheme : options.iconTheme;
+    final iconTheme = destructive
+        ? options.destructiveIconTheme
+        : options.iconTheme;
     final i = await image.asImage(iconTheme, options.devicePixelRatio);
     if (i != null) {
       i.devicePixelRatio ??= options.devicePixelRatio;
@@ -43,70 +46,73 @@ Future<dynamic> _serializeImage(
 
 extension on Menu {
   Future<dynamic> serialize(MenuSerializationOptions options) async => {
-        'type': 'menu',
-        'content': {
-          'uniqueId': uniqueId,
-          'title': title,
-          'subtitle': subtitle,
-          'image': await _serializeImage(image, options, destructive: false),
-          'children': await Future.wait(
-            children.map(
-              (e) => e.serialize(options),
-            ),
-          ),
-        }
-      };
+    'type': 'menu',
+    'content': {
+      'uniqueId': uniqueId,
+      'title': title,
+      'subtitle': subtitle,
+      'image': await _serializeImage(image, options, destructive: false),
+      'children': await Future.wait(
+        children.map(
+          (e) => e.serialize(options),
+        ),
+      ),
+    },
+  };
 }
 
 extension on MenuActionAttributes {
   Future<dynamic> serialize() async => {
-        'disabled': disabled,
-        'destructive': destructive,
-      };
+    'disabled': disabled,
+    'destructive': destructive,
+  };
 }
 
 extension on MenuSeparator {
   Future<dynamic> serialize() async => {
-        'type': 'separator',
-        'content': {
-          'title': title,
-        }
-      };
+    'type': 'separator',
+    'content': {
+      'title': title,
+    },
+  };
 }
 
 extension on SingleActivator {
   dynamic serialize() => {
-        'trigger': trigger.keyLabel,
-        'alt': alt,
-        'meta': meta,
-        'shift': shift,
-        'control': control,
-      };
+    'trigger': trigger.keyLabel,
+    'alt': alt,
+    'meta': meta,
+    'shift': shift,
+    'control': control,
+  };
 }
 
 extension on MenuAction {
   Future<dynamic> serialize(MenuSerializationOptions options) async => {
-        'type': 'action',
-        'content': {
-          'uniqueId': uniqueId,
-          'title': title,
-          'subtitle': subtitle,
-          'image': await _serializeImage(image, options,
-              destructive: attributes.destructive),
-          'attributes': await attributes.serialize(),
-          'state': state.name,
-          'activator': activator?.serialize(),
-        }
-      };
+    'type': 'action',
+    'content': {
+      'uniqueId': uniqueId,
+      'title': title,
+      'subtitle': subtitle,
+      'image': await _serializeImage(
+        image,
+        options,
+        destructive: attributes.destructive,
+      ),
+      'attributes': await attributes.serialize(),
+      'state': state.name,
+      'activator': activator?.serialize(),
+    },
+  };
 }
 
 extension on DeferredMenuElement {
   Future<dynamic> serialize() async => {
-        'type': 'deferred',
-        'content': {
-          'uniqueId': uniqueId,
-        }
-      };
+    'type': 'deferred',
+    'content': {
+      'uniqueId': uniqueId,
+    },
+  };
 }
 
 extension on MenuElement {
@@ -125,8 +131,10 @@ extension on MenuElement {
   }
 }
 
-final _channel =
-    NativeMethodChannel('MenuManager', context: superNativeExtensionsContext);
+final _channel = NativeMethodChannel(
+  'MenuManager',
+  context: superNativeExtensionsContext,
+);
 
 class NativeMenuHandle extends MenuHandle {
   NativeMenuHandle({
@@ -205,13 +213,15 @@ class MenuContextImpl extends MenuContext {
 
   @override
   Future<MenuResult> showContextMenu(DesktopContextMenuRequest request) async {
-    final res = await _channel.invokeMethod('showContextMenu', {
-      'menuHandle': (request.menu as NativeMenuHandle).handle,
-      'location': request.position.serialize(),
-      if (request.writingToolsConfiguration != null)
-        'writingToolsConfiguration':
-            request.writingToolsConfiguration!.serialize(),
-    }) as Map;
+    final res =
+        await _channel.invokeMethod('showContextMenu', {
+              'menuHandle': (request.menu as NativeMenuHandle).handle,
+              'location': request.position.serialize(),
+              if (request.writingToolsConfiguration != null)
+                'writingToolsConfiguration': request.writingToolsConfiguration!
+                    .serialize(),
+            })
+            as Map;
     return MenuResult(
       itemSelected: res['itemSelected'],
     );
@@ -251,7 +261,9 @@ class MenuContextImpl extends MenuContext {
   }
 
   void _updatePreviewImage(
-      int configurationId, WidgetSnapshot previewImage) async {
+    int configurationId,
+    WidgetSnapshot previewImage,
+  ) async {
     final imageData = await ImageData.fromImage(previewImage.image);
     _channel.invokeMethod('updatePreviewImage', {
       'configurationId': configurationId,
@@ -267,10 +279,11 @@ class MenuContextImpl extends MenuContext {
         final configurationId = arguments['configurationId'] as int;
         final configuration = await delegate?.getMenuConfiguration(
           MobileMenuConfigurationRequest(
-              configurationId: configurationId,
-              location: offset,
-              previewImageSetter: (image) =>
-                  _updatePreviewImage(configurationId, image)),
+            configurationId: configurationId,
+            location: offset,
+            previewImageSetter: (image) =>
+                _updatePreviewImage(configurationId, image),
+          ),
         );
         if (configuration != null) {
           return {'configuration': await configuration.serialize()};
@@ -294,10 +307,11 @@ class MenuContextImpl extends MenuContext {
       return handleError(() async {
         final hideRequest = call.arguments as Map;
         delegate?.onHideMenu(
-            hideRequest['menuConfigurationId'] as int,
-            MenuResult(
-              itemSelected: hideRequest['itemSelected'] as bool,
-            ));
+          hideRequest['menuConfigurationId'] as int,
+          MenuResult(
+            itemSelected: hideRequest['itemSelected'] as bool,
+          ),
+        );
       }, () => null);
     } else if (call.method == 'onPreviewAction') {
       return handleError(() async {
@@ -313,10 +327,12 @@ class MenuContextImpl extends MenuContext {
             element.handle,
             element.element as DeferredMenuElement,
           );
-          res = await Future.wait(menu.map((e) {
-            element.handle.elements.add(e);
-            return e.serialize(element.handle.serializationOptions);
-          }));
+          res = await Future.wait(
+            menu.map((e) {
+              element.handle.elements.add(e);
+              return e.serialize(element.handle.serializationOptions);
+            }),
+          );
         }
         return {'elements': res};
       }, () => {'elements': []});
@@ -334,17 +350,22 @@ class MenuContextImpl extends MenuContext {
   ) async {
     final completer = Completer<List<MenuElement>>();
     final token = SimpleCancellationToken();
-    element.provider(token).then((value) {
-      if (!token.cancelled) {
-        token.dispose();
-        completer.complete(value);
-      }
-    }, onError: (e) {
-      if (!token.cancelled) {
-        token.dispose();
-        completer.completeError(e);
-      }
-    });
+    element
+        .provider(token)
+        .then(
+          (value) {
+            if (!token.cancelled) {
+              token.dispose();
+              completer.complete(value);
+            }
+          },
+          onError: (e) {
+            if (!token.cancelled) {
+              token.dispose();
+              completer.completeError(e);
+            }
+          },
+        );
     (handle as NativeMenuHandle).onDispose(() {
       if (!completer.isCompleted) {
         completer.complete([]);
@@ -357,12 +378,12 @@ class MenuContextImpl extends MenuContext {
 
 extension MenuConfigurationExt on MobileMenuConfiguration {
   Future<dynamic> serialize() async => {
-        'configurationId': configurationId,
-        'previewImage': previewImage != null
-            ? (await ImageData.fromImage(previewImage!.image)).serialize()
-            : null,
-        'previewSize': previewSize?.serialize(),
-        'liftImage': (await liftImage.intoRaw()).serialize(),
-        'menuHandle': (handle as NativeMenuHandle).handle,
-      };
+    'configurationId': configurationId,
+    'previewImage': previewImage != null
+        ? (await ImageData.fromImage(previewImage!.image)).serialize()
+        : null,
+    'previewSize': previewSize?.serialize(),
+    'liftImage': (await liftImage.intoRaw()).serialize(),
+    'menuHandle': (handle as NativeMenuHandle).handle,
+  };
 }

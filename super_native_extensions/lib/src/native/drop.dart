@@ -13,8 +13,10 @@ import 'context.dart';
 import 'image_data.dart';
 import 'reader_manager.dart';
 
-final _channel =
-    NativeMethodChannel('DropManager', context: superNativeExtensionsContext);
+final _channel = NativeMethodChannel(
+  'DropManager',
+  context: superNativeExtensionsContext,
+);
 
 class Session {
   DataReader? reader;
@@ -23,13 +25,13 @@ class Session {
 
 extension ItemPreviewExt on ItemPreview {
   Future<dynamic> serialize() async => {
-        'destinationRect': destinationRect.serialize(),
-        'destinationImage': destinationImage != null
-            ? (await ImageData.fromImage(destinationImage!)).serialize()
-            : null,
-        'fadeOutDelay': fadeOutDelay?.inSecondsDouble,
-        'fadeOutDuration': fadeOutDuration?.inSecondsDouble,
-      };
+    'destinationRect': destinationRect.serialize(),
+    'destinationImage': destinationImage != null
+        ? (await ImageData.fromImage(destinationImage!)).serialize()
+        : null,
+    'fadeOutDelay': fadeOutDelay?.inSecondsDouble,
+    'fadeOutDuration': fadeOutDuration?.inSecondsDouble,
+  };
 }
 
 extension BaseDropEventExt on BaseDropEvent {
@@ -66,7 +68,9 @@ class DropEventImpl extends DropEvent {
   // readerProvider is to ensure that reader is only deserialized once and
   // same instance is used subsequently.
   static Future<DropEventImpl> deserialize(
-      dynamic event, ReaderProvider readerProvider) async {
+    dynamic event,
+    ReaderProvider readerProvider,
+  ) async {
     final map = event as Map;
     final acceptedOperation = map['acceptedOperation'];
     final sessionId = map['sessionId'] as int;
@@ -81,8 +85,9 @@ class DropEventImpl extends DropEvent {
     final items = await reader?.getItems();
 
     DropItem deserializeItem(int index, dynamic item) {
-      final readerItem =
-          (items != null && index < items.length) ? items[index] : null;
+      final readerItem = (items != null && index < items.length)
+          ? items[index]
+          : null;
       return DropItemExt.deserialize(item, readerItem);
     }
 
@@ -138,7 +143,9 @@ class DropContextImpl extends DropContext {
         final session = _sessionForEvent(call.arguments);
         return session.mutex.protect(() async {
           final event = await DropEventImpl.deserialize(
-              call.arguments, _getReaderForSession);
+            call.arguments,
+            _getReaderForSession,
+          );
           session.reader = event.reader;
           final operation = await delegate?.onDropUpdate(event);
           return (operation ?? DropOperation.none).name;
@@ -149,7 +156,9 @@ class DropContextImpl extends DropContext {
         final session = _sessionForEvent(call.arguments);
         return session.mutex.protect(() async {
           final event = await DropEventImpl.deserialize(
-              call.arguments, _getReaderForSession);
+            call.arguments,
+            _getReaderForSession,
+          );
           session.reader = event.reader;
           return await delegate?.onPerformDrop(event);
         });

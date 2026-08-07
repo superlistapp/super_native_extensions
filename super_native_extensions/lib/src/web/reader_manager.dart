@@ -57,13 +57,15 @@ class ReaderManagerImpl extends ReaderManager {
     final progress = SimpleProgress();
     final res = impl.getDataForFormat(format);
     final completer = Completer<Object?>();
-    res.then((value) {
-      progress.done();
-      completer.complete(value);
-    }).catchError((error) {
-      progress.done();
-      completer.completeError(error);
-    });
+    res
+        .then((value) {
+          progress.done();
+          completer.complete(value);
+        })
+        .catchError((error) {
+          progress.done();
+          completer.completeError(error);
+        });
     return (completer.future, progress);
   }
 
@@ -92,8 +94,10 @@ class ReaderManagerImpl extends ReaderManager {
       final receivers = <VirtualFileReceiver>[];
       for (final format in formats) {
         if (await impl.canGetVirtualFile(format)) {
-          final receiver =
-              await impl.createVirtualFileReceiver(handle, format: format);
+          final receiver = await impl.createVirtualFileReceiver(
+            handle,
+            format: format,
+          );
           if (receiver != null) {
             receivers.add(receiver);
           }

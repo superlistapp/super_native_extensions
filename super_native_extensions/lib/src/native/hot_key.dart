@@ -34,6 +34,8 @@ class HotKeyManagerImpl extends HotKeyManager {
 
   HotKeyManagerDelegate? _delegate;
 
-  final _channel = NativeMethodChannel('HotKeyManager',
-      context: superNativeExtensionsContext);
+  final _channel = NativeMethodChannel(
+    'HotKeyManager',
+    context: superNativeExtensionsContext,
+  );
 }

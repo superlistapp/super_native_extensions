@@ -104,37 +104,43 @@ class ClipboardEventsImpl extends ClipboardEvents {
 
   @override
   void registerPasteEventListener(
-      void Function(ClipboardReadEvent p1) listener) {
+    void Function(ClipboardReadEvent p1) listener,
+  ) {
     _pasteEventListeners.add(listener);
   }
 
   @override
   void unregisterPasteEventListener(
-      void Function(ClipboardReadEvent p1) listener) {
+    void Function(ClipboardReadEvent p1) listener,
+  ) {
     _pasteEventListeners.remove(listener);
   }
 
   @override
   void registerCopyEventListener(
-      void Function(ClipboardWriteEvent p1) listener) {
+    void Function(ClipboardWriteEvent p1) listener,
+  ) {
     _copyEventListeners.add(listener);
   }
 
   @override
   void unregisterCopyEventListener(
-      void Function(ClipboardWriteEvent p1) listener) {
+    void Function(ClipboardWriteEvent p1) listener,
+  ) {
     _copyEventListeners.remove(listener);
   }
 
   @override
   void registerCutEventListener(
-      void Function(ClipboardWriteEvent p1) listener) {
+    void Function(ClipboardWriteEvent p1) listener,
+  ) {
     _cutEventListeners.add(listener);
   }
 
   @override
   void unregisterCutEventListener(
-      void Function(ClipboardWriteEvent p1) listener) {
+    void Function(ClipboardWriteEvent p1) listener,
+  ) {
     _cutEventListeners.remove(listener);
   }
 
@@ -148,6 +154,8 @@ class ClipboardEventsImpl extends ClipboardEvents {
     _textEventListeners.remove(listener);
   }
 
-  final _channel = NativeMethodChannel('ClipboardEventManager',
-      context: superNativeExtensionsContext);
+  final _channel = NativeMethodChannel(
+    'ClipboardEventManager',
+    context: superNativeExtensionsContext,
+  );
 }

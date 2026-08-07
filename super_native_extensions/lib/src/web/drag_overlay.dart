@@ -96,7 +96,7 @@ class _DragOverlayDesktopState extends DragOverlayState<DragOverlayDesktop> {
                   ),
                 ),
               );
-            }()
+            }(),
         ],
       ),
     );
@@ -138,8 +138,9 @@ class _DragOverlayMobileState extends DragOverlayState<DragOverlayMobile> {
   @override
   Widget build(BuildContext context) {
     var offset = Offset(
-        _position.dx - widget.snapshot.snapshot.pointWidth / 2.0,
-        _position.dy - widget.snapshot.snapshot.pointHeight / 2.0);
+      _position.dx - widget.snapshot.snapshot.pointWidth / 2.0,
+      _position.dy - widget.snapshot.snapshot.pointHeight / 2.0,
+    );
 
     if (_homeTransition != null) {
       offset = Offset.lerp(

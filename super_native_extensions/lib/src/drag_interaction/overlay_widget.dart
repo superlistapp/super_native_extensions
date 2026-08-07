@@ -80,8 +80,9 @@ class OverlayWidgetState extends State<OverlayWidget>
   final _repaintBoundary = GlobalKey();
 
   WidgetSnapshot getSnapshot() {
-    final boundary = _repaintBoundary.currentContext!.findRenderObject()
-        as RenderBetterRepaintBoundary;
+    final boundary =
+        _repaintBoundary.currentContext!.findRenderObject()
+            as RenderBetterRepaintBoundary;
     final pixelRatio = MediaQuery.of(context).devicePixelRatio;
     var size = Size(
       widget.configuration.primaryItem.dragImage.pointWidth + kShadowRadius * 2,
@@ -93,8 +94,10 @@ class OverlayWidgetState extends State<OverlayWidget>
       if (renderObject != null) {
         final box = renderObject as RenderBox;
         final transform = box.getTransformTo(boundary);
-        final rect =
-            MatrixUtils.transformRect(transform, box.paintBounds).inflate(14.0);
+        final rect = MatrixUtils.transformRect(
+          transform,
+          box.paintBounds,
+        ).inflate(14.0);
         size = Size(
           math.max(size.width, rect.width),
           math.max(size.height, rect.height),
@@ -103,9 +106,10 @@ class OverlayWidgetState extends State<OverlayWidget>
     }
 
     final rect = Rect.fromCenter(
-        center: boundary.globalToLocal(_currentState.globalPosition),
-        width: size.width,
-        height: size.height);
+      center: boundary.globalToLocal(_currentState.globalPosition),
+      width: size.width,
+      height: size.height,
+    );
 
     if (WidgetSnapshotter.snapshotToImageSupported()) {
       final image = boundary.toImageSync(bounds: rect, pixelRatio: pixelRatio)
@@ -140,14 +144,16 @@ class OverlayWidgetState extends State<OverlayWidget>
       return ValueListenableBuilder<MenuPreviewWidget?>(
         valueListenable: widget.configuration.menuConfiguration!.menuPreview,
         builder: (context, menuPreview, _) {
-          return LayoutBuilder(builder: (context, constraints) {
-            // Hide menu on rotation. The underlying widgets have likely been rebuilt anyway.
-            if (_lastConstraints != null && _lastConstraints != constraints) {
-              hide();
-            }
-            _lastConstraints = constraints;
-            return _build(context, menuPreview);
-          });
+          return LayoutBuilder(
+            builder: (context, constraints) {
+              // Hide menu on rotation. The underlying widgets have likely been rebuilt anyway.
+              if (_lastConstraints != null && _lastConstraints != constraints) {
+                hide();
+              }
+              _lastConstraints = constraints;
+              return _build(context, menuPreview);
+            },
+          );
         },
       );
     } else {
@@ -162,7 +168,8 @@ class OverlayWidgetState extends State<OverlayWidget>
   Widget _build(BuildContext context, MenuPreviewWidget? menuPreview) {
     final menuConfiguration = widget.configuration.menuConfiguration;
 
-    final backgroundOpacity = _currentState.menuFactor *
+    final backgroundOpacity =
+        _currentState.menuFactor *
         (1.0 - _currentState.dragFactor) *
         (1.0 - _hideFactor);
 
@@ -174,12 +181,14 @@ class OverlayWidgetState extends State<OverlayWidget>
     // Bump the opacity a bit in the middle of transition to avoid background
     // showing through.
     const menuOpacityCurve = Cubic(0.16, 0.7, 0.41, 0.88);
-    final menuOpacity = menuOpacityCurve.transform(_currentState.menuFactor) *
+    final menuOpacity =
+        menuOpacityCurve.transform(_currentState.menuFactor) *
         (1.0 - _currentState.dragFactor);
 
     final dragOpacity = _currentState.dragFactor * 1;
 
-    double secondaryLiftAlpha = (_currentState.dragFactor * 10).clamp(0, 1) *
+    double secondaryLiftAlpha =
+        (_currentState.dragFactor * 10).clamp(0, 1) *
         (1 - _currentState.dragFactor);
     double secondaryDragAlpha = _currentState.dragFactor;
 
@@ -214,22 +223,24 @@ class OverlayWidgetState extends State<OverlayWidget>
       menuPreviewSize: menuPreview?.size,
       menuPreviewId: _menuPreviewKey,
       menuId: _menuKey,
-      secondaryItems:
-          widget.configuration.secondaryItems.mapIndexed((int index, e) {
-        return LayoutItemConfiguration(
-          index: index,
-          liftChildId: _secondaryLiftKeys[index],
-          dragChildId: _secondaryDragKeys[index],
-          liftRect: rectToLocal(e.liftImage.rect),
-          dragSize: e.dragImage.pointSize,
-          liftImage: e.liftImage.snapshot,
-          dragImage: e.dragImage,
-        );
-      }).toList(growable: false),
+      secondaryItems: widget.configuration.secondaryItems
+          .mapIndexed((int index, e) {
+            return LayoutItemConfiguration(
+              index: index,
+              liftChildId: _secondaryLiftKeys[index],
+              dragChildId: _secondaryDragKeys[index],
+              liftRect: rectToLocal(e.liftImage.rect),
+              dragSize: e.dragImage.pointSize,
+              liftImage: e.liftImage.snapshot,
+              dragImage: e.dragImage,
+            );
+          })
+          .toList(growable: false),
       dragState: _currentState.copyWith(
-          globalPosition: pointToLocal(
-        _currentState.globalPosition,
-      )),
+        globalPosition: pointToLocal(
+          _currentState.globalPosition,
+        ),
+      ),
     );
 
     return MultiTouchDetector(
@@ -238,22 +249,23 @@ class OverlayWidgetState extends State<OverlayWidget>
         gestures: {
           SingleDragGestureRecognizer:
               GestureRecognizerFactoryWithHandlers<SingleDragGestureRecognizer>(
-            () => SingleDragGestureRecognizer(debugOwner: this),
-            (SingleDragGestureRecognizer instance) {
-              instance.onDragStart = (Offset position) {
-                if (_currentState.menuFactor == 0 || _hidingAnimation != null) {
-                  return null;
-                }
-                final drag = widget.menuDragProvider(
-                  position,
-                  instance.lastPointer!,
-                );
-                // When recognizer disappears the drag is not cancelled, which prevents
-                // subsequent drags from
-                return drag;
-              };
-            },
-          ),
+                () => SingleDragGestureRecognizer(debugOwner: this),
+                (SingleDragGestureRecognizer instance) {
+                  instance.onDragStart = (Offset position) {
+                    if (_currentState.menuFactor == 0 ||
+                        _hidingAnimation != null) {
+                      return null;
+                    }
+                    final drag = widget.menuDragProvider(
+                      position,
+                      instance.lastPointer!,
+                    );
+                    // When recognizer disappears the drag is not cancelled, which prevents
+                    // subsequent drags from
+                    return drag;
+                  };
+                },
+              ),
         },
         child: _Background(
           opacity: backgroundOpacity,
@@ -274,9 +286,10 @@ class OverlayWidgetState extends State<OverlayWidget>
                       child: Opacity(
                         opacity: secondaryLiftAlpha,
                         child: ShadowImage(
-                            image: item.liftImage,
-                            shadowRadius: kShadowRadius,
-                            shadowOpacity: 1.0),
+                          image: item.liftImage,
+                          shadowRadius: kShadowRadius,
+                          shadowOpacity: 1.0,
+                        ),
                       ),
                     ),
                   for (final item in layoutDelegate.secondaryItems)
@@ -286,13 +299,15 @@ class OverlayWidgetState extends State<OverlayWidget>
                       child: Opacity(
                         opacity: secondaryDragAlpha,
                         child: Transform.rotate(
-                          angle: _angleForSecondaryItem(item.index) *
+                          angle:
+                              _angleForSecondaryItem(item.index) *
                               _currentState.dragFactor,
                           child: ShadowImage(
-                              key: _secondaryRenderKeys[item.index],
-                              image: item.dragImage,
-                              shadowRadius: kShadowRadius,
-                              shadowOpacity: 1.0),
+                            key: _secondaryRenderKeys[item.index],
+                            image: item.dragImage,
+                            shadowRadius: kShadowRadius,
+                            shadowOpacity: 1.0,
+                          ),
                         ),
                       ),
                     ),
@@ -389,22 +404,28 @@ class OverlayWidgetState extends State<OverlayWidget>
     }
     final originalMenu = _currentState.menuFactor;
     final originalMenuOffset = _currentState.menuOverdrag;
-    _hidingAnimation =
-        SimpleAnimation.animate(const Duration(milliseconds: 300), (value) {
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _hideFactor = value;
-        _currentState = _currentState.copyWith(
-          menuFactor: ui.lerpDouble(originalMenu, 0, _easeOut(value))!,
-          menuOverdrag:
-              Offset.lerp(originalMenuOffset, Offset.zero, _easeOut(value))!,
-        );
-      });
-    }, onEnd: () {
-      widget.onCancel();
-    });
+    _hidingAnimation = SimpleAnimation.animate(
+      const Duration(milliseconds: 300),
+      (value) {
+        if (!mounted) {
+          return;
+        }
+        setState(() {
+          _hideFactor = value;
+          _currentState = _currentState.copyWith(
+            menuFactor: ui.lerpDouble(originalMenu, 0, _easeOut(value))!,
+            menuOverdrag: Offset.lerp(
+              originalMenuOffset,
+              Offset.zero,
+              _easeOut(value),
+            )!,
+          );
+        });
+      },
+      onEnd: () {
+        widget.onCancel();
+      },
+    );
   }
 
   SimpleAnimation? _hidingAnimation;
@@ -435,17 +456,22 @@ class OverlayWidgetState extends State<OverlayWidget>
         newDragOffset = _currentState.menuDragOffset.roundToDouble();
       }
 
-      _resetMenuOffsetAnimation =
-          SimpleAnimation.animate(const Duration(milliseconds: 150), (v) {
-        final value = _easeOut(v);
-        setState(() {
-          _currentState = _currentState.copyWith(
-            menuOverdrag: Offset.lerp(originalOffset, Offset.zero, value),
-            menuDragOffset:
-                ui.lerpDouble(originalDragOffset, newDragOffset, value),
-          );
-        });
-      });
+      _resetMenuOffsetAnimation = SimpleAnimation.animate(
+        const Duration(milliseconds: 150),
+        (v) {
+          final value = _easeOut(v);
+          setState(() {
+            _currentState = _currentState.copyWith(
+              menuOverdrag: Offset.lerp(originalOffset, Offset.zero, value),
+              menuDragOffset: ui.lerpDouble(
+                originalDragOffset,
+                newDragOffset,
+                value,
+              ),
+            );
+          });
+        },
+      );
     }
   }
 
@@ -481,15 +507,17 @@ class OverlayWidgetState extends State<OverlayWidget>
   void didPushSubmenu() {
     if (_currentState.menuDragOffset < 1.0) {
       final originalOffset = _currentState.menuDragOffset;
-      _menuDragOffsetAnimation =
-          SimpleAnimation.animate(const Duration(milliseconds: 200), (v) {
-        final value = _easeOut(v);
-        setState(() {
-          _currentState = _currentState.copyWith(
-            menuDragOffset: ui.lerpDouble(originalOffset, 1.0, value),
-          );
-        });
-      });
+      _menuDragOffsetAnimation = SimpleAnimation.animate(
+        const Duration(milliseconds: 200),
+        (v) {
+          final value = _easeOut(v);
+          setState(() {
+            _currentState = _currentState.copyWith(
+              menuDragOffset: ui.lerpDouble(originalOffset, 1.0, value),
+            );
+          });
+        },
+      );
     }
   }
 }

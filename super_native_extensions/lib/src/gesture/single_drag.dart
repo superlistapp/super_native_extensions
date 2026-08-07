@@ -56,9 +56,11 @@ class SingleDragGestureRecognizer extends PanGestureRecognizer {
   }
 
   void _onUpdate(DragUpdateDetails details) {
-    _currentDrag?.update(SingleDragUpdateDetails(
-      globalPosition: details.globalPosition,
-    ));
+    _currentDrag?.update(
+      SingleDragUpdateDetails(
+        globalPosition: details.globalPosition,
+      ),
+    );
   }
 
   void _onEnd(DragEndDetails details) {
@@ -68,9 +70,11 @@ class SingleDragGestureRecognizer extends PanGestureRecognizer {
     if (_dispatchingCancel) {
       _currentDrag?.cancel();
     } else {
-      _currentDrag?.end(SingleDragEndDetails(
-        velocity: details.velocity,
-      ));
+      _currentDrag?.end(
+        SingleDragEndDetails(
+          velocity: details.velocity,
+        ),
+      );
     }
     _currentDrag = null;
   }
@@ -160,15 +164,19 @@ class SingleDragDelayedGestureRecognizer extends LongPressGestureRecognizer {
   }
 
   void _onLongPressMoveUpdate(LongPressMoveUpdateDetails details) {
-    _currentDrag?.update(SingleDragUpdateDetails(
-      globalPosition: details.globalPosition,
-    ));
+    _currentDrag?.update(
+      SingleDragUpdateDetails(
+        globalPosition: details.globalPosition,
+      ),
+    );
   }
 
   void _onLongPressEnd(LongPressEndDetails details) {
-    _currentDrag?.end(SingleDragEndDetails(
-      velocity: details.velocity,
-    ));
+    _currentDrag?.end(
+      SingleDragEndDetails(
+        velocity: details.velocity,
+      ),
+    );
     _currentDrag = null;
   }
 

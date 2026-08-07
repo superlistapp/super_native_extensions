@@ -11,11 +11,11 @@ class SimpleNotifier extends ChangeNotifier {
 
 extension RectExt on Rect {
   Map serialize() => {
-        'x': left,
-        'y': top,
-        'width': width,
-        'height': height,
-      };
+    'x': left,
+    'y': top,
+    'width': width,
+    'height': height,
+  };
   static Rect deserialize(dynamic rect) {
     final map = rect as Map;
     return Rect.fromLTWH(map['x'], map['y'], map['width'], map['height']);
@@ -24,9 +24,9 @@ extension RectExt on Rect {
 
 extension OffsetExt on Offset {
   Map serialize() => {
-        'x': dx,
-        'y': dy,
-      };
+    'x': dx,
+    'y': dy,
+  };
   static Offset deserialize(dynamic position) {
     final map = position as Map;
     return Offset(map['x'], map['y']);
@@ -35,9 +35,9 @@ extension OffsetExt on Offset {
 
 extension SizeExt on Size {
   Map serialize() => {
-        'width': width,
-        'height': height,
-      };
+    'width': width,
+    'height': height,
+  };
   static Size deserialize(dynamic size) {
     final map = size as Map;
     return Size(map['width'], map['height']);

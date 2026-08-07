@@ -32,7 +32,13 @@ import 'package:meta/dart2js.dart';
 
 /// 1 Channel Stack Blur Algorithm.
 void blurImageData(
-    Uint8List pixels, int topX, int topY, int width, int height, int radius) {
+  Uint8List pixels,
+  int topX,
+  int topY,
+  int width,
+  int height,
+  int radius,
+) {
   final div = 2 * radius + 1;
   final widthMinus1 = width - 1;
   final heightMinus1 = height - 1;
@@ -127,7 +133,8 @@ void blurImageData(
       pixels[p] = (rSum * mulSum) >> shgSum;
       rSum -= rOutSum;
       rOutSum -= stack[stackIn];
-      p = (x +
+      p =
+          (x +
           (((p = y + radiusPlus1) < heightMinus1 ? p : heightMinus1) * width));
       rSum += (rInSum += (stack[stackIn] = pixels[p]));
       nextStackIn();

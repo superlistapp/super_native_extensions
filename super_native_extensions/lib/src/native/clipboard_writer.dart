@@ -27,8 +27,10 @@ class ClipboardWriterImpl extends ClipboardWriter {
     }
   }
 
-  final _channel = NativeMethodChannel('ClipboardWriter',
-      context: superNativeExtensionsContext);
+  final _channel = NativeMethodChannel(
+    'ClipboardWriter',
+    context: superNativeExtensionsContext,
+  );
 
   final _activeProviders = <int, DataProviderHandle>{};
 }

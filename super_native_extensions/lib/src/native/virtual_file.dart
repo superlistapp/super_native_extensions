@@ -46,17 +46,20 @@ abstract class CopyVirtualFileReceiver extends VirtualFileReceiver {
     Directory(folder).createSync();
     try {
       final (path, progress) = copyVirtualFile(targetFolder: folder);
-      final future = path.then((value) {
-        return VirtualFileFromFile(
-          file: File(value),
-          onClose: () {
-            Directory(folder).deleteSync(recursive: true);
-          },
-        );
-      }, onError: (e) {
-        Directory(folder).deleteSync(recursive: true);
-        throw e;
-      });
+      final future = path.then(
+        (value) {
+          return VirtualFileFromFile(
+            file: File(value),
+            onClose: () {
+              Directory(folder).deleteSync(recursive: true);
+            },
+          );
+        },
+        onError: (e) {
+          Directory(folder).deleteSync(recursive: true);
+          throw e;
+        },
+      );
       return (future, progress);
     } catch (e) {
       Directory(folder).deleteSync(recursive: true);

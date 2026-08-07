@@ -18,9 +18,9 @@ import 'dart:typed_data';
 
 extension DataProviderExt on DataProvider {
   dynamic serialize() => {
-        'representations': representations.map((e) => e.serialize()),
-        'suggestedName': suggestedName,
-      };
+    'representations': representations.map((e) => e.serialize()),
+    'suggestedName': suggestedName,
+  };
 }
 
 class DataProviderManagerImpl implements DataProviderManager {
@@ -31,7 +31,9 @@ class DataProviderManagerImpl implements DataProviderManager {
   @override
   Future<DataProviderHandle> registerDataProvider(DataProvider provider) async {
     final id = await _channel.invokeMethod(
-        "registerDataProvider", provider.serialize());
+      "registerDataProvider",
+      provider.serialize(),
+    );
     final handle = DataProviderHandle(id, provider);
     _handles[id] = handle;
     for (final representation in provider.representations) {
@@ -66,8 +68,9 @@ class DataProviderManagerImpl implements DataProviderManager {
       final valueId = args["valueId"] as int;
       final lazyData = _lazyData[valueId];
       if (lazyData != null) {
-        return _ValuePromiseResult.ok(await lazyData.dataProvider())
-            .serialize();
+        return _ValuePromiseResult.ok(
+          await lazyData.dataProvider(),
+        ).serialize();
       } else {
         return _ValuePromiseResult.cancelled().serialize();
       }
@@ -77,9 +80,10 @@ class DataProviderManagerImpl implements DataProviderManager {
       final virtualFileId = args['virtualFileId'] as int;
       final fileHandle = args['streamHandle'] as int;
       return _getVirtualFile(
-          sessionId: sessionId,
-          virtualFileId: virtualFileId,
-          streamHandle: fileHandle);
+        sessionId: sessionId,
+        virtualFileId: virtualFileId,
+        streamHandle: fileHandle,
+      );
     } else if (call.method == 'cancelVirtualFile') {
       final sessionId = call.arguments as int;
       // Don't allow cancelling completed sessions. This can happen on
@@ -160,8 +164,10 @@ class DataProviderManagerImpl implements DataProviderManager {
     return null;
   }
 
-  final _channel = NativeMethodChannel('DataProviderManager',
-      context: superNativeExtensionsContext);
+  final _channel = NativeMethodChannel(
+    'DataProviderManager',
+    context: superNativeExtensionsContext,
+  );
 
   final _handles = <int, DataProviderHandle>{};
   final _lazyData = <int, DataRepresentationLazy>{};
@@ -171,8 +177,8 @@ class DataProviderManagerImpl implements DataProviderManager {
 
 class WriteProgressImpl extends WriteProgress {
   WriteProgressImpl(Listenable onCancel, ValueNotifier<double> onProgress)
-      : _onCancel = onCancel,
-        _onProgress = onProgress;
+    : _onCancel = onCancel,
+      _onProgress = onProgress;
 
   @override
   void updateProgress(double fraction) {
@@ -233,11 +239,13 @@ class _NativeFunctions {
       final dylib = openNativeLibrary();
       final streamWrite = dylib
           .lookup<NativeFunction<Int32 Function(Int32, Pointer<Uint8>, Int64)>>(
-              'super_native_extensions_stream_write')
+            'super_native_extensions_stream_write',
+          )
           .asFunction<int Function(int, Pointer<Uint8>, int)>();
       final streamClose = dylib
           .lookup<NativeFunction<Void Function(Int32, Bool)>>(
-              'super_native_extensions_stream_close')
+            'super_native_extensions_stream_close',
+          )
           .asFunction<void Function(int, bool)>();
       _instance = _NativeFunctions(
         streamWrite: streamWrite,
@@ -332,8 +340,8 @@ class _ValuePromiseResultCancelled extends _ValuePromiseResult {
 
   @override
   serialize() => {
-        'type': 'cancelled',
-      };
+    'type': 'cancelled',
+  };
 }
 
 class _ValuePromiseResultOk extends _ValuePromiseResult {
@@ -343,7 +351,7 @@ class _ValuePromiseResultOk extends _ValuePromiseResult {
 
   @override
   serialize() => {
-        'type': 'ok',
-        'value': value,
-      };
+    'type': 'ok',
+    'value': value,
+  };
 }

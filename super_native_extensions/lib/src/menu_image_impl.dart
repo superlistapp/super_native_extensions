@@ -25,7 +25,7 @@ class ImageProviderMenuImage extends MenuImage {
   ImageProviderMenuImage(this.imageProvider);
 
   final FutureOr<ui.Image?>? Function(IconThemeData theme, int devicePixelRatio)
-      imageProvider;
+  imageProvider;
 
   @override
   FutureOr<ui.Image?> asImage(IconThemeData theme, double devicePixelRatio) {
@@ -34,14 +34,16 @@ class ImageProviderMenuImage extends MenuImage {
 
   @override
   Widget? asWidget(IconThemeData theme) {
-    return Builder(builder: (context) {
-      return _ImageWidget(
-        imageProvider: () => asImage(
-          theme,
-          MediaQuery.of(context).devicePixelRatio,
-        ),
-      );
-    });
+    return Builder(
+      builder: (context) {
+        return _ImageWidget(
+          imageProvider: () => asImage(
+            theme,
+            MediaQuery.of(context).devicePixelRatio,
+          ),
+        );
+      },
+    );
   }
 }
 
@@ -136,8 +138,10 @@ class IconMenuImage extends MenuImage {
 
     canvas.scale(devicePixelRatio);
 
-    final offset = Offset(size / 2.0 - paragraph.longestLine / 2.0,
-        size / 2.0 - paragraph.height / 2.0);
+    final offset = Offset(
+      size / 2.0 - paragraph.longestLine / 2.0,
+      size / 2.0 - paragraph.height / 2.0,
+    );
 
     canvas.drawParagraph(paragraph, offset);
     final picture = recorder.endRecording();

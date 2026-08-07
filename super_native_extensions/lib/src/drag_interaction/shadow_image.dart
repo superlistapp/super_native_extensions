@@ -70,9 +70,10 @@ class _ShadowImageState extends State<_ShadowImage> {
       widget.image.width / devicePixelRatio,
       widget.image.height / devicePixelRatio,
     );
-    final targetedImageData =
-        await (TargetedWidgetSnapshot(WidgetSnapshot.image(widget.image), rect))
-            .intoRaw();
+    final targetedImageData = await (TargetedWidgetSnapshot(
+      WidgetSnapshot.image(widget.image),
+      rect,
+    )).intoRaw();
     final shadow = targetedImageData.withShadowOnly(kShadowRadius);
     final shadowImage = await shadow.imageData.toImage();
     if (!mounted) {
@@ -95,42 +96,44 @@ class _ShadowImageState extends State<_ShadowImage> {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(builder: (context, constrains) {
-      if (_shadowImage == null) {
-        return RawImage(
-          image: widget.image,
-          fit: BoxFit.fill,
-        );
-      }
-      final devicePixelRatio = MediaQuery.of(context).devicePixelRatio;
-      final imageWidth = widget.image.width / devicePixelRatio;
-      final imageHeight = widget.image.height / devicePixelRatio;
-      final ratioX = constrains.maxWidth / imageWidth;
-      final ratioY = constrains.maxHeight / imageHeight;
-      return Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Positioned(
-            left: -widget.shadowRadius * ratioX,
-            right: -widget.shadowRadius * ratioX,
-            top: -widget.shadowRadius * ratioY,
-            bottom: -widget.shadowRadius * ratioY,
-            child: Opacity(
-              opacity: widget.shadowOpacity,
+    return LayoutBuilder(
+      builder: (context, constrains) {
+        if (_shadowImage == null) {
+          return RawImage(
+            image: widget.image,
+            fit: BoxFit.fill,
+          );
+        }
+        final devicePixelRatio = MediaQuery.of(context).devicePixelRatio;
+        final imageWidth = widget.image.width / devicePixelRatio;
+        final imageHeight = widget.image.height / devicePixelRatio;
+        final ratioX = constrains.maxWidth / imageWidth;
+        final ratioY = constrains.maxHeight / imageHeight;
+        return Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Positioned(
+              left: -widget.shadowRadius * ratioX,
+              right: -widget.shadowRadius * ratioX,
+              top: -widget.shadowRadius * ratioY,
+              bottom: -widget.shadowRadius * ratioY,
+              child: Opacity(
+                opacity: widget.shadowOpacity,
+                child: RawImage(
+                  image: _shadowImage!,
+                  fit: BoxFit.fill,
+                ),
+              ),
+            ),
+            Positioned.fill(
               child: RawImage(
-                image: _shadowImage!,
+                image: widget.image,
                 fit: BoxFit.fill,
               ),
             ),
-          ),
-          Positioned.fill(
-            child: RawImage(
-              image: widget.image,
-              fit: BoxFit.fill,
-            ),
-          ),
-        ],
-      );
-    });
+          ],
+        );
+      },
+    );
   }
 }

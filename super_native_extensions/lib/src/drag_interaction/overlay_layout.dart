@@ -77,8 +77,10 @@ class OverlayLayoutDelegate extends MultiChildLayoutDelegate {
 
   double _inflateFactorForSize(Size size) {
     final ratio = math
-        .max(primaryItem.liftRect.width / size.width,
-            primaryItem.liftRect.height / size.height)
+        .max(
+          primaryItem.liftRect.width / size.width,
+          primaryItem.liftRect.height / size.height,
+        )
         .clamp(0.0, 1.0);
     const maxFactor = 1.15;
     const minFactor = 1.04;
@@ -96,15 +98,18 @@ class OverlayLayoutDelegate extends MultiChildLayoutDelegate {
     // If there is no custom menu preview use the size from lift rect.
     // This is similar behavior to iOS.
     if (!hasCustomMenuPreview && menuPreviewRect != null) {
-      menuPreviewRect =
-          menuPreviewRect.inflateBy(inflateFactor).fitIntoRect(bounds);
+      menuPreviewRect = menuPreviewRect
+          .inflateBy(inflateFactor)
+          .fitIntoRect(bounds);
     }
 
     if (hasChild(menuPreviewId) && dragState.menuFactor > 0) {
       assert(menuPreviewRect != null);
       final menuOverdrag = _menuOverdrag;
-      final menuRect =
-          menuPreviewRect!.translate(menuOverdrag.dx, menuOverdrag.dy);
+      final menuRect = menuPreviewRect!.translate(
+        menuOverdrag.dx,
+        menuOverdrag.dy,
+      );
       rect = Rect.lerp(rect, menuRect, dragState.menuFactor)!;
     }
     if (dragState.dragFactor > 0) {
@@ -145,23 +150,25 @@ class OverlayLayoutDelegate extends MultiChildLayoutDelegate {
     MenuLayoutStrategy? strategy;
     Rect? menuPreviewRect;
     final insets = _insetsForSize(size);
-    final bounds =
-        insets.deflateRect(Rect.fromLTWH(0, 0, size.width, size.height));
+    final bounds = insets.deflateRect(
+      Rect.fromLTWH(0, 0, size.width, size.height),
+    );
     Size? menuSize;
     MenuPosition? menuPosition;
     if (hasChild(menuPreviewId)) {
       strategy = MenuLayoutStrategy.forSize(size);
       final layout = strategy.layout(
         MenuLayoutInput(
-            previousLayoutId: layoutState._previousLayoutId,
-            layoutMenu: (constraints) {
-              menuSize = layoutChild(menuId, constraints);
-              return menuSize!;
-            },
-            bounds: bounds,
-            primaryItem: primaryItem.liftRect,
-            menuPreviewSize: menuPreviewSize!,
-            menuDragOffset: dragState.menuDragOffset),
+          previousLayoutId: layoutState._previousLayoutId,
+          layoutMenu: (constraints) {
+            menuSize = layoutChild(menuId, constraints);
+            return menuSize!;
+          },
+          bounds: bounds,
+          primaryItem: primaryItem.liftRect,
+          menuPreviewSize: menuPreviewSize!,
+          menuDragOffset: dragState.menuDragOffset,
+        ),
       );
       menuDragExtentSetter(layout.menuDragExtent);
       canScrollMenuSetter(layout.canScrollMenu);

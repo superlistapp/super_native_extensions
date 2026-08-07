@@ -6,16 +6,18 @@ import 'web/blur.dart';
 extension on ImageData {
   ImageData inflate(int padding) {
     final res = ImageData.allocate(
-        width: width + 2 * padding,
-        height: height + 2 * padding,
-        devicePixelRatio: devicePixelRatio);
+      width: width + 2 * padding,
+      height: height + 2 * padding,
+      devicePixelRatio: devicePixelRatio,
+    );
 
     for (var y = 0; y < height; ++y) {
       res.data.setRange(
-          (y + padding) * res.bytesPerRow + padding * 4,
-          (y + padding) * res.bytesPerRow + (padding + width) * 4,
-          data,
-          y * bytesPerRow);
+        (y + padding) * res.bytesPerRow + padding * 4,
+        (y + padding) * res.bytesPerRow + (padding + width) * 4,
+        data,
+        y * bytesPerRow,
+      );
     }
     return res;
   }
@@ -88,20 +90,21 @@ extension on ImageData {
 
 extension ImageDataShadow on TargetedImageData {
   TargetedImageData withShadow(int radius) {
-    final adjustedRadius =
-        (radius * (imageData.devicePixelRatio ?? 1.0)).round();
+    final adjustedRadius = (radius * (imageData.devicePixelRatio ?? 1.0))
+        .round();
     return TargetedImageData(
-        imageData: imageData.inflate(adjustedRadius)
-          ..drawShadow(adjustedRadius),
-        rect: rect.inflate(radius.toDouble()));
+      imageData: imageData.inflate(adjustedRadius)..drawShadow(adjustedRadius),
+      rect: rect.inflate(radius.toDouble()),
+    );
   }
 
   TargetedImageData withShadowOnly(int radius) {
-    final adjustedRadius =
-        (radius * (imageData.devicePixelRatio ?? 1.0)).round();
+    final adjustedRadius = (radius * (imageData.devicePixelRatio ?? 1.0))
+        .round();
     return TargetedImageData(
-        imageData: imageData.inflate(adjustedRadius)
-          ..drawShadowOnly(adjustedRadius),
-        rect: rect.inflate(radius.toDouble()));
+      imageData: imageData.inflate(adjustedRadius)
+        ..drawShadowOnly(adjustedRadius),
+      rect: rect.inflate(radius.toDouble()),
+    );
   }
 }

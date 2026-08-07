@@ -9,8 +9,9 @@ class PointerDeviceKindDetector {
   final _current = ValueNotifier(_defaultDeviceKind());
 
   PointerDeviceKindDetector._() {
-    GestureBinding.instance.pointerRouter
-        .addGlobalRoute(_handleGlobalPointerEvent);
+    GestureBinding.instance.pointerRouter.addGlobalRoute(
+      _handleGlobalPointerEvent,
+    );
   }
 
   void _handleGlobalPointerEvent(PointerEvent event) {

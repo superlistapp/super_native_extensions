@@ -49,7 +49,8 @@ class KeyboardLayout {
   /// Returns the [PhysicalKeyboardKey] for given [LogicalKeyboardKey] for
   /// this keyboard layout or `null` if it could not have been determined.
   PhysicalKeyboardKey? getPhysicalKeyForLogicalKey(
-      LogicalKeyboardKey logicalKey) {
+    LogicalKeyboardKey logicalKey,
+  ) {
     final key = _logicalToKey[logicalKey.keyId];
     return key != null ? PhysicalKeyboardKey(key.physical) : null;
   }

@@ -14,8 +14,8 @@ class $DataReaderHandle {
   $DataReaderHandle._({
     required int handle,
     required FinalizableHandle finalizableHandle,
-  })  : _handle = handle,
-        _finalizableHandle = finalizableHandle {
+  }) : _handle = handle,
+       _finalizableHandle = finalizableHandle {
     // In release mode the garbage collector eagerly disposes
     // _finalizableHandle even if the surrounding DataReaderHandleImpl
     // is still reachable.
@@ -49,8 +49,8 @@ class $DataReaderItemHandle {
   $DataReaderItemHandle._({
     required int itemHandle,
     required $DataReaderHandle reader,
-  })  : _itemHandle = itemHandle,
-        _reader = reader;
+  }) : _itemHandle = itemHandle,
+       _reader = reader;
 
   final int _itemHandle;
   int get _readerHandle => _reader._handle;
@@ -77,19 +77,23 @@ class ReaderManagerImpl extends ReaderManager {
     final handles =
         await _channel.invokeMethod("getItems", reader._handle) as List<int>;
     return handles
-        .map((handle) => DataReaderItemHandle._(
-              itemHandle: handle,
-              reader: reader,
-            ))
+        .map(
+          (handle) => DataReaderItemHandle._(
+            itemHandle: handle,
+            reader: reader,
+          ),
+        )
         .toList(growable: false);
   }
 
   @override
   Future<List<String>> getItemFormats(DataReaderItemHandle handle) async {
-    final formats = await _channel.invokeMethod("getItemFormats", {
-      "itemHandle": handle._itemHandle,
-      "readerHandle": handle._readerHandle,
-    }) as List;
+    final formats =
+        await _channel.invokeMethod("getItemFormats", {
+              "itemHandle": handle._itemHandle,
+              "readerHandle": handle._readerHandle,
+            })
+            as List;
     return formats.cast<String>();
   }
 
@@ -104,18 +108,23 @@ class ReaderManagerImpl extends ReaderManager {
     final progress = ReadProgressImpl(readerManager: this);
     final completer = Completer<Object?>();
     _progressMap[progress.id] = progress;
-    _channel.invokeMethod("getItemData", {
-      "itemHandle": handle._itemHandle,
-      "readerHandle": handle._readerHandle,
-      "format": format,
-      "progressId": progress.id,
-    }).then((value) {
-      _completeProgress(progress.id);
-      completer.complete(value);
-    }, onError: (error) {
-      _completeProgress(progress.id);
-      completer.completeError(error);
-    });
+    _channel
+        .invokeMethod("getItemData", {
+          "itemHandle": handle._itemHandle,
+          "readerHandle": handle._readerHandle,
+          "format": format,
+          "progressId": progress.id,
+        })
+        .then(
+          (value) {
+            _completeProgress(progress.id);
+            completer.complete(value);
+          },
+          onError: (error) {
+            _completeProgress(progress.id);
+            completer.completeError(error);
+          },
+        );
     return (completer.future, progress);
   }
 
@@ -129,25 +138,30 @@ class ReaderManagerImpl extends ReaderManager {
     final progress = ReadProgressImpl(readerManager: this);
     final completer = Completer<VirtualFile>();
     _progressMap[progress.id] = progress;
-    _channel.invokeMethod("virtualFileReaderCreate", {
-      "itemHandle": handle._itemHandle,
-      "readerHandle": handle._readerHandle,
-      "format": format,
-      "progressId": progress.id,
-    }).then((value) {
-      _completeProgress(progress.id);
-      final response = value as Map;
-      final file = _VirtualFile(
-        readerManager: this,
-        handle: response['readerHandle'],
-        fileName: response['fileName'],
-        length: response['fileSize'],
-      );
-      completer.complete(file);
-    }, onError: (error) {
-      _completeProgress(progress.id);
-      completer.completeError(error);
-    });
+    _channel
+        .invokeMethod("virtualFileReaderCreate", {
+          "itemHandle": handle._itemHandle,
+          "readerHandle": handle._readerHandle,
+          "format": format,
+          "progressId": progress.id,
+        })
+        .then(
+          (value) {
+            _completeProgress(progress.id);
+            final response = value as Map;
+            final file = _VirtualFile(
+              readerManager: this,
+              handle: response['readerHandle'],
+              fileName: response['fileName'],
+              length: response['fileSize'],
+            );
+            completer.complete(file);
+          },
+          onError: (error) {
+            _completeProgress(progress.id);
+            completer.completeError(error);
+          },
+        );
     return (completer.future, progress);
   }
 
@@ -174,19 +188,24 @@ class ReaderManagerImpl extends ReaderManager {
     final progress = ReadProgressImpl(readerManager: this);
     final completer = Completer<String>();
     _progressMap[progress.id] = progress;
-    _channel.invokeMethod("copyVirtualFile", {
-      "itemHandle": handle._itemHandle,
-      "readerHandle": handle._readerHandle,
-      "format": format,
-      'targetFolder': targetFolder,
-      "progressId": progress.id,
-    }).then((value) {
-      _completeProgress(progress.id);
-      completer.complete(value);
-    }, onError: (error) {
-      _completeProgress(progress.id);
-      completer.completeError(error);
-    });
+    _channel
+        .invokeMethod("copyVirtualFile", {
+          "itemHandle": handle._itemHandle,
+          "readerHandle": handle._readerHandle,
+          "format": format,
+          'targetFolder': targetFolder,
+          "progressId": progress.id,
+        })
+        .then(
+          (value) {
+            _completeProgress(progress.id);
+            completer.complete(value);
+          },
+          onError: (error) {
+            _completeProgress(progress.id);
+            completer.completeError(error);
+          },
+        );
     return (completer.future, progress);
   }
 
@@ -215,8 +234,10 @@ class ReaderManagerImpl extends ReaderManager {
     _channel.invokeMethod('cancelProgress', progressId);
   }
 
-  final _channel = NativeMethodChannel('DataReaderManager',
-      context: superNativeExtensionsContext);
+  final _channel = NativeMethodChannel(
+    'DataReaderManager',
+    context: superNativeExtensionsContext,
+  );
 
   final _progressMap = <int, ReadProgressImpl>{};
 
@@ -237,46 +258,54 @@ class ReaderManagerImpl extends ReaderManager {
 
     final reader = handles.first._reader;
 
-    final handleMap =
-        Map.fromEntries(handles.map((e) => MapEntry(e._itemHandle, e)));
+    final handleMap = Map.fromEntries(
+      handles.map((e) => MapEntry(e._itemHandle, e)),
+    );
     final res_ = await _channel.invokeMethod('getItemInfo', {
       'readerHandle': reader._handle,
       'itemHandles': handles.map((e) => e._itemHandle),
       'timeoutMillis': timeout?.inMilliseconds,
     });
     final list = res_['items'] as List;
-    final res = list.map((e) {
-      final handle = handleMap[e['handle']]!;
-      final readVirtualFormats =
-          (e['readVirtualFileFormats'] as List).cast<String>();
-      final copyVirtualFormats =
-          (e['copyVirtualFileFormats'] as List).cast<String>();
-      final receivers = readVirtualFormats.map<VirtualFileReceiver>((format) {
-        return _VirtualFileReceiver(
-          readerManager: this,
-          handle: handle,
-          format: format,
-        );
-      }).toList(growable: true);
-      for (final format in copyVirtualFormats) {
-        // Prefer read virtual file over copy virtual file.
-        if (!readVirtualFormats.contains(format)) {
-          receivers.add(_CopyVirtualFileReceiver(
-            readerManager: this,
-            handle: handle,
-            format: format,
-          ));
-        }
-      }
-      return DataReaderItemInfo(
-        handle,
-        formats: (e['formats'] as List).cast<String>(),
-        synthesizedFormats: (e['synthesizedFormats'] as List).cast<String>(),
-        virtualReceivers: receivers,
-        suggestedName: e['suggestedName'],
-        synthesizedFromURIFormat: e['fileUriFormat'],
-      );
-    }).toList(growable: false);
+    final res = list
+        .map((e) {
+          final handle = handleMap[e['handle']]!;
+          final readVirtualFormats = (e['readVirtualFileFormats'] as List)
+              .cast<String>();
+          final copyVirtualFormats = (e['copyVirtualFileFormats'] as List)
+              .cast<String>();
+          final receivers = readVirtualFormats
+              .map<VirtualFileReceiver>((format) {
+                return _VirtualFileReceiver(
+                  readerManager: this,
+                  handle: handle,
+                  format: format,
+                );
+              })
+              .toList(growable: true);
+          for (final format in copyVirtualFormats) {
+            // Prefer read virtual file over copy virtual file.
+            if (!readVirtualFormats.contains(format)) {
+              receivers.add(
+                _CopyVirtualFileReceiver(
+                  readerManager: this,
+                  handle: handle,
+                  format: format,
+                ),
+              );
+            }
+          }
+          return DataReaderItemInfo(
+            handle,
+            formats: (e['formats'] as List).cast<String>(),
+            synthesizedFormats: (e['synthesizedFormats'] as List)
+                .cast<String>(),
+            virtualReceivers: receivers,
+            suggestedName: e['suggestedName'],
+            synthesizedFromURIFormat: e['fileUriFormat'],
+          );
+        })
+        .toList(growable: false);
     return res;
   }
 }

@@ -48,11 +48,11 @@ class LongPressHandler {
       final session = _FakeDragSession();
       LongPressSession.onCleanup(session._dispose);
 
-      final dragConfiguration =
-          _dragContext.delegate?.getConfigurationForDragRequest(
-        location: position,
-        session: session,
-      );
+      final dragConfiguration = _dragContext.delegate
+          ?.getConfigurationForDragRequest(
+            location: position,
+            session: session,
+          );
       final menuConfiguration = _menuContext.delegate?.getMenuConfiguration(
         MobileMenuConfigurationRequest(
           configurationId: _nextMenuConfigurationId++,
@@ -162,82 +162,93 @@ class LongPressHandler {
     if (dragConfiguration != null && dragConfiguration.items.isNotEmpty) {
       final primary = _findPrimaryItem(dragConfiguration, position);
       primaryItem = ItemConfiguration(
-          liftImage: menuConfiguration?.liftImage ??
-              primary.liftImage ??
-              primary.image.retain(),
-          dragImage: primary.image.snapshot);
+        liftImage:
+            menuConfiguration?.liftImage ??
+            primary.liftImage ??
+            primary.image.retain(),
+        dragImage: primary.image.snapshot,
+      );
       secondaryItems = dragConfiguration.items
           .where((e) => e != primary)
-          .map((e) => ItemConfiguration(
-                liftImage: e.liftImage ?? e.image.retain(),
-                dragImage: e.image.snapshot,
-              ))
+          .map(
+            (e) => ItemConfiguration(
+              liftImage: e.liftImage ?? e.image.retain(),
+              dragImage: e.image.snapshot,
+            ),
+          )
           .toList(growable: false);
 
-      onDragStart = (
-        offset,
-        pointer,
-        snapshot,
-        draggingStarted,
-      ) {
-        final realSession = _dragContext.newSession(pointer: pointer);
-        dragSession.startDrag(realSession);
-
-        final dragCompleter = Completer();
-
-        void maybeStarted() {
-          if (!successfullyTransitionedToDrag) {
-            successfullyTransitionedToDrag = true;
-            draggingStarted();
-            if (realSession.dragCompleted.value == null) {
-              realSession.dragCompleted.addListener(() {
-                dragCompleter.complete();
-              });
-              LongPressSession.extend(() => dragCompleter.future);
-            }
-          }
-        }
-
-        // How many location changed events to ignore before hiding our placeholder.
-        // On some Android version (30) the drag avatar is not displayed until the second
-        // location change event.
-        var ignoreEventCount = 0;
-
-        if (deviceInfo is AndroidDeviceInfo) {
-          if (deviceInfo.version.sdkInt <= 30) {
-            ignoreEventCount = 1;
-          }
-        }
-
-        final targetedImage = TargetedWidgetSnapshot(
+      onDragStart =
+          (
+            offset,
+            pointer,
             snapshot,
-            Rect.fromCenter(
+            draggingStarted,
+          ) {
+            final realSession = _dragContext.newSession(pointer: pointer);
+            dragSession.startDrag(realSession);
+
+            final dragCompleter = Completer();
+
+            void maybeStarted() {
+              if (!successfullyTransitionedToDrag) {
+                successfullyTransitionedToDrag = true;
+                draggingStarted();
+                if (realSession.dragCompleted.value == null) {
+                  realSession.dragCompleted.addListener(() {
+                    dragCompleter.complete();
+                  });
+                  LongPressSession.extend(() => dragCompleter.future);
+                }
+              }
+            }
+
+            // How many location changed events to ignore before hiding our placeholder.
+            // On some Android version (30) the drag avatar is not displayed until the second
+            // location change event.
+            var ignoreEventCount = 0;
+
+            if (deviceInfo is AndroidDeviceInfo) {
+              if (deviceInfo.version.sdkInt <= 30) {
+                ignoreEventCount = 1;
+              }
+            }
+
+            final targetedImage = TargetedWidgetSnapshot(
+              snapshot,
+              Rect.fromCenter(
                 center: primary.image.rect.center,
                 width: snapshot.pointWidth,
-                height: snapshot.pointHeight));
+                height: snapshot.pointHeight,
+              ),
+            );
 
-        void lastScreenLocationChanged() {
-          if (ignoreEventCount == 0) {
-            maybeStarted();
-            realSession.lastScreenLocation
-                .removeListener(lastScreenLocationChanged);
-          }
-          --ignoreEventCount;
-        }
+            void lastScreenLocationChanged() {
+              if (ignoreEventCount == 0) {
+                maybeStarted();
+                realSession.lastScreenLocation.removeListener(
+                  lastScreenLocationChanged,
+                );
+              }
+              --ignoreEventCount;
+            }
 
-        realSession.lastScreenLocation.addListener(lastScreenLocationChanged);
-        realSession.dragCompleted.addListener(maybeStarted);
-        if (context.mounted) {
-          LongPressSession.extend(
-            () => _dragContext.startDrag(
-                buildContext: context,
-                session: realSession,
-                configuration: dragConfiguration,
-                position: offset,
-                combinedDragImage: targetedImage),
-          );
-        }
-      };
+            realSession.lastScreenLocation.addListener(
+              lastScreenLocationChanged,
+            );
+            realSession.dragCompleted.addListener(maybeStarted);
+            if (context.mounted) {
+              LongPressSession.extend(
+                () => _dragContext.startDrag(
+                  buildContext: context,
+                  session: realSession,
+                  configuration: dragConfiguration,
+                  position: offset,
+                  combinedDragImage: targetedImage,
+                ),
+              );
+            }
+          };
     } else if (menuConfiguration != null) {
       primaryItem = ItemConfiguration(
         liftImage: menuConfiguration.liftImage,
@@ -266,18 +277,22 @@ class LongPressHandler {
 
       if (menuConfiguration.previewSize != null) {
         // deferred preview
-        menuPreviewWidget =
-            createMenuPreview(menuConfiguration.previewSize!, null);
+        menuPreviewWidget = createMenuPreview(
+          menuConfiguration.previewSize!,
+          null,
+        );
         hasCustomMenuPreview = true;
       } else if (menuConfiguration.previewImage != null) {
         menuPreviewWidget = createMenuPreview(
-            menuConfiguration.previewImage!.pointSize,
-            menuConfiguration.previewImage);
+          menuConfiguration.previewImage!.pointSize,
+          menuConfiguration.previewImage,
+        );
         hasCustomMenuPreview = true;
       } else {
         menuPreviewWidget = createMenuPreview(
-            menuConfiguration.liftImage.snapshot.pointSize,
-            menuConfiguration.liftImage.snapshot);
+          menuConfiguration.liftImage.snapshot.pointSize,
+          menuConfiguration.liftImage.snapshot,
+        );
         hasCustomMenuPreview = false;
       }
 
@@ -312,8 +327,10 @@ class LongPressHandler {
           _menuContext.delegate?.onShowMenu(menuConfiguration.configurationId);
         },
         onMenuHidden: (response) {
-          _menuContext.delegate
-              ?.onHideMenu(menuConfiguration.configurationId, response);
+          _menuContext.delegate?.onHideMenu(
+            menuConfiguration.configurationId,
+            response,
+          );
         },
         onMenuPreviewTapped: () {
           _menuContext.delegate?.onPreviewAction(
@@ -352,8 +369,8 @@ class LongPressHandler {
   LongPressHandler._({
     required DragContext dragContext,
     required MenuContext menuContext,
-  })  : _dragContext = dragContext,
-        _menuContext = menuContext;
+  }) : _dragContext = dragContext,
+       _menuContext = menuContext;
 }
 
 class _FakeDragSession extends DragSession {

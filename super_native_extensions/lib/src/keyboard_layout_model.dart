@@ -20,13 +20,14 @@ class KeyboardKey {
   static KeyboardKey deserialize(dynamic value) {
     final map = value as Map;
     return KeyboardKey(
-        platform: map['platform'],
-        physical: map['physical'],
-        logical: map['logical'],
-        logicalShift: map['logicalShift'],
-        logicalAlt: map['logicalAlt'],
-        logicalAltShift: map['logicalAltShift'],
-        logicalMeta: map['logicalMeta']);
+      platform: map['platform'],
+      physical: map['physical'],
+      logical: map['logical'],
+      logicalShift: map['logicalShift'],
+      logicalAlt: map['logicalAlt'],
+      logicalAltShift: map['logicalAltShift'],
+      logicalMeta: map['logicalMeta'],
+    );
   }
 }
 

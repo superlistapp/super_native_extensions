@@ -8,13 +8,14 @@ import 'widget_snapshotter_internal.dart';
 import 'widget_snapshotter_native.dart'
     if (dart.library.js_interop) 'widget_snapshotter_web.dart';
 
-typedef Translation = Offset Function(
-  /// Snapshot rectangle in local coordinates.
-  Rect rect,
+typedef Translation =
+    Offset Function(
+      /// Snapshot rectangle in local coordinates.
+      Rect rect,
 
-  /// Drag position within the rectangle.
-  Offset dragPosition,
-);
+      /// Drag position within the rectangle.
+      Offset dragPosition,
+    );
 
 /// Wrapper widget that allows customizing snapshot settings.
 class SnapshotSettings extends StatefulWidget {

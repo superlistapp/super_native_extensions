@@ -23,8 +23,10 @@ class RenderBetterRepaintBoundary extends RenderProxyBox {
     required double pixelRatio,
   }) {
     final OffsetLayer offsetLayer = layer! as OffsetLayer;
-    return offsetLayer.toImageSync(bounds ?? Offset.zero & size,
-        pixelRatio: pixelRatio);
+    return offsetLayer.toImageSync(
+      bounds ?? Offset.zero & size,
+      pixelRatio: pixelRatio,
+    );
   }
 
   Future<ui.Image> toImage({
@@ -32,7 +34,9 @@ class RenderBetterRepaintBoundary extends RenderProxyBox {
     required double pixelRatio,
   }) {
     final OffsetLayer offsetLayer = layer! as OffsetLayer;
-    return offsetLayer.toImage(bounds ?? Offset.zero & size,
-        pixelRatio: pixelRatio);
+    return offsetLayer.toImage(
+      bounds ?? Offset.zero & size,
+      pixelRatio: pixelRatio,
+    );
   }
 }

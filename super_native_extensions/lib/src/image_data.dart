@@ -36,8 +36,9 @@ class ImageData {
   static Future<ImageData> fromImage(
     Image image,
   ) async {
-    final bytes =
-        await image.toByteData(format: ImageByteFormat.rawStraightRgba);
+    final bytes = await image.toByteData(
+      format: ImageByteFormat.rawStraightRgba,
+    );
     return ImageData(
       width: image.width,
       height: image.height,

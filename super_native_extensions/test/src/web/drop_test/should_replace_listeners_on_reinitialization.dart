@@ -1,5 +1,4 @@
 @TestOn('chrome')
-
 import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
 
@@ -11,11 +10,13 @@ void main() {
   test('should replace listeners on reinitialization', () async {
     final context = DropContextImpl();
     await context.initialize();
-    final listenersA =
-        web.document.getProperty(DropContextImpl.listenersProperty.toJS);
+    final listenersA = web.document.getProperty(
+      DropContextImpl.listenersProperty.toJS,
+    );
     await context.initialize();
-    final listenersB =
-        web.document.getProperty(DropContextImpl.listenersProperty.toJS);
+    final listenersB = web.document.getProperty(
+      DropContextImpl.listenersProperty.toJS,
+    );
     expect(
       listenersB,
       hasLength(4),

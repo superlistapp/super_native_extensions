@@ -18,29 +18,29 @@ import 'context.dart';
 
 extension DragConfigurationExt on DragConfiguration {
   Future<dynamic> serialize() async => {
-        'items': await Future.wait(items.map((e) => e.serialize())),
-        'allowedOperations': allowedOperations.map((e) => e.name),
-        'animatesToStartingPositionOnCancelOrFail':
-            animatesToStartingPositionOnCancelOrFail,
-        'prefersFullSizePreviews': prefersFullSizePreviews,
-      };
+    'items': await Future.wait(items.map((e) => e.serialize())),
+    'allowedOperations': allowedOperations.map((e) => e.name),
+    'animatesToStartingPositionOnCancelOrFail':
+        animatesToStartingPositionOnCancelOrFail,
+    'prefersFullSizePreviews': prefersFullSizePreviews,
+  };
 }
 
 extension DragItemExt on DragItem {
   Future<dynamic> serialize() async => {
-        'dataProviderId': dataProvider.id,
-        'localData': localData,
-        'image': (await image.intoRaw()).serialize(),
-        'liftImage': (await liftImage?.intoRaw())?.serialize()
-      };
+    'dataProviderId': dataProvider.id,
+    'localData': localData,
+    'image': (await image.intoRaw()).serialize(),
+    'liftImage': (await liftImage?.intoRaw())?.serialize(),
+  };
 }
 
 extension DragRequestExt on DragRequest {
   Future<dynamic> serialize() async => {
-        'configuration': await configuration.serialize(),
-        'position': position.serialize(),
-        'combinedDragImage': combinedDragImage?.serialize(),
-      };
+    'configuration': await configuration.serialize(),
+    'position': position.serialize(),
+    'combinedDragImage': combinedDragImage?.serialize(),
+  };
 }
 
 class DragSessionImpl extends DragSession {
@@ -81,8 +81,10 @@ class DragSessionImpl extends DragSession {
   final _lastScreenLocation = ValueNotifier<ui.Offset?>(null);
 }
 
-final _channel =
-    NativeMethodChannel('DragManager', context: superNativeExtensionsContext);
+final _channel = NativeMethodChannel(
+  'DragManager',
+  context: superNativeExtensionsContext,
+);
 
 class DragContextImpl extends DragContext {
   DragContextImpl();
@@ -167,8 +169,9 @@ class DragContextImpl extends DragContext {
       return handleError(() async {
         final arguments = call.arguments as Map;
         final sessionId = arguments['sessionId'];
-        final screenLocation =
-            OffsetExt.deserialize(arguments['screenLocation']);
+        final screenLocation = OffsetExt.deserialize(
+          arguments['screenLocation'],
+        );
         final session = _sessions[sessionId];
         if (session != null) {
           if (!session._dragging.value &&
@@ -182,8 +185,9 @@ class DragContextImpl extends DragContext {
       return handleError(() async {
         final arguments = call.arguments as Map;
         final sessionId = arguments['sessionId'];
-        final dropOperation =
-            DropOperation.values.byName(arguments['dropOperation']);
+        final dropOperation = DropOperation.values.byName(
+          arguments['dropOperation'],
+        );
         final session = _sessions.remove(sessionId);
         if (session != null) {
           session._dragging.value = false;
@@ -233,12 +237,14 @@ class DragContextImpl extends DragContext {
       position: position,
       combinedDragImage: needsCombinedDragImage
           ? (await combinedDragImage?.intoRaw()) ??
-              await combineDragImage(configuration)
+                await combineDragImage(configuration)
           : null,
     );
 
-    final sessionId =
-        await _channel.invokeMethod("startDrag", await request.serialize());
+    final sessionId = await _channel.invokeMethod(
+      "startDrag",
+      await request.serialize(),
+    );
     final sessionImpl = session as DragSessionImpl;
     sessionImpl.sessionId = sessionId;
     _sessions[sessionId] = sessionImpl;

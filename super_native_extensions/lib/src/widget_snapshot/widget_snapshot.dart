@@ -10,15 +10,15 @@ class WidgetSnapshot {
   /// This is used on platforms that can rasterize widgets to images
   /// (Native + CanvasKit).
   WidgetSnapshot.image(this._image)
-      : _renderObject = null,
-        _renderObjectBounds = null;
+    : _renderObject = null,
+      _renderObjectBounds = null;
 
   /// Creates a new widget snapshot backed by a render object.
   /// [bounds] represents the part of the render object that should be
   /// visible.
   WidgetSnapshot.renderObject(this._renderObject, Rect bounds)
-      : _image = null,
-        _renderObjectBounds = bounds;
+    : _image = null,
+      _renderObjectBounds = bounds;
 
   /// Key used to create this snapshot.
   Object? debugKey;

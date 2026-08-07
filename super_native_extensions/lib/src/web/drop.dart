@@ -21,18 +21,20 @@ List<DropItem> _translateDataTransfer(
   required bool allowReader,
 }) {
   return translateDataTransfer(dataTransfer, allowReader: allowReader)
-      .mapIndexed((i, e) => DropItem(
-            itemId: i,
-            formats: e.$1,
-            readerItem: allowReader
-                ? DataReaderItem(handle: e.$2 as DataReaderItemHandle)
-                : null,
-          ))
+      .mapIndexed(
+        (i, e) => DropItem(
+          itemId: i,
+          formats: e.$1,
+          readerItem: allowReader
+              ? DataReaderItem(handle: e.$2 as DataReaderItemHandle)
+              : null,
+        ),
+      )
       .toList(growable: false);
 }
 
 Iterable<(List<String> formats, $DataReaderItemHandle? readerHandle)>
-    translateDataTransfer(
+translateDataTransfer(
   web.DataTransfer dataTransfer, {
   required bool allowReader,
 }) {
@@ -192,8 +194,9 @@ class DropContextImpl extends DropContext {
   @override
   Future<void> initialize() async {
     {
-      final listeners = web.document.getProperty(listenersProperty.toJS)
-          as JSArray<JSListener>?;
+      final listeners =
+          web.document.getProperty(listenersProperty.toJS)
+              as JSArray<JSListener>?;
       if (listeners != null) {
         for (final listener in listeners.toDart) {
           web.document.removeEventListener(listener.type, listener.callback);
@@ -285,8 +288,9 @@ class DropContextImpl extends DropContext {
               formats: itemFormats(item.dataProvider),
               localData: item.localData,
               readerItem: DataReaderItem(
-                handle: DataProviderItemHandle(item.dataProvider)
-                    as DataReaderItemHandle,
+                handle:
+                    DataProviderItemHandle(item.dataProvider)
+                        as DataReaderItemHandle,
               ),
             ),
           )

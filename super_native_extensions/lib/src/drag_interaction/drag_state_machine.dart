@@ -208,11 +208,12 @@ class DragInteractionDrag implements SingleDrag {
     return Offset(0, offset * menuDragExtent());
   }
 
-  double get _distance => (_currentPosition -
-          initialOffset +
-          _dragOffsetToActualOffset(_menuDragOffset) -
-          _dragOffsetToActualOffset(initialMenuDragOffset))
-      .distance;
+  double get _distance =>
+      (_currentPosition -
+              initialOffset +
+              _dragOffsetToActualOffset(_menuDragOffset) -
+              _dragOffsetToActualOffset(initialMenuDragOffset))
+          .distance;
 
   bool _longPressRecognized = false;
 
@@ -263,8 +264,10 @@ class DragInteractionDrag implements SingleDrag {
     if (originalEnd <= currentTime) {
       return currentTime;
     } else {
-      final factor =
-          _computeFactor(originalEnd - originalDuration, originalEnd);
+      final factor = _computeFactor(
+        originalEnd - originalDuration,
+        originalEnd,
+      );
       return currentTime - newDuration * (1.0 - factor);
     }
   }
@@ -366,7 +369,8 @@ class DragInteractionDrag implements SingleDrag {
   }
 
   void _updateMenuOverdrag() {
-    var menuDelta = _currentPosition -
+    var menuDelta =
+        _currentPosition -
         initialOffset -
         _dragOffsetToActualOffset(initialMenuDragOffset);
 
@@ -374,8 +378,9 @@ class DragInteractionDrag implements SingleDrag {
       final menuDragExtent = this.menuDragExtent();
       final menuDragOffsetPixels = min(-menuDelta.dy, menuDragExtent);
       menuDelta = Offset(menuDelta.dx, menuDelta.dy + menuDragOffsetPixels);
-      _menuDragOffset =
-          menuDragExtent > 0 ? menuDragOffsetPixels / menuDragExtent : 0;
+      _menuDragOffset = menuDragExtent > 0
+          ? menuDragOffsetPixels / menuDragExtent
+          : 0;
     } else {
       _menuDragOffset = 0;
     }
@@ -518,7 +523,9 @@ class DragInteractionDrag implements SingleDrag {
       return;
     }
     _currentPosition = details.globalPosition;
-    _maxDistance =
-        max(_maxDistance, (_currentPosition - initialOffset).distance);
+    _maxDistance = max(
+      _maxDistance,
+      (_currentPosition - initialOffset).distance,
+    );
   }
 }
