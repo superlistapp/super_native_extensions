@@ -372,10 +372,10 @@ fn get_mime_types_for_uri<'a>(
                         mime_types.push(format.to_owned())
                     }
                 }
-                DataRepresentation::Lazy { format, id: _ } => {
-                    if compare_mime_types(env, format, &filter)? {
-                        mime_types.push(format.to_owned())
-                    }
+                DataRepresentation::Lazy { format, id: _ }
+                    if compare_mime_types(env, format, &filter)? =>
+                {
+                    mime_types.push(format.to_owned())
                 }
                 _ => {}
             }
@@ -446,31 +446,29 @@ fn get_data_for_uri<'a>(
                         return byte_array_from_value(env, data);
                     }
                 }
-                DataRepresentation::Lazy { format, id } => {
-                    if format == &mime_type {
-                        let delegate = data_provider.delegate.clone();
-                        let isolate_id = data_provider.isolate_id;
-                        let id = *id;
-                        let value = data_provider.sender.send_and_wait(move || {
-                            delegate
-                                .get_ref()
-                                .unwrap()
-                                .upgrade()
-                                .map(|delegate| delegate.get_lazy_data(isolate_id, id, None))
-                        });
-                        drop(data_providers);
-                        match value {
-                            Some(value) => {
-                                let res = get_value(value)?;
-                                match res {
-                                    ValuePromiseResult::Ok { value } => {
-                                        return byte_array_from_value(env, &value);
-                                    }
-                                    ValuePromiseResult::Cancelled => return Ok(JObject::null()),
+                DataRepresentation::Lazy { format, id } if format == &mime_type => {
+                    let delegate = data_provider.delegate.clone();
+                    let isolate_id = data_provider.isolate_id;
+                    let id = *id;
+                    let value = data_provider.sender.send_and_wait(move || {
+                        delegate
+                            .get_ref()
+                            .unwrap()
+                            .upgrade()
+                            .map(|delegate| delegate.get_lazy_data(isolate_id, id, None))
+                    });
+                    drop(data_providers);
+                    match value {
+                        Some(value) => {
+                            let res = get_value(value)?;
+                            match res {
+                                ValuePromiseResult::Ok { value } => {
+                                    return byte_array_from_value(env, &value);
                                 }
+                                ValuePromiseResult::Cancelled => return Ok(JObject::null()),
                             }
-                            None => return Ok(JObject::null()),
                         }
+                        None => return Ok(JObject::null()),
                     }
                 }
                 _ => {}

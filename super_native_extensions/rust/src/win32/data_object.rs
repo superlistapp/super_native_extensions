@@ -152,10 +152,8 @@ impl DataObject {
                             return data.coerce_to_data(StringFormat::Utf16NullTerminated);
                         }
                     }
-                    DataRepresentation::Lazy { format, id } => {
-                        if &format_string == format {
-                            return self.lazy_data_for_id(provider, *id);
-                        }
+                    DataRepresentation::Lazy { format, id } if &format_string == format => {
+                        return self.lazy_data_for_id(provider, *id);
                     }
                     _ => {}
                 }

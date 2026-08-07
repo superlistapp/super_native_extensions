@@ -227,31 +227,27 @@ impl ItemState {
                                 return data.to_objc().ok_log().flatten();
                             }
                         }
-                        DataRepresentation::Lazy { format, id } => {
-                            if &ty == format {
-                                if let Some(delegate) = data_provider.delegate.upgrade() {
-                                    let promise =
-                                        delegate.get_lazy_data(data_provider.isolate_id, *id, None);
-                                    let mut poll_session = PollSession::new();
-                                    loop {
-                                        if let Some(result) = promise.try_take() {
-                                            match result {
-                                                ValuePromiseResult::Ok { value } => {
-                                                    return value.to_objc().ok_log().flatten()
-                                                }
-                                                ValuePromiseResult::Cancelled => {
-                                                    return None;
-                                                }
+                        DataRepresentation::Lazy { format, id } if &ty == format => {
+                            if let Some(delegate) = data_provider.delegate.upgrade() {
+                                let promise =
+                                    delegate.get_lazy_data(data_provider.isolate_id, *id, None);
+                                let mut poll_session = PollSession::new();
+                                loop {
+                                    if let Some(result) = promise.try_take() {
+                                        match result {
+                                            ValuePromiseResult::Ok { value } => {
+                                                return value.to_objc().ok_log().flatten()
+                                            }
+                                            ValuePromiseResult::Cancelled => {
+                                                return None;
                                             }
                                         }
-                                        PlatformDataProvider::set_waiting_for_pasteboard_data(true);
-                                        RunLoop::current()
-                                            .platform_run_loop
-                                            .poll_once(&mut poll_session);
-                                        PlatformDataProvider::set_waiting_for_pasteboard_data(
-                                            false,
-                                        );
                                     }
+                                    PlatformDataProvider::set_waiting_for_pasteboard_data(true);
+                                    RunLoop::current()
+                                        .platform_run_loop
+                                        .poll_once(&mut poll_session);
+                                    PlatformDataProvider::set_waiting_for_pasteboard_data(false);
                                 }
                             }
                         }

@@ -195,10 +195,10 @@ impl PlatformDataProvider {
             let mut items = Vec::<DataProviderValueId>::new();
             for data in &state.provider.representations {
                 match data {
-                    DataRepresentation::Lazy { format: _, id } => {
-                        if !state.precached_values.contains_key(id) {
-                            items.push(*id);
-                        }
+                    DataRepresentation::Lazy { format: _, id }
+                        if !state.precached_values.contains_key(id) =>
+                    {
+                        items.push(*id);
                     }
                     _ => {}
                 }
@@ -337,17 +337,15 @@ impl DataProviderSession {
                         return None;
                     }
                 }
-                DataRepresentation::Lazy { format, id } => {
-                    if requested_format == format {
-                        let precached = state.precached_values.get(id);
-                        match precached {
-                            Some(value) => {
-                                let data = value_promise_res_to_nsdata(value);
-                                callback(data.as_deref(), None);
-                                return None;
-                            }
-                            None => return self.fetch_value(*id, callback),
+                DataRepresentation::Lazy { format, id } if requested_format == format => {
+                    let precached = state.precached_values.get(id);
+                    match precached {
+                        Some(value) => {
+                            let data = value_promise_res_to_nsdata(value);
+                            callback(data.as_deref(), None);
+                            return None;
                         }
+                        None => return self.fetch_value(*id, callback),
                     }
                 }
                 _ => {}
