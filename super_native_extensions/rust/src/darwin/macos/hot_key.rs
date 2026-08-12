@@ -16,7 +16,7 @@ use crate::{
 
 use super::hot_key_sys::{
     kEventClassKeyboard, kEventHotKeyPressed, kEventHotKeyReleased, kEventParamDirectObject,
-    typeEventHotKeyID, EventHandlerCallRef, EventHandlerRef, EventHotKeyID, EventHotKeyRef,
+    typeEventHotKeyID, CallNextEventHandler, EventHandlerCallRef, EventHandlerRef, EventHotKeyID, EventHotKeyRef,
     EventRef, EventTypeSpec, GetEventDispatcherTarget, GetEventKind, GetEventParameter,
     InstallEventHandler, RegisterEventHotKey, RemoveEventHandler, UnregisterEventHotKey,
 };
@@ -167,7 +167,7 @@ impl Drop for PlatformHotKeyManager {
 }
 
 unsafe extern "C" fn event_handler(
-    _in_handler_call_ref: EventHandlerCallRef,
+    in_handler_call_ref: EventHandlerCallRef,
     in_event: EventRef,
     in_user_data: *mut ::std::os::raw::c_void,
 ) -> OSStatus {
@@ -175,8 +175,8 @@ unsafe extern "C" fn event_handler(
         signature: 0,
         id: 0,
     };
-    #[allow(clippy::collapsible_if)]
-    if GetEventParameter(
+
+    let result = GetEventParameter(
         in_event,
         kEventParamDirectObject,
         typeEventHotKeyID,
@@ -184,20 +184,20 @@ unsafe extern "C" fn event_handler(
         mem::size_of::<EventHotKeyID>() as u64,
         std::ptr::null_mut(),
         &mut hot_key_id as *mut _ as *mut _,
-    ) == 0
-    {
-        if hot_key_id.signature == HOT_KEY_TAG {
-            let kind = GetEventKind(in_event);
-            let manager = in_user_data as *mut Weak<PlatformHotKeyManager>;
-            let manager = &*manager;
-            if let Some(manager) = manager.upgrade() {
-                if kind == kEventHotKeyPressed {
-                    manager.on_hot_key_pressed(hot_key_id.id);
-                } else if kind == kEventHotKeyReleased {
-                    manager.on_hot_key_released(hot_key_id.id);
-                }
+    );
+
+    if result == 0 && hot_key_id.signature == HOT_KEY_TAG {
+        let kind = GetEventKind(in_event);
+        let manager = in_user_data as *mut Weak<PlatformHotKeyManager>;
+        let manager = &*manager;
+        if let Some(manager) = manager.upgrade() {
+            if kind == kEventHotKeyPressed {
+                manager.on_hot_key_pressed(hot_key_id.id);
+            } else if kind == kEventHotKeyReleased {
+                manager.on_hot_key_released(hot_key_id.id);
             }
         }
     }
-    0
+
+    CallNextEventHandler(in_handler_call_ref, in_event)
 }

@@ -87,3 +87,10 @@ extern "C" {
 extern "C" {
     pub fn GetEventDispatcherTarget() -> EventTargetRef;
 }
+
+extern "C" {
+    pub fn CallNextEventHandler(
+        inHandlerCallRef: EventHandlerCallRef,
+        inEvent: EventRef,
+    ) -> OSStatus;
+}
