@@ -377,7 +377,11 @@ impl AsyncMethodHandler for DragManager {
     }
 
     fn on_isolate_destroyed(&self, isolate: IsolateId) {
-        self.contexts.borrow_mut().remove(&isolate);
+        // Dropping the context releases its data provider handles, whose
+        // DropNotifier callbacks borrow `contexts` again. Bind the removed
+        // value so it is dropped after the borrow guard is released.
+        let removed = self.contexts.borrow_mut().remove(&isolate);
+        drop(removed);
     }
 }
 

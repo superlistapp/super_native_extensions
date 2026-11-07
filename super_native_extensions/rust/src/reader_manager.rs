@@ -529,27 +529,36 @@ impl AsyncMethodHandler for DataReaderManager {
     }
 
     fn on_isolate_destroyed(&self, destroyed_isolate_id: IsolateId) {
-        let mut progresses = self.progresses.borrow_mut();
-        progresses.retain(|(isolate_id, _), progress| {
-            if *isolate_id == destroyed_isolate_id {
+        // Collect keys to remove while the borrow is held, then release the
+        // borrow before removing (and dropping) values. This prevents
+        // re-entrant RefCell borrows from destructors (e.g. DropNotifier).
+        let progress_keys: Vec<_> = self
+            .progresses
+            .borrow()
+            .keys()
+            .filter(|(isolate_id, _)| *isolate_id == destroyed_isolate_id)
+            .cloned()
+            .collect();
+        for key in progress_keys {
+            if let Some(progress) = self.progresses.borrow_mut().remove(&key) {
                 if let Some(progress) = progress.upgrade() {
                     progress.cancel();
                 }
-                false
-            } else {
-                true
             }
-        });
+        }
 
-        let mut readers = self.virtual_file_readers.borrow_mut();
-        readers.retain(|(isolate_id, _), reader| {
-            if *isolate_id == destroyed_isolate_id {
+        let reader_keys: Vec<_> = self
+            .virtual_file_readers
+            .borrow()
+            .keys()
+            .filter(|(isolate_id, _)| *isolate_id == destroyed_isolate_id)
+            .cloned()
+            .collect();
+        for key in reader_keys {
+            if let Some(reader) = self.virtual_file_readers.borrow_mut().remove(&key) {
                 reader.close().ok_log();
-                false
-            } else {
-                true
             }
-        })
+        }
     }
 
     async fn on_method_call(&self, call: MethodCall) -> PlatformResult {

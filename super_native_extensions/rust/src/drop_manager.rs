@@ -248,7 +248,11 @@ impl AsyncMethodHandler for DropManager {
     }
 
     fn on_isolate_destroyed(&self, isolate: IsolateId) {
-        self.contexts.borrow_mut().remove(&isolate);
+        // Remove the context while the borrow is held, but bind the removed
+        // value so it is dropped after the temporary borrow guard is released.
+        // This prevents re-entrant RefCell borrows from destructors.
+        let removed = self.contexts.borrow_mut().remove(&isolate);
+        drop(removed);
     }
 }
 
